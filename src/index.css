@@ -1,31 +1,38 @@
-/* Palette e-Avo, extraite du logo (monogramme "eA" bleu -> orange/jaune, chapeau de
-   diplôme, fond blanc). Thème clair — volontairement à l'opposé du thème sombre marine/or
-   utilisé pendant la phase de maquettage (repris de Dentalis pour explorer une direction
-   visuelle, non retenu pour le produit réel). Variables au même endroit et sur le même
+/* Thème e-Avo : palette et animations reprises telles quelles des maquettes "Axone"
+   (marine profond, or, bleu, teal, violet) — décision explicite du 2026-09-09 de revenir
+   sur la palette claire précédemment envisagée. Variables au même endroit et sur le même
    principe que chez Dentalis (src/index.css, `:root` unique) pour que la palette se propage
-   de façon fiable dans les styles inline des composants. */
+   de façon fiable dans les styles inline des composants. Les noms de variables sont
+   conservés depuis la version claire pour ne pas casser les composants existants ; seules
+   les valeurs changent. */
 :root {
-  color-scheme: light;
-  --bg-page: #F6F9FC;
-  --surface: #FFFFFF;
-  --surface-alt: #EFF4FB;
-  --border: rgba(11, 61, 145, 0.12);
-  --border-soft: rgba(11, 61, 145, 0.06);
-  --ink: #0B1F3A;
-  --ink-2: #2C3E5C;
-  --muted: #5B6B82;
-  --muted-2: #8695AA;
-  --accent-blue-deep: #0B3D91;
-  --accent-blue: #1E88E5;
-  --accent-cyan: #29B6F6;
-  --accent-orange: #FF7A1A;
-  --accent-yellow: #FFC107;
+  color-scheme: dark;
+  --bg-page:
+    radial-gradient(1100px 550px at 10% -10%, rgba(63, 127, 242, 0.28), transparent),
+    radial-gradient(900px 500px at 100% 0%, rgba(94, 179, 255, 0.14), transparent),
+    linear-gradient(165deg, #050a16 0%, #0a1530 55%, #050a16 100%);
+  --surface: linear-gradient(155deg, #101d40, #0b1530);
+  --surface-alt: #0d1938;
+  --border: rgba(212, 175, 106, 0.22);
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --ink: #e7edf9;
+  --ink-2: #c7d0e8;
+  --muted: #8b96b8;
+  --muted-2: #5b6584;
+  --accent-blue-deep: #2f6fd6;
+  --accent-blue: #5eb3ff;
+  --accent-cyan: #8fcfff;
+  --accent-orange: #e0c281;
+  --accent-yellow: #c79c4f;
+  --accent-gold: #e9cf94;
+  --accent-teal: #6fe3c0;
+  --accent-violet: #c79cff;
   --accent-gradient: linear-gradient(135deg, var(--accent-orange), var(--accent-yellow));
-  --accent-blue-gradient: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue-deep));
-  --success: #1E9E6B;
-  --warning: #E2A109;
-  --danger: #E14F4F;
-  --shadow-card: 0 1px 2px rgba(11, 31, 58, 0.04), 0 12px 28px rgba(11, 31, 58, 0.07);
+  --accent-blue-gradient: linear-gradient(140deg, var(--accent-blue), var(--accent-blue-deep));
+  --success: #6fe3c0;
+  --warning: #e9cf94;
+  --danger: #ff8a70;
+  --shadow-card: 0 12px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 * {
@@ -37,6 +44,12 @@
   font-family: 'Playfair Display', Georgia, serif;
 }
 
+h1, h2, h3, h4 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
 html, body {
   margin: 0;
   overscroll-behavior: none;
@@ -44,6 +57,7 @@ html, body {
 
 body {
   background: var(--bg-page);
+  background-attachment: fixed;
   color: var(--ink);
 }
 
@@ -58,16 +72,32 @@ a {
   text-decoration: none;
 }
 a:hover {
-  color: var(--accent-blue-deep);
+  color: var(--accent-cyan);
 }
 
 ::selection {
-  background: var(--accent-cyan);
+  background: var(--accent-blue);
   color: #ffffff;
 }
 
-/* Bouton pilule à balayage lumineux au survol — même mécanique que chez Dentalis
-   (btn-shine), rhabillée avec le dégradé orange->jaune du logo e-Avo. */
+/* Texte à dégradé animé, utilisé pour le nom de marque et certains titres clés — mécanique
+   reprise telle quelle des maquettes Axone (logo-glow / logoShift). */
+@keyframes logoShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.logo-glow {
+  background: linear-gradient(100deg, #ffe9b8, #5eb3ff 28%, #6fe3c0 50%, #c79cff 72%, #ffb37a 100%);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: logoShift 7s ease-in-out infinite;
+  filter: drop-shadow(0 0 10px rgba(94, 179, 255, 0.4)) drop-shadow(0 0 16px rgba(233, 207, 148, 0.3));
+}
+
+/* Bouton pilule à balayage lumineux au survol — mécanique "btn-shine" d'Axone. */
 @keyframes shimmerSweep {
   0% { background-position: -160% 0; }
   100% { background-position: 160% 0; }
@@ -91,7 +121,7 @@ a:hover {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.6) 50%, transparent 80%);
+  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.55) 50%, transparent 80%);
   background-size: 200% 100%;
   background-position: -160% 0;
   pointer-events: none;
@@ -104,23 +134,29 @@ a:hover {
 }
 .btn-shine:hover {
   transform: translateY(-1px) scale(1.02);
-  filter: brightness(1.04);
+  filter: brightness(1.05);
 }
 .btn-shine:active {
   transform: translateY(1px) scale(0.99);
 }
 .btn-primary {
   background: var(--accent-gradient);
-  color: #2A1400;
-  box-shadow: 0 8px 20px -8px rgba(255, 122, 26, 0.55);
+  color: #1b1510;
+  box-shadow: 0 4px 14px rgba(212, 175, 106, 0.4);
+}
+.btn-primary:hover {
+  box-shadow: 0 6px 20px rgba(212, 175, 106, 0.6);
 }
 .btn-secondary {
   background: var(--accent-blue-gradient);
   color: #ffffff;
-  box-shadow: 0 8px 20px -8px rgba(11, 61, 145, 0.45);
+  box-shadow: 0 3px 10px rgba(47, 111, 214, 0.4);
+}
+.btn-secondary:hover {
+  box-shadow: 0 6px 18px rgba(47, 111, 214, 0.6);
 }
 .btn-ghost {
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--ink);
   border: 1px solid var(--border);
 }
@@ -132,7 +168,132 @@ a:hover {
   box-shadow: var(--shadow-card);
 }
 
-select { color-scheme: light; }
+/* Survol "carte qui se soulève" utilisé sur toutes les grilles de cartes des maquettes. */
+.card-lift {
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.25s ease;
+}
+.card-lift:hover {
+  border-color: rgba(94, 179, 255, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 26px rgba(63, 127, 242, 0.16);
+}
+
+/* Halo doré respirant, utilisé pour signaler un élément qui attend une action. */
+@keyframes haloBreath {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(212, 175, 106, 0.75) inset, 0 0 22px rgba(212, 175, 106, 0.35); }
+  50% { box-shadow: 0 0 0 2px rgba(255, 231, 168, 0.95) inset, 0 0 40px rgba(233, 207, 148, 0.65); }
+}
+.halo-gold {
+  animation: haloBreath 2.6s ease-in-out infinite;
+}
+
+/* Pastille "en direct" pulsante (séance en cours, statut actif). */
+@keyframes livePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(111, 227, 192, 0.6); }
+  50% { box-shadow: 0 0 0 9px rgba(111, 227, 192, 0); }
+}
+.live-pulse {
+  animation: livePulse 2.2s ease-in-out infinite;
+}
+
+/* Lueur douce (halos de fond, points lumineux). */
+@keyframes glowBreath {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.12); }
+}
+
+/* Dérive lente des hexagones décoratifs de fond. */
+@keyframes hexDrift {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0.5; }
+  50% { transform: translate3d(-5px, -16px, 0) rotate(4deg); opacity: 0.9; }
+}
+
+/* Rayons de lumière verticaux respirants (décor de héros). */
+@keyframes rayBreath {
+  0%, 100% { opacity: 0.25; transform: scaleY(0.9); }
+  50% { opacity: 1; transform: scaleY(1); }
+}
+
+/* Pulsation du bouton d'action flottant. */
+@keyframes fabPulse {
+  0%, 100% { box-shadow: 0 4px 16px rgba(212, 175, 106, 0.6), 0 0 0 rgba(255, 231, 168, 0); }
+  50% { box-shadow: 0 4px 30px rgba(233, 207, 148, 0.95), 0 0 14px rgba(255, 241, 205, 0.75); }
+}
+
+/* Entrée douce des cartes et blocs de texte à l'affichage d'une page. */
+@keyframes cardArrive {
+  from { opacity: 0; transform: translateY(20px); filter: blur(5px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes textArrive {
+  from { opacity: 0; transform: translateY(16px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+.arrive {
+  animation: cardArrive 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.arrive-text {
+  animation: textArrive 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Liseré doré tournant au survol d'un item de navigation — mécanique "nav-item" d'Axone. */
+@property --glow-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes navGlowSpin {
+  to { --glow-angle: 360deg; }
+}
+.nav-item {
+  position: relative;
+  transition: background 0.3s, box-shadow 0.3s, color 0.3s;
+}
+.nav-item::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2.5px;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%, transparent 76%,
+    #a97c00 83%, #ffd700 88%, #fff6c8 91%, #ffd700 94%, #a97c00 99%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.85));
+  animation: navGlowSpin 3.4s linear infinite;
+  transition: opacity 0.35s;
+}
+.nav-item:hover {
+  background: rgba(124, 86, 214, 0.68);
+  color: #fff;
+  box-shadow: 0 0 24px 4px rgba(124, 86, 214, 0.55);
+}
+.nav-item:hover::before {
+  opacity: 1;
+}
+.nav-item.nav-item-active {
+  background: rgba(124, 86, 214, 0.68);
+  color: #fff;
+  box-shadow: 0 0 24px 4px rgba(124, 86, 214, 0.55);
+}
+.nav-item.nav-item-active::before {
+  opacity: 1;
+}
+
+select { color-scheme: dark; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+  }
+}
 
 @media (max-width: 768px) {
   input, select, textarea {
