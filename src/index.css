@@ -1,0 +1,141 @@
+/* Palette e-Avo, extraite du logo (monogramme "eA" bleu -> orange/jaune, chapeau de
+   diplôme, fond blanc). Thème clair — volontairement à l'opposé du thème sombre marine/or
+   utilisé pendant la phase de maquettage (repris de Dentalis pour explorer une direction
+   visuelle, non retenu pour le produit réel). Variables au même endroit et sur le même
+   principe que chez Dentalis (src/index.css, `:root` unique) pour que la palette se propage
+   de façon fiable dans les styles inline des composants. */
+:root {
+  color-scheme: light;
+  --bg-page: #F6F9FC;
+  --surface: #FFFFFF;
+  --surface-alt: #EFF4FB;
+  --border: rgba(11, 61, 145, 0.12);
+  --border-soft: rgba(11, 61, 145, 0.06);
+  --ink: #0B1F3A;
+  --ink-2: #2C3E5C;
+  --muted: #5B6B82;
+  --muted-2: #8695AA;
+  --accent-blue-deep: #0B3D91;
+  --accent-blue: #1E88E5;
+  --accent-cyan: #29B6F6;
+  --accent-orange: #FF7A1A;
+  --accent-yellow: #FFC107;
+  --accent-gradient: linear-gradient(135deg, var(--accent-orange), var(--accent-yellow));
+  --accent-blue-gradient: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue-deep));
+  --success: #1E9E6B;
+  --warning: #E2A109;
+  --danger: #E14F4F;
+  --shadow-card: 0 1px 2px rgba(11, 31, 58, 0.04), 0 12px 28px rgba(11, 31, 58, 0.07);
+}
+
+* {
+  box-sizing: border-box;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.brand-font {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+html, body {
+  margin: 0;
+  overscroll-behavior: none;
+}
+
+body {
+  background: var(--bg-page);
+  color: var(--ink);
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+a {
+  color: var(--accent-blue);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--accent-blue-deep);
+}
+
+::selection {
+  background: var(--accent-cyan);
+  color: #ffffff;
+}
+
+/* Bouton pilule à balayage lumineux au survol — même mécanique que chez Dentalis
+   (btn-shine), rhabillée avec le dégradé orange->jaune du logo e-Avo. */
+@keyframes shimmerSweep {
+  0% { background-position: -160% 0; }
+  100% { background-position: 160% 0; }
+}
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  padding: 11px 20px;
+  border-radius: 999px;
+  transition: transform 0.15s ease, box-shadow 0.25s ease, filter 0.25s ease;
+}
+.btn-shine::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.6) 50%, transparent 80%);
+  background-size: 200% 100%;
+  background-position: -160% 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.btn-shine:hover::after {
+  opacity: 1;
+  animation: shimmerSweep 1.1s ease-in-out infinite;
+}
+.btn-shine:hover {
+  transform: translateY(-1px) scale(1.02);
+  filter: brightness(1.04);
+}
+.btn-shine:active {
+  transform: translateY(1px) scale(0.99);
+}
+.btn-primary {
+  background: var(--accent-gradient);
+  color: #2A1400;
+  box-shadow: 0 8px 20px -8px rgba(255, 122, 26, 0.55);
+}
+.btn-secondary {
+  background: var(--accent-blue-gradient);
+  color: #ffffff;
+  box-shadow: 0 8px 20px -8px rgba(11, 61, 145, 0.45);
+}
+.btn-ghost {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+}
+
+select { color-scheme: light; }
+
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
