@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { DossierEtudiant, PeriodeProfesseur } from '../../hooks/useDossierEtudiant'
+import { getJoinUrl } from '../../lib/visio'
 import type { Database } from '../../types/database.types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -136,13 +137,14 @@ function BlocPeriode({ periode, estActuelle }: { periode: PeriodeProfesseur; est
 
 interface DossierEtudiantVueProps {
   dossier: DossierEtudiant
-  /* Bloc admin uniquement (attribuer/changer de professeur) — absent en vue élève. */
+  /* Blocs admin uniquement (attribuer un professeur, créer un forfait) — absents en vue élève. */
   panneauProfesseur?: ReactNode
+  panneauForfait?: ReactNode
 }
 
 /* Rendu du dossier étudiant, partagé entre la vue admin (avec actions) et l'espace élève en
-   lecture seule — même contenu, seul le panneau d'action professeur diffère. */
-export function DossierEtudiantVue({ dossier, panneauProfesseur }: DossierEtudiantVueProps) {
+   lecture seule — même contenu, seuls les panneaux d'action admin diffèrent. */
+export function DossierEtudiantVue({ dossier, panneauProfesseur, panneauForfait }: DossierEtudiantVueProps) {
   const { etudiant, periodes, diagnostic, packages, heuresConsommees, prochaineSeance } = dossier
   const forfait = packages[0] ?? null
   const seancesTerminees = periodes.flatMap((p) => p.seances).filter((s) => s.session.statut === 'terminee')
@@ -190,9 +192,16 @@ export function DossierEtudiantVue({ dossier, panneauProfesseur }: DossierEtudia
         </Tuile>
         <Tuile label="Prochaine séance" halo="rgba(94,179,255,.2)">
           {prochaineSeance ? (
-            <span className="brand-font" style={{ fontSize: 18, color: 'var(--accent-cyan)' }}>
-              {new Date(prochaineSeance.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <span className="brand-font" style={{ fontSize: 18, color: 'var(--accent-cyan)' }}>
+                {new Date(prochaineSeance.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+              </span>
+              {prochaineSeance.video && (
+                <a href={getJoinUrl(prochaineSeance.video)} target="_blank" rel="noreferrer" className="btn-shine btn-secondary" style={{ alignSelf: 'flex-start', fontSize: 11.5, padding: '7px 13px' }}>
+                  Rejoindre
+                </a>
+              )}
+            </div>
           ) : (
             <span style={{ fontSize: 13, color: 'var(--muted)' }}>Aucune planifiée</span>
           )}
@@ -277,6 +286,8 @@ export function DossierEtudiantVue({ dossier, panneauProfesseur }: DossierEtudia
               )}
             </div>
           )}
+
+          {!forfait && panneauForfait}
 
           {forfait && (
             <div className="card" style={{ padding: '20px 22px' }}>

@@ -4,6 +4,7 @@ import { AdminLayout } from '../layout/AdminLayout'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { AttribuerProfesseur } from './AttribuerProfesseur'
+import { CreerForfait } from './CreerForfait'
 import { DossierEtudiantVue, initiales } from './DossierEtudiantVue'
 
 export function EtudiantsAdmin() {
@@ -89,6 +90,9 @@ function DossierPanel({ studentId }: { studentId: string }) {
           affectationActuelle={affectationActuelle}
           onTermine={recharger}
         />
+      }
+      panneauForfait={
+        <CreerForfait studentId={dossier.etudiant.id} etablissementId={dossier.etudiant.etablissement_id} onCree={recharger} />
       }
     />
   )

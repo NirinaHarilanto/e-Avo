@@ -5,7 +5,8 @@ import { LandingEtablissement } from './components/landing/LandingEtablissement'
 import { Connexion } from './components/auth/Connexion'
 import { PipelineCRM } from './components/pipeline/PipelineCRM'
 import { EtudiantsAdmin } from './components/etudiants/EtudiantsAdmin'
-import { EspaceEnConstruction } from './components/shared/EspaceEnConstruction'
+import { ProfesseursAdmin } from './components/professeurs/ProfesseursAdmin'
+import { EspacePersonnel } from './components/shared/EspacePersonnel'
 
 export default function App() {
   return (
@@ -18,7 +19,8 @@ export default function App() {
           <Route path="/admin/prospects" element={<PipelineCRM />} />
           <Route path="/admin/etudiants" element={<EtudiantsAdmin />} />
           <Route path="/admin/etudiants/:id" element={<EtudiantsAdmin />} />
-          <Route path="/mon-espace" element={<EspaceEnConstruction />} />
+          <Route path="/admin/professeurs" element={<ProfesseursAdmin />} />
+          <Route path="/mon-espace" element={<EspacePersonnel />} />
         </Routes>
       </BrowserRouter>
     </ProfileProvider>

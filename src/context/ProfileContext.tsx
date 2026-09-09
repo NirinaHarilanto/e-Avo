@@ -19,7 +19,7 @@ const ProfileContext = createContext<ProfileContextValue | null>(null)
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const { session, loading: authLoading, seConnecter, sInscrire, seDeconnecter } = useAuth()
-  const { profile, loading: profileLoading } = useProfile(session)
+  const { profile, loading: profileLoading } = useProfile(session, authLoading)
 
   const value: ProfileContextValue = {
     session,

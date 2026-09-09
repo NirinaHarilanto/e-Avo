@@ -11,7 +11,7 @@ type Etablissement = Database['public']['Tables']['etablissements']['Row']
 const NAV_ITEMS = [
   { label: 'Prospects', href: '/admin/prospects', disponible: true },
   { label: 'Étudiants', href: '/admin/etudiants', disponible: true },
-  { label: 'Professeurs', href: '#', disponible: false },
+  { label: 'Professeurs', href: '/admin/professeurs', disponible: true },
   { label: 'Séances & visio', href: '#', disponible: false },
   { label: 'Heures & forfaits', href: '#', disponible: false },
 ]

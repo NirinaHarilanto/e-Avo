@@ -8,10 +8,12 @@ type Session = Database['public']['Tables']['sessions']['Row']
 type SessionEnrollment = Database['public']['Tables']['session_enrollments']['Row']
 type DiagnosticCall = Database['public']['Tables']['diagnostic_calls']['Row']
 type Package = Database['public']['Tables']['packages']['Row']
+type VideoSession = Database['public']['Tables']['video_sessions']['Row']
 
 export interface SeanceDuParcours {
   enrollment: SessionEnrollment
   session: Session
+  video: VideoSession | null
 }
 
 export interface PeriodeProfesseur {
@@ -59,11 +61,15 @@ export function useDossierEtudiant(studentId: string | undefined) {
     ])
 
     const sessionIds = [...new Set((enrollments ?? []).map((e) => e.session_id))]
-    const { data: sessions } =
+    const [{ data: sessions }, { data: videos }] =
       sessionIds.length > 0
-        ? await supabase.from('sessions').select('*').in('id', sessionIds)
-        : { data: [] as Session[] }
+        ? await Promise.all([
+            supabase.from('sessions').select('*').in('id', sessionIds),
+            supabase.from('video_sessions').select('*').in('session_id', sessionIds),
+          ])
+        : [{ data: [] as Session[] }, { data: [] as VideoSession[] }]
     const sessionParId = new Map((sessions ?? []).map((s) => [s.id, s]))
+    const videoParSession = new Map((videos ?? []).map((v) => [v.session_id, v]))
 
     const teacherIds = [...new Set((affectations ?? []).map((a) => a.teacher_id))]
     const { data: professeurs } =
@@ -75,7 +81,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
     const seancesToutes: SeanceDuParcours[] = (enrollments ?? [])
       .map((enrollment) => {
         const session = sessionParId.get(enrollment.session_id)
-        return session ? { enrollment, session } : null
+        return session ? { enrollment, session, video: videoParSession.get(enrollment.session_id) ?? null } : null
       })
       .filter((v): v is SeanceDuParcours => v !== null)
 
