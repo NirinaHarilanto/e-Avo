@@ -539,6 +539,24 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['contracts']['Insert']>
         Relationships: []
       }
+      platform_admins: {
+        Row: {
+          id: string
+          email: string | null
+          nom: string | null
+          prenom: string | null
+          created_at: string
+        }
+        Insert: {
+          id: string
+          email?: string | null
+          nom?: string | null
+          prenom?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['platform_admins']['Insert']>
+        Relationships: []
+      }
     }
     Views: {
       student_hours_summary: {

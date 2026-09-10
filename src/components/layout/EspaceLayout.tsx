@@ -23,7 +23,7 @@ export interface NavGroup {
 /* Route d'accueil propre à chaque rôle — utilisée quand un profil atterrit sur un espace qui
    n'est pas le sien : on le renvoie vers SON espace plutôt que systématiquement vers
    /mon-espace, qui pourrait à son tour le rejeter (ex. un admin sur /mon-espace/documents). */
-function routeAccueilPourRole(role: Role): string {
+export function routeAccueilPourRole(role: Role): string {
   if (role === 'admin_etablissement') return '/admin/prospects'
   if (role === 'professeur') return '/professeur/calendrier'
   return '/mon-espace'

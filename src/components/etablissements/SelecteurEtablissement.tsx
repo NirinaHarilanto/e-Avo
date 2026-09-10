@@ -47,9 +47,14 @@ export function SelecteurEtablissement() {
           }}
         >
           <Logo />
-          <a href="/connexion" className="btn-shine" style={{ background: 'var(--accent-blue-gradient)', color: '#fff', fontSize: 13 }}>
-            Se connecter
-          </a>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            <a href="/plateforme/etablissements" style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--muted-2)' }}>
+              Admin plateforme
+            </a>
+            <a href="/connexion" className="btn-shine" style={{ background: 'var(--accent-blue-gradient)', color: '#fff', fontSize: 13 }}>
+              Se connecter
+            </a>
+          </div>
         </header>
 
         <div

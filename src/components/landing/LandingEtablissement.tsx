@@ -124,6 +124,12 @@ export function LandingEtablissement() {
           <a href="/connexion" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
             Espace élève
           </a>
+          <a href="/connexion" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
+            Espace professeur
+          </a>
+          <a href="/connexion" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
+            Espace admin
+          </a>
           <a href="#reserver" className="btn-shine" style={{ background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}>
             Réserver mon appel
           </a>

@@ -31,3 +31,6 @@ dist-ssr
 
 .vercel
 .env*
+
+# Réglages Claude Code personnels (permissions locales, etc.)
+.claude/settings.local.json

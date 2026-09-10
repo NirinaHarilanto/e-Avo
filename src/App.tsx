@@ -17,6 +17,8 @@ import { EtudiantsProfesseur } from './components/professeurs/EtudiantsProfesseu
 import { HeuresProfesseur } from './components/professeurs/HeuresProfesseur'
 import { DocumentsProfesseur } from './components/professeurs/DocumentsProfesseur'
 import { DocumentsEtudiant } from './components/etudiants/DocumentsEtudiant'
+import { EtablissementsPlateforme } from './components/plateforme/EtablissementsPlateforme'
+import { EtablissementDetailPlateforme } from './components/plateforme/EtablissementDetailPlateforme'
 import { EspacePersonnel } from './components/shared/EspacePersonnel'
 
 export default function App() {
@@ -44,6 +46,8 @@ export default function App() {
           <Route path="/professeur/documents" element={<DocumentsProfesseur />} />
           <Route path="/mon-espace" element={<EspacePersonnel />} />
           <Route path="/mon-espace/documents" element={<DocumentsEtudiant />} />
+          <Route path="/plateforme/etablissements" element={<EtablissementsPlateforme />} />
+          <Route path="/plateforme/etablissements/:id" element={<EtablissementDetailPlateforme />} />
         </Routes>
       </BrowserRouter>
     </ProfileProvider>

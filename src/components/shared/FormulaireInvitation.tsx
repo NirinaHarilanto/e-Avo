@@ -11,16 +11,22 @@ const champStyle: React.CSSProperties = {
 }
 
 interface FormulaireInvitationProps {
-  /* Route API cible : api/admin/inviter-professeur ou api/admin/inviter-etudiant, même
-     contrat de requête/réponse pour les deux (voir api/_lib/adminAuth.ts). */
+  /* Route API cible : api/admin/inviter-professeur, api/admin/inviter-etudiant, ou
+     api/plateforme/inviter-admin-etablissement — même contrat de requête/réponse pour les
+     trois (voir api/_lib/adminAuth.ts / platformAuth.ts). */
   endpoint: string
   roleLabel: string
   onTermine: () => void
+  /* Champs additionnels fusionnés dans le body JSON, ex. { etablissementId } pour
+     inviter-admin-etablissement.ts (dont l'établissement cible n'est pas déductible du
+     contexte de l'appelant, contrairement aux deux autres routes). */
+  corpsSupplementaire?: Record<string, unknown>
 }
 
-/* Formulaire d'invitation par e-mail, partagé entre l'espace admin "Professeurs" et
-   "Étudiants" — seule la route appelée et le libellé changent, le flux est identique. */
-export function FormulaireInvitation({ endpoint, roleLabel, onTermine }: FormulaireInvitationProps) {
+/* Formulaire d'invitation par e-mail, partagé entre l'espace admin "Professeurs", "Étudiants"
+   et l'espace Admin plateforme — seule la route appelée, le libellé et un éventuel corps
+   additionnel changent, le flux est identique. */
+export function FormulaireInvitation({ endpoint, roleLabel, onTermine, corpsSupplementaire }: FormulaireInvitationProps) {
   const { session } = useProfileContext()
   const [email, setEmail] = useState('')
   const [nom, setNom] = useState('')
@@ -37,7 +43,7 @@ export function FormulaireInvitation({ endpoint, roleLabel, onTermine }: Formula
     const reponse = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ email, nom, prenom }),
+      body: JSON.stringify({ email, nom, prenom, ...corpsSupplementaire }),
     })
     setEnCours(false)
     if (!reponse.ok) {

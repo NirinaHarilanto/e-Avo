@@ -1,11 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
 import { Logo } from '../shared/Logo'
 
 export function Connexion() {
   const { session, profile, loading, seConnecter } = useProfileContext()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const next = searchParams.get('next')
   const [email, setEmail] = useState('')
   const [motDePasse, setMotDePasse] = useState('')
   const [erreur, setErreur] = useState<string | null>(null)
@@ -13,12 +15,17 @@ export function Connexion() {
 
   useEffect(() => {
     if (loading || !session) return
-    if (profile?.role === 'admin_etablissement') {
+    // `next` permet à un point d'entrée transverse aux rôles (ex. /plateforme/*) de retrouver
+    // sa destination après connexion — sans lui, la redirection ci-dessous ne connaît que les
+    // 3 espaces liés à profiles.role et n'y renverrait jamais un admin plateforme.
+    if (next) {
+      navigate(next, { replace: true })
+    } else if (profile?.role === 'admin_etablissement') {
       navigate('/admin/prospects', { replace: true })
     } else if (profile) {
       navigate('/mon-espace', { replace: true })
     }
-  }, [session, profile, loading, navigate])
+  }, [session, profile, loading, next, navigate])
 
   async function envoyer(e: FormEvent) {
     e.preventDefault()
