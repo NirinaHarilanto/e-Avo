@@ -51,18 +51,18 @@ export async function requireAdmin(request: Request): Promise<AdminContext> {
   if (profileError || !profile) {
     throw new AdminAuthError(403, 'Profil introuvable.')
   }
-  if (profile.status !== 'approved') {
-    throw new AdminAuthError(403, "Cette opération est réservée à l'administrateur de l'établissement.")
-  }
-  if (profile.role !== 'admin_etablissement') {
-    // Un compte garde un rôle unique, sauf l'administrateur plateforme (platform_admins, 0022)
-    // qui peut aussi agir comme admin de son propre établissement — voir migration 0023.
-    const { data: platformAdmin } = await serviceClient
-      .from('platform_admins')
-      .select('id')
-      .eq('id', profile.id)
-      .maybeSingle()
-    if (!platformAdmin) {
+
+  // Un compte garde un rôle unique et doit être approuvé, sauf l'administrateur plateforme
+  // (platform_admins, 0022) qui a les mêmes droits qu'un admin_etablissement sur son propre
+  // établissement — y compris quand son profil (toujours role='etudiant'/status='pending' par
+  // conception, voir 0002) n'a jamais été explicitement approuvé. Voir aussi migration 0023.
+  const { data: platformAdmin } = await serviceClient
+    .from('platform_admins')
+    .select('id')
+    .eq('id', profile.id)
+    .maybeSingle()
+  if (!platformAdmin) {
+    if (profile.status !== 'approved' || profile.role !== 'admin_etablissement') {
       throw new AdminAuthError(403, "Cette opération est réservée à l'administrateur de l'établissement.")
     }
   }

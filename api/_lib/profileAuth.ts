@@ -56,19 +56,17 @@ export async function requireApprovedProfile(request: Request): Promise<ProfileA
   if (profileError || !profile) {
     throw new ProfileAuthError(403, 'Profil introuvable.')
   }
-  if (profile.status !== 'approved') {
+
+  const { data: platformAdmin } = await serviceClient
+    .from('platform_admins')
+    .select('id')
+    .eq('id', profile.id)
+    .maybeSingle()
+
+  if (!platformAdmin && profile.status !== 'approved') {
     throw new ProfileAuthError(403, 'Compte non approuvé.')
   }
-
-  let estAdminEtablissement = profile.role === 'admin_etablissement'
-  if (!estAdminEtablissement) {
-    const { data: platformAdmin } = await serviceClient
-      .from('platform_admins')
-      .select('id')
-      .eq('id', profile.id)
-      .maybeSingle()
-    estAdminEtablissement = !!platformAdmin
-  }
+  const estAdminEtablissement = !!platformAdmin || profile.role === 'admin_etablissement'
 
   return {
     serviceClient,

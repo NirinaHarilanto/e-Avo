@@ -1,12 +1,13 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
+import { creerCompteSansEmail } from '../_lib/creerCompte.js'
 
 export const config = { runtime: 'edge' }
 
 // Conversion Prospect -> Étudiant (pipeline, étape finale). Le prospect n'a pas de compte
-// Auth avant cet appel : on invite l'email par Supabase Auth (déclenche handle_new_user,
-// qui crée `profiles`), puis on relie le nouveau profil au prospect d'origine sans jamais
-// dupliquer ou migrer la ligne `prospects` — diagnostic_calls.prospect_id reste la clé
-// stable avant et après conversion.
+// Auth avant cet appel : on en crée un (sans e-mail, voir creerCompte.ts — déclenche quand
+// même handle_new_user, qui crée `profiles`), puis on relie le nouveau profil au prospect
+// d'origine sans jamais dupliquer ou migrer la ligne `prospects` — diagnostic_calls.prospect_id
+// reste la clé stable avant et après conversion.
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 })
@@ -30,18 +31,14 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Prospect introuvable pour cet établissement.' }, { status: 404 })
     }
 
-    const { data: invited, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(
-      prospect.email,
-      {
-        data: {
-          etablissement_id: etablissementId,
-          nom: prospect.nom,
-          prenom: prospect.prenom,
-        },
-      },
-    )
+    const { data: invited, error: inviteError } = await creerCompteSansEmail(serviceClient, {
+      email: prospect.email,
+      etablissementId,
+      nom: prospect.nom,
+      prenom: prospect.prenom,
+    })
     if (inviteError || !invited.user) {
-      return Response.json({ error: inviteError?.message ?? "Échec de l'invitation." }, { status: 500 })
+      return Response.json({ error: inviteError?.message ?? "Échec de la création du compte." }, { status: 500 })
     }
 
     await serviceClient.from('profiles').update({ prospect_id: prospect.id }).eq('id', invited.user.id)

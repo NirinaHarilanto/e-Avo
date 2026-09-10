@@ -1,4 +1,5 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
+import { creerCompteSansEmail } from '../_lib/creerCompte.js'
 
 export const config = { runtime: 'edge' }
 
@@ -19,11 +20,14 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Email, nom et prénom requis.' }, { status: 400 })
     }
 
-    const { data: invited, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(body.email, {
-      data: { etablissement_id: etablissementId, nom: body.nom, prenom: body.prenom },
+    const { data: invited, error: inviteError } = await creerCompteSansEmail(serviceClient, {
+      email: body.email,
+      etablissementId,
+      nom: body.nom,
+      prenom: body.prenom,
     })
     if (inviteError || !invited.user) {
-      return Response.json({ error: inviteError?.message ?? "Échec de l'invitation." }, { status: 500 })
+      return Response.json({ error: inviteError?.message ?? "Échec de la création du compte." }, { status: 500 })
     }
 
     const { error: updateError } = await serviceClient

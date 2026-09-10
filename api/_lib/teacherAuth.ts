@@ -57,22 +57,23 @@ export async function requireTeacherOrAdmin(request: Request): Promise<TeacherCo
   if (profileError || !profile) {
     throw new TeacherAuthError(403, 'Profil introuvable.')
   }
-  if (profile.status !== 'approved') {
-    throw new TeacherAuthError(403, 'Cette opération est réservée à un professeur ou à un administrateur.')
-  }
 
-  const roles = new Set<'professeur' | 'admin_etablissement'>()
-  if (profile.role === 'professeur' || profile.role === 'admin_etablissement') {
-    roles.add(profile.role)
-  }
   const { data: platformAdmin } = await serviceClient
     .from('platform_admins')
     .select('id')
     .eq('id', profile.id)
     .maybeSingle()
+
+  const roles = new Set<'professeur' | 'admin_etablissement'>()
   if (platformAdmin) {
+    // Cumule les deux capacités quel que soit son profil (toujours role='etudiant'/
+    // status='pending' par conception, voir 0002) — mêmes droits qu'un admin_etablissement.
     roles.add('professeur')
     roles.add('admin_etablissement')
+  } else if (profile.status === 'approved') {
+    if (profile.role === 'professeur' || profile.role === 'admin_etablissement') {
+      roles.add(profile.role)
+    }
   }
   if (roles.size === 0) {
     throw new TeacherAuthError(403, 'Cette opération est réservée à un professeur ou à un administrateur.')
