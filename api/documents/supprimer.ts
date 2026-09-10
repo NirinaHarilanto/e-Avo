@@ -12,7 +12,7 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   try {
-    const { serviceClient, profileId, etablissementId, role } = await requireApprovedProfile(request)
+    const { serviceClient, profileId, etablissementId, estAdminEtablissement } = await requireApprovedProfile(request)
     const body = (await request.json()) as { documentId?: string }
     if (!body.documentId) {
       return Response.json({ error: 'documentId requis.' }, { status: 400 })
@@ -30,7 +30,7 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Document introuvable.' }, { status: 404 })
     }
 
-    const autorise = role === 'admin_etablissement' || document.uploaded_by_profile_id === profileId
+    const autorise = estAdminEtablissement || document.uploaded_by_profile_id === profileId
     if (!autorise) {
       return Response.json({ error: 'Suppression non autorisée.' }, { status: 403 })
     }

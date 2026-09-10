@@ -13,6 +13,10 @@ export interface ProfileAuthContext {
   profileId: string
   etablissementId: string
   role: Database['public']['Tables']['profiles']['Row']['role']
+  // Un compte garde un rôle unique, sauf l'administrateur plateforme qui a les mêmes droits
+  // qu'un admin_etablissement (voir migration 0023) — à utiliser à la place de
+  // `role === 'admin_etablissement'` pour toute vérification d'autorisation admin.
+  estAdminEtablissement: boolean
 }
 
 export class ProfileAuthError extends Error {
@@ -56,5 +60,21 @@ export async function requireApprovedProfile(request: Request): Promise<ProfileA
     throw new ProfileAuthError(403, 'Compte non approuvé.')
   }
 
-  return { serviceClient, profileId: profile.id, etablissementId: profile.etablissement_id, role: profile.role }
+  let estAdminEtablissement = profile.role === 'admin_etablissement'
+  if (!estAdminEtablissement) {
+    const { data: platformAdmin } = await serviceClient
+      .from('platform_admins')
+      .select('id')
+      .eq('id', profile.id)
+      .maybeSingle()
+    estAdminEtablissement = !!platformAdmin
+  }
+
+  return {
+    serviceClient,
+    profileId: profile.id,
+    etablissementId: profile.etablissement_id,
+    role: profile.role,
+    estAdminEtablissement,
+  }
 }

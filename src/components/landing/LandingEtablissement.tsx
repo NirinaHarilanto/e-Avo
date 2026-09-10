@@ -21,9 +21,9 @@ const PROGRAMMES = [
     texte: 'La dynamique d’une classe vivante, au même niveau que vous, pour pratiquer et progresser ensemble.',
   },
   {
-    tag: 'Offert',
-    titre: 'Appel diagnostic',
-    texte: 'Vingt minutes en visio, gratuites et sans engagement, pour situer votre niveau et construire votre parcours.',
+    tag: 'Duo',
+    titre: 'Cours en duo',
+    texte: 'En couple ou entre amis, apprenez à deux sur un même créneau : un accompagnement pensé pour vos deux objectifs, à la fois complice et exigeant.',
   },
 ]
 
@@ -164,14 +164,8 @@ export function LandingEtablissement() {
         </nav>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <a href="/connexion?next=/mon-espace" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
-            Espace élève
-          </a>
-          <a href="/connexion?next=/professeur/calendrier" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
-            Espace professeur
-          </a>
-          <a href="/connexion?next=/admin/prospects" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
-            Espace admin
+          <a href="/connexion" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
+            Espace personnel
           </a>
           <a href="#reserver" className="btn-shine" style={{ background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}>
             Réserver mon appel
@@ -254,9 +248,9 @@ export function LandingEtablissement() {
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 320px) 1fr', gap: 40, alignItems: 'center' }}>
           <CadreOrne accent={accent.accent} style={{ padding: 10 }}>
             <img
-              src={`${dossierAssets}/fondatrice.jpg`}
-              alt={`Fondatrice de ${etablissement.nom}`}
-              style={{ width: '100%', aspectRatio: '4 / 5', objectFit: 'cover', display: 'block', borderRadius: 2 }}
+              src={`${dossierAssets}/Directrice.jpg`}
+              alt={`Directrice de ${etablissement.nom}`}
+              style={{ width: '100%', aspectRatio: '4 / 5', objectFit: 'cover', objectPosition: 'top', display: 'block', borderRadius: 2 }}
               onError={(e) => {
                 ;(e.currentTarget as HTMLImageElement).style.visibility = 'hidden'
               }}
@@ -264,16 +258,16 @@ export function LandingEtablissement() {
           </CadreOrne>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase', color: accent.accent }}>
-              Notre fondatrice
+              Notre directrice
             </span>
             <h2 className="brand-font" style={{ fontSize: 28, color: '#ffffff', margin: 0 }}>
               Une pédagogie pensée pour des résultats réels
             </h2>
-            {/* Texte fourni par le client à intégrer ici (bio, pédagogie) — placeholder
-                volontairement identifiable tant qu'il n'est pas reçu. */}
-            <p style={{ fontSize: 14, lineHeight: 1.75, color: 'var(--ink-2)', fontStyle: 'italic' }}>
-              Texte à venir — présentation de la fondatrice et de sa vision pédagogique, à intégrer dès
-              réception du texte définitif.
+            <p style={{ fontSize: 14, lineHeight: 1.75, color: 'var(--ink-2)' }}>
+              Persuadée qu'aucune application ne remplace le regard d'un professeur qui croit en vous, notre
+              directrice a fondé {etablissement.nom} pour redonner sa juste place à la relation humaine dans
+              l'apprentissage des langues. Son exigence : un accompagnement sur-mesure, taillé pour votre
+              objectif, votre rythme et votre vie. Chaque élève qui progresse ici en est la preuve vivante.
             </p>
           </div>
         </div>
@@ -296,6 +290,10 @@ export function LandingEtablissement() {
             }}
           />
         </CadreOrne>
+        <p style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 560, margin: '22px auto 0' }}>
+          Une équipe soudée, choisie pour sa pédagogie autant que pour sa passion des langues — la même
+          exigence bienveillante à chaque cours, quel que soit le professeur qui vous accompagne.
+        </p>
         <a href="#reserver" className="btn-shine" style={{ marginTop: 26, display: 'inline-flex', background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}>
           Découvrir l'équipe
         </a>
@@ -417,9 +415,7 @@ export function LandingEtablissement() {
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--muted-2)' }}>
               Espaces
             </span>
-            <a href="/connexion?next=/mon-espace" style={{ fontSize: 13, color: 'var(--ink-2)' }}>Espace élève</a>
-            <a href="/connexion?next=/professeur/calendrier" style={{ fontSize: 13, color: 'var(--ink-2)' }}>Espace professeur</a>
-            <a href="/connexion?next=/admin/prospects" style={{ fontSize: 13, color: 'var(--ink-2)' }}>Espace admin</a>
+            <a href="/connexion" style={{ fontSize: 13, color: 'var(--ink-2)' }}>Espace personnel</a>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
