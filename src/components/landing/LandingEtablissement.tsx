@@ -197,11 +197,11 @@ export function LandingEtablissement() {
               Appels diagnostic ouverts cette semaine
             </span>
             <h1 className="arrive-text brand-font" style={{ fontSize: 42, lineHeight: 1.18, color: '#ffffff', animationDelay: '.1s' }}>
-              Apprenez avec un professeur, pas avec une application.
+              Apprenez avec un professeur qui vous accompagne jusqu'à la réussite
             </h1>
             <span aria-hidden style={{ width: 60, height: 1, background: accent.accent, opacity: 0.6 }} />
             <p className="arrive-text" style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--ink-2)', maxWidth: 560, animationDelay: '.2s' }}>
-              Vingt minutes d'appel pour situer votre niveau et votre objectif. Ensuite, un professeur attitré
+              Quinze minutes d'appel pour situer votre niveau et votre objectif. Ensuite, un professeur attitré
               chez {etablissement.nom} et des cours en visio à votre rythme.
             </p>
             <a href="#reserver" className="btn-shine arrive" style={{ fontSize: 15, padding: '16px 28px', background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 6px 24px ${accent.accentGlow}`, animationDelay: '.3s' }}>
@@ -217,7 +217,20 @@ export function LandingEtablissement() {
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
           {PROGRAMMES.map((programme, index) => (
-            <div key={programme.titre} className="card card-lift arrive" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12, animationDelay: `${index * 0.1}s` }}>
+            <div
+              key={programme.titre}
+              className="card card-lift card-programme arrive"
+              style={{
+                padding: 24,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 12,
+                animationDelay: `${index * 0.1}s`,
+                '--card-accent-soft': accent.accentSoft,
+                '--card-accent-border': accent.accentBorder,
+                '--card-accent-glow': accent.accentGlow,
+              } as CSSProperties}
+            >
               <span
                 style={{
                   alignSelf: 'flex-start',
@@ -314,7 +327,7 @@ export function LandingEtablissement() {
         }}
       >
         <h2 className="brand-font" style={{ fontSize: 26, color: '#ffffff', margin: '0 0 10px' }}>
-          Un appel, vingt minutes, zéro engagement.
+          Un appel, quinze minutes, zéro engagement.
         </h2>
         <p style={{ fontSize: 14, color: 'var(--ink-2)', maxWidth: 520, margin: '0 auto 22px' }}>
           Le point de départ de chaque parcours chez {etablissement.nom} : on situe votre niveau, on cadre

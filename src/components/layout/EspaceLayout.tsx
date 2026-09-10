@@ -108,7 +108,10 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
               <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{roleLabel}</span>
             </div>
             <button
-              onClick={() => seDeconnecter()}
+              onClick={async () => {
+                await seDeconnecter()
+                navigate(etablissement ? `/e/${etablissement.slug}` : '/', { replace: true })
+              }}
               style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '8px 14px', cursor: 'pointer' }}
             >
               Déconnexion

@@ -1,10 +1,14 @@
 import type { ReactNode } from 'react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
 import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { routeAccueilPourRole } from './EspaceLayout'
 import { Logo } from '../shared/Logo'
+import { supabase } from '../../lib/supabaseClient'
+import type { Database } from '../../types/database.types'
+
+type Etablissement = Database['public']['Tables']['etablissements']['Row']
 
 const NAV_ITEMS = [{ label: 'Établissements', href: '/plateforme/etablissements' }]
 
@@ -18,6 +22,17 @@ export function PlateformeLayout({ children, actif }: { children: ReactNode; act
   const navigate = useNavigate()
   const { platformAdmin, loading: platformLoading } = usePlatformAdmin(session, contextLoading)
   const loading = contextLoading || platformLoading
+  const [etablissement, setEtablissement] = useState<Etablissement | null>(null)
+
+  useEffect(() => {
+    if (!profile) return
+    supabase
+      .from('etablissements')
+      .select('*')
+      .eq('id', profile.etablissement_id)
+      .maybeSingle()
+      .then(({ data }) => setEtablissement(data))
+  }, [profile])
 
   useEffect(() => {
     if (loading) return
@@ -56,7 +71,10 @@ export function PlateformeLayout({ children, actif }: { children: ReactNode; act
               <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>Administrateur plateforme</span>
             </div>
             <button
-              onClick={() => seDeconnecter()}
+              onClick={async () => {
+                await seDeconnecter()
+                navigate(etablissement ? `/e/${etablissement.slug}` : '/', { replace: true })
+              }}
               style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '8px 14px', cursor: 'pointer' }}
             >
               Déconnexion
