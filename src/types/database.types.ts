@@ -10,6 +10,31 @@ export type SessionType = 'individuel' | 'collectif'
 export type SessionStatut = 'planifiee' | 'terminee' | 'annulee'
 export type InvitationStatut = 'en_attente' | 'acceptee' | 'excusee'
 export type LedgerType = 'credit_professeur' | 'debit_etudiant'
+export type CategorieDocument =
+  | 'identite'
+  | 'diplome_certification'
+  | 'justificatif_domicile'
+  | 'devis'
+  | 'facture'
+  | 'contrat'
+  | 'support_pedagogique'
+  | 'autre'
+export type StatutPaiement = 'attendu' | 'paye' | 'en_retard' | 'annule'
+export type StatutDevis = 'brouillon' | 'envoye' | 'accepte' | 'refuse' | 'expire'
+export type StatutFacture = 'emise' | 'envoyee' | 'payee' | 'en_retard' | 'annulee'
+export type StatutContrat = 'brouillon' | 'envoye' | 'signe' | 'resilie'
+
+export interface LigneFacturation {
+  description: string
+  quantite: number
+  prix_unitaire_ht: number
+  tva_pct: number
+}
+
+export interface VariableTemplate {
+  cle: string
+  label: string
+}
 
 export interface Database {
   public: {
@@ -256,6 +281,262 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['video_sessions']['Insert']>
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          id: string
+          etablissement_id: string
+          owner_profile_id: string
+          owner_role: Role
+          uploaded_by_profile_id: string
+          categorie: CategorieDocument
+          nom_original: string
+          mime_type: string
+          taille_octets: number
+          storage_path: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          owner_profile_id: string
+          // Écrasé par le trigger documents_before_insert (migration 0018) : jamais fait
+          // confiance depuis le client, mais requis par le type Row — envoyer une valeur
+          // quelconque, elle sera recalculée côté serveur.
+          owner_role?: Role
+          uploaded_by_profile_id: string
+          categorie?: CategorieDocument
+          nom_original: string
+          mime_type: string
+          taille_octets: number
+          // Écrasé par le même trigger — ne jamais fournir de valeur côté client.
+          storage_path?: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['documents']['Insert']>
+        Relationships: []
+      }
+      student_payments: {
+        Row: {
+          id: string
+          etablissement_id: string
+          student_id: string
+          package_id: string | null
+          montant: number
+          devise: string
+          statut: StatutPaiement
+          moyen_paiement: string | null
+          date_echeance: string | null
+          date_paiement: string | null
+          reference: string | null
+          notes: string | null
+          created_by_profile_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          student_id: string
+          package_id?: string | null
+          montant: number
+          devise?: string
+          statut?: StatutPaiement
+          moyen_paiement?: string | null
+          date_echeance?: string | null
+          date_paiement?: string | null
+          reference?: string | null
+          notes?: string | null
+          created_by_profile_id: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['student_payments']['Insert']>
+        Relationships: []
+      }
+      teacher_payments: {
+        Row: {
+          id: string
+          etablissement_id: string
+          teacher_id: string
+          periode_debut: string | null
+          periode_fin: string | null
+          montant: number
+          devise: string
+          statut: StatutPaiement
+          moyen_paiement: string | null
+          date_echeance: string | null
+          date_paiement: string | null
+          reference: string | null
+          notes: string | null
+          created_by_profile_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          teacher_id: string
+          periode_debut?: string | null
+          periode_fin?: string | null
+          montant: number
+          devise?: string
+          statut?: StatutPaiement
+          moyen_paiement?: string | null
+          date_echeance?: string | null
+          date_paiement?: string | null
+          reference?: string | null
+          notes?: string | null
+          created_by_profile_id: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['teacher_payments']['Insert']>
+        Relationships: []
+      }
+      quotes: {
+        Row: {
+          id: string
+          etablissement_id: string
+          student_id: string
+          numero: string
+          statut: StatutDevis
+          objet: string | null
+          lignes: LigneFacturation[]
+          montant_ht: number
+          montant_tva: number
+          montant_ttc: number
+          date_emission: string
+          date_validite: string | null
+          notes: string | null
+          created_by_profile_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          student_id: string
+          numero: string
+          statut?: StatutDevis
+          objet?: string | null
+          lignes?: LigneFacturation[]
+          montant_ht?: number
+          montant_tva?: number
+          montant_ttc?: number
+          date_emission?: string
+          date_validite?: string | null
+          notes?: string | null
+          created_by_profile_id: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['quotes']['Insert']>
+        Relationships: []
+      }
+      invoices: {
+        Row: {
+          id: string
+          etablissement_id: string
+          student_id: string
+          quote_id: string | null
+          payment_id: string | null
+          numero: string
+          statut: StatutFacture
+          objet: string | null
+          lignes: LigneFacturation[]
+          montant_ht: number
+          montant_tva: number
+          montant_ttc: number
+          date_emission: string
+          date_echeance: string | null
+          date_paiement: string | null
+          notes: string | null
+          created_by_profile_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          student_id: string
+          quote_id?: string | null
+          payment_id?: string | null
+          numero: string
+          statut?: StatutFacture
+          objet?: string | null
+          lignes?: LigneFacturation[]
+          montant_ht?: number
+          montant_tva?: number
+          montant_ttc?: number
+          date_emission?: string
+          date_echeance?: string | null
+          date_paiement?: string | null
+          notes?: string | null
+          created_by_profile_id: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['invoices']['Insert']>
+        Relationships: []
+      }
+      contract_templates: {
+        Row: {
+          id: string
+          etablissement_id: string
+          nom: string
+          public_cible: Role
+          corps_template: string
+          variables_disponibles: VariableTemplate[]
+          actif: boolean
+          created_by_profile_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          nom: string
+          public_cible: Role
+          corps_template: string
+          variables_disponibles?: VariableTemplate[]
+          actif?: boolean
+          created_by_profile_id: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['contract_templates']['Insert']>
+        Relationships: []
+      }
+      contracts: {
+        Row: {
+          id: string
+          etablissement_id: string
+          template_id: string | null
+          destinataire_profile_id: string
+          destinataire_role: Role
+          titre: string
+          corps_genere: string
+          variables_valeurs: Record<string, string>
+          statut: StatutContrat
+          date_envoi: string | null
+          date_signature: string | null
+          date_resiliation: string | null
+          document_id: string | null
+          notes: string | null
+          created_by_profile_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          template_id?: string | null
+          destinataire_profile_id: string
+          destinataire_role: Role
+          titre: string
+          corps_genere: string
+          variables_valeurs?: Record<string, string>
+          statut?: StatutContrat
+          date_envoi?: string | null
+          date_signature?: string | null
+          date_resiliation?: string | null
+          document_id?: string | null
+          notes?: string | null
+          created_by_profile_id: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['contracts']['Insert']>
         Relationships: []
       }
     }

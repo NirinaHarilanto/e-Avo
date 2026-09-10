@@ -3,7 +3,8 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { useCalendrierProfesseur, type SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { getJoinUrl } from '../../lib/visio'
-import { Logo } from '../shared/Logo'
+import { ProfesseurLayout } from '../layout/ProfesseurLayout'
+import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 
 const champStyle: React.CSSProperties = {
   border: '1px solid var(--border)',
@@ -15,8 +16,8 @@ const champStyle: React.CSSProperties = {
 }
 
 export function CalendrierProfesseur() {
-  const { profile, seDeconnecter } = useProfileContext()
-  const { seances, etudiantsActifs, loading, erreur, recharger } = useCalendrierProfesseur(profile?.id)
+  const { profile } = useProfileContext()
+  const { seances, etudiantsActifs, heuresEnseignees, loading, erreur, recharger } = useCalendrierProfesseur(profile?.id)
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
 
   const maintenant = new Date().toISOString()
@@ -28,25 +29,16 @@ export function CalendrierProfesseur() {
     .sort((a, b) => b.session.debut.localeCompare(a.session.debut))
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-page)' }}>
-      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 32px', borderBottom: '1px solid var(--border-soft)' }}>
-        <Logo size={24} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span className="brand-font" style={{ fontSize: 13, color: 'var(--accent-gold, #e9cf94)' }}>
-            {profile?.prenom} {profile?.nom}
-          </span>
-          <button
-            onClick={() => seDeconnecter()}
-            style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '8px 14px', cursor: 'pointer' }}
-          >
-            Déconnexion
-          </button>
-        </div>
-      </header>
-
-      <div style={{ padding: '28px 32px 48px', maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1 style={{ fontSize: 26, color: '#fff' }}>Mon calendrier</h1>
+    <ProfesseurLayout actif="Calendrier">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
+          <div>
+            <h1 style={{ fontSize: 28, color: '#fff', marginBottom: 4 }}>Mon calendrier</h1>
+            <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+              {etudiantsActifs.length} élève{etudiantsActifs.length > 1 ? 's' : ''} actif{etudiantsActifs.length > 1 ? 's' : ''} ·{' '}
+              <span style={{ color: 'var(--accent-gold, #e9cf94)', fontWeight: 700 }}>{heuresEnseignees} h</span> enseignées
+            </span>
+          </div>
           <button onClick={() => setFormulaireOuvert(true)} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510' }}>
             Planifier une séance
           </button>
@@ -87,7 +79,7 @@ export function CalendrierProfesseur() {
           </>
         )}
       </div>
-    </div>
+    </ProfesseurLayout>
   )
 }
 
@@ -253,7 +245,7 @@ function CarteSeance({ seance, maintenant, onChange }: { seance: SeanceProfesseu
             {seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`).join(', ')}
           </span>
         </div>
-        <BadgeStatut statut={seance.session.statut} />
+        <BadgeStatutSeance statut={seance.session.statut} />
       </div>
 
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 12.5 }}>{erreur}</p>}
@@ -304,27 +296,5 @@ function CarteSeance({ seance, maintenant, onChange }: { seance: SeanceProfesseu
         </div>
       )}
     </div>
-  )
-}
-
-function BadgeStatut({ statut }: { statut: string }) {
-  if (statut === 'terminee') {
-    return (
-      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '4px 10px' }}>
-        Terminée
-      </span>
-    )
-  }
-  if (statut === 'annulee') {
-    return (
-      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', background: 'rgba(255,138,112,.12)', border: '1px solid rgba(255,138,112,.3)', borderRadius: 999, padding: '4px 10px' }}>
-        Annulée
-      </span>
-    )
-  }
-  return (
-    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-cyan)', background: 'rgba(94,179,255,.12)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '4px 10px' }}>
-      Planifiée
-    </span>
   )
 }

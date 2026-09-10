@@ -300,3 +300,28 @@ select { color-scheme: dark; }
     font-size: 16px !important;
   }
 }
+
+/* Vues imprimables (devis/facture/contrat, src/components/facturation/) : technique classique
+   "n'imprimer qu'un élément" — masquer tout via visibility (pas display, pour que .zone-
+   imprimable garde sa mise en page) puis ne rendre visible que la zone ciblée, sortie du flux
+   par position absolute pour occuper toute la page quel que soit son niveau d'imbrication
+   dans le layout admin qui l'entoure. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .zone-imprimable, .zone-imprimable * {
+    visibility: visible;
+  }
+  .zone-imprimable {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: #fff;
+    color: #111;
+  }
+  .barre-actions-impression {
+    display: none !important;
+  }
+}

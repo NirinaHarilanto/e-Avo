@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
 import { MonEspaceEtudiant } from '../etudiants/MonEspaceEtudiant'
-import { CalendrierProfesseur } from '../professeurs/CalendrierProfesseur'
 
-/* Point d'entrée /mon-espace : redirige vers le bon espace selon le rôle du profil connecté. */
+/* Point d'entrée /mon-espace : redirige vers le bon espace selon le rôle du profil connecté.
+   L'espace professeur est désormais multi-pages (calendrier/étudiants/heures, voir
+   ProfesseurLayout) — on redirige donc vers sa route plutôt que de le rendre directement. */
 export function EspacePersonnel() {
   const { session, profile, loading } = useProfileContext()
   const navigate = useNavigate()
@@ -23,7 +24,10 @@ export function EspacePersonnel() {
   }
 
   if (profile.role === 'professeur') {
-    return <CalendrierProfesseur />
+    return <Navigate to="/professeur/calendrier" replace />
+  }
+  if (profile.role === 'admin_etablissement') {
+    return <Navigate to="/admin/prospects" replace />
   }
 
   return <MonEspaceEtudiant />

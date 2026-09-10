@@ -16,6 +16,7 @@ export interface SeanceProfesseur {
 export function useCalendrierProfesseur(teacherId: string | undefined) {
   const [seances, setSeances] = useState<SeanceProfesseur[]>([])
   const [etudiantsActifs, setEtudiantsActifs] = useState<Profile[]>([])
+  const [heuresEnseignees, setHeuresEnseignees] = useState(0)
   const [loading, setLoading] = useState(true)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -24,10 +25,12 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
     setLoading(true)
     setErreur(null)
 
-    const [{ data: sessions, error: sessionsError }, { data: affectations }] = await Promise.all([
+    const [{ data: sessions, error: sessionsError }, { data: affectations }, { data: resumeHeures }] = await Promise.all([
       supabase.from('sessions').select('*').eq('teacher_id', teacherId).order('debut', { ascending: false }),
       supabase.from('teacher_assignments').select('*').eq('teacher_id', teacherId).is('date_fin', null),
+      supabase.from('teacher_hours_summary').select('*').eq('teacher_id', teacherId).maybeSingle(),
     ])
+    setHeuresEnseignees(resumeHeures?.heures_enseignees ?? 0)
 
     if (sessionsError) {
       setErreur(sessionsError.message)
@@ -65,5 +68,5 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
     charger()
   }, [charger])
 
-  return { seances, etudiantsActifs, loading, erreur, recharger: charger }
+  return { seances, etudiantsActifs, heuresEnseignees, loading, erreur, recharger: charger }
 }

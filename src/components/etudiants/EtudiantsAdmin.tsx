@@ -6,12 +6,14 @@ import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { AttribuerProfesseur } from './AttribuerProfesseur'
 import { CreerForfait } from './CreerForfait'
 import { DossierEtudiantVue, initiales } from './DossierEtudiantVue'
+import { FormulaireInvitation } from '../shared/FormulaireInvitation'
 
 export function EtudiantsAdmin() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { etudiants, loading } = useEtudiants()
+  const { etudiants, loading, recharger } = useEtudiants()
   const [recherche, setRecherche] = useState('')
+  const [formulaireOuvert, setFormulaireOuvert] = useState(false)
 
   const filtres = useMemo(
     () =>
@@ -23,6 +25,24 @@ export function EtudiantsAdmin() {
 
   return (
     <AdminLayout actif="Étudiants">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+        <h1 style={{ fontSize: 28, color: '#fff' }}>Étudiants</h1>
+        <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510' }}>
+          Ajouter un étudiant
+        </button>
+      </div>
+
+      {formulaireOuvert && (
+        <FormulaireInvitation
+          endpoint="/api/admin/inviter-etudiant"
+          roleLabel="un étudiant"
+          onTermine={() => {
+            setFormulaireOuvert(false)
+            recharger()
+          }}
+        />
+      )}
+
       <div style={{ display: 'flex', gap: 18 }}>
         <aside style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <input

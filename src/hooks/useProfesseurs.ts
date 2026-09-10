@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
 
@@ -8,22 +8,16 @@ export function useProfesseurs() {
   const [professeurs, setProfesseurs] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    let annule = false
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'professeur')
-      .order('nom')
-      .then(({ data }) => {
-        if (annule) return
-        setProfesseurs(data ?? [])
-        setLoading(false)
-      })
-    return () => {
-      annule = true
-    }
+  const charger = useCallback(async () => {
+    setLoading(true)
+    const { data } = await supabase.from('profiles').select('*').eq('role', 'professeur').order('nom')
+    setProfesseurs(data ?? [])
+    setLoading(false)
   }, [])
 
-  return { professeurs, loading }
+  useEffect(() => {
+    charger()
+  }, [charger])
+
+  return { professeurs, loading, recharger: charger }
 }

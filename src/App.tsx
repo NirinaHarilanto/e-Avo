@@ -6,6 +6,17 @@ import { Connexion } from './components/auth/Connexion'
 import { PipelineCRM } from './components/pipeline/PipelineCRM'
 import { EtudiantsAdmin } from './components/etudiants/EtudiantsAdmin'
 import { ProfesseursAdmin } from './components/professeurs/ProfesseursAdmin'
+import { SeancesAdmin } from './components/admin/SeancesAdmin'
+import { HeuresAdmin } from './components/admin/HeuresAdmin'
+import { DocumentsAdmin } from './components/admin/DocumentsAdmin'
+import { PaiementsAdmin } from './components/admin/PaiementsAdmin'
+import { FacturationAdmin } from './components/admin/FacturationAdmin'
+import { ContratsAdmin } from './components/admin/ContratsAdmin'
+import { CalendrierProfesseur } from './components/professeurs/CalendrierProfesseur'
+import { EtudiantsProfesseur } from './components/professeurs/EtudiantsProfesseur'
+import { HeuresProfesseur } from './components/professeurs/HeuresProfesseur'
+import { DocumentsProfesseur } from './components/professeurs/DocumentsProfesseur'
+import { DocumentsEtudiant } from './components/etudiants/DocumentsEtudiant'
 import { EspacePersonnel } from './components/shared/EspacePersonnel'
 
 export default function App() {
@@ -20,7 +31,19 @@ export default function App() {
           <Route path="/admin/etudiants" element={<EtudiantsAdmin />} />
           <Route path="/admin/etudiants/:id" element={<EtudiantsAdmin />} />
           <Route path="/admin/professeurs" element={<ProfesseursAdmin />} />
+          <Route path="/admin/seances" element={<SeancesAdmin />} />
+          <Route path="/admin/heures" element={<HeuresAdmin />} />
+          <Route path="/admin/documents" element={<DocumentsAdmin />} />
+          <Route path="/admin/paiements" element={<PaiementsAdmin />} />
+          <Route path="/admin/facturation" element={<FacturationAdmin />} />
+          <Route path="/admin/contrats" element={<ContratsAdmin />} />
+          <Route path="/professeur/calendrier" element={<CalendrierProfesseur />} />
+          <Route path="/professeur/etudiants" element={<EtudiantsProfesseur />} />
+          <Route path="/professeur/etudiants/:id" element={<EtudiantsProfesseur />} />
+          <Route path="/professeur/heures" element={<HeuresProfesseur />} />
+          <Route path="/professeur/documents" element={<DocumentsProfesseur />} />
           <Route path="/mon-espace" element={<EspacePersonnel />} />
+          <Route path="/mon-espace/documents" element={<DocumentsEtudiant />} />
         </Routes>
       </BrowserRouter>
     </ProfileProvider>
