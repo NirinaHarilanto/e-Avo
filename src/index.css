@@ -320,6 +320,60 @@ a:hover {
   opacity: 1;
 }
 
+/* Variante de .nav-item pour une nav sur fond sombre sans pilule pleine (nav marketing des
+   landings établissement) — même mécanique ::before/navGlowSpin/masque XOR que .nav-item,
+   hôte allégé (soulignement au survol plutôt que fond plein). */
+.nav-link-glow {
+  position: relative;
+  padding: 6px 3px;
+  transition: color 0.3s;
+}
+.nav-link-glow::before {
+  content: '';
+  position: absolute;
+  inset: -7px -9px;
+  border-radius: 8px;
+  padding: 2.5px;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%, transparent 76%,
+    #a97c00 83%, #ffd700 88%, #fff6c8 91%, #ffd700 94%, #a97c00 99%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.85));
+  animation: navGlowSpin 3.4s linear infinite;
+  transition: opacity 0.35s;
+}
+.nav-link-glow:hover {
+  color: #ffffff !important;
+}
+.nav-link-glow:hover::before {
+  opacity: 1;
+}
+
+/* Cadre orné (double liseré + coins en L), utilisé sur les landings établissement (hero,
+   sections fondatrice/équipe) — approximation CSS raisonnable de la gravure art-déco de la
+   référence, pilotée par currentColor (donc par la couleur d'accent de chaque établissement
+   via deriveAccent) plutôt que figée en doré. Les 4 coins sont des enfants positionnés plutôt
+   que ::before/::after (un seul pseudo-élément par face ne suffit pas pour 4 coins isolés). */
+.cadre-orne {
+  position: relative;
+  border: 1px solid currentColor;
+  box-shadow: inset 0 0 0 5px rgba(4, 8, 18, 0.55);
+}
+.cadre-orne .coin {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: currentColor solid;
+  pointer-events: none;
+}
+
 select { color-scheme: dark; }
 
 /* Un système réglé sur "moins d'animations" doit obtenir une interface fixe, pas ralentie : le
@@ -332,7 +386,8 @@ select { color-scheme: dark; }
     animation: none !important;
   }
   .nav-item::before,
-  .card-lift::before {
+  .card-lift::before,
+  .nav-link-glow::before {
     animation: navGlowSpin 3.4s linear infinite !important;
   }
   .btn-shine:hover::after {
