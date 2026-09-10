@@ -280,61 +280,79 @@ export function LandingEtablissement() {
       {tarifs.length > 0 && (
         <section id="tarifs" style={{ padding: '20px 40px 70px', maxWidth: 1100, margin: '0 auto' }}>
           <h2 style={{ textAlign: 'center', fontSize: 30, color: '#ffffff', marginBottom: 30 }}>Tarifs</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
-            {tarifs.map((tarif, index) => (
-              <CadreOrne key={tarif.id} accent={accent.accent} style={{ padding: 0 }}>
-                <div
-                  className="card card-lift card-programme arrive"
-                  style={
-                    {
-                      padding: 24,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 10,
-                      border: 'none',
-                      animationDelay: `${index * 0.1}s`,
-                      '--card-accent-soft': accent.accentSoft,
-                      '--card-accent-border': accent.accentBorder,
-                      '--card-accent-glow': accent.accentGlow,
-                    } as CSSProperties
-                  }
-                >
-                  <span
-                    style={{
-                      alignSelf: 'flex-start',
-                      fontSize: 10.5,
-                      fontWeight: 700,
-                      letterSpacing: 0.6,
-                      textTransform: 'uppercase',
-                      color: accent.accent,
-                      padding: '4px 10px',
-                      borderRadius: 999,
-                      border: `1px solid ${accent.accentBorder}`,
-                      background: accent.accentSoft,
-                    }}
-                  >
-                    {PROGRAMME_LABEL[tarif.type_programme]}
-                  </span>
-                  <h3 style={{ fontSize: 18, color: 'var(--ink)', margin: 0 }}>{tarif.titre}</h3>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-                    <span className="brand-font" style={{ fontSize: 30, color: accent.accent }}>
-                      {tarif.prix % 1 === 0 ? tarif.prix.toFixed(0) : tarif.prix.toFixed(2)} €
-                    </span>
-                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{tarif.unite}</span>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, alignItems: 'start' }}>
+            {(['individuel', 'duo', 'collectif'] as const).map((type) => {
+              const lignes = tarifs.filter((t) => t.type_programme === type)
+              if (lignes.length === 0) return null
+              return (
+                <CadreOrne key={type} accent={accent.accent} style={{ padding: 0 }}>
+                  <div className="arrive" style={{ padding: '26px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <span
+                        style={{
+                          alignSelf: 'flex-start',
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          letterSpacing: 0.6,
+                          textTransform: 'uppercase',
+                          color: accent.accent,
+                          padding: '4px 10px',
+                          borderRadius: 999,
+                          border: `1px solid ${accent.accentBorder}`,
+                          background: accent.accentSoft,
+                        }}
+                      >
+                        {PROGRAMME_LABEL[type]}
+                      </span>
+                      <h3 className="brand-font" style={{ fontSize: 19, color: '#ffffff', margin: 0 }}>
+                        {type === 'individuel' ? 'Cours particuliers' : type === 'duo' ? 'Cours en duo' : 'Cours en petit groupe'}
+                      </h3>
+                      {type === 'individuel' && (
+                        <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--muted)', margin: 0 }}>
+                          Anglais général, focus oral, compréhension ou grammaire — ou anglais des affaires
+                          (meetings, présentations, négociation). Contenu 100 % personnalisable sur demande.
+                        </p>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      {lignes.map((ligne, index) => (
+                        <div
+                          key={ligne.id}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 2,
+                            padding: '10px 10px',
+                            borderRadius: 8,
+                            background: index % 2 === 0 ? accent.accentSoft : 'transparent',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+                            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>{ligne.titre}</span>
+                            <span className="brand-font" style={{ fontSize: 15, color: accent.accent, whiteSpace: 'nowrap' }}>
+                              {ligne.prix.toLocaleString('fr-FR')} {ligne.unite}
+                            </span>
+                          </div>
+                          {ligne.description && (
+                            <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{ligne.description}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <a
+                      href="#reserver"
+                      onClick={() => setProgrammeChoisi(type)}
+                      className="btn-shine"
+                      style={{ alignSelf: 'flex-start', fontSize: 12.5, padding: '10px 18px', background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}
+                    >
+                      Réserver →
+                    </a>
                   </div>
-                  {tarif.description && (
-                    <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--muted)', margin: 0 }}>{tarif.description}</p>
-                  )}
-                  <a
-                    href="#reserver"
-                    onClick={() => setProgrammeChoisi(tarif.type_programme)}
-                    style={{ fontSize: 12.5, fontWeight: 700, color: accent.accent, marginTop: 4 }}
-                  >
-                    Réserver →
-                  </a>
-                </div>
-              </CadreOrne>
-            ))}
+                </CadreOrne>
+              )
+            })}
           </div>
         </section>
       )}

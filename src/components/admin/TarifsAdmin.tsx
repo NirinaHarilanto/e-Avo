@@ -47,7 +47,7 @@ export function TarifsAdmin() {
               type_programme: 'individuel',
               titre: 'Nouveau tarif',
               prix: 0,
-              unite: '/heure',
+              unite: 'Ar',
               ordre: tarifs.length,
             })
             recharger()
@@ -130,12 +130,12 @@ function LigneTarif({ tarif, onChange }: { tarif: Tarif; onChange: () => void })
           <input value={titre} onChange={(e) => setTitre(e.target.value)} style={champStyle} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Prix (€)</label>
+          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Prix</label>
           <input type="number" step="0.01" value={prix} onChange={(e) => setPrix(e.target.value)} style={champStyle} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Unité</label>
-          <input value={unite} onChange={(e) => setUnite(e.target.value)} placeholder="/heure" style={champStyle} />
+          <input value={unite} onChange={(e) => setUnite(e.target.value)} placeholder="Ar, Ar/mois, Ar/heure…" style={champStyle} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Ordre</label>
