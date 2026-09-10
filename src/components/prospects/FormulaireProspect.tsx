@@ -1,12 +1,23 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import type { AccentPalette } from '../../lib/accent'
+import type { TypeProgrammeProspect } from '../../types/database.types'
 
 const DISPONIBILITES = ['Matin', 'Pause déjeuner', 'Après 18 h', 'Week-end']
+
+const PROGRAMMES_CHOIX: { valeur: TypeProgrammeProspect; label: string }[] = [
+  { valeur: 'individuel', label: 'Individuel' },
+  { valeur: 'duo', label: 'Duo' },
+  { valeur: 'collectif', label: 'Collectif' },
+]
 
 interface FormulaireProspectProps {
   etablissementId: string
   accent: AccentPalette
+  // Programme présélectionné (carte cliquée sur la landing) ; l'utilisateur reste libre de le
+  // changer via le sélecteur ci-dessous — individuel/duo mènent à un appel diagnostic,
+  // collectif à un test de positionnement (même formulaire, seul le libellé change).
+  typeInitial?: TypeProgrammeProspect
 }
 
 const champStyle: React.CSSProperties = {
@@ -22,7 +33,7 @@ const champStyle: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }
 
-export function FormulaireProspect({ etablissementId, accent }: FormulaireProspectProps) {
+export function FormulaireProspect({ etablissementId, accent, typeInitial = 'individuel' }: FormulaireProspectProps) {
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
   const [email, setEmail] = useState('')
@@ -30,10 +41,20 @@ export function FormulaireProspect({ etablissementId, accent }: FormulaireProspe
   const [langueVisee, setLangueVisee] = useState('')
   const [objectif, setObjectif] = useState('')
   const [disponibilites, setDisponibilites] = useState<string[]>([])
+  const [typeProgramme, setTypeProgramme] = useState<TypeProgrammeProspect>(typeInitial)
   const [accepte, setAccepte] = useState(false)
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [envoye, setEnvoye] = useState(false)
+
+  // Suit le programme mis en avant par la carte cliquée sur la landing, sans écraser une
+  // saisie déjà en cours si l'utilisateur revient choisir une autre carte.
+  useEffect(() => {
+    setTypeProgramme(typeInitial)
+  }, [typeInitial])
+
+  const estPositionnement = typeProgramme === 'collectif'
+  const libelleRdv = estPositionnement ? 'test de positionnement' : 'appel diagnostic'
 
   function basculerDisponibilite(valeur: string) {
     setDisponibilites((courant) =>
@@ -58,6 +79,7 @@ export function FormulaireProspect({ etablissementId, accent }: FormulaireProspe
       langue_visee: langueVisee || null,
       objectif: objectif || null,
       disponibilites: disponibilites.length ? disponibilites.join(', ') : null,
+      type_programme: typeProgramme,
     })
     setEnvoi(false)
     if (error) {
@@ -90,7 +112,7 @@ export function FormulaireProspect({ etablissementId, accent }: FormulaireProspe
         </span>
         <h3 style={{ fontSize: 20, color: 'var(--ink)' }}>Demande envoyée</h3>
         <p style={{ fontSize: 13.5, color: 'var(--muted)', maxWidth: 320 }}>
-          Merci {prenom}, nous vous recontactons sous 48 h pour caler votre appel diagnostic.
+          Merci {prenom}, nous vous recontactons sous 48 h pour caler votre {libelleRdv}.
         </p>
       </div>
     )
@@ -98,7 +120,43 @@ export function FormulaireProspect({ etablissementId, accent }: FormulaireProspe
 
   return (
     <form onSubmit={envoyer} className="card" style={{ padding: 30, display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <h3 style={{ fontSize: 21, color: 'var(--accent-gold, #e9cf94)', marginBottom: 6 }}>Réserver mon appel diagnostic</h3>
+      <h3 style={{ fontSize: 21, color: 'var(--accent-gold, #e9cf94)', marginBottom: 2 }}>
+        Réserver mon {libelleRdv}
+      </h3>
+      <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 4px' }}>
+        {estPositionnement
+          ? 'Cours collectifs : ce test situe votre niveau pour vous placer dans le bon groupe.'
+          : "Cours individuels ou en duo : cet appel cadre votre objectif et votre rythme."}
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <label style={labelStyle}>Programme souhaité</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {PROGRAMMES_CHOIX.map(({ valeur, label }) => {
+            const actif = typeProgramme === valeur
+            return (
+              <button
+                type="button"
+                key={valeur}
+                onClick={() => setTypeProgramme(valeur)}
+                style={{
+                  fontSize: 12.5,
+                  fontWeight: actif ? 800 : 600,
+                  color: actif ? accent.accentInk : 'var(--ink-2)',
+                  background: actif ? accent.accentGrad : 'rgba(0,0,0,.22)',
+                  border: actif ? 'none' : '1px solid var(--border)',
+                  borderRadius: 999,
+                  padding: '9px 15px',
+                  cursor: 'pointer',
+                  boxShadow: actif ? `0 4px 14px ${accent.accentGlow}` : 'none',
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 14 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>

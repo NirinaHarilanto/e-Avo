@@ -6,6 +6,7 @@
 export type Role = 'etudiant' | 'professeur' | 'admin_etablissement'
 export type ProfileStatus = 'pending' | 'approved' | 'suspended'
 export type ProspectStatut = 'prospect' | 'diagnostic_planifie' | 'diagnostic_fait' | 'etudiant'
+export type TypeProgrammeProspect = 'individuel' | 'duo' | 'collectif'
 export type SessionType = 'individuel' | 'collectif'
 export type SessionStatut = 'planifiee' | 'terminee' | 'annulee'
 export type InvitationStatut = 'en_attente' | 'acceptee' | 'excusee'
@@ -99,6 +100,7 @@ export interface Database {
           langue_visee: string | null
           objectif: string | null
           disponibilites: string | null
+          type_programme: TypeProgrammeProspect | null
           created_at: string
         }
         Insert: {
@@ -112,6 +114,7 @@ export interface Database {
           langue_visee?: string | null
           objectif?: string | null
           disponibilites?: string | null
+          type_programme?: TypeProgrammeProspect | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['prospects']['Insert']>

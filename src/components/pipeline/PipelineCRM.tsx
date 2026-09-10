@@ -59,8 +59,15 @@ export function PipelineCRM() {
   )
 }
 
+const LABEL_PROGRAMME: Record<string, string> = {
+  individuel: 'Individuel',
+  duo: 'Duo',
+  collectif: 'Collectif',
+}
+
 function CarteProspect({ prospect, onChange }: { prospect: ProspectAvecDiagnostic; onChange: () => void }) {
   const { profile, session } = useProfileContext()
+  const estPositionnement = prospect.type_programme === 'collectif'
   const [ouvert, setOuvert] = useState(false)
   const [dateAppel, setDateAppel] = useState('')
   const [niveauEvalue, setNiveauEvalue] = useState('')
@@ -155,6 +162,24 @@ function CarteProspect({ prospect, onChange }: { prospect: ProspectAvecDiagnosti
         </div>
       </div>
 
+      {prospect.type_programme && (
+        <span
+          style={{
+            alignSelf: 'flex-start',
+            fontSize: 10.5,
+            fontWeight: 700,
+            letterSpacing: 0.4,
+            textTransform: 'uppercase',
+            color: 'var(--muted-2)',
+            border: '1px solid var(--border)',
+            borderRadius: 999,
+            padding: '3px 10px',
+          }}
+        >
+          {LABEL_PROGRAMME[prospect.type_programme]}
+        </span>
+      )}
+
       {prospect.objectif && (
         <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px' }}>
           « {prospect.objectif} »
@@ -183,11 +208,14 @@ function CarteProspect({ prospect, onChange }: { prospect: ProspectAvecDiagnosti
 
       {prospect.statut === 'prospect' && !ouvert && (
         <button onClick={() => setOuvert(true)} className="btn-shine" style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-gradient)', color: '#1b1510' }}>
-          Planifier l'appel diagnostic
+          Planifier {estPositionnement ? 'le test de positionnement' : "l'appel diagnostic"}
         </button>
       )}
       {prospect.statut === 'prospect' && ouvert && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+            {estPositionnement ? 'Test de positionnement' : 'Appel diagnostic'}
+          </span>
           <input
             type="datetime-local"
             value={dateAppel}
@@ -202,7 +230,7 @@ function CarteProspect({ prospect, onChange }: { prospect: ProspectAvecDiagnosti
 
       {prospect.statut === 'diagnostic_planifie' && !ouvert && (
         <button onClick={() => setOuvert(true)} className="btn-shine btn-secondary" style={{ width: '100%', fontSize: 12.5, padding: 10 }}>
-          Marquer le diagnostic comme fait
+          Marquer {estPositionnement ? 'le test' : 'le diagnostic'} comme fait
         </button>
       )}
       {prospect.statut === 'diagnostic_planifie' && ouvert && (

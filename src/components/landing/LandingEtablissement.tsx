@@ -6,21 +6,25 @@ import { deriveAccent } from '../../lib/accent'
 import { HeroDecor } from '../shared/HeroDecor'
 import { Logo } from '../shared/Logo'
 import { FormulaireProspect } from '../prospects/FormulaireProspect'
+import type { TypeProgrammeProspect } from '../../types/database.types'
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
 
-const PROGRAMMES = [
+const PROGRAMMES: { type: TypeProgrammeProspect; tag: string; titre: string; texte: string }[] = [
   {
+    type: 'individuel',
     tag: 'Individuel',
     titre: 'Cours particuliers',
-    texte: "Un professeur rien que pour vous, un créneau fixe chaque semaine, un programme calé sur votre objectif réel.",
+    texte: 'Sur mesure : vous choisissez votre rythme et le sujet de chaque séance, avec un professeur rien que pour vous, calé sur votre objectif réel.',
   },
   {
+    type: 'collectif',
     tag: 'Collectif',
     titre: 'Cours en petit groupe',
-    texte: 'La dynamique d’une classe vivante, au même niveau que vous, pour pratiquer et progresser ensemble.',
+    texte: 'Par vague, sur un planning établi par l’établissement, avec des groupes de niveaux différents pour progresser ensemble au bon rythme.',
   },
   {
+    type: 'duo',
     tag: 'Duo',
     titre: 'Cours en duo',
     texte: 'En couple ou entre amis, apprenez à deux sur un même créneau : un accompagnement pensé pour vos deux objectifs, à la fois complice et exigeant.',
@@ -53,6 +57,7 @@ export function LandingEtablissement() {
   const [etablissement, setEtablissement] = useState<Etablissement | null>(null)
   const [loading, setLoading] = useState(true)
   const [introuvable, setIntrouvable] = useState(false)
+  const [programmeChoisi, setProgrammeChoisi] = useState<TypeProgrammeProspect>('individuel')
 
   useEffect(() => {
     if (!slug) return
@@ -249,8 +254,12 @@ export function LandingEtablissement() {
               </span>
               <h3 style={{ fontSize: 18, color: 'var(--ink)' }}>{programme.titre}</h3>
               <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--muted)' }}>{programme.texte}</p>
-              <a href="#reserver" style={{ fontSize: 12.5, fontWeight: 700, color: accent.accent, marginTop: 4 }}>
-                Réserver mon appel →
+              <a
+                href="#reserver"
+                onClick={() => setProgrammeChoisi(programme.type)}
+                style={{ fontSize: 12.5, fontWeight: 700, color: accent.accent, marginTop: 4 }}
+              >
+                {programme.type === 'collectif' ? 'Réserver mon test →' : 'Réserver mon appel →'}
               </a>
             </div>
           ))}
@@ -380,7 +389,7 @@ export function LandingEtablissement() {
       </section>
 
       <section id="reserver" style={{ padding: '0 40px 70px', maxWidth: 640, margin: '0 auto' }}>
-        <FormulaireProspect etablissementId={etablissement.id} accent={accent} />
+        <FormulaireProspect etablissementId={etablissement.id} accent={accent} typeInitial={programmeChoisi} />
       </section>
 
       <footer
