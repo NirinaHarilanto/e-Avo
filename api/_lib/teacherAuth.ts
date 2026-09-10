@@ -14,7 +14,10 @@ export interface TeacherContext {
   serviceClient: ReturnType<typeof createClient<Database>>
   profileId: string
   etablissementId: string
-  role: 'professeur' | 'admin_etablissement'
+  // Un compte garde un rôle unique, sauf l'administrateur plateforme qui cumule les deux —
+  // voir migration 0023. `roles` reflète donc les capacités réelles de l'appelant, jamais
+  // uniquement `profiles.role`.
+  roles: Array<'professeur' | 'admin_etablissement'>
 }
 
 export class TeacherAuthError extends Error {
@@ -54,7 +57,24 @@ export async function requireTeacherOrAdmin(request: Request): Promise<TeacherCo
   if (profileError || !profile) {
     throw new TeacherAuthError(403, 'Profil introuvable.')
   }
-  if (profile.status !== 'approved' || (profile.role !== 'professeur' && profile.role !== 'admin_etablissement')) {
+  if (profile.status !== 'approved') {
+    throw new TeacherAuthError(403, 'Cette opération est réservée à un professeur ou à un administrateur.')
+  }
+
+  const roles = new Set<'professeur' | 'admin_etablissement'>()
+  if (profile.role === 'professeur' || profile.role === 'admin_etablissement') {
+    roles.add(profile.role)
+  }
+  const { data: platformAdmin } = await serviceClient
+    .from('platform_admins')
+    .select('id')
+    .eq('id', profile.id)
+    .maybeSingle()
+  if (platformAdmin) {
+    roles.add('professeur')
+    roles.add('admin_etablissement')
+  }
+  if (roles.size === 0) {
     throw new TeacherAuthError(403, 'Cette opération est réservée à un professeur ou à un administrateur.')
   }
 
@@ -62,6 +82,6 @@ export async function requireTeacherOrAdmin(request: Request): Promise<TeacherCo
     serviceClient,
     profileId: profile.id,
     etablissementId: profile.etablissement_id,
-    role: profile.role,
+    roles: [...roles],
   }
 }

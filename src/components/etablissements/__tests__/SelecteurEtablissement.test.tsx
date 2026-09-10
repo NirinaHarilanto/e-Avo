@@ -11,8 +11,8 @@ vi.mock('../../../lib/supabaseClient', () => ({
             data: [
               {
                 id: '1',
-                nom: 'Institut Lingua Nova',
-                slug: 'lingua-nova',
+                nom: 'Hari Online Course',
+                slug: 'hari-online-course',
                 specialite: 'Langues vivantes',
                 couleur_accent: '#FF7A1A',
                 logo_url: null,
@@ -29,6 +29,6 @@ vi.mock('../../../lib/supabaseClient', () => ({
 describe('SelecteurEtablissement', () => {
   it("affiche les établissements renvoyés par Supabase", async () => {
     render(<SelecteurEtablissement />)
-    expect(await screen.findByText('Institut Lingua Nova')).toBeInTheDocument()
+    expect(await screen.findByText('Hari Online Course')).toBeInTheDocument()
   })
 })

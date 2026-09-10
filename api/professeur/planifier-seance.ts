@@ -21,17 +21,20 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   try {
-    const { serviceClient, profileId, etablissementId, role } = await requireTeacherOrAdmin(request)
+    const { serviceClient, profileId, etablissementId, roles } = await requireTeacherOrAdmin(request)
     const body = (await request.json()) as Corps
 
     if (!body.studentIds?.length || !body.type || !body.debut || !body.dureeMinutes) {
       return Response.json({ error: 'Champs requis manquants.' }, { status: 400 })
     }
 
+    // Piloté par la forme de la requête plutôt que par une priorité de rôle arbitraire : un
+    // compte qui cumule les deux capacités (admin plateforme, voir teacherAuth.ts) peut aussi
+    // bien planifier pour un autre professeur (teacherId fourni) que pour lui-même (omis).
     let teacherId = profileId
-    if (role === 'admin_etablissement') {
-      if (!body.teacherId) {
-        return Response.json({ error: 'teacherId requis pour un admin.' }, { status: 400 })
+    if (body.teacherId) {
+      if (!roles.includes('admin_etablissement')) {
+        return Response.json({ error: 'Réservé à un administrateur.' }, { status: 403 })
       }
       const { data: teacherProfile } = await serviceClient
         .from('profiles')
@@ -42,6 +45,8 @@ export default async function handler(request: Request): Promise<Response> {
         return Response.json({ error: 'Professeur invalide pour cet établissement.' }, { status: 400 })
       }
       teacherId = teacherProfile.id
+    } else if (!roles.includes('professeur')) {
+      return Response.json({ error: 'teacherId requis pour un administrateur.' }, { status: 400 })
     }
 
     const { data: students } = await serviceClient

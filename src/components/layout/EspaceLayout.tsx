@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
+import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { Logo } from '../shared/Logo'
@@ -41,9 +42,16 @@ interface EspaceLayoutProps {
    professeur — extrait de l'ancien AdminLayout pour que les deux espaces restent
    visuellement et structurellement identiques au fil des évolutions futures. */
 export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, children }: EspaceLayoutProps) {
-  const { session, profile, loading, seDeconnecter } = useProfileContext()
+  const { session, profile, loading: profileLoading, seDeconnecter } = useProfileContext()
+  const { platformAdmin, loading: platformLoading } = usePlatformAdmin(session, profileLoading)
+  const loading = profileLoading || platformLoading
   const navigate = useNavigate()
   const [etablissement, setEtablissement] = useState<Etablissement | null>(null)
+
+  // Un compte garde un rôle unique, sauf l'administrateur plateforme (platform_admins, 0022) qui
+  // peut aussi accéder aux espaces admin/professeur de son propre établissement — voir la
+  // redéfinition de is_admin_etablissement() en 0023, dont ce garde-fou front est le pendant.
+  const accesAutorise = !!profile && (profile.role === roleAttendu || !!platformAdmin)
 
   useEffect(() => {
     if (loading) return
@@ -51,10 +59,10 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
       navigate('/connexion', { replace: true })
       return
     }
-    if (profile.role !== roleAttendu) {
+    if (!accesAutorise) {
       navigate(routeAccueilPourRole(profile.role), { replace: true })
     }
-  }, [session, profile, loading, navigate, roleAttendu])
+  }, [session, profile, accesAutorise, loading, navigate])
 
   useEffect(() => {
     if (!profile) return
@@ -66,7 +74,7 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
       .then(({ data }) => setEtablissement(data))
   }, [profile])
 
-  if (loading || !session || !profile || profile.role !== roleAttendu) {
+  if (loading || !session || !profile || !accesAutorise) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
         Chargement…

@@ -121,13 +121,13 @@ export function LandingEtablissement() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <a href="/connexion" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
+          <a href="/connexion?next=/mon-espace" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
             Espace élève
           </a>
-          <a href="/connexion" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
+          <a href="/connexion?next=/professeur/calendrier" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
             Espace professeur
           </a>
-          <a href="/connexion" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
+          <a href="/connexion?next=/admin/prospects" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
             Espace admin
           </a>
           <a href="#reserver" className="btn-shine" style={{ background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}>

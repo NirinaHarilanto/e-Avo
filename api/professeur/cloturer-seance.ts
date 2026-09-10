@@ -24,7 +24,7 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   try {
-    const { serviceClient, profileId, etablissementId, role } = await requireTeacherOrAdmin(request)
+    const { serviceClient, profileId, etablissementId, roles } = await requireTeacherOrAdmin(request)
     const body = (await request.json()) as Corps
 
     if (!body.sessionId || !body.presences) {
@@ -40,7 +40,7 @@ export default async function handler(request: Request): Promise<Response> {
     if (sessionError || !session || session.etablissement_id !== etablissementId) {
       return Response.json({ error: 'Séance introuvable.' }, { status: 404 })
     }
-    if (role === 'professeur' && session.teacher_id !== profileId) {
+    if (!roles.includes('admin_etablissement') && session.teacher_id !== profileId) {
       return Response.json({ error: "Cette séance n'est pas la vôtre." }, { status: 403 })
     }
     if (session.statut !== 'planifiee') {
