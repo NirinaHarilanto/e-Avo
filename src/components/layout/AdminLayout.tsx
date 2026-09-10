@@ -17,6 +17,7 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
       { label: 'Paiements', href: '/admin/paiements', disponible: true },
       { label: 'Facturation', href: '/admin/facturation', disponible: true },
       { label: 'Contrats', href: '/admin/contrats', disponible: true },
+      { label: 'Paramètres', href: '/admin/parametres', disponible: true },
     ],
   },
 ]

@@ -389,7 +389,7 @@ export function LandingEtablissement() {
       </section>
 
       <section id="reserver" style={{ padding: '0 40px 70px', maxWidth: 640, margin: '0 auto' }}>
-        <FormulaireProspect etablissementId={etablissement.id} accent={accent} typeInitial={programmeChoisi} />
+        <FormulaireProspect etablissementId={etablissement.id} accent={accent} typeInitial={programmeChoisi} calendlyUrl={etablissement.calendly_url} />
       </section>
 
       <footer

@@ -48,6 +48,7 @@ export interface Database {
           specialite: string | null
           couleur_accent: string | null
           logo_url: string | null
+          calendly_url: string | null
           created_at: string
         }
         Insert: {
@@ -57,6 +58,7 @@ export interface Database {
           specialite?: string | null
           couleur_accent?: string | null
           logo_url?: string | null
+          calendly_url?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['etablissements']['Insert']>

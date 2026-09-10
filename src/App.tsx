@@ -12,6 +12,7 @@ import { DocumentsAdmin } from './components/admin/DocumentsAdmin'
 import { PaiementsAdmin } from './components/admin/PaiementsAdmin'
 import { FacturationAdmin } from './components/admin/FacturationAdmin'
 import { ContratsAdmin } from './components/admin/ContratsAdmin'
+import { ParametresAdmin } from './components/admin/ParametresAdmin'
 import { CalendrierProfesseur } from './components/professeurs/CalendrierProfesseur'
 import { EtudiantsProfesseur } from './components/professeurs/EtudiantsProfesseur'
 import { HeuresProfesseur } from './components/professeurs/HeuresProfesseur'
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/admin/paiements" element={<PaiementsAdmin />} />
           <Route path="/admin/facturation" element={<FacturationAdmin />} />
           <Route path="/admin/contrats" element={<ContratsAdmin />} />
+          <Route path="/admin/parametres" element={<ParametresAdmin />} />
           <Route path="/professeur/calendrier" element={<CalendrierProfesseur />} />
           <Route path="/professeur/etudiants" element={<EtudiantsProfesseur />} />
           <Route path="/professeur/etudiants/:id" element={<EtudiantsProfesseur />} />

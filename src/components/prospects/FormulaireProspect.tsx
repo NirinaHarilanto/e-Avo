@@ -3,8 +3,6 @@ import { supabase } from '../../lib/supabaseClient'
 import type { AccentPalette } from '../../lib/accent'
 import type { TypeProgrammeProspect } from '../../types/database.types'
 
-const DISPONIBILITES = ['Matin', 'Pause déjeuner', 'Après 18 h', 'Week-end']
-
 const PROGRAMMES_CHOIX: { valeur: TypeProgrammeProspect; label: string }[] = [
   { valeur: 'individuel', label: 'Individuel' },
   { valeur: 'duo', label: 'Duo' },
@@ -18,6 +16,11 @@ interface FormulaireProspectProps {
   // changer via le sélecteur ci-dessous — individuel/duo mènent à un appel diagnostic,
   // collectif à un test de positionnement (même formulaire, seul le libellé change).
   typeInitial?: TypeProgrammeProspect
+  // Renseigné par l'admin depuis /admin/parametres. Quand présent, la soumission du formulaire
+  // enregistre le prospect PUIS redirige vers ce lien pour que le créneau se choisisse
+  // directement sur le Calendly de l'établissement — sans lien configuré, on retombe sur le
+  // message "on vous recontacte".
+  calendlyUrl?: string | null
 }
 
 const champStyle: React.CSSProperties = {
@@ -33,14 +36,13 @@ const champStyle: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }
 
-export function FormulaireProspect({ etablissementId, accent, typeInitial = 'individuel' }: FormulaireProspectProps) {
+export function FormulaireProspect({ etablissementId, accent, typeInitial = 'individuel', calendlyUrl }: FormulaireProspectProps) {
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
   const [email, setEmail] = useState('')
   const [telephone, setTelephone] = useState('')
   const [langueVisee, setLangueVisee] = useState('')
   const [objectif, setObjectif] = useState('')
-  const [disponibilites, setDisponibilites] = useState<string[]>([])
   const [typeProgramme, setTypeProgramme] = useState<TypeProgrammeProspect>(typeInitial)
   const [accepte, setAccepte] = useState(false)
   const [envoi, setEnvoi] = useState(false)
@@ -55,12 +57,6 @@ export function FormulaireProspect({ etablissementId, accent, typeInitial = 'ind
 
   const estPositionnement = typeProgramme === 'collectif'
   const libelleRdv = estPositionnement ? 'test de positionnement' : 'appel diagnostic'
-
-  function basculerDisponibilite(valeur: string) {
-    setDisponibilites((courant) =>
-      courant.includes(valeur) ? courant.filter((v) => v !== valeur) : [...courant, valeur],
-    )
-  }
 
   async function envoyer(e: FormEvent) {
     e.preventDefault()
@@ -78,14 +74,21 @@ export function FormulaireProspect({ etablissementId, accent, typeInitial = 'ind
       telephone: telephone || null,
       langue_visee: langueVisee || null,
       objectif: objectif || null,
-      disponibilites: disponibilites.length ? disponibilites.join(', ') : null,
       type_programme: typeProgramme,
     })
-    setEnvoi(false)
     if (error) {
+      setEnvoi(false)
       setErreur("Votre demande n'a pas pu être envoyée. Réessayez dans un instant.")
       return
     }
+    // Le prospect est d'abord enregistré côté e-Avo, puis orienté vers le lien Calendly
+    // renseigné par l'admin (/admin/parametres) pour choisir son créneau — sans Calendly
+    // configuré, on retombe sur le message "on vous recontacte" ci-dessous.
+    if (calendlyUrl) {
+      window.location.href = calendlyUrl
+      return
+    }
+    setEnvoi(false)
     setEnvoye(true)
   }
 
@@ -188,35 +191,6 @@ export function FormulaireProspect({ etablissementId, accent, typeInitial = 'ind
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={labelStyle}>Votre objectif</label>
           <input style={champStyle} value={objectif} onChange={(e) => setObjectif(e.target.value)} placeholder="Entretien, expatriation…" />
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <label style={labelStyle}>Vos disponibilités pour l'appel</label>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {DISPONIBILITES.map((valeur) => {
-            const active = disponibilites.includes(valeur)
-            return (
-              <button
-                type="button"
-                key={valeur}
-                onClick={() => basculerDisponibilite(valeur)}
-                style={{
-                  fontSize: 12.5,
-                  fontWeight: active ? 800 : 600,
-                  color: active ? accent.accentInk : 'var(--ink-2)',
-                  background: active ? accent.accentGrad : 'rgba(0,0,0,.22)',
-                  border: active ? 'none' : '1px solid var(--border)',
-                  borderRadius: 999,
-                  padding: '9px 15px',
-                  cursor: 'pointer',
-                  boxShadow: active ? `0 4px 14px ${accent.accentGlow}` : 'none',
-                }}
-              >
-                {valeur}
-              </button>
-            )
-          })}
         </div>
       </div>
 
