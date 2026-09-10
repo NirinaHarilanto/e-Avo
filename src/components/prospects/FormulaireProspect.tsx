@@ -11,15 +11,16 @@ const PROGRAMMES_CHOIX: { valeur: TypeProgrammeProspect; label: string }[] = [
 
 interface FormulaireProspectProps {
   etablissementId: string
+  etablissementNom: string
   accent: AccentPalette
   // Programme présélectionné (carte cliquée sur la landing) ; l'utilisateur reste libre de le
   // changer via le sélecteur ci-dessous — individuel/duo mènent à un appel diagnostic,
   // collectif à un test de positionnement (même formulaire, seul le libellé change).
   typeInitial?: TypeProgrammeProspect
   // Renseigné par l'admin depuis /admin/parametres. Quand présent, la soumission du formulaire
-  // enregistre le prospect PUIS redirige vers ce lien pour que le créneau se choisisse
-  // directement sur le Calendly de l'établissement — sans lien configuré, on retombe sur le
-  // message "on vous recontacte".
+  // enregistre le prospect, ouvre ce lien dans un nouvel onglet, ET affiche une question de
+  // confirmation sur la page (voir ModaleConfirmationCalendly) — sans lien configuré, on
+  // retombe sur le message "on vous recontacte".
   calendlyUrl?: string | null
 }
 
@@ -36,7 +37,7 @@ const champStyle: React.CSSProperties = {
 
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }
 
-export function FormulaireProspect({ etablissementId, accent, typeInitial = 'individuel', calendlyUrl }: FormulaireProspectProps) {
+export function FormulaireProspect({ etablissementId, etablissementNom, accent, typeInitial = 'individuel', calendlyUrl }: FormulaireProspectProps) {
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
   const [email, setEmail] = useState('')
@@ -48,6 +49,8 @@ export function FormulaireProspect({ etablissementId, accent, typeInitial = 'ind
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [envoye, setEnvoye] = useState(false)
+  const [prospectIdEnAttente, setProspectIdEnAttente] = useState<string | null>(null)
+  const [confirmationEnCours, setConfirmationEnCours] = useState(false)
 
   // Suit le programme mis en avant par la carte cliquée sur la landing, sans écraser une
   // saisie déjà en cours si l'utilisateur revient choisir une autre carte.
@@ -66,29 +69,51 @@ export function FormulaireProspect({ etablissementId, accent, typeInitial = 'ind
     }
     setEnvoi(true)
     setErreur(null)
-    const { error } = await supabase.from('prospects').insert({
-      etablissement_id: etablissementId,
-      prenom,
-      nom,
-      email,
-      telephone: telephone || null,
-      langue_visee: langueVisee || null,
-      objectif: objectif || null,
-      type_programme: typeProgramme,
-    })
-    if (error) {
-      setEnvoi(false)
+    const { data, error } = await supabase
+      .from('prospects')
+      .insert({
+        etablissement_id: etablissementId,
+        prenom,
+        nom,
+        email,
+        telephone: telephone || null,
+        langue_visee: langueVisee || null,
+        objectif: objectif || null,
+        type_programme: typeProgramme,
+      })
+      .select('id')
+      .single()
+    setEnvoi(false)
+    if (error || !data) {
       setErreur("Votre demande n'a pas pu être envoyée. Réessayez dans un instant.")
       return
     }
-    // Le prospect est d'abord enregistré côté e-Avo, puis orienté vers le lien Calendly
-    // renseigné par l'admin (/admin/parametres) pour choisir son créneau — sans Calendly
-    // configuré, on retombe sur le message "on vous recontacte" ci-dessous.
+    // Le prospect est d'abord enregistré côté e-Avo. S'il y a un Calendly configuré, on
+    // l'ouvre dans un nouvel onglet et on demande confirmation sur cette page (le visiteur
+    // reste dessus, rien ne le fait quitter la landing) — sans Calendly, on retombe sur le
+    // message "on vous recontacte" ci-dessous.
     if (calendlyUrl) {
-      window.location.href = calendlyUrl
+      window.open(calendlyUrl, '_blank', 'noopener,noreferrer')
+      setProspectIdEnAttente(data.id)
       return
     }
-    setEnvoi(false)
+    setEnvoye(true)
+  }
+
+  async function confirmerReservation(aReserve: boolean) {
+    if (!aReserve) {
+      window.location.reload()
+      return
+    }
+    if (!prospectIdEnAttente) return
+    setConfirmationEnCours(true)
+    await fetch('/api/prospects/confirmer-reservation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prospectId: prospectIdEnAttente }),
+    }).catch(() => null)
+    setConfirmationEnCours(false)
+    setProspectIdEnAttente(null)
     setEnvoye(true)
   }
 
@@ -113,10 +138,48 @@ export function FormulaireProspect({ etablissementId, accent, typeInitial = 'ind
             <path d="m5 12.5 4.5 4.5L19 7" stroke={accent.accentInk} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </span>
-        <h3 style={{ fontSize: 20, color: 'var(--ink)' }}>Demande envoyée</h3>
+        <h3 style={{ fontSize: 20, color: 'var(--ink)' }}>{calendlyUrl ? 'Merci !' : 'Demande envoyée'}</h3>
         <p style={{ fontSize: 13.5, color: 'var(--muted)', maxWidth: 320 }}>
-          Merci {prenom}, nous vous recontactons sous 48 h pour caler votre {libelleRdv}.
+          {calendlyUrl
+            ? `Merci ${prenom}, votre ${libelleRdv} est bien noté. À très vite chez ${etablissementNom}.`
+            : `Merci ${prenom}, nous vous recontactons sous 48 h pour caler votre ${libelleRdv}.`}
         </p>
+      </div>
+    )
+  }
+
+  if (prospectIdEnAttente) {
+    return (
+      <div
+        className="card"
+        style={{ padding: 30, display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center', textAlign: 'center' }}
+      >
+        <h3 style={{ fontSize: 19, color: 'var(--ink)', margin: 0 }}>
+          Avez-vous pu réserver un créneau avec {etablissementNom} ?
+        </h3>
+        <p style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 340, margin: 0 }}>
+          Une fenêtre Calendly s'est ouverte dans un nouvel onglet. Une fois votre créneau choisi,
+          revenez ici pour le confirmer.
+        </p>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button
+            type="button"
+            onClick={() => confirmerReservation(true)}
+            disabled={confirmationEnCours}
+            className="btn-shine"
+            style={{ padding: '11px 24px', background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}`, opacity: confirmationEnCours ? 0.7 : 1 }}
+          >
+            Oui
+          </button>
+          <button
+            type="button"
+            onClick={() => confirmerReservation(false)}
+            disabled={confirmationEnCours}
+            style={{ padding: '11px 24px', borderRadius: 999, background: 'transparent', border: '1px solid var(--border)', color: 'var(--ink-2)', cursor: 'pointer', opacity: confirmationEnCours ? 0.7 : 1 }}
+          >
+            Non
+          </button>
+        </div>
       </div>
     )
   }

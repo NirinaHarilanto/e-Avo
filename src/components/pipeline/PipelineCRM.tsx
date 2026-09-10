@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState, type DragEvent } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
+import type { ProspectStatut } from '../../types/database.types'
 import { COLONNES_PIPELINE, useProspectsPipeline, type ProspectAvecDiagnostic } from '../../hooks/useProspectsPipeline'
 
 const COULEUR_COLONNE: Record<string, string> = {
@@ -12,14 +13,82 @@ const COULEUR_COLONNE: Record<string, string> = {
 }
 
 export function PipelineCRM() {
+  const { profile, session } = useProfileContext()
   const { prospects, loading, erreur, recharger } = useProspectsPipeline()
+  const [calendlyUrl, setCalendlyUrl] = useState<string | null>(null)
+  const [colonneSurvolee, setColonneSurvolee] = useState<ProspectStatut | null>(null)
+
+  useEffect(() => {
+    if (!profile) return
+    supabase
+      .from('etablissements')
+      .select('calendly_url')
+      .eq('id', profile.etablissement_id)
+      .maybeSingle()
+      .then(({ data }) => setCalendlyUrl(data?.calendly_url ?? null))
+  }, [profile])
+
+  // Mutation de statut centralisée : utilisée aussi bien par le glisser-déposer que par les
+  // actions rapides des cartes, pour ne jamais dupliquer la logique de transition (conversion
+  // étudiant, création à la volée d'une ligne diagnostic_calls manquante).
+  async function changerStatut(prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut) {
+    if (nouveauStatut === prospect.statut) return
+
+    if (nouveauStatut === 'etudiant') {
+      if (!session) return
+      if (
+        !confirm(
+          `Convertir ${prospect.prenom} ${prospect.nom} en étudiant ? Un e-mail d'invitation sera envoyé à ${prospect.email} pour qu'il/elle crée son mot de passe.`,
+        )
+      ) {
+        return
+      }
+      const reponse = await fetch('/api/admin/convert-prospect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ prospectId: prospect.id }),
+      })
+      if (!reponse.ok) {
+        const corps = await reponse.json().catch(() => null)
+        alert(corps?.error ?? 'La conversion a échoué.')
+        return
+      }
+      recharger()
+      return
+    }
+
+    // Un diagnostic_calls doit exister pour qu'on puisse plus tard y noter niveau/rythme —
+    // s'il n'y en a pas encore (prospect arrivé ici par glisser-déposer, ou déjà auto-confirmé
+    // depuis la landing via Calendly), on en crée un minimal à la volée.
+    if (nouveauStatut === 'diagnostic_fait' && !prospect.diagnostic && profile) {
+      await supabase.from('diagnostic_calls').insert({
+        etablissement_id: prospect.etablissement_id,
+        prospect_id: prospect.id,
+        mene_par: profile.id,
+        date_appel: new Date().toISOString(),
+      })
+    }
+
+    await supabase.from('prospects').update({ statut: nouveauStatut }).eq('id', prospect.id)
+    recharger()
+  }
+
+  function onDropColonne(e: DragEvent, statutCible: ProspectStatut) {
+    e.preventDefault()
+    setColonneSurvolee(null)
+    const prospectId = e.dataTransfer.getData('text/plain')
+    const prospect = prospects.find((p) => p.id === prospectId)
+    if (prospect) changerStatut(prospect, statutCible)
+  }
 
   return (
     <AdminLayout actif="Prospects">
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h1 style={{ fontSize: 28, color: '#fff' }}>Prospects</h1>
-          <p style={{ fontSize: 13, color: 'var(--muted)' }}>{prospects.length} dossier{prospects.length > 1 ? 's' : ''}</p>
+          <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+            {prospects.length} dossier{prospects.length > 1 ? 's' : ''} — glissez une carte vers une autre colonne pour changer son statut.
+          </p>
         </div>
         <button onClick={() => recharger()} className="btn-shine" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)', color: 'var(--ink-2)' }}>
           Actualiser
@@ -33,8 +102,27 @@ export function PipelineCRM() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, alignItems: 'start' }}>
           {COLONNES_PIPELINE.map((colonne) => {
             const items = prospects.filter((p) => p.statut === colonne.statut)
+            const survolee = colonneSurvolee === colonne.statut
             return (
-              <div key={colonne.statut} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div
+                key={colonne.statut}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  if (colonneSurvolee !== colonne.statut) setColonneSurvolee(colonne.statut)
+                }}
+                onDragLeave={() => setColonneSurvolee((courante) => (courante === colonne.statut ? null : courante))}
+                onDrop={(e) => onDropColonne(e, colonne.statut)}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
+                  borderRadius: 16,
+                  padding: 6,
+                  border: survolee ? `1px dashed ${COULEUR_COLONNE[colonne.statut]}` : '1px dashed transparent',
+                  background: survolee ? 'rgba(255,255,255,.03)' : 'transparent',
+                  transition: 'background .15s, border-color .15s',
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '0 4px' }}>
                   <span style={{ width: 9, height: 9, borderRadius: 999, background: COULEUR_COLONNE[colonne.statut] }} />
                   <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink-2)' }}>{colonne.titre}</span>
@@ -48,7 +136,7 @@ export function PipelineCRM() {
                   </span>
                 )}
                 {items.map((prospect) => (
-                  <CarteProspect key={prospect.id} prospect={prospect} onChange={recharger} />
+                  <CarteProspect key={prospect.id} prospect={prospect} calendlyUrl={calendlyUrl} onChange={recharger} onChangerStatut={changerStatut} />
                 ))}
               </div>
             )
@@ -65,8 +153,15 @@ const LABEL_PROGRAMME: Record<string, string> = {
   collectif: 'Collectif',
 }
 
-function CarteProspect({ prospect, onChange }: { prospect: ProspectAvecDiagnostic; onChange: () => void }) {
-  const { profile, session } = useProfileContext()
+interface CarteProspectProps {
+  prospect: ProspectAvecDiagnostic
+  calendlyUrl: string | null
+  onChange: () => void
+  onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut) => Promise<void>
+}
+
+function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: CarteProspectProps) {
+  const { profile } = useProfileContext()
   const estPositionnement = prospect.type_programme === 'collectif'
   const [ouvert, setOuvert] = useState(false)
   const [dateAppel, setDateAppel] = useState('')
@@ -74,6 +169,7 @@ function CarteProspect({ prospect, onChange }: { prospect: ProspectAvecDiagnosti
   const [rythmeConvenu, setRythmeConvenu] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  const [enGlissement, setEnGlissement] = useState(false)
 
   async function planifierAppel() {
     if (!profile || !dateAppel) return
@@ -104,13 +200,37 @@ function CarteProspect({ prospect, onChange }: { prospect: ProspectAvecDiagnosti
   }
 
   async function marquerRealise() {
-    if (!prospect.diagnostic) return
     setEnCours(true)
     setErreur(null)
+
+    let diagnosticId = prospect.diagnostic?.id ?? null
+    if (!diagnosticId) {
+      if (!profile) {
+        setEnCours(false)
+        return
+      }
+      const { data: inserted, error: insertError } = await supabase
+        .from('diagnostic_calls')
+        .insert({
+          etablissement_id: prospect.etablissement_id,
+          prospect_id: prospect.id,
+          mene_par: profile.id,
+          date_appel: new Date().toISOString(),
+        })
+        .select('id')
+        .single()
+      if (insertError || !inserted) {
+        setErreur(insertError?.message ?? "Impossible d'enregistrer le diagnostic.")
+        setEnCours(false)
+        return
+      }
+      diagnosticId = inserted.id
+    }
+
     const { error: updateDiagError } = await supabase
       .from('diagnostic_calls')
       .update({ niveau_evalue: niveauEvalue || null, rythme_convenu: rythmeConvenu || null })
-      .eq('id', prospect.diagnostic.id)
+      .eq('id', diagnosticId)
     if (updateDiagError) {
       setErreur(updateDiagError.message)
       setEnCours(false)
@@ -130,25 +250,23 @@ function CarteProspect({ prospect, onChange }: { prospect: ProspectAvecDiagnosti
   }
 
   async function convertirEnEtudiant() {
-    if (!session) return
     setEnCours(true)
-    setErreur(null)
-    const reponse = await fetch('/api/admin/convert-prospect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ prospectId: prospect.id }),
-    })
+    await onChangerStatut(prospect, 'etudiant')
     setEnCours(false)
-    if (!reponse.ok) {
-      const corps = await reponse.json().catch(() => null)
-      setErreur(corps?.error ?? 'La conversion a échoué.')
-      return
-    }
-    onChange()
   }
 
   return (
-    <div className="card card-lift" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', prospect.id)
+        e.dataTransfer.effectAllowed = 'move'
+        setEnGlissement(true)
+      }}
+      onDragEnd={() => setEnGlissement(false)}
+      className="card card-lift"
+      style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'grab', opacity: enGlissement ? 0.4 : 1 }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
         <span style={{ width: 38, height: 38, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
           {(prospect.prenom[0] ?? '').toUpperCase()}
@@ -186,13 +304,16 @@ function CarteProspect({ prospect, onChange }: { prospect: ProspectAvecDiagnosti
         </p>
       )}
 
-      {prospect.statut === 'diagnostic_planifie' && prospect.diagnostic && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, borderRadius: 10, border: '1px solid rgba(233,207,148,.28)', background: 'rgba(233,207,148,.1)', padding: '10px 12px' }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>
-            {new Date(prospect.diagnostic.date_appel).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
-          </span>
-        </div>
-      )}
+      {prospect.statut === 'diagnostic_planifie' &&
+        (prospect.diagnostic ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, borderRadius: 10, border: '1px solid rgba(233,207,148,.28)', background: 'rgba(233,207,148,.1)', padding: '10px 12px' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>
+              {new Date(prospect.diagnostic.date_appel).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+            </span>
+          </div>
+        ) : (
+          <span style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>Réservé via Calendly</span>
+        ))}
 
       {prospect.statut === 'diagnostic_fait' && prospect.diagnostic?.niveau_evalue && (
         <span style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
@@ -206,11 +327,33 @@ function CarteProspect({ prospect, onChange }: { prospect: ProspectAvecDiagnosti
 
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{erreur}</p>}
 
-      {prospect.statut === 'prospect' && !ouvert && (
-        <button onClick={() => setOuvert(true)} className="btn-shine" style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-gradient)', color: '#1b1510' }}>
-          Planifier {estPositionnement ? 'le test de positionnement' : "l'appel diagnostic"}
-        </button>
-      )}
+      {prospect.statut === 'prospect' &&
+        !ouvert &&
+        (calendlyUrl ? (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <a
+              href={calendlyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-shine"
+              style={{ flex: 1, textAlign: 'center', fontSize: 12.5, padding: 10, background: 'var(--accent-gradient)', color: '#1b1510' }}
+            >
+              Ouvrir Calendly
+            </a>
+            <button
+              onClick={() => onChangerStatut(prospect, 'diagnostic_planifie')}
+              className="btn-shine btn-secondary"
+              title={`Marquer ${estPositionnement ? 'le test' : "l'appel"} comme planifié`}
+              style={{ fontSize: 12.5, padding: '0 14px' }}
+            >
+              ✓
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => setOuvert(true)} className="btn-shine" style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-gradient)', color: '#1b1510' }}>
+            Planifier {estPositionnement ? 'le test de positionnement' : "l'appel diagnostic"}
+          </button>
+        ))}
       {prospect.statut === 'prospect' && ouvert && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>

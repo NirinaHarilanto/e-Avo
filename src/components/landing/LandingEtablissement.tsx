@@ -7,6 +7,13 @@ import { HeroDecor } from '../shared/HeroDecor'
 import { Logo } from '../shared/Logo'
 import { FormulaireProspect } from '../prospects/FormulaireProspect'
 import type { TypeProgrammeProspect } from '../../types/database.types'
+import { useTarifs } from '../../hooks/useTarifs'
+
+const PROGRAMME_LABEL: Record<TypeProgrammeProspect, string> = {
+  individuel: 'Individuel',
+  duo: 'Duo',
+  collectif: 'Collectif',
+}
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
 
@@ -58,6 +65,7 @@ export function LandingEtablissement() {
   const [loading, setLoading] = useState(true)
   const [introuvable, setIntrouvable] = useState(false)
   const [programmeChoisi, setProgrammeChoisi] = useState<TypeProgrammeProspect>('individuel')
+  const { tarifs } = useTarifs(etablissement?.id)
 
   useEffect(() => {
     if (!slug) return
@@ -156,6 +164,9 @@ export function LandingEtablissement() {
         <nav style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
           <a href="#programmes" className="nav-link-glow" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
             Programmes
+          </a>
+          <a href="#tarifs" className="nav-link-glow" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
+            Tarifs
           </a>
           <a href="#fondatrice" className="nav-link-glow" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
             Fondatrice
@@ -265,6 +276,68 @@ export function LandingEtablissement() {
           ))}
         </div>
       </section>
+
+      {tarifs.length > 0 && (
+        <section id="tarifs" style={{ padding: '20px 40px 70px', maxWidth: 1100, margin: '0 auto' }}>
+          <h2 style={{ textAlign: 'center', fontSize: 30, color: '#ffffff', marginBottom: 30 }}>Tarifs</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+            {tarifs.map((tarif, index) => (
+              <CadreOrne key={tarif.id} accent={accent.accent} style={{ padding: 0 }}>
+                <div
+                  className="card card-lift card-programme arrive"
+                  style={
+                    {
+                      padding: 24,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10,
+                      border: 'none',
+                      animationDelay: `${index * 0.1}s`,
+                      '--card-accent-soft': accent.accentSoft,
+                      '--card-accent-border': accent.accentBorder,
+                      '--card-accent-glow': accent.accentGlow,
+                    } as CSSProperties
+                  }
+                >
+                  <span
+                    style={{
+                      alignSelf: 'flex-start',
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      letterSpacing: 0.6,
+                      textTransform: 'uppercase',
+                      color: accent.accent,
+                      padding: '4px 10px',
+                      borderRadius: 999,
+                      border: `1px solid ${accent.accentBorder}`,
+                      background: accent.accentSoft,
+                    }}
+                  >
+                    {PROGRAMME_LABEL[tarif.type_programme]}
+                  </span>
+                  <h3 style={{ fontSize: 18, color: 'var(--ink)', margin: 0 }}>{tarif.titre}</h3>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                    <span className="brand-font" style={{ fontSize: 30, color: accent.accent }}>
+                      {tarif.prix % 1 === 0 ? tarif.prix.toFixed(0) : tarif.prix.toFixed(2)} €
+                    </span>
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{tarif.unite}</span>
+                  </div>
+                  {tarif.description && (
+                    <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--muted)', margin: 0 }}>{tarif.description}</p>
+                  )}
+                  <a
+                    href="#reserver"
+                    onClick={() => setProgrammeChoisi(tarif.type_programme)}
+                    style={{ fontSize: 12.5, fontWeight: 700, color: accent.accent, marginTop: 4 }}
+                  >
+                    Réserver →
+                  </a>
+                </div>
+              </CadreOrne>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section id="fondatrice" style={{ padding: '10px 40px 70px', maxWidth: 1000, margin: '0 auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 320px) 1fr', gap: 40, alignItems: 'center' }}>
@@ -389,7 +462,13 @@ export function LandingEtablissement() {
       </section>
 
       <section id="reserver" style={{ padding: '0 40px 70px', maxWidth: 640, margin: '0 auto' }}>
-        <FormulaireProspect etablissementId={etablissement.id} accent={accent} typeInitial={programmeChoisi} calendlyUrl={etablissement.calendly_url} />
+        <FormulaireProspect
+          etablissementId={etablissement.id}
+          etablissementNom={etablissement.nom}
+          accent={accent}
+          typeInitial={programmeChoisi}
+          calendlyUrl={etablissement.calendly_url}
+        />
       </section>
 
       <footer

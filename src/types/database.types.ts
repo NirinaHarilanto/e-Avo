@@ -148,6 +148,32 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['diagnostic_calls']['Insert']>
         Relationships: []
       }
+      tarifs: {
+        Row: {
+          id: string
+          etablissement_id: string
+          type_programme: TypeProgrammeProspect
+          titre: string
+          prix: number
+          unite: string
+          description: string | null
+          ordre: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          type_programme: TypeProgrammeProspect
+          titre: string
+          prix: number
+          unite?: string
+          description?: string | null
+          ordre?: number
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['tarifs']['Insert']>
+        Relationships: []
+      }
       teacher_assignments: {
         Row: {
           id: string
