@@ -1,34 +1,50 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import type { Database, TypeProgrammeProspect } from '../../types/database.types'
+
+type Package = Database['public']['Tables']['packages']['Row']
+
+const LABEL_PROGRAMME: Record<'individuel' | 'duo', string> = { individuel: 'Individuel', duo: 'Duo' }
 
 interface CreerForfaitProps {
   studentId: string
   etablissementId: string
+  /* Présent = mode édition d'un forfait existant plutôt que création. */
+  forfaitExistant?: Package | null
+  /* Création seulement : programme déjà choisi en amont (voir ChoixProgrammeInitial), le
+     formulaire s'ouvre alors directement plutôt que replié derrière un bouton. */
+  typeProgrammeInitial?: 'individuel' | 'duo'
   onCree: () => void
 }
 
-export function CreerForfait({ studentId, etablissementId, onCree }: CreerForfaitProps) {
-  const [ouvert, setOuvert] = useState(false)
-  const [totalHeures, setTotalHeures] = useState(20)
-  const [echeance, setEcheance] = useState('')
+export function CreerForfait({ studentId, etablissementId, forfaitExistant, typeProgrammeInitial, onCree }: CreerForfaitProps) {
+  const modeEdition = !!forfaitExistant
+  const [ouvert, setOuvert] = useState(modeEdition || !!typeProgrammeInitial)
+  const [typeProgramme, setTypeProgramme] = useState<'individuel' | 'duo'>(
+    forfaitExistant?.type_programme === 'duo' || typeProgrammeInitial === 'duo' ? 'duo' : 'individuel',
+  )
+  const [totalHeures, setTotalHeures] = useState(forfaitExistant?.total_heures ?? 20)
+  const [echeance, setEcheance] = useState(forfaitExistant?.echeance ?? '')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
-  async function creer() {
+  async function enregistrer() {
     setEnCours(true)
     setErreur(null)
-    const { error } = await supabase.from('packages').insert({
-      etablissement_id: etablissementId,
-      student_id: studentId,
+    const payload = {
+      type_programme: typeProgramme as TypeProgrammeProspect,
       total_heures: totalHeures,
       echeance: echeance || null,
-    })
+    }
+    const { error } = forfaitExistant
+      ? await supabase.from('packages').update(payload).eq('id', forfaitExistant.id)
+      : await supabase.from('packages').insert({ etablissement_id: etablissementId, student_id: studentId, ...payload })
     setEnCours(false)
     if (error) {
       setErreur(error.message)
       return
     }
-    setOuvert(false)
+    if (!modeEdition) setOuvert(false)
     onCree()
   }
 
@@ -42,7 +58,34 @@ export function CreerForfait({ studentId, etablissementId, onCree }: CreerForfai
 
   return (
     <div className="card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <h3 style={{ fontSize: 14, color: 'var(--accent-gold, #e9cf94)' }}>Nouveau forfait</h3>
+      <h3 style={{ fontSize: 14, color: 'var(--accent-gold, #e9cf94)' }}>{modeEdition ? 'Modifier le forfait' : 'Nouveau forfait'}</h3>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Programme</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {(['individuel', 'duo'] as const).map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setTypeProgramme(type)}
+              style={{
+                flexGrow: 1,
+                fontSize: 12.5,
+                fontWeight: typeProgramme === type ? 800 : 600,
+                color: typeProgramme === type ? '#1b1510' : 'var(--ink-2)',
+                background: typeProgramme === type ? 'var(--accent-gradient)' : 'rgba(0,0,0,.22)',
+                border: typeProgramme === type ? 'none' : '1px solid var(--border)',
+                borderRadius: 999,
+                padding: '9px 12px',
+                cursor: 'pointer',
+              }}
+            >
+              {LABEL_PROGRAMME[type]}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Total d'heures</label>
         <input
@@ -64,11 +107,13 @@ export function CreerForfait({ studentId, etablissementId, onCree }: CreerForfai
       </div>
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{erreur}</p>}
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={() => setOuvert(false)} style={{ flexGrow: 1, fontSize: 12.5, padding: 9, borderRadius: 999, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink-2)', cursor: 'pointer' }}>
-          Annuler
-        </button>
-        <button onClick={creer} disabled={enCours} className="btn-shine" style={{ flexGrow: 1, fontSize: 12.5, padding: 9, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours ? 0.6 : 1 }}>
-          Confirmer
+        {!modeEdition && (
+          <button onClick={() => setOuvert(false)} style={{ flexGrow: 1, fontSize: 12.5, padding: 9, borderRadius: 999, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink-2)', cursor: 'pointer' }}>
+            Annuler
+          </button>
+        )}
+        <button onClick={enregistrer} disabled={enCours} className="btn-shine" style={{ flexGrow: 1, fontSize: 12.5, padding: 9, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours ? 0.6 : 1 }}>
+          {modeEdition ? 'Enregistrer' : 'Confirmer'}
         </button>
       </div>
     </div>

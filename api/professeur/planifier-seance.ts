@@ -1,4 +1,5 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
+import { creerSeanceAvecInscriptions } from '../_lib/creerSeance.js'
 
 export const config = { runtime: 'edge' }
 
@@ -60,51 +61,19 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Un ou plusieurs étudiants sont invalides pour cet établissement.' }, { status: 400 })
     }
 
-    const { data: session, error: sessionError } = await serviceClient
-      .from('sessions')
-      .insert({
-        etablissement_id: etablissementId,
-        teacher_id: teacherId,
-        type: body.type,
-        debut: body.debut,
-        duree_minutes: body.dureeMinutes,
-        statut: 'planifiee',
-      })
-      .select('id')
-      .single()
-
-    if (sessionError || !session) {
-      return Response.json({ error: sessionError?.message ?? 'Échec de la création de la séance.' }, { status: 500 })
-    }
-
-    const { data: affectations } = await serviceClient
-      .from('teacher_assignments')
-      .select('id, student_id')
-      .eq('teacher_id', teacherId)
-      .in('student_id', body.studentIds)
-      .is('date_fin', null)
-    const affectationParEtudiant = new Map((affectations ?? []).map((a) => [a.student_id, a.id]))
-
-    const { error: enrollError } = await serviceClient.from('session_enrollments').insert(
-      body.studentIds.map((studentId) => ({
-        session_id: session.id,
-        student_id: studentId,
-        teacher_assignment_id: affectationParEtudiant.get(studentId) ?? null,
-        invitation_statut: 'en_attente' as const,
-      })),
-    )
-    if (enrollError) {
-      return Response.json({ error: enrollError.message }, { status: 500 })
-    }
-
-    await serviceClient.from('video_sessions').insert({
-      session_id: session.id,
-      provider: 'stub',
-      room_ref: session.id,
-      statut: 'planifiee',
+    const resultat = await creerSeanceAvecInscriptions(serviceClient, {
+      etablissementId,
+      teacherId,
+      type: body.type,
+      debut: body.debut,
+      dureeMinutes: body.dureeMinutes,
+      studentIds: body.studentIds,
     })
+    if ('error' in resultat) {
+      return Response.json({ error: resultat.error }, { status: 500 })
+    }
 
-    return Response.json({ sessionId: session.id })
+    return Response.json({ sessionId: resultat.sessionId })
   } catch (error) {
     if (error instanceof TeacherAuthError) {
       return Response.json({ error: error.message }, { status: error.status })

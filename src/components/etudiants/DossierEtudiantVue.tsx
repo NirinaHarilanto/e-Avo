@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { DossierEtudiant, PeriodeProfesseur } from '../../hooks/useDossierEtudiant'
 import { getJoinUrl } from '../../lib/visio'
 import type { Database } from '../../types/database.types'
@@ -137,16 +137,36 @@ function BlocPeriode({ periode, estActuelle }: { periode: PeriodeProfesseur; est
 
 interface DossierEtudiantVueProps {
   dossier: DossierEtudiant
-  /* Blocs admin uniquement (attribuer un professeur, créer un forfait) — absents en vue élève. */
+  /* Blocs admin uniquement — absents en vue élève/professeur. */
   panneauProfesseur?: ReactNode
-  panneauForfait?: ReactNode
+  panneauInformations?: ReactNode
+  /* Choix initial du programme (individuel/duo/collectif), affiché tant que l'étudiant n'a ni
+     forfait ni vague. */
+  panneauChoixInitial?: ReactNode
+  /* Formulaire d'édition du forfait existant, replié derrière le bouton « Modifier ». */
+  panneauForfaitEdition?: ReactNode
+  /* Formulaire de planning prévisionnel (individuel/duo), replié derrière un bouton dédié. */
+  panneauPlanification?: ReactNode
+  /* Formulaire d'assignation/changement de vague pour le programme collectif. */
+  panneauVague?: ReactNode
 }
 
-/* Rendu du dossier étudiant, partagé entre la vue admin (avec actions) et l'espace élève en
-   lecture seule — même contenu, seuls les panneaux d'action admin diffèrent. */
-export function DossierEtudiantVue({ dossier, panneauProfesseur, panneauForfait }: DossierEtudiantVueProps) {
-  const { etudiant, periodes, diagnostic, packages, heuresConsommees, prochaineSeance } = dossier
+/* Rendu du dossier étudiant, partagé entre la vue admin (avec actions) et l'espace élève/
+   professeur en lecture seule — même contenu, seuls les panneaux d'action admin diffèrent. */
+export function DossierEtudiantVue({
+  dossier,
+  panneauProfesseur,
+  panneauInformations,
+  panneauChoixInitial,
+  panneauForfaitEdition,
+  panneauPlanification,
+  panneauVague,
+}: DossierEtudiantVueProps) {
+  const { etudiant, periodes, diagnostic, packages, cohorte, heuresConsommees, prochaineSeance } = dossier
   const forfait = packages[0] ?? null
+  const [editionForfaitOuverte, setEditionForfaitOuverte] = useState(false)
+  const [planificationOuverte, setPlanificationOuverte] = useState(false)
+  const [editionVagueOuverte, setEditionVagueOuverte] = useState(false)
   const seancesTerminees = periodes.flatMap((p) => p.seances).filter((s) => s.session.statut === 'terminee')
   const assiduite =
     seancesTerminees.length > 0
@@ -235,6 +255,8 @@ export function DossierEtudiantVue({ dossier, panneauProfesseur, panneauForfait 
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {panneauInformations}
+
           {professeurActuel && !panneauProfesseur && (
             <div className="card" style={{ padding: '20px 22px' }}>
               <h3 style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)', marginBottom: 14 }}>Professeur actuel</h3>
@@ -287,12 +309,58 @@ export function DossierEtudiantVue({ dossier, panneauProfesseur, panneauForfait 
             </div>
           )}
 
-          {!forfait && panneauForfait}
+          {!forfait && !cohorte && panneauChoixInitial}
 
-          {forfait && (
+          {cohorte && (
             <div className="card" style={{ padding: '20px 22px' }}>
-              <h3 style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)', marginBottom: 14 }}>Forfait en cours</h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <h3 style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>Programme collectif</h3>
+                {panneauVague && (
+                  <button
+                    onClick={() => setEditionVagueOuverte((v) => !v)}
+                    style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '6px 12px', cursor: 'pointer' }}
+                  >
+                    Changer
+                  </button>
+                )}
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <LigneInfo label="Vague" valeur={cohorte.nom} />
+                <LigneInfo label="Langue" valeur={cohorte.langue ?? '—'} />
+                <LigneInfo
+                  label="Dates"
+                  valeur={`${new Date(cohorte.date_debut).toLocaleDateString('fr-FR')} → ${new Date(cohorte.date_fin).toLocaleDateString('fr-FR')}`}
+                />
+              </div>
+              {editionVagueOuverte && <div style={{ marginTop: 14 }}>{panneauVague}</div>}
+            </div>
+          )}
+
+          {!cohorte && forfait && (
+            <div className="card" style={{ padding: '20px 22px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 8, flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>Forfait en cours</h3>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {panneauPlanification && (
+                    <button
+                      onClick={() => setPlanificationOuverte((v) => !v)}
+                      style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '6px 12px', cursor: 'pointer' }}
+                    >
+                      Planifier les séances
+                    </button>
+                  )}
+                  {panneauForfaitEdition && (
+                    <button
+                      onClick={() => setEditionForfaitOuverte((v) => !v)}
+                      style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '6px 12px', cursor: 'pointer' }}
+                    >
+                      Modifier
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <LigneInfo label="Programme" valeur={forfait.type_programme === 'duo' ? 'Duo' : 'Individuel'} />
                 <LigneInfo label="Formule" valeur={`${forfait.total_heures} h`} />
                 <LigneInfo label="Consommées" valeur={`${heuresConsommees} h`} />
                 <LigneInfo label="Échéance" valeur={forfait.echeance ? new Date(forfait.echeance).toLocaleDateString('fr-FR') : '—'} />
@@ -306,6 +374,8 @@ export function DossierEtudiantVue({ dossier, panneauProfesseur, panneauForfait 
                   }}
                 />
               </div>
+              {editionForfaitOuverte && <div style={{ marginTop: 14 }}>{panneauForfaitEdition}</div>}
+              {planificationOuverte && <div style={{ marginTop: 14 }}>{panneauPlanification}</div>}
             </div>
           )}
         </div>

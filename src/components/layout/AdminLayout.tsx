@@ -6,6 +6,7 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Prospects', href: '/admin/prospects', disponible: true },
       { label: 'Étudiants', href: '/admin/etudiants', disponible: true },
+      { label: 'Vagues', href: '/admin/vagues', disponible: true },
       { label: 'Professeurs', href: '/admin/professeurs', disponible: true },
       { label: 'Séances & visio', href: '/admin/seances', disponible: true },
       { label: 'Heures & forfaits', href: '/admin/heures', disponible: true },

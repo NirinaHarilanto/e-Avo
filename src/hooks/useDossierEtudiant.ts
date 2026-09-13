@@ -9,6 +9,7 @@ type SessionEnrollment = Database['public']['Tables']['session_enrollments']['Ro
 type DiagnosticCall = Database['public']['Tables']['diagnostic_calls']['Row']
 type Package = Database['public']['Tables']['packages']['Row']
 type VideoSession = Database['public']['Tables']['video_sessions']['Row']
+type Cohort = Database['public']['Tables']['cohorts']['Row']
 
 export interface SeanceDuParcours {
   enrollment: SessionEnrollment
@@ -27,6 +28,10 @@ export interface DossierEtudiant {
   periodes: PeriodeProfesseur[]
   diagnostic: DiagnosticCall | null
   packages: Package[]
+  /* Vague (cohorte) collectif de l'étudiant, s'il en a une — sinon il est individuel/duo via
+     `packages`. Pas de colonne dédiée : la présence d'une inscription à une cohorte suffit à
+     distinguer les deux cas. */
+  cohorte: Cohort | null
   heuresConsommees: number
   prochaineSeance: SeanceDuParcours | null
 }
@@ -53,12 +58,16 @@ export function useDossierEtudiant(studentId: string | undefined) {
       return
     }
 
-    const [{ data: affectations }, { data: enrollments }, { data: packages }, { data: resume }] = await Promise.all([
+    const [{ data: affectations }, { data: enrollments }, { data: packages }, { data: resume }, { data: inscriptionCohorte }] = await Promise.all([
       supabase.from('teacher_assignments').select('*').eq('student_id', studentId).order('date_debut', { ascending: false }),
       supabase.from('session_enrollments').select('*').eq('student_id', studentId),
       supabase.from('packages').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
       supabase.from('student_hours_summary').select('*').eq('student_id', studentId).maybeSingle(),
+      supabase.from('cohort_enrollments').select('cohort_id').eq('student_id', studentId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ])
+    const cohorte = inscriptionCohorte
+      ? (await supabase.from('cohorts').select('*').eq('id', inscriptionCohorte.cohort_id).maybeSingle()).data
+      : null
 
     const sessionIds = [...new Set((enrollments ?? []).map((e) => e.session_id))]
     const [{ data: sessions }, { data: videos }] =
@@ -116,6 +125,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
       periodes,
       diagnostic,
       packages: packages ?? [],
+      cohorte: cohorte ?? null,
       heuresConsommees: resume?.heures_consommees ?? 0,
       prochaineSeance,
     })

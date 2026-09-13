@@ -5,8 +5,12 @@ import { useEtudiants } from '../../hooks/useEtudiants'
 import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { AttribuerProfesseur } from './AttribuerProfesseur'
 import { CreerForfait } from './CreerForfait'
+import { AssignerVague } from './AssignerVague'
+import { ChoixProgrammeInitial } from './ChoixProgrammeInitial'
+import { PlanifierSeancesForfait } from './PlanifierSeancesForfait'
 import { DossierEtudiantVue, initiales } from './DossierEtudiantVue'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
+import { InformationsPersonnelles } from '../shared/InformationsPersonnelles'
 
 export function EtudiantsAdmin() {
   const { id } = useParams<{ id: string }>()
@@ -98,21 +102,44 @@ function DossierPanel({ studentId }: { studentId: string }) {
   if (loading) return <p style={{ color: 'var(--muted)' }}>Chargement du dossier…</p>
   if (erreur || !dossier) return <p style={{ color: 'var(--danger)' }}>{erreur ?? 'Dossier introuvable.'}</p>
 
-  const affectationActuelle = dossier.periodes[0] && !dossier.periodes[0].affectation.date_fin ? dossier.periodes[0].affectation : null
+  const periodeActuelle = dossier.periodes[0] && !dossier.periodes[0].affectation.date_fin ? dossier.periodes[0] : null
+  const affectationActuelle = periodeActuelle?.affectation ?? null
+  const forfait = dossier.packages[0] ?? null
+  const { etudiant } = dossier
 
   return (
     <DossierEtudiantVue
       dossier={dossier}
       panneauProfesseur={
         <AttribuerProfesseur
-          studentId={dossier.etudiant.id}
-          etablissementId={dossier.etudiant.etablissement_id}
+          studentId={etudiant.id}
+          etablissementId={etudiant.etablissement_id}
           affectationActuelle={affectationActuelle}
           onTermine={recharger}
         />
       }
-      panneauForfait={
-        <CreerForfait studentId={dossier.etudiant.id} etablissementId={dossier.etudiant.etablissement_id} onCree={recharger} />
+      panneauInformations={<InformationsPersonnelles personne={etudiant} onChange={recharger} />}
+      panneauChoixInitial={
+        <ChoixProgrammeInitial studentId={etudiant.id} etablissementId={etudiant.etablissement_id} onCree={recharger} />
+      }
+      panneauForfaitEdition={
+        forfait ? <CreerForfait studentId={etudiant.id} etablissementId={etudiant.etablissement_id} forfaitExistant={forfait} onCree={recharger} /> : undefined
+      }
+      panneauPlanification={
+        forfait && periodeActuelle?.professeur ? (
+          <PlanifierSeancesForfait
+            studentIds={[etudiant.id]}
+            teacherId={periodeActuelle.professeur.id}
+            dureeParDefaut={60}
+            dateFinParDefaut={forfait.echeance}
+            onCree={recharger}
+          />
+        ) : undefined
+      }
+      panneauVague={
+        dossier.cohorte ? (
+          <AssignerVague studentId={etudiant.id} etablissementId={etudiant.etablissement_id} vagueActuelle={dossier.cohorte} ouvertParDefaut onTermine={recharger} />
+        ) : undefined
       }
     />
   )

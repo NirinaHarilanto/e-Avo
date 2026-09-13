@@ -24,6 +24,7 @@ export type StatutPaiement = 'attendu' | 'paye' | 'en_retard' | 'annule'
 export type StatutDevis = 'brouillon' | 'envoye' | 'accepte' | 'refuse' | 'expire'
 export type StatutFacture = 'emise' | 'envoyee' | 'payee' | 'en_retard' | 'annulee'
 export type StatutContrat = 'brouillon' | 'envoye' | 'signe' | 'resilie'
+export type StatutCohorte = 'a_venir' | 'en_cours' | 'terminee'
 
 export interface LigneFacturation {
   description: string
@@ -74,6 +75,8 @@ export interface Database {
           nom: string | null
           prenom: string | null
           email: string | null
+          telephone: string | null
+          adresse: string | null
           created_at: string
         }
         Insert: {
@@ -85,6 +88,8 @@ export interface Database {
           nom?: string | null
           prenom?: string | null
           email?: string | null
+          telephone?: string | null
+          adresse?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>
@@ -253,6 +258,7 @@ export interface Database {
           id: string
           etablissement_id: string
           student_id: string
+          type_programme: TypeProgrammeProspect
           total_heures: number
           echeance: string | null
           created_at: string
@@ -261,11 +267,58 @@ export interface Database {
           id?: string
           etablissement_id: string
           student_id: string
+          type_programme?: TypeProgrammeProspect
           total_heures: number
           echeance?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['packages']['Insert']>
+        Relationships: []
+      }
+      cohorts: {
+        Row: {
+          id: string
+          etablissement_id: string
+          nom: string
+          langue: string | null
+          date_debut: string
+          date_fin: string
+          capacite_max: number | null
+          statut: StatutCohorte
+          created_by_profile_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          nom: string
+          langue?: string | null
+          date_debut: string
+          date_fin: string
+          capacite_max?: number | null
+          statut?: StatutCohorte
+          created_by_profile_id: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['cohorts']['Insert']>
+        Relationships: []
+      }
+      cohort_enrollments: {
+        Row: {
+          id: string
+          etablissement_id: string
+          cohort_id: string
+          student_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          cohort_id: string
+          student_id: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['cohort_enrollments']['Insert']>
         Relationships: []
       }
       hour_ledger: {
