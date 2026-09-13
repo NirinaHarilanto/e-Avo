@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
-import { deriveAccent } from '../../lib/accent'
+import { deriveAccent, type AccentPalette } from '../../lib/accent'
 import { HeroDecor } from '../shared/HeroDecor'
 import { Logo } from '../shared/Logo'
 import { FormulaireProspect } from '../prospects/FormulaireProspect'
@@ -56,6 +56,108 @@ function CadreOrne({ accent, children, style }: { accent: string; children: Reac
       <span className="coin" style={{ bottom: -9, right: -9, borderWidth: '0 2px 2px 0' }} />
       <div style={{ position: 'relative', color: 'var(--ink)' }}>{children}</div>
     </div>
+  )
+}
+
+const LIMITE_TARIFS_VISIBLES = 4
+
+/* Un bloc = un programme (individuel/duo/collectif). Hauteur commune assurée par la grille
+   parente (alignItems: 'stretch') + `height: '100%'` ici ; le CTA est poussé en bas via
+   `marginTop: 'auto'` pour rester aligné entre les 3 blocs même quand un programme a plus de
+   lignes tarifaires qu'un autre — au-delà de `LIMITE_TARIFS_VISIBLES`, le surplus est replié
+   derrière un bouton "Voir tous les tarifs". */
+function BlocTarif({
+  type,
+  lignes,
+  accent,
+  onReserver,
+}: {
+  type: TypeProgrammeProspect
+  lignes: Database['public']['Tables']['tarifs']['Row'][]
+  accent: AccentPalette
+  onReserver: () => void
+}) {
+  const [etendu, setEtendu] = useState(false)
+  const lignesVisibles = etendu ? lignes : lignes.slice(0, LIMITE_TARIFS_VISIBLES)
+  const masquees = lignes.length - lignesVisibles.length
+
+  return (
+    <CadreOrne accent={accent.accent} style={{ padding: 0, height: '100%' }}>
+      <div className="arrive" style={{ padding: '26px 22px', display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span
+            style={{
+              alignSelf: 'flex-start',
+              fontSize: 10.5,
+              fontWeight: 700,
+              letterSpacing: 0.6,
+              textTransform: 'uppercase',
+              color: accent.accent,
+              padding: '4px 10px',
+              borderRadius: 999,
+              border: `1px solid ${accent.accentBorder}`,
+              background: accent.accentSoft,
+            }}
+          >
+            {PROGRAMME_LABEL[type]}
+          </span>
+          <h3 className="brand-font" style={{ fontSize: 19, color: '#ffffff', margin: 0 }}>
+            {type === 'individuel' ? 'Cours particuliers' : type === 'duo' ? 'Cours en duo' : 'Cours en petit groupe'}
+          </h3>
+          {type === 'individuel' && (
+            <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--muted)', margin: 0 }}>
+              Anglais général, focus oral, compréhension ou grammaire — ou anglais des affaires
+              (meetings, présentations, négociation). Contenu 100 % personnalisable sur demande.
+            </p>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          {lignesVisibles.map((ligne, index) => (
+            <div
+              key={ligne.id}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                padding: '10px 10px',
+                borderRadius: 8,
+                background: index % 2 === 0 ? accent.accentSoft : 'transparent',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>{ligne.titre}</span>
+                <span className="brand-font" style={{ fontSize: 15, color: accent.accent, whiteSpace: 'nowrap' }}>
+                  {ligne.prix.toLocaleString('fr-FR')} {ligne.unite}
+                </span>
+              </div>
+              {ligne.description && (
+                <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{ligne.description}</span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {lignes.length > LIMITE_TARIFS_VISIBLES && (
+          <button
+            type="button"
+            onClick={() => setEtendu((v) => !v)}
+            style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: accent.accent, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+          >
+            {etendu ? 'Réduire ↑' : `Voir tous les tarifs (+${masquees}) ↓`}
+          </button>
+        )}
+
+        <a
+          href="#reserver"
+          onClick={onReserver}
+          className="btn-shine"
+          style={{ alignSelf: 'flex-start', marginTop: 'auto', fontSize: 12.5, padding: '10px 18px', background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}
+        >
+          Réserver →
+        </a>
+      </div>
+    </CadreOrne>
   )
 }
 
@@ -280,77 +382,18 @@ export function LandingEtablissement() {
       {tarifs.length > 0 && (
         <section id="tarifs" style={{ padding: '20px 40px 70px', maxWidth: 1100, margin: '0 auto' }}>
           <h2 style={{ textAlign: 'center', fontSize: 30, color: '#ffffff', marginBottom: 30 }}>Tarifs</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, alignItems: 'stretch' }}>
             {(['individuel', 'duo', 'collectif'] as const).map((type) => {
               const lignes = tarifs.filter((t) => t.type_programme === type)
               if (lignes.length === 0) return null
               return (
-                <CadreOrne key={type} accent={accent.accent} style={{ padding: 0 }}>
-                  <div className="arrive" style={{ padding: '26px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <span
-                        style={{
-                          alignSelf: 'flex-start',
-                          fontSize: 10.5,
-                          fontWeight: 700,
-                          letterSpacing: 0.6,
-                          textTransform: 'uppercase',
-                          color: accent.accent,
-                          padding: '4px 10px',
-                          borderRadius: 999,
-                          border: `1px solid ${accent.accentBorder}`,
-                          background: accent.accentSoft,
-                        }}
-                      >
-                        {PROGRAMME_LABEL[type]}
-                      </span>
-                      <h3 className="brand-font" style={{ fontSize: 19, color: '#ffffff', margin: 0 }}>
-                        {type === 'individuel' ? 'Cours particuliers' : type === 'duo' ? 'Cours en duo' : 'Cours en petit groupe'}
-                      </h3>
-                      {type === 'individuel' && (
-                        <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--muted)', margin: 0 }}>
-                          Anglais général, focus oral, compréhension ou grammaire — ou anglais des affaires
-                          (meetings, présentations, négociation). Contenu 100 % personnalisable sur demande.
-                        </p>
-                      )}
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      {lignes.map((ligne, index) => (
-                        <div
-                          key={ligne.id}
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 2,
-                            padding: '10px 10px',
-                            borderRadius: 8,
-                            background: index % 2 === 0 ? accent.accentSoft : 'transparent',
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-                            <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>{ligne.titre}</span>
-                            <span className="brand-font" style={{ fontSize: 15, color: accent.accent, whiteSpace: 'nowrap' }}>
-                              {ligne.prix.toLocaleString('fr-FR')} {ligne.unite}
-                            </span>
-                          </div>
-                          {ligne.description && (
-                            <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{ligne.description}</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    <a
-                      href="#reserver"
-                      onClick={() => setProgrammeChoisi(type)}
-                      className="btn-shine"
-                      style={{ alignSelf: 'flex-start', fontSize: 12.5, padding: '10px 18px', background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}
-                    >
-                      Réserver →
-                    </a>
-                  </div>
-                </CadreOrne>
+                <BlocTarif
+                  key={type}
+                  type={type}
+                  lignes={lignes}
+                  accent={accent}
+                  onReserver={() => setProgrammeChoisi(type)}
+                />
               )
             })}
           </div>

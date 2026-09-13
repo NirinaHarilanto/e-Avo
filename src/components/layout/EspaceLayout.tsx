@@ -109,8 +109,20 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
             </div>
             <button
               onClick={async () => {
+                // `etablissement` peut ne pas encore être chargé si le clic arrive très vite
+                // après le rendu (fetch asynchrone séparé, non couvert par `loading`) — on
+                // refait alors un fetch direct du slug pour ne jamais retomber sur `/`.
+                let slug = etablissement?.slug ?? null
+                if (!slug) {
+                  const { data } = await supabase
+                    .from('etablissements')
+                    .select('slug')
+                    .eq('id', profile.etablissement_id)
+                    .maybeSingle()
+                  slug = data?.slug ?? null
+                }
                 await seDeconnecter()
-                navigate(etablissement ? `/e/${etablissement.slug}` : '/', { replace: true })
+                navigate(slug ? `/e/${slug}` : '/', { replace: true })
               }}
               style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '8px 14px', cursor: 'pointer' }}
             >
