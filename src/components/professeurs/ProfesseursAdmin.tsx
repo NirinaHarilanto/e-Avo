@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { supabase } from '../../lib/supabaseClient'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
 
 export function ProfesseursAdmin() {
+  const navigate = useNavigate()
   const { professeurs, loading, recharger } = useProfesseurs()
   const [comptes, setComptes] = useState<Record<string, number>>({})
   const [heures, setHeures] = useState<Record<string, number>>({})
@@ -61,7 +63,12 @@ export function ProfesseursAdmin() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
           {professeurs.map((prof) => (
-            <div key={prof.id} className="card card-lift" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div
+              key={prof.id}
+              onClick={() => navigate(`/admin/professeurs/${prof.id}`)}
+              className="card card-lift"
+              style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10, cursor: 'pointer' }}
+            >
               <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
                 <span style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--accent-blue-gradient)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 800, flexShrink: 0 }}>
                   {(prof.prenom?.[0] ?? '').toUpperCase()}

@@ -7,6 +7,7 @@ import { PipelineCRM } from './components/pipeline/PipelineCRM'
 import { EtudiantsAdmin } from './components/etudiants/EtudiantsAdmin'
 import { CohortesAdmin } from './components/admin/CohortesAdmin'
 import { ProfesseursAdmin } from './components/professeurs/ProfesseursAdmin'
+import { ProfesseurDetailAdmin } from './components/professeurs/ProfesseurDetailAdmin'
 import { SeancesAdmin } from './components/admin/SeancesAdmin'
 import { HeuresAdmin } from './components/admin/HeuresAdmin'
 import { DocumentsAdmin } from './components/admin/DocumentsAdmin'
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="/admin/etudiants/:id" element={<EtudiantsAdmin />} />
           <Route path="/admin/vagues" element={<CohortesAdmin />} />
           <Route path="/admin/professeurs" element={<ProfesseursAdmin />} />
+          <Route path="/admin/professeurs/:id" element={<ProfesseurDetailAdmin />} />
           <Route path="/admin/seances" element={<SeancesAdmin />} />
           <Route path="/admin/heures" element={<HeuresAdmin />} />
           <Route path="/admin/documents" element={<DocumentsAdmin />} />
