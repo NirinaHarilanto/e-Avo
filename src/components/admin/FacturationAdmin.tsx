@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useDevis, type DevisAvecEtudiant } from '../../hooks/useDevis'
-import { useFactures, type FactureAvecEtudiant } from '../../hooks/useFactures'
+import { useFactures, type FactureAvecDestinataire } from '../../hooks/useFactures'
 import { usePaiementsEtudiants } from '../../hooks/usePaiementsEtudiants'
 import { supabase } from '../../lib/supabaseClient'
 import { CreerDevis } from '../facturation/CreerDevis'
@@ -29,7 +29,7 @@ export function FacturationAdmin() {
   const [onglet, setOnglet] = useState<Onglet>('devis')
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [devisAImprimer, setDevisAImprimer] = useState<DevisAvecEtudiant | null>(null)
-  const [factureAImprimer, setFactureAImprimer] = useState<FactureAvecEtudiant | null>(null)
+  const [factureAImprimer, setFactureAImprimer] = useState<FactureAvecDestinataire | null>(null)
 
   const { devis, loading: chargementDevis, erreur: erreurDevis, recharger: rechargerDevis } = useDevis()
   const { factures, loading: chargementFactures, erreur: erreurFactures, recharger: rechargerFactures } = useFactures()
@@ -129,7 +129,7 @@ export function FacturationAdmin() {
       )}
 
       {devisAImprimer && <DevisImprimable devis={devisAImprimer.devis} etudiant={devisAImprimer.etudiant} onFermer={() => setDevisAImprimer(null)} />}
-      {factureAImprimer && <FactureImprimable facture={factureAImprimer.facture} etudiant={factureAImprimer.etudiant} onFermer={() => setFactureAImprimer(null)} />}
+      {factureAImprimer && <FactureImprimable facture={factureAImprimer.facture} destinataire={factureAImprimer.destinataire} onFermer={() => setFactureAImprimer(null)} />}
     </AdminLayout>
   )
 }
@@ -217,15 +217,16 @@ function LigneFacture({
   onChange,
   accessToken,
 }: {
-  item: FactureAvecEtudiant
+  item: FactureAvecDestinataire
   paiementsEtudiant: ReturnType<typeof usePaiementsEtudiants>['paiements']
   onImprimer: () => void
   onChange: () => void
   accessToken: string | undefined
 }) {
-  const { facture, etudiant } = item
+  const { facture, destinataire } = item
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  const [envoyee, setEnvoyee] = useState(false)
 
   async function changerStatut(nouveau: StatutFacture) {
     setEnCours(true)
@@ -270,11 +271,36 @@ function LigneFacture({
     onChange()
   }
 
+  async function envoyer() {
+    if (!accessToken || !destinataire) return
+    setEnCours(true)
+    setErreur(null)
+    const reponse = await fetch('/api/admin/notifier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        destinataireProfileId: destinataire.id,
+        type: 'facture',
+        titre: `Nouvelle facture · ${facture.numero}`,
+        message: facture.objet,
+        lien: facture.teacher_id ? '/professeur/factures' : '/mon-espace/paiements',
+      }),
+    })
+    setEnCours(false)
+    if (!reponse.ok) {
+      const corps = await reponse.json().catch(() => null)
+      setErreur(corps?.error ?? "L'envoi a échoué.")
+      return
+    }
+    setEnvoyee(true)
+  }
+
   return (
     <div className="card card-lift" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
       <div style={{ flexGrow: 1, minWidth: 200 }}>
         <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
-          {facture.numero} — {etudiant ? `${etudiant.prenom} ${etudiant.nom}` : 'Étudiant inconnu'}
+          {facture.numero} — {destinataire ? `${destinataire.prenom} ${destinataire.nom}` : 'Destinataire inconnu'}
+          {facture.teacher_id && <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent-blue)', marginLeft: 8 }}>PROFESSEUR</span>}
         </span>
         <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{facture.objet}</div>
       </div>
@@ -308,6 +334,13 @@ function LigneFacture({
           ))}
         </select>
       )}
+      <button
+        onClick={envoyer}
+        disabled={enCours || envoyee || !destinataire}
+        style={{ fontSize: 12, fontWeight: 700, color: envoyee ? 'var(--accent-teal)' : 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: envoyee ? 'default' : 'pointer' }}
+      >
+        {envoyee ? 'Envoyée ✓' : 'Envoyer'}
+      </button>
       <button onClick={onImprimer} style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
         Imprimer
       </button>

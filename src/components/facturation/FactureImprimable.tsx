@@ -8,11 +8,11 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 
 interface FactureImprimableProps {
   facture: Invoice
-  etudiant: Profile | null
+  destinataire: Profile | null
   onFermer: () => void
 }
 
-export function FactureImprimable({ facture, etudiant, onFermer }: FactureImprimableProps) {
+export function FactureImprimable({ facture, destinataire, onFermer }: FactureImprimableProps) {
   const etablissement = useEtablissement(facture.etablissement_id)
 
   return (
@@ -30,8 +30,8 @@ export function FactureImprimable({ facture, etudiant, onFermer }: FactureImprim
       </div>
 
       <div style={{ marginTop: 24, fontSize: 13 }}>
-        <strong>Destinataire :</strong> {etudiant?.prenom} {etudiant?.nom}
-        {etudiant?.email && <span> — {etudiant.email}</span>}
+        <strong>Destinataire :</strong> {destinataire?.prenom} {destinataire?.nom}
+        {destinataire?.email && <span> — {destinataire.email}</span>}
       </div>
 
       {facture.objet && (

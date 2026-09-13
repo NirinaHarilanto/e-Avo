@@ -1,7 +1,12 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { supabase } from '../../lib/supabaseClient'
+import type { Database } from '../../types/database.types'
+
+type Package = Database['public']['Tables']['packages']['Row']
+
+const LABEL_PROGRAMME: Record<Package['type_programme'], string> = { individuel: 'Individuel', duo: 'Duo', collectif: 'Collectif' }
 
 const champStyle: React.CSSProperties = {
   border: '1px solid var(--border)',
@@ -22,12 +27,28 @@ export function CreerPaiementEtudiant({ etablissementId, onCree, onAnnuler }: Cr
   const { profile } = useProfileContext()
   const { etudiants } = useEtudiants()
   const [studentId, setStudentId] = useState('')
+  const [forfaits, setForfaits] = useState<Package[]>([])
+  const [packageId, setPackageId] = useState('')
   const [montant, setMontant] = useState('')
   const [dateEcheance, setDateEcheance] = useState('')
   const [moyenPaiement, setMoyenPaiement] = useState('')
   const [reference, setReference] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+
+  useEffect(() => {
+    setPackageId('')
+    if (!studentId) {
+      setForfaits([])
+      return
+    }
+    supabase
+      .from('packages')
+      .select('*')
+      .eq('student_id', studentId)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setForfaits(data ?? []))
+  }, [studentId])
 
   async function creer(e: FormEvent) {
     e.preventDefault()
@@ -37,6 +58,7 @@ export function CreerPaiementEtudiant({ etablissementId, onCree, onAnnuler }: Cr
     const { error } = await supabase.from('student_payments').insert({
       etablissement_id: etablissementId,
       student_id: studentId,
+      package_id: packageId || null,
       montant: Number(montant),
       date_echeance: dateEcheance || null,
       moyen_paiement: moyenPaiement || null,
@@ -60,6 +82,17 @@ export function CreerPaiementEtudiant({ etablissementId, onCree, onAnnuler }: Cr
           {etudiants.map((e) => (
             <option key={e.id} value={e.id}>
               {e.prenom} {e.nom}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 }}>
+        <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Forfait / programme (optionnel)</label>
+        <select value={packageId} onChange={(e) => setPackageId(e.target.value)} disabled={forfaits.length === 0} style={champStyle}>
+          <option value="">Aucun forfait rattaché</option>
+          {forfaits.map((f) => (
+            <option key={f.id} value={f.id}>
+              {LABEL_PROGRAMME[f.type_programme]} · {f.total_heures} h
             </option>
           ))}
         </select>

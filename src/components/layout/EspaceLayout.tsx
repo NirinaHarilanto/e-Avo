@@ -6,6 +6,7 @@ import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { Logo } from '../shared/Logo'
+import { NotificationsBell } from '../shared/NotificationsBell'
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
 type Role = Database['public']['Tables']['profiles']['Row']['role']
@@ -107,6 +108,7 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
               </span>
               <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{roleLabel}</span>
             </div>
+            <NotificationsBell profileId={profile.id} />
             <button
               onClick={async () => {
                 // `etablissement` peut ne pas encore être chargé si le clic arrive très vite

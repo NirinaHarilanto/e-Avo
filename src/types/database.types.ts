@@ -77,6 +77,7 @@ export interface Database {
           email: string | null
           telephone: string | null
           adresse: string | null
+          taux_horaire: number | null
           created_at: string
         }
         Insert: {
@@ -90,6 +91,7 @@ export interface Database {
           email?: string | null
           telephone?: string | null
           adresse?: string | null
+          taux_horaire?: number | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>
@@ -330,6 +332,7 @@ export interface Database {
           teacher_id: string | null
           type_ecriture: LedgerType
           heures: number
+          teacher_payment_id: string | null
           created_at: string
         }
         Insert: {
@@ -340,6 +343,7 @@ export interface Database {
           teacher_id?: string | null
           type_ecriture: LedgerType
           heures: number
+          teacher_payment_id?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['hour_ledger']['Insert']>
@@ -452,6 +456,7 @@ export interface Database {
           date_paiement: string | null
           reference: string | null
           notes: string | null
+          mode_remuneration: 'horaire' | 'mensuel'
           created_by_profile_id: string
           created_at: string
         }
@@ -469,6 +474,7 @@ export interface Database {
           date_paiement?: string | null
           reference?: string | null
           notes?: string | null
+          mode_remuneration?: 'horaire' | 'mensuel'
           created_by_profile_id: string
           created_at?: string
         }
@@ -517,7 +523,11 @@ export interface Database {
         Row: {
           id: string
           etablissement_id: string
-          student_id: string
+          /* Exactement l'un des deux est renseigné (contrainte invoices_destinataire_unique,
+             0029) : student_id pour une facture/reçu étudiant, teacher_id pour une facture
+             professeur. */
+          student_id: string | null
+          teacher_id: string | null
           quote_id: string | null
           payment_id: string | null
           numero: string
@@ -537,7 +547,8 @@ export interface Database {
         Insert: {
           id?: string
           etablissement_id: string
-          student_id: string
+          student_id?: string | null
+          teacher_id?: string | null
           quote_id?: string | null
           payment_id?: string | null
           numero: string
@@ -555,6 +566,32 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['invoices']['Insert']>
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          id: string
+          etablissement_id: string
+          destinataire_profile_id: string
+          type: string
+          titre: string
+          message: string | null
+          lien: string | null
+          lu: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          destinataire_profile_id: string
+          type: string
+          titre: string
+          message?: string | null
+          lien?: string | null
+          lu?: boolean
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['notifications']['Insert']>
         Relationships: []
       }
       contract_templates: {

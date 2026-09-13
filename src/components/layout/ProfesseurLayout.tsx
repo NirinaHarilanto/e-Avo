@@ -7,6 +7,7 @@ const PROFESSEUR_NAV_GROUPS: NavGroup[] = [
       { label: 'Calendrier', href: '/professeur/calendrier', disponible: true },
       { label: 'Mes étudiants', href: '/professeur/etudiants', disponible: true },
       { label: 'Mes heures', href: '/professeur/heures', disponible: true },
+      { label: 'Mes factures', href: '/professeur/factures', disponible: true },
       { label: 'Documents', href: '/professeur/documents', disponible: true },
     ],
   },

@@ -4,10 +4,12 @@ import type { Database } from '../types/database.types'
 
 type StudentPayment = Database['public']['Tables']['student_payments']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
+type Package = Database['public']['Tables']['packages']['Row']
 
 export interface PaiementEtudiant {
   paiement: StudentPayment
   etudiant: Profile | null
+  forfait: Package | null
 }
 
 export function usePaiementsEtudiants() {
@@ -30,12 +32,21 @@ export function usePaiementsEtudiants() {
     }
 
     const studentIds = [...new Set((data ?? []).map((p) => p.student_id))]
-    const { data: etudiants } = studentIds.length
-      ? await supabase.from('profiles').select('*').in('id', studentIds)
-      : { data: [] as Profile[] }
+    const packageIds = [...new Set((data ?? []).map((p) => p.package_id).filter((id): id is string => !!id))]
+    const [{ data: etudiants }, { data: forfaits }] = await Promise.all([
+      studentIds.length ? supabase.from('profiles').select('*').in('id', studentIds) : Promise.resolve({ data: [] as Profile[] }),
+      packageIds.length ? supabase.from('packages').select('*').in('id', packageIds) : Promise.resolve({ data: [] as Package[] }),
+    ])
     const etudiantParId = new Map((etudiants ?? []).map((e) => [e.id, e]))
+    const forfaitParId = new Map((forfaits ?? []).map((f) => [f.id, f]))
 
-    setPaiements((data ?? []).map((paiement) => ({ paiement, etudiant: etudiantParId.get(paiement.student_id) ?? null })))
+    setPaiements(
+      (data ?? []).map((paiement) => ({
+        paiement,
+        etudiant: etudiantParId.get(paiement.student_id) ?? null,
+        forfait: paiement.package_id ? (forfaitParId.get(paiement.package_id) ?? null) : null,
+      })),
+    )
     setLoading(false)
   }, [])
 

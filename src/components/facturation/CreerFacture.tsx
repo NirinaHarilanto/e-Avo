@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useEtudiants } from '../../hooks/useEtudiants'
+import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { supabase } from '../../lib/supabaseClient'
 import type { DevisAvecEtudiant } from '../../hooks/useDevis'
 import type { LigneFacturation } from '../../types/database.types'
@@ -22,13 +23,18 @@ interface CreerFactureProps {
   onAnnuler: () => void
 }
 
-/* Une facture peut être créée à partir d'un devis accepté (pré-remplit étudiant/objet/lignes,
-   garde le lien via quote_id) ou directement à zéro — les deux passent par le même formulaire. */
+type TypeDestinataire = 'etudiant' | 'professeur'
+
+/* Une facture peut être créée à partir d'un devis accepté (étudiant uniquement — pré-remplit
+   étudiant/objet/lignes, garde le lien via quote_id) ou directement à zéro pour un étudiant ou
+   un professeur (rémunération). */
 export function CreerFacture({ etablissementId, devisAcceptes, onCree, onAnnuler }: CreerFactureProps) {
   const { profile } = useProfileContext()
   const { etudiants } = useEtudiants()
+  const { professeurs } = useProfesseurs()
+  const [typeDestinataire, setTypeDestinataire] = useState<TypeDestinataire>('etudiant')
   const [quoteId, setQuoteId] = useState('')
-  const [studentId, setStudentId] = useState('')
+  const [destinataireId, setDestinataireId] = useState('')
   const [numero, setNumero] = useState('')
   const [objet, setObjet] = useState('')
   const [dateEcheance, setDateEcheance] = useState('')
@@ -40,20 +46,27 @@ export function CreerFacture({ etablissementId, devisAcceptes, onCree, onAnnuler
     setQuoteId(id)
     const trouve = devisAcceptes.find((d) => d.devis.id === id)
     if (trouve) {
-      setStudentId(trouve.devis.student_id)
+      setDestinataireId(trouve.devis.student_id)
       setObjet(trouve.devis.objet ?? '')
       setLignes(trouve.devis.lignes)
     }
   }
 
+  function changerType(type: TypeDestinataire) {
+    setTypeDestinataire(type)
+    setDestinataireId('')
+    setQuoteId('')
+  }
+
   async function creer(e: FormEvent) {
     e.preventDefault()
-    if (!profile || !studentId || !numero) return
+    if (!profile || !destinataireId || !numero) return
     setEnCours(true)
     setErreur(null)
     const { error } = await supabase.from('invoices').insert({
       etablissement_id: etablissementId,
-      student_id: studentId,
+      student_id: typeDestinataire === 'etudiant' ? destinataireId : null,
+      teacher_id: typeDestinataire === 'professeur' ? destinataireId : null,
       quote_id: quoteId || null,
       numero,
       objet: objet || null,
@@ -70,11 +83,35 @@ export function CreerFacture({ etablissementId, devisAcceptes, onCree, onAnnuler
     onCree()
   }
 
+  const personnes = typeDestinataire === 'etudiant' ? etudiants : professeurs
+
   return (
     <form onSubmit={creer} className="card" style={{ padding: 18, marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
       <h3 style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>Nouvelle facture</h3>
 
-      {devisAcceptes.length > 0 && (
+      <div style={{ display: 'flex', gap: 8 }}>
+        {(['etudiant', 'professeur'] as const).map((type) => (
+          <button
+            key={type}
+            type="button"
+            onClick={() => changerType(type)}
+            style={{
+              fontSize: 12.5,
+              fontWeight: typeDestinataire === type ? 800 : 600,
+              color: typeDestinataire === type ? '#1b1510' : 'var(--ink-2)',
+              background: typeDestinataire === type ? 'var(--accent-gradient)' : 'rgba(0,0,0,.22)',
+              border: typeDestinataire === type ? 'none' : '1px solid var(--border)',
+              borderRadius: 999,
+              padding: '8px 14px',
+              cursor: 'pointer',
+            }}
+          >
+            {type === 'etudiant' ? 'Étudiant' : 'Professeur'}
+          </button>
+        ))}
+      </div>
+
+      {typeDestinataire === 'etudiant' && devisAcceptes.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxWidth: 320 }}>
           <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Depuis un devis accepté (optionnel)</label>
           <select value={quoteId} onChange={(e) => choisirDevis(e.target.value)} style={champStyle}>
@@ -90,12 +127,12 @@ export function CreerFacture({ etablissementId, devisAcceptes, onCree, onAnnuler
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 200 }}>
-          <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Étudiant</label>
-          <select required value={studentId} onChange={(e) => setStudentId(e.target.value)} disabled={!!quoteId} style={champStyle}>
+          <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>{typeDestinataire === 'etudiant' ? 'Étudiant' : 'Professeur'}</label>
+          <select required value={destinataireId} onChange={(e) => setDestinataireId(e.target.value)} disabled={!!quoteId} style={champStyle}>
             <option value="">Sélectionner…</option>
-            {etudiants.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.prenom} {e.nom}
+            {personnes.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.prenom} {p.nom}
               </option>
             ))}
           </select>

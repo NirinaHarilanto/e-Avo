@@ -112,13 +112,17 @@ function ListePaiementsEtudiants({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {paiements.map(({ paiement, etudiant }) => (
+      {paiements.map(({ paiement, etudiant, forfait }) => (
         <LigneFinanciere
           key={paiement.id}
           table="student_payments"
           id={paiement.id}
           nomPersonne={etudiant ? `${etudiant.prenom} ${etudiant.nom}` : 'Étudiant inconnu'}
-          sousTitre={[paiement.moyen_paiement, paiement.reference].filter(Boolean).join(' · ') || undefined}
+          sousTitre={
+            [forfait ? `Forfait ${forfait.type_programme} · ${forfait.total_heures} h` : null, paiement.moyen_paiement, paiement.reference]
+              .filter(Boolean)
+              .join(' · ') || undefined
+          }
           montant={paiement.montant}
           devise={paiement.devise}
           statut={paiement.statut}

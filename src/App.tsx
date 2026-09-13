@@ -20,7 +20,9 @@ import { CalendrierProfesseur } from './components/professeurs/CalendrierProfess
 import { EtudiantsProfesseur } from './components/professeurs/EtudiantsProfesseur'
 import { HeuresProfesseur } from './components/professeurs/HeuresProfesseur'
 import { DocumentsProfesseur } from './components/professeurs/DocumentsProfesseur'
+import { FacturesProfesseur } from './components/professeurs/FacturesProfesseur'
 import { DocumentsEtudiant } from './components/etudiants/DocumentsEtudiant'
+import { PaiementsEtudiant } from './components/etudiants/PaiementsEtudiant'
 import { EtablissementsPlateforme } from './components/plateforme/EtablissementsPlateforme'
 import { EtablissementDetailPlateforme } from './components/plateforme/EtablissementDetailPlateforme'
 import { EspacePersonnel } from './components/shared/EspacePersonnel'
@@ -52,8 +54,10 @@ export default function App() {
           <Route path="/professeur/etudiants/:id" element={<EtudiantsProfesseur />} />
           <Route path="/professeur/heures" element={<HeuresProfesseur />} />
           <Route path="/professeur/documents" element={<DocumentsProfesseur />} />
+          <Route path="/professeur/factures" element={<FacturesProfesseur />} />
           <Route path="/mon-espace" element={<EspacePersonnel />} />
           <Route path="/mon-espace/documents" element={<DocumentsEtudiant />} />
+          <Route path="/mon-espace/paiements" element={<PaiementsEtudiant />} />
           <Route path="/plateforme/etablissements" element={<EtablissementsPlateforme />} />
           <Route path="/plateforme/etablissements/:id" element={<EtablissementDetailPlateforme />} />
         </Routes>

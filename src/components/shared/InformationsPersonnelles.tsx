@@ -31,14 +31,17 @@ export function InformationsPersonnelles({ personne, onChange, extra }: Informat
   const [prenom, setPrenom] = useState(personne.prenom ?? '')
   const [telephone, setTelephone] = useState(personne.telephone ?? '')
   const [adresse, setAdresse] = useState(personne.adresse ?? '')
+  const [tauxHoraire, setTauxHoraire] = useState(personne.taux_horaire?.toString() ?? '')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  const estProfesseur = personne.role === 'professeur'
 
   function annuler() {
     setNom(personne.nom ?? '')
     setPrenom(personne.prenom ?? '')
     setTelephone(personne.telephone ?? '')
     setAdresse(personne.adresse ?? '')
+    setTauxHoraire(personne.taux_horaire?.toString() ?? '')
     setErreur(null)
     setEdition(false)
   }
@@ -53,6 +56,7 @@ export function InformationsPersonnelles({ personne, onChange, extra }: Informat
         prenom: prenom || null,
         telephone: telephone || null,
         adresse: adresse || null,
+        ...(estProfesseur && { taux_horaire: tauxHoraire ? Number(tauxHoraire) : null }),
       })
       .eq('id', personne.id)
     setEnCours(false)
@@ -85,6 +89,7 @@ export function InformationsPersonnelles({ personne, onChange, extra }: Informat
           <LigneInfo label="E-mail" valeur={personne.email ?? '—'} />
           <LigneInfo label="Téléphone" valeur={personne.telephone ?? '—'} />
           <LigneInfo label="Adresse" valeur={personne.adresse ?? '—'} />
+          {estProfesseur && <LigneInfo label="Taux horaire" valeur={personne.taux_horaire ? `${personne.taux_horaire} €/h` : '—'} />}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -92,6 +97,7 @@ export function InformationsPersonnelles({ personne, onChange, extra }: Informat
           <Champ label="Prénom" value={prenom} onChange={setPrenom} />
           <Champ label="Téléphone" value={telephone} onChange={setTelephone} />
           <Champ label="Adresse" value={adresse} onChange={setAdresse} />
+          {estProfesseur && <Champ label="Taux horaire (€/h)" value={tauxHoraire} onChange={setTauxHoraire} type="number" />}
           {erreur && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{erreur}</p>}
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={annuler} style={{ flexGrow: 1, fontSize: 12.5, padding: 9, borderRadius: 999, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink-2)', cursor: 'pointer' }}>
@@ -118,11 +124,11 @@ function LigneInfo({ label, valeur }: { label: string; valeur: string }) {
   )
 }
 
-function Champ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Champ({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>{label}</label>
-      <input value={value} onChange={(e) => onChange(e.target.value)} style={champStyle} />
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} style={champStyle} />
     </div>
   )
 }

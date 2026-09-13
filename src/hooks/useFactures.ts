@@ -5,13 +5,16 @@ import type { Database } from '../types/database.types'
 type Invoice = Database['public']['Tables']['invoices']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
 
-export interface FactureAvecEtudiant {
+export interface FactureAvecDestinataire {
   facture: Invoice
-  etudiant: Profile | null
+  destinataire: Profile | null
 }
 
+/* Une facture pointe soit vers un étudiant (reçu de paiement, forfait…) soit vers un
+   professeur (rémunération) — jamais les deux (contrainte invoices_destinataire_unique, 0029).
+   Un seul hook/une seule requête, le destinataire est résolu quel que soit le côté renseigné. */
 export function useFactures() {
-  const [factures, setFactures] = useState<FactureAvecEtudiant[]>([])
+  const [factures, setFactures] = useState<FactureAvecDestinataire[]>([])
   const [loading, setLoading] = useState(true)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -26,13 +29,13 @@ export function useFactures() {
       return
     }
 
-    const studentIds = [...new Set((data ?? []).map((f) => f.student_id))]
-    const { data: etudiants } = studentIds.length
-      ? await supabase.from('profiles').select('*').in('id', studentIds)
+    const profileIds = [...new Set((data ?? []).map((f) => f.student_id ?? f.teacher_id).filter((id): id is string => !!id))]
+    const { data: profiles } = profileIds.length
+      ? await supabase.from('profiles').select('*').in('id', profileIds)
       : { data: [] as Profile[] }
-    const etudiantParId = new Map((etudiants ?? []).map((e) => [e.id, e]))
+    const profilParId = new Map((profiles ?? []).map((p) => [p.id, p]))
 
-    setFactures((data ?? []).map((f) => ({ facture: f, etudiant: etudiantParId.get(f.student_id) ?? null })))
+    setFactures((data ?? []).map((f) => ({ facture: f, destinataire: profilParId.get(f.student_id ?? f.teacher_id ?? '') ?? null })))
     setLoading(false)
   }, [])
 
