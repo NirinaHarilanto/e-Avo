@@ -13,6 +13,9 @@ import type { Database, StatutContrat } from '../../types/database.types'
 type Onglet = 'modeles' | 'contrats'
 
 const LABELS_STATUT: Record<StatutContrat, string> = { brouillon: 'Brouillon', envoye: 'Envoyé', signe: 'Signé', resilie: 'Résilié' }
+// 'signe' n'est jamais choisi manuellement : posé automatiquement par le trigger
+// contracts_maj_statut_signature (0031) dès que les deux parties ont signé.
+const STATUTS_MODIFIABLES: StatutContrat[] = ['brouillon', 'envoye', 'resilie']
 
 export function ContratsAdmin() {
   const { profile } = useProfileContext()
@@ -158,16 +161,19 @@ export function ContratsAdmin() {
 
 function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestinataire; onImprimer: () => void; onChange: () => void }) {
   const { contrat, destinataire } = item
+  const { session } = useProfileContext()
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [joindreOuvert, setJoindreOuvert] = useState(false)
+  const [rappelEnvoye, setRappelEnvoye] = useState(false)
+
+  const enRetard = !!contrat.date_limite_signature && contrat.date_limite_signature < new Date().toISOString().slice(0, 10) && contrat.statut === 'envoye'
 
   async function changerStatut(nouveau: StatutContrat) {
     setEnCours(true)
     setErreur(null)
     const update: Database['public']['Tables']['contracts']['Update'] = { statut: nouveau }
     if (nouveau === 'envoye') update.date_envoi = new Date().toISOString().slice(0, 10)
-    if (nouveau === 'signe') update.date_signature = new Date().toISOString().slice(0, 10)
     if (nouveau === 'resilie') update.date_resiliation = new Date().toISOString().slice(0, 10)
     const { error } = await supabase.from('contracts').update(update).eq('id', contrat.id)
     setEnCours(false)
@@ -176,6 +182,47 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
       return
     }
     onChange()
+  }
+
+  async function signer() {
+    if (!session) return
+    setEnCours(true)
+    setErreur(null)
+    const reponse = await fetch('/api/contrats/signer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ contractId: contrat.id }),
+    })
+    setEnCours(false)
+    if (!reponse.ok) {
+      const corps = await reponse.json().catch(() => null)
+      setErreur(corps?.error ?? 'La signature a échoué.')
+      return
+    }
+    onChange()
+  }
+
+  async function envoyerRappel() {
+    if (!session) return
+    setEnCours(true)
+    setErreur(null)
+    const reponse = await fetch('/api/admin/notifier', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        destinataireProfileId: contrat.destinataire_profile_id,
+        type: 'rappel_contrat',
+        titre: `Rappel · signature attendue pour « ${contrat.titre} »`,
+        lien: contrat.destinataire_role === 'professeur' ? '/professeur/contrats' : '/mon-espace/contrats',
+      }),
+    })
+    setEnCours(false)
+    if (!reponse.ok) {
+      const corps = await reponse.json().catch(() => null)
+      setErreur(corps?.error ?? "L'envoi a échoué.")
+      return
+    }
+    setRappelEnvoye(true)
   }
 
   async function supprimer() {
@@ -199,18 +246,29 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
           </span>
           <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{destinataire ? `${destinataire.prenom} ${destinataire.nom}` : 'Destinataire inconnu'}</div>
         </div>
-        <select
-          value={contrat.statut}
-          disabled={enCours}
-          onChange={(e) => changerStatut(e.target.value as StatutContrat)}
-          style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-        >
-          {(Object.keys(LABELS_STATUT) as StatutContrat[]).map((s) => (
-            <option key={s} value={s}>
-              {LABELS_STATUT[s]}
-            </option>
-          ))}
-        </select>
+        {contrat.statut === 'signe' ? (
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '4px 10px' }}>
+            Signé
+          </span>
+        ) : (
+          <select
+            value={contrat.statut}
+            disabled={enCours}
+            onChange={(e) => changerStatut(e.target.value as StatutContrat)}
+            style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+          >
+            {STATUTS_MODIFIABLES.map((s) => (
+              <option key={s} value={s}>
+                {LABELS_STATUT[s]}
+              </option>
+            ))}
+          </select>
+        )}
+        {enRetard && (
+          <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--danger)', background: 'rgba(255,138,112,.12)', border: '1px solid rgba(255,138,112,.3)', borderRadius: 999, padding: '4px 10px' }}>
+            Rappel conseillé
+          </span>
+        )}
         {contrat.document_id ? (
           <span style={{ fontSize: 11.5, color: 'var(--accent-teal)' }}>Scan signé joint</span>
         ) : (
@@ -221,6 +279,20 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
             Joindre le scan signé
           </button>
         )}
+        {contrat.statut === 'envoye' && !contrat.signe_etablissement_at && (
+          <button onClick={signer} disabled={enCours} className="btn-shine" style={{ fontSize: 12, padding: '7px 13px', background: 'var(--accent-gradient)', color: '#1b1510' }}>
+            Signer pour l'établissement
+          </button>
+        )}
+        {contrat.statut === 'envoye' && !contrat.signe_destinataire_at && (
+          <button
+            onClick={envoyerRappel}
+            disabled={enCours || rappelEnvoye}
+            style={{ fontSize: 12, fontWeight: 700, color: rappelEnvoye ? 'var(--accent-teal)' : 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: rappelEnvoye ? 'default' : 'pointer' }}
+          >
+            {rappelEnvoye ? 'Rappel envoyé ✓' : 'Envoyer un rappel'}
+          </button>
+        )}
         <button onClick={onImprimer} style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
           Imprimer
         </button>
@@ -228,6 +300,17 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
           Supprimer
         </button>
       </div>
+
+      {(contrat.date_envoi || contrat.signe_etablissement_at || contrat.signe_destinataire_at || contrat.date_limite_signature) && (
+        <div style={{ fontSize: 11.5, color: 'var(--muted)', borderTop: '1px solid var(--border-soft)', paddingTop: 8 }}>
+          {contrat.date_envoi && <>Envoyé le {new Date(contrat.date_envoi).toLocaleDateString('fr-FR')} · </>}
+          Établissement :{' '}
+          {contrat.signe_etablissement_at ? `signé le ${new Date(contrat.signe_etablissement_at).toLocaleDateString('fr-FR')}` : 'en attente'} · Destinataire :{' '}
+          {contrat.signe_destinataire_at ? `signé le ${new Date(contrat.signe_destinataire_at).toLocaleDateString('fr-FR')}` : 'en attente'}
+          {contrat.date_limite_signature && <> · limite le {new Date(contrat.date_limite_signature).toLocaleDateString('fr-FR')}</>}
+        </div>
+      )}
+
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 11.5 }}>{erreur}</p>}
       {joindreOuvert && (
         <UploaderDocument

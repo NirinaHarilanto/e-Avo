@@ -636,6 +636,12 @@ export interface Database {
           date_resiliation: string | null
           document_id: string | null
           notes: string | null
+          signe_etablissement_at: string | null
+          signe_etablissement_par: string | null
+          signe_destinataire_at: string | null
+          ip_signature_destinataire: string | null
+          user_agent_signature_destinataire: string | null
+          date_limite_signature: string | null
           created_by_profile_id: string
           created_at: string
         }
@@ -654,6 +660,12 @@ export interface Database {
           date_resiliation?: string | null
           document_id?: string | null
           notes?: string | null
+          signe_etablissement_at?: string | null
+          signe_etablissement_par?: string | null
+          signe_destinataire_at?: string | null
+          ip_signature_destinataire?: string | null
+          user_agent_signature_destinataire?: string | null
+          date_limite_signature?: string | null
           created_by_profile_id: string
           created_at?: string
         }

@@ -31,6 +31,7 @@ export function GenererContrat({ etablissementId, modeles, onCree, onAnnuler }: 
   const [templateId, setTemplateId] = useState('')
   const [destinataireId, setDestinataireId] = useState('')
   const [titre, setTitre] = useState('')
+  const [dateLimiteSignature, setDateLimiteSignature] = useState('')
   const [valeurs, setValeurs] = useState<Record<string, string>>({})
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -61,6 +62,7 @@ export function GenererContrat({ etablissementId, modeles, onCree, onAnnuler }: 
       titre,
       corps_genere: corpsGenere,
       variables_valeurs: valeurs,
+      date_limite_signature: dateLimiteSignature || null,
       created_by_profile_id: profile.id,
     })
     setEnCours(false)
@@ -108,6 +110,12 @@ export function GenererContrat({ etablissementId, modeles, onCree, onAnnuler }: 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexGrow: 1, minWidth: 220 }}>
                 <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Titre du contrat</label>
                 <input required value={titre} onChange={(e) => setTitre(e.target.value)} style={champStyle} />
+              </div>
+            )}
+            {modele && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 170 }}>
+                <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Limite de signature</label>
+                <input type="date" value={dateLimiteSignature} onChange={(e) => setDateLimiteSignature(e.target.value)} style={champStyle} />
               </div>
             )}
           </div>

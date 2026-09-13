@@ -6,6 +6,7 @@ const ETUDIANT_NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Mon dossier', href: '/mon-espace', disponible: true },
       { label: 'Mes paiements', href: '/mon-espace/paiements', disponible: true },
+      { label: 'Mes contrats', href: '/mon-espace/contrats', disponible: true },
       { label: 'Mes documents', href: '/mon-espace/documents', disponible: true },
     ],
   },
