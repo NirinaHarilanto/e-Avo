@@ -19,6 +19,7 @@ export type CategorieDocument =
   | 'facture'
   | 'contrat'
   | 'support_pedagogique'
+  | 'confidentiel'
   | 'autre'
 export type StatutPaiement = 'attendu' | 'paye' | 'en_retard' | 'annule'
 export type StatutDevis = 'brouillon' | 'envoye' | 'accepte' | 'refuse' | 'expire'
@@ -383,6 +384,7 @@ export interface Database {
           mime_type: string
           taille_octets: number
           storage_path: string
+          etablissement_wide: boolean
           created_at: string
         }
         Insert: {
@@ -400,9 +402,52 @@ export interface Database {
           taille_octets: number
           // Écrasé par le même trigger — ne jamais fournir de valeur côté client.
           storage_path?: string
+          etablissement_wide?: boolean
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['documents']['Insert']>
+        Relationships: []
+      }
+      document_permissions: {
+        Row: {
+          id: string
+          document_id: string
+          profile_id: string
+          niveau: 'lecture' | 'ecriture'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          document_id: string
+          profile_id: string
+          niveau: 'lecture' | 'ecriture'
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['document_permissions']['Insert']>
+        Relationships: []
+      }
+      session_reports: {
+        Row: {
+          id: string
+          etablissement_id: string
+          session_id: string
+          teacher_id: string
+          themes: string | null
+          resume: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          session_id: string
+          teacher_id: string
+          themes?: string | null
+          resume?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['session_reports']['Insert']>
         Relationships: []
       }
       student_payments: {

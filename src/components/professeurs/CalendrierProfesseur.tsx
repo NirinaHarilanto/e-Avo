@@ -5,6 +5,7 @@ import { useCalendrierProfesseur, type SeanceProfesseur } from '../../hooks/useC
 import { getJoinUrl } from '../../lib/visio'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
+import { CompteRenduSeance } from './CompteRenduSeance'
 
 const champStyle: React.CSSProperties = {
   border: '1px solid var(--border)',
@@ -193,7 +194,7 @@ function FormulairePlanification({
 }
 
 function CarteSeance({ seance, maintenant, onChange }: { seance: SeanceProfesseur; maintenant: string; onChange: () => void }) {
-  const { session: authSession } = useProfileContext()
+  const { session: authSession, profile } = useProfileContext()
   const [presences, setPresences] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(seance.inscriptions.map((i) => [i.student_id, true])),
   )
@@ -294,6 +295,10 @@ function CarteSeance({ seance, maintenant, onChange }: { seance: SeanceProfesseu
             </button>
           </div>
         </div>
+      )}
+
+      {seance.session.statut === 'terminee' && profile && (
+        <CompteRenduSeance sessionId={seance.session.id} etablissementId={profile.etablissement_id} teacherId={profile.id} />
       )}
     </div>
   )

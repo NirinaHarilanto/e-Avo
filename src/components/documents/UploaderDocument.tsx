@@ -22,6 +22,7 @@ export const CATEGORIES: { value: CategorieDocument; label: string }[] = [
   { value: 'facture', label: 'Facture' },
   { value: 'contrat', label: 'Contrat' },
   { value: 'support_pedagogique', label: 'Support pédagogique' },
+  { value: 'confidentiel', label: 'Confidentiel' },
   { value: 'autre', label: 'Autre' },
 ]
 
@@ -33,6 +34,11 @@ interface UploaderDocumentProps {
   // appelants qui n'ont besoin que d'un signal de rafraîchissement (ex. recharger()) restent
   // valides tels quels, une fonction sans paramètre acceptant cet appel sans erreur.
   onUploade: (document: Document) => void
+  // Onglet "Partageables" (DocumentsAdmin) : catégorie fixée, pas de sélecteur affiché.
+  forcerCategorie?: CategorieDocument
+  // Onglet "Partageables" : le document est visible par tout l'établissement plutôt que par
+  // les seules personnes couvertes par les policies habituelles (propriétaire/uploadeur/admin).
+  etablissementWide?: boolean
 }
 
 /* Upload en deux temps (pattern décrit dans le plan de la Phase 2) : (1) insert dans
@@ -40,10 +46,10 @@ interface UploaderDocumentProps {
    owner_role côté serveur, jamais fournis par ce composant — puis (2) upload du fichier à ce
    chemin dans le bucket Storage `documents`. Si l'étape 2 échoue, la ligne insérée en (1) est
    retirée pour ne jamais laisser un document "fantôme" sans fichier. */
-export function UploaderDocument({ ownerProfileId, etablissementId, onUploade }: UploaderDocumentProps) {
+export function UploaderDocument({ ownerProfileId, etablissementId, onUploade, forcerCategorie, etablissementWide }: UploaderDocumentProps) {
   const { session } = useProfileContext()
   const [fichier, setFichier] = useState<File | null>(null)
-  const [categorie, setCategorie] = useState<CategorieDocument>('autre')
+  const [categorie, setCategorie] = useState<CategorieDocument>(forcerCategorie ?? 'autre')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -69,10 +75,11 @@ export function UploaderDocument({ ownerProfileId, etablissementId, onUploade }:
         etablissement_id: etablissementId,
         owner_profile_id: ownerProfileId,
         uploaded_by_profile_id: session.user.id,
-        categorie,
+        categorie: forcerCategorie ?? categorie,
         nom_original: fichier.name,
         mime_type: fichier.type,
         taille_octets: fichier.size,
+        etablissement_wide: !!etablissementWide,
       })
       .select()
       .single()
@@ -97,20 +104,22 @@ export function UploaderDocument({ ownerProfileId, etablissementId, onUploade }:
 
   return (
     <form onSubmit={envoyer} className="card" style={{ padding: 18, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 200 }}>
-        <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Catégorie</label>
-        <select
-          value={categorie}
-          onChange={(e) => setCategorie(e.target.value as CategorieDocument)}
-          style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 11px', fontSize: 13, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-        >
-          {CATEGORIES.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      {!forcerCategorie && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 200 }}>
+          <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Catégorie</label>
+          <select
+            value={categorie}
+            onChange={(e) => setCategorie(e.target.value as CategorieDocument)}
+            style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 11px', fontSize: 13, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexGrow: 1, minWidth: 220 }}>
         <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Fichier (PDF, image ou .docx, 20 Mo max)</label>
         <input
