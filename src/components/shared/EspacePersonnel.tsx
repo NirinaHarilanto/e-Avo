@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
-import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { MonEspaceEtudiant } from '../etudiants/MonEspaceEtudiant'
 import { ChoixEspace } from './ChoixEspace'
 
@@ -12,9 +11,8 @@ import { ChoixEspace } from './ChoixEspace'
    d'abord un choix explicite plutôt que d'atterrir directement sur l'espace élève — son
    profil.role reste 'etudiant', ce qui déclencherait sinon systématiquement ce cas par défaut. */
 export function EspacePersonnel() {
-  const { session, profile, loading: profileLoading } = useProfileContext()
-  const { platformAdmin, loading: platformLoading } = usePlatformAdmin(session, profileLoading)
-  const loading = profileLoading || platformLoading
+  const { session, profile, loading: profileLoading, platformAdmin, platformAdminLoading } = useProfileContext()
+  const loading = profileLoading || platformAdminLoading
   const navigate = useNavigate()
   const [espaceEtudiantChoisi, setEspaceEtudiantChoisi] = useState(false)
 

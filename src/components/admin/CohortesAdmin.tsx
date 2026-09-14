@@ -27,6 +27,7 @@ export function CohortesAdmin() {
   return (
     <AdminLayout actif="Vagues">
       <EnTetePage
+        compact
         titre="Vagues (cours collectifs)"
         description="Une vague est un groupe d’élèves qui suivent le même programme sur une même période. C’est l’alternative au forfait individuel ou en duo."
         actions={
@@ -39,6 +40,7 @@ export function CohortesAdmin() {
 
       <GuidePage
         id="admin-vagues"
+        compact
         etapes={[
           <>
             Créez une vague en lui donnant un nom, une langue, ses dates de début et de fin, et une{' '}
@@ -81,15 +83,15 @@ export function CohortesAdmin() {
           description="Créez une première vague pour pouvoir y inscrire des élèves en cours collectif. Sans vague, seuls les programmes individuels et en duo sont proposés dans les dossiers étudiants."
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <GrilleStats min={180}>
-            <Stat libelle="Vagues" valeur={cohortes.length} ton="or" />
-            <Stat libelle="En cours" valeur={cohortes.filter((c) => c.statut === 'en_cours').length} ton="teal" />
-            <Stat libelle="À venir" valeur={cohortes.filter((c) => c.statut === 'a_venir').length} ton="bleu" />
-            <Stat libelle="Terminées" valeur={cohortes.filter((c) => c.statut === 'terminee').length} ton="neutre" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <GrilleStats min={160} compact>
+            <Stat compact libelle="Vagues" valeur={cohortes.length} ton="or" />
+            <Stat compact libelle="En cours" valeur={cohortes.filter((c) => c.statut === 'en_cours').length} ton="teal" />
+            <Stat compact libelle="À venir" valeur={cohortes.filter((c) => c.statut === 'a_venir').length} ton="bleu" />
+            <Stat compact libelle="Terminées" valeur={cohortes.filter((c) => c.statut === 'terminee').length} ton="neutre" />
           </GrilleStats>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {cohortes.map((c) => (
               <LigneVague key={c.id} cohorte={c} onChange={recharger} />
             ))}
@@ -231,7 +233,7 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
   }
 
   return (
-    <div className="card card-lift" style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div className="card card-lift" style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ flexGrow: 1, minWidth: 200 }}>
           <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>

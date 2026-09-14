@@ -40,6 +40,7 @@ export function EtudiantsAdmin() {
   return (
     <AdminLayout actif="Étudiants">
       <EnTetePage
+        compact
         titre="Étudiants"
         description="Le dossier de chaque étudiant réunit son professeur, son programme, ses séances et son compteur d’heures. Sélectionnez un nom à gauche pour l’ouvrir."
         actions={
@@ -52,6 +53,7 @@ export function EtudiantsAdmin() {
 
       <GuidePage
         id="admin-etudiants"
+        compact
         etapes={[
           <>
             Cliquez sur <strong>Ajouter un étudiant</strong> pour lui envoyer une invitation par e-mail. Il choisira
@@ -84,11 +86,12 @@ export function EtudiantsAdmin() {
       )}
 
       {!loading && etudiants.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <GrilleStats min={180}>
-            <Stat libelle="Étudiants inscrits" valeur={etudiants.length} ton="or" />
-            <Stat libelle="Comptes actifs" valeur={actifs} ton="teal" aide="Invitation acceptée et mot de passe défini" />
+        <div style={{ marginBottom: 14 }}>
+          <GrilleStats min={160} compact>
+            <Stat compact libelle="Étudiants inscrits" valeur={etudiants.length} ton="or" />
+            <Stat compact libelle="Comptes actifs" valeur={actifs} ton="teal" aide="Invitation acceptée et mot de passe défini" />
             <Stat
+              compact
               libelle="En attente d’activation"
               valeur={etudiants.length - actifs}
               ton={etudiants.length - actifs > 0 ? 'alerte' : 'neutre'}
@@ -125,25 +128,25 @@ export function EtudiantsAdmin() {
               className="carte-ligne"
               style={{
                 textAlign: 'left',
-                borderRadius: 14,
+                borderRadius: 12,
                 border: etudiant.id === id ? '1px solid rgba(94,179,255,.5)' : '1px solid var(--border)',
                 background: 'var(--surface)',
-                padding: '13px 14px',
+                padding: '9px 11px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 12,
+                gap: 10,
                 cursor: 'pointer',
                 color: 'inherit',
               }}
             >
-              <span style={{ width: 38, height: 38, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
+              <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11.5, fontWeight: 800, flexShrink: 0 }}>
                 {initiales(etudiant)}
               </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
                   {etudiant.prenom} {etudiant.nom}
                 </span>
-                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{etudiant.status === 'approved' ? 'Actif' : etudiant.status}</span>
+                <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{etudiant.status === 'approved' ? 'Actif' : etudiant.status}</span>
               </div>
             </button>
           ))}

@@ -50,6 +50,7 @@ export function ProfesseursAdmin() {
   return (
     <AdminLayout actif="Professeurs">
       <EnTetePage
+        compact
         titre="Professeurs"
         description="L’équipe enseignante de l’établissement et sa charge actuelle. Cliquez sur une carte pour ouvrir la fiche détaillée du professeur."
         actions={
@@ -62,6 +63,7 @@ export function ProfesseursAdmin() {
 
       <GuidePage
         id="admin-professeurs"
+        compact
         etapes={[
           <>
             <strong>Invitez</strong> un professeur par e-mail : il définira son mot de passe et accèdera à son espace,
@@ -98,12 +100,13 @@ export function ProfesseursAdmin() {
           description="Invitez votre premier professeur pour pouvoir attribuer des élèves et planifier des séances. Tant qu’aucun professeur n’est enregistré, aucun cours ne peut être programmé."
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-          <GrilleStats>
-            <Stat libelle="Professeurs" valeur={professeurs.length} ton="or" />
-            <Stat libelle="Élèves attribués" valeur={totalEleves} ton="teal" aide="Attributions en cours, tous professeurs confondus" />
-            <Stat libelle="Heures enseignées" valeur={totalHeures} unite="h" ton="bleu" aide="Depuis l’ouverture de l’établissement" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <GrilleStats min={160} compact>
+            <Stat compact libelle="Professeurs" valeur={professeurs.length} ton="or" />
+            <Stat compact libelle="Élèves attribués" valeur={totalEleves} ton="teal" aide="Attributions en cours, tous professeurs confondus" />
+            <Stat compact libelle="Heures enseignées" valeur={totalHeures} unite="h" ton="bleu" aide="Depuis l’ouverture de l’établissement" />
             <Stat
+              compact
               libelle="Sans élève attribué"
               valeur={sansEleve}
               ton={sansEleve > 0 ? 'alerte' : 'neutre'}
@@ -111,37 +114,37 @@ export function ProfesseursAdmin() {
             />
           </GrilleStats>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
             {professeurs.map((prof) => (
               <button
                 key={prof.id}
                 onClick={() => navigate(`/admin/professeurs/${prof.id}`)}
                 className="card card-lift"
-                style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer', textAlign: 'left', color: 'inherit' }}
+                style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 9, cursor: 'pointer', textAlign: 'left', color: 'inherit' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 13, minWidth: 0 }}>
-                  <span style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--accent-blue-gradient)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 800, flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 11, minWidth: 0 }}>
+                  <span style={{ width: 36, height: 36, borderRadius: 12, background: 'var(--accent-blue-gradient)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12.5, fontWeight: 800, flexShrink: 0 }}>
                     {(prof.prenom?.[0] ?? '').toUpperCase()}
                     {(prof.nom?.[0] ?? '').toUpperCase()}
                   </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                    <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+                    <span className="brand-font" style={{ fontSize: 13.5, color: 'var(--ink)' }}>
                       {prof.prenom} {prof.nom}
                     </span>
-                    <span style={{ fontSize: 11.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: 10.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {prof.email}
                     </span>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderTop: '1px solid var(--border-soft)', paddingTop: 11 }}>
-                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderTop: '1px solid var(--border-soft)', paddingTop: 8 }}>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>
                     {comptes[prof.id] ?? 0} élève{(comptes[prof.id] ?? 0) > 1 ? 's' : ''} actif{(comptes[prof.id] ?? 0) > 1 ? 's' : ''}
                   </span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>{heures[prof.id] ?? 0} h enseignées</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>{heures[prof.id] ?? 0} h enseignées</span>
                 </div>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: 'var(--accent-blue)' }}>
                   Ouvrir la fiche
-                  <Icone nom="chevron" taille={12} />
+                  <Icone nom="chevron" taille={11} />
                 </span>
               </button>
             ))}

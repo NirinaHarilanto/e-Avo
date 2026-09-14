@@ -27,30 +27,34 @@ describe('EnTetePage', () => {
 })
 
 describe('GuidePage', () => {
-  it('est ouvert au premier accès et liste ses étapes', () => {
+  it('est replié par défaut et se déplie manuellement', () => {
     render(<GuidePage id="test-guide" etapes={['Première étape', 'Seconde étape']} />)
+    expect(screen.queryByText('Première étape')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Afficher' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Afficher' }))
     expect(screen.getByText('Première étape')).toBeInTheDocument()
     expect(screen.getByText('Seconde étape')).toBeInTheDocument()
   })
 
-  it('se replie au clic et mémorise le choix pour la page suivante', () => {
+  it('mémorise le dépli manuel pour le prochain accès à la même page', () => {
     const { unmount } = render(<GuidePage id="test-guide" etapes={['Première étape']} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Masquer' }))
-    expect(screen.queryByText('Première étape')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Afficher' }))
+    expect(screen.getByText('Première étape')).toBeInTheDocument()
     unmount()
 
     render(<GuidePage id="test-guide" etapes={['Première étape']} />)
-    expect(screen.queryByText('Première étape')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Afficher' })).toBeInTheDocument()
+    expect(screen.getByText('Première étape')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Masquer' })).toBeInTheDocument()
   })
 
-  it("garde un repli propre à chaque page plutôt qu'un réglage global", () => {
+  it("garde un dépli propre à chaque page plutôt qu'un réglage global", () => {
     const { unmount } = render(<GuidePage id="guide-a" etapes={['Étape A']} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Masquer' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Afficher' }))
     unmount()
 
     render(<GuidePage id="guide-b" etapes={['Étape B']} />)
-    expect(screen.getByText('Étape B')).toBeInTheDocument()
+    expect(screen.queryByText('Étape B')).not.toBeInTheDocument()
   })
 })
 

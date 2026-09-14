@@ -1,15 +1,10 @@
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
-import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { routeAccueilPourRole } from './EspaceLayout'
 import { Logo } from '../shared/Logo'
-import { supabase } from '../../lib/supabaseClient'
-import type { Database } from '../../types/database.types'
 import { Icone } from '../ui/Icones'
-
-type Etablissement = Database['public']['Tables']['etablissements']['Row']
 
 const NAV_ITEMS = [{ label: 'Établissements', href: '/plateforme/etablissements', icone: 'etablissements' as const }]
 
@@ -18,21 +13,17 @@ const NAV_ITEMS = [{ label: 'Établissements', href: '/plateforme/etablissements
    EspaceLayout garde ses gardes-fous de rôle qui rejetteraient un admin plateforme. Seule la
    présentation est reprise à l'identique de la coquille des autres espaces. */
 export function PlateformeLayout({ children, actif }: { children: ReactNode; actif: string }) {
-  const { session, profile, loading: contextLoading, seDeconnecter } = useProfileContext()
+  const {
+    session,
+    profile,
+    loading: contextLoading,
+    seDeconnecter,
+    etablissement,
+    platformAdmin,
+    platformAdminLoading,
+  } = useProfileContext()
   const navigate = useNavigate()
-  const { platformAdmin, loading: platformLoading } = usePlatformAdmin(session, contextLoading)
-  const loading = contextLoading || platformLoading
-  const [etablissement, setEtablissement] = useState<Etablissement | null>(null)
-
-  useEffect(() => {
-    if (!profile) return
-    supabase
-      .from('etablissements')
-      .select('*')
-      .eq('id', profile.etablissement_id)
-      .maybeSingle()
-      .then(({ data }) => setEtablissement(data))
-  }, [profile])
+  const loading = contextLoading || platformAdminLoading
 
   useEffect(() => {
     if (loading) return

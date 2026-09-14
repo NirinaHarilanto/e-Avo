@@ -2,14 +2,12 @@ import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
-import { usePlatformAdmin } from '../../hooks/usePlatformAdmin'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { Logo } from '../shared/Logo'
 import { NotificationsBell } from '../shared/NotificationsBell'
 import { Icone, type NomIcone } from '../ui/Icones'
 
-type Etablissement = Database['public']['Tables']['etablissements']['Row']
 type Role = Database['public']['Tables']['profiles']['Row']['role']
 
 export interface NavItem {
@@ -53,12 +51,18 @@ interface EspaceLayoutProps {
    rangées de pilules, qui n'affichait jamais les titres de groupes pourtant prévus dans
    `NavGroup` — les douze entrées admin se lisaient donc comme une liste à plat. */
 export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, children }: EspaceLayoutProps) {
-  const { session, profile, loading: profileLoading, seDeconnecter } = useProfileContext()
-  const { platformAdmin, loading: platformLoading } = usePlatformAdmin(session, profileLoading)
-  const loading = profileLoading || platformLoading
+  const {
+    session,
+    profile,
+    loading: profileLoading,
+    seDeconnecter,
+    etablissement,
+    platformAdmin,
+    platformAdminLoading,
+  } = useProfileContext()
+  const loading = profileLoading || platformAdminLoading
   const navigate = useNavigate()
   const location = useLocation()
-  const [etablissement, setEtablissement] = useState<Etablissement | null>(null)
   const [tiroirOuvert, setTiroirOuvert] = useState(false)
 
   // Un compte garde un rôle unique, sauf l'administrateur plateforme (platform_admins, 0022) qui
@@ -76,16 +80,6 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
       navigate(routeAccueilPourRole(profile.role), { replace: true })
     }
   }, [session, profile, accesAutorise, loading, navigate])
-
-  useEffect(() => {
-    if (!profile) return
-    supabase
-      .from('etablissements')
-      .select('*')
-      .eq('id', profile.etablissement_id)
-      .maybeSingle()
-      .then(({ data }) => setEtablissement(data))
-  }, [profile])
 
   // Sur mobile la barre latérale est un tiroir superposé au contenu : le laisser ouvert après
   // un clic masquerait la page qu'on vient justement de demander.

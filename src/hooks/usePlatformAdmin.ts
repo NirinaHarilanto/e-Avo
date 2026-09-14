@@ -9,9 +9,10 @@ type PlatformAdmin = Database['public']['Tables']['platform_admins']['Row']
    `loading` déjà combiné de ProfileContext (authLoading || profileLoading) : tant qu'il est
    true, session peut encore changer, donc on ne interroge pas encore — une fois false, session
    est stable et fiable à interroger (même précaution que useProfile.ts vis-à-vis de useAuth,
-   un niveau plus haut). Appelé uniquement dans PlateformeLayout, pas dans ProfileContext —
-   évite une requête Supabase supplémentaire à chaque page pour les sessions qui ne sont
-   jamais admin plateforme. */
+   un niveau plus haut). Appelé une seule fois dans ProfileContext plutôt que dans chaque layout
+   consommateur (EspaceLayout, PlateformeLayout, EspacePersonnel) : ce Provider ne se démonte
+   jamais entre deux pages, donc la requête ne part qu'une fois par session au lieu de se
+   relancer à chaque navigation. */
 export function usePlatformAdmin(session: Session | null, contextLoading: boolean) {
   const [platformAdmin, setPlatformAdmin] = useState<PlatformAdmin | null>(null)
   const [loading, setLoading] = useState(true)

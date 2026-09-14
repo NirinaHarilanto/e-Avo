@@ -88,6 +88,7 @@ export function PipelineCRM() {
   return (
     <AdminLayout actif="Prospects">
       <EnTetePage
+        compact
         titre="Prospects"
         description="Le parcours d’un candidat, de sa demande initiale jusqu’à sa conversion en étudiant. Chaque colonne est une étape : faites glisser une carte vers la colonne suivante pour faire avancer le dossier."
         actions={
@@ -99,6 +100,7 @@ export function PipelineCRM() {
 
       <GuidePage
         id="admin-prospects"
+        compact
         etapes={[
           <>
             Les nouveaux dossiers arrivent seuls dans la première colonne : ils viennent du formulaire de contact de
@@ -126,22 +128,25 @@ export function PipelineCRM() {
       )}
 
       {!loading && prospects.length > 0 && (
-        <div style={{ marginBottom: 20 }}>
-          <GrilleStats min={175}>
-            <Stat libelle="Dossiers en cours" valeur={prospects.length} ton="or" />
+        <div style={{ marginBottom: 14 }}>
+          <GrilleStats min={160} compact>
+            <Stat compact libelle="Dossiers en cours" valeur={prospects.length} ton="or" />
             <Stat
+              compact
               libelle="Appels à planifier"
               valeur={prospects.filter((p) => p.statut === 'prospect').length}
               ton="alerte"
               aide="En attente d’une première prise de contact"
             />
             <Stat
+              compact
               libelle="Diagnostics réalisés"
               valeur={prospects.filter((p) => p.statut === 'diagnostic_fait').length}
               ton="bleu"
               aide="Prêts à être convertis en étudiant"
             />
             <Stat
+              compact
               libelle="Taux de conversion"
               valeur={`${Math.round((prospects.filter((p) => p.statut === 'etudiant').length / prospects.length) * 100)} %`}
               ton="teal"
@@ -154,7 +159,7 @@ export function PipelineCRM() {
       {loading ? (
         <EtatChargement lignes={3} hauteur={120} />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, alignItems: 'start' }}>
+        <div className="grille-pipeline">
           {COLONNES_PIPELINE.map((colonne) => {
             const items = prospects.filter((p) => p.statut === colonne.statut)
             const survolee = colonneSurvolee === colonne.statut
@@ -170,18 +175,19 @@ export function PipelineCRM() {
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 12,
-                  borderRadius: 16,
-                  padding: 6,
+                  gap: 8,
+                  borderRadius: 14,
+                  padding: 5,
                   border: survolee ? `1px dashed ${COULEUR_COLONNE[colonne.statut]}` : '1px dashed transparent',
                   background: survolee ? 'rgba(255,255,255,.03)' : 'transparent',
                   transition: 'background .15s, border-color .15s',
+                  minWidth: 0,
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '0 4px' }}>
-                  <span style={{ width: 9, height: 9, borderRadius: 999, background: COULEUR_COLONNE[colonne.statut] }} />
-                  <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink-2)' }}>{colonne.titre}</span>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink-2)', background: 'rgba(255,255,255,.06)', borderRadius: 999, padding: '2px 9px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '0 4px' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 999, flexShrink: 0, background: COULEUR_COLONNE[colonne.statut] }} />
+                  <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--ink-2)', minWidth: 0 }}>{colonne.titre}</span>
+                  <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--ink-2)', background: 'rgba(255,255,255,.06)', borderRadius: 999, padding: '1px 8px', flexShrink: 0 }}>
                     {items.length}
                   </span>
                 </div>
@@ -189,17 +195,17 @@ export function PipelineCRM() {
                   <span
                     style={{
                       textAlign: 'center',
-                      fontSize: 11.5,
-                      lineHeight: 1.5,
+                      fontSize: 11,
+                      lineHeight: 1.4,
                       color: 'var(--muted-2)',
                       border: '1px dashed rgba(255,255,255,.14)',
-                      borderRadius: 14,
-                      padding: '18px 14px',
+                      borderRadius: 12,
+                      padding: '11px 10px',
                     }}
                   >
                     Aucun dossier
                     <br />
-                    <span style={{ fontSize: 11, opacity: 0.8 }}>Déposez une carte ici</span>
+                    <span style={{ fontSize: 10.5, opacity: 0.8 }}>Déposez une carte ici</span>
                   </span>
                 )}
                 {items.map((prospect) => (
@@ -332,18 +338,18 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
       }}
       onDragEnd={() => setEnGlissement(false)}
       className="card card-lift"
-      style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'grab', opacity: enGlissement ? 0.4 : 1 }}
+      style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 9, cursor: 'grab', opacity: enGlissement ? 0.4 : 1 }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-        <span style={{ width: 38, height: 38, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ width: 32, height: 32, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
           {(prospect.prenom[0] ?? '').toUpperCase()}
           {(prospect.nom[0] ?? '').toUpperCase()}
         </span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
             {prospect.prenom} {prospect.nom}
           </span>
-          <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
+          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
         </div>
       </div>
 

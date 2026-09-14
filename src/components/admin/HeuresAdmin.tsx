@@ -19,12 +19,14 @@ export function HeuresAdmin() {
   return (
     <AdminLayout actif="Heures & forfaits">
       <EnTetePage
+        compact
         titre="Heures & forfaits"
         description="Vue d’ensemble des heures de cours de l’établissement : ce que chaque étudiant a consommé, et ce que chaque professeur a enseigné."
       />
 
       <GuidePage
         id="admin-heures"
+        compact
         etapes={[
           <>
             Les compteurs ne se saisissent pas : ils se remplissent automatiquement quand une séance passe au statut{' '}
@@ -47,17 +49,19 @@ export function HeuresAdmin() {
           <EtatChargement lignes={2} hauteur={200} />
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-          <GrilleStats>
-            <Stat libelle="Heures suivies" valeur={totalConsommees} unite="h" ton="or" aide="Cumul côté étudiants" />
-            <Stat libelle="Heures enseignées" valeur={totalEnseignees} unite="h" ton="bleu" aide="Cumul côté professeurs" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <GrilleStats min={160} compact>
+            <Stat compact libelle="Heures suivies" valeur={totalConsommees} unite="h" ton="or" aide="Cumul côté étudiants" />
+            <Stat compact libelle="Heures enseignées" valeur={totalEnseignees} unite="h" ton="bleu" aide="Cumul côté professeurs" />
             <Stat
+              compact
               libelle="Étudiants ayant démarré"
               valeur={`${etudiantsAvecHeures} / ${etudiants.length}`}
               ton="teal"
               aide="Au moins une séance clôturée"
             />
             <Stat
+              compact
               libelle="Professeurs en activité"
               valeur={`${professeursActifs} / ${professeurs.length}`}
               ton="violet"
@@ -67,6 +71,7 @@ export function HeuresAdmin() {
 
           <div className="grille-deux">
             <TableauHeures
+              compact
               titre="Étudiants"
               description="Heures consommées sur leur forfait ou leur vague, du plus avancé au moins avancé."
               lignes={etudiants}
@@ -74,6 +79,7 @@ export function HeuresAdmin() {
               messageVide="Aucun étudiant n’a encore de séance clôturée. Les compteurs démarreront dès la première séance terminée."
             />
             <TableauHeures
+              compact
               titre="Professeurs"
               description="Heures effectivement enseignées, base de calcul des rémunérations."
               lignes={professeurs}
@@ -93,29 +99,31 @@ function TableauHeures({
   lignes,
   etiquette,
   messageVide,
+  compact,
 }: {
   titre: string
   description: string
   lignes: LigneHeures[]
   etiquette: string
   messageVide: string
+  compact?: boolean
 }) {
   const triees = [...lignes].sort((a, b) => b.heures - a.heures)
   const maximum = triees[0]?.heures ?? 0
 
   return (
-    <Section titre={titre} description={description} compteur={triees.length}>
+    <Section compact={compact} titre={titre} description={description} compteur={triees.length}>
       {triees.length === 0 ? (
         <EtatVide compact icone="heures" titre="Aucune heure enregistrée" description={messageVide} />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {triees.map(({ profile, heures }) => (
-            <div key={profile.id} className="row-hl" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 6px', borderBottom: '1px solid var(--border-soft)' }}>
-              <span style={{ width: 32, height: 32, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+            <div key={profile.id} className="row-hl" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 6px', borderBottom: '1px solid var(--border-soft)' }}>
+              <span style={{ width: 27, height: 27, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
                 {initiales(profile)}
               </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexGrow: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 13, color: 'var(--ink)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexGrow: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 12, color: 'var(--ink)' }}>
                   {profile.prenom} {profile.nom}
                 </span>
                 {/* Barre de proportion relative au plus gros compteur : elle rend la
@@ -133,7 +141,7 @@ function TableauHeures({
                   />
                 </span>
               </div>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)', flexShrink: 0 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)', flexShrink: 0 }}>
                 {heures} {etiquette}
               </span>
             </div>
