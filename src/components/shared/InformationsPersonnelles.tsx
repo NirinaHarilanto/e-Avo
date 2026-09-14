@@ -82,7 +82,7 @@ export function InformationsPersonnelles({ personne, onChange, extra }: Informat
           <LigneInfo label="E-mail" valeur={personne.email ?? '—'} />
           <LigneInfo label="Téléphone" valeur={personne.telephone ?? '—'} />
           <LigneInfo label="Adresse" valeur={personne.adresse ?? '—'} />
-          {estProfesseur && <LigneInfo label="Taux horaire" valeur={personne.taux_horaire ? `${personne.taux_horaire} €/h` : '—'} />}
+          {estProfesseur && <LigneInfo label="Taux horaire" valeur={personne.taux_horaire ? `${personne.taux_horaire} Ar/h` : '—'} />}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
@@ -102,7 +102,7 @@ export function InformationsPersonnelles({ personne, onChange, extra }: Informat
             <input value={adresse} onChange={(e) => setAdresse(e.target.value)} style={champStyle} />
           </Champ>
           {estProfesseur && (
-            <Champ label="Taux horaire (€/h)" aide="Sert au calcul automatique des rémunérations à l’heure enseignée.">
+            <Champ label="Taux horaire (Ar/h)" aide="Sert au calcul automatique des rémunérations à l’heure enseignée.">
               <input type="number" value={tauxHoraire} onChange={(e) => setTauxHoraire(e.target.value)} style={champStyle} />
             </Champ>
           )}

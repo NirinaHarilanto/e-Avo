@@ -95,20 +95,20 @@ export function PaiementsAdmin() {
             <Stat
               libelle="Encaissé"
               valeur={totaux(paiementsEtudiants.paiements.map((p) => p.paiement)).paye.toFixed(2)}
-              unite="€"
+              unite="Ar"
               ton="teal"
             />
             <Stat
               libelle="Attendu"
               valeur={totaux(paiementsEtudiants.paiements.map((p) => p.paiement)).attendu.toFixed(2)}
-              unite="€"
+              unite="Ar"
               ton="or"
               aide="Échéances à venir non réglées"
             />
             <Stat
               libelle="En retard"
               valeur={totaux(paiementsEtudiants.paiements.map((p) => p.paiement)).enRetard.toFixed(2)}
-              unite="€"
+              unite="Ar"
               ton={totaux(paiementsEtudiants.paiements.map((p) => p.paiement)).enRetard > 0 ? 'alerte' : 'neutre'}
               aide="À relancer en priorité"
             />
@@ -123,19 +123,19 @@ export function PaiementsAdmin() {
             <Stat
               libelle="Versé"
               valeur={totaux(remunerationsProfs.remunerations.map((r) => r.paiement)).paye.toFixed(2)}
-              unite="€"
+              unite="Ar"
               ton="teal"
             />
             <Stat
               libelle="À verser"
               valeur={totaux(remunerationsProfs.remunerations.map((r) => r.paiement)).attendu.toFixed(2)}
-              unite="€"
+              unite="Ar"
               ton="or"
             />
             <Stat
               libelle="En retard"
               valeur={totaux(remunerationsProfs.remunerations.map((r) => r.paiement)).enRetard.toFixed(2)}
-              unite="€"
+              unite="Ar"
               ton={totaux(remunerationsProfs.remunerations.map((r) => r.paiement)).enRetard > 0 ? 'alerte' : 'neutre'}
             />
             <Stat libelle="Lignes enregistrées" valeur={remunerationsProfs.remunerations.length} ton="neutre" />

@@ -8,6 +8,7 @@ import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
+import { Modale } from '../ui/Modale'
 
 const COULEUR_COLONNE: Record<string, string> = {
   prospect: '#8b96b8',
@@ -243,6 +244,7 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [enGlissement, setEnGlissement] = useState(false)
+  const [detailOuvert, setDetailOuvert] = useState(false)
 
   async function planifierAppel() {
     if (!profile || !dateAppel) return
@@ -329,151 +331,167 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
   }
 
   return (
-    <div
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', prospect.id)
-        e.dataTransfer.effectAllowed = 'move'
-        setEnGlissement(true)
-      }}
-      onDragEnd={() => setEnGlissement(false)}
-      className="card card-lift"
-      style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 9, cursor: 'grab', opacity: enGlissement ? 0.4 : 1 }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ width: 32, height: 32, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
-          {(prospect.prenom[0] ?? '').toUpperCase()}
-          {(prospect.nom[0] ?? '').toUpperCase()}
-        </span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-            {prospect.prenom} {prospect.nom}
+    <>
+      {/* Carte repliée : uniquement l'identité du prospect, pour qu'une colonne à forte
+          affluence tienne sur une hauteur raisonnable — tout le reste (objectif, diagnostic,
+          actions) est déplacé dans la fenêtre de détail ouverte au clic. Le drag-and-drop reste
+          porté par cette carte : un vrai clic n'émet jamais l'événement `click` après un
+          glissé, les deux interactions ne se marchent donc pas dessus. */}
+      <div
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData('text/plain', prospect.id)
+          e.dataTransfer.effectAllowed = 'move'
+          setEnGlissement(true)
+        }}
+        onDragEnd={() => setEnGlissement(false)}
+        onClick={() => setDetailOuvert(true)}
+        className="card card-lift"
+        style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 7, cursor: 'grab', opacity: enGlissement ? 0.4 : 1 }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11.5, fontWeight: 800, flexShrink: 0 }}>
+            {(prospect.prenom[0] ?? '').toUpperCase()}
+            {(prospect.nom[0] ?? '').toUpperCase()}
           </span>
-          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
+              {prospect.prenom} {prospect.nom}
+            </span>
+            <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
+          </div>
         </div>
+
+        {prospect.type_programme && (
+          <span
+            style={{
+              alignSelf: 'flex-start',
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: 0.4,
+              textTransform: 'uppercase',
+              color: 'var(--muted-2)',
+              border: '1px solid var(--border)',
+              borderRadius: 999,
+              padding: '2px 9px',
+            }}
+          >
+            {LABEL_PROGRAMME[prospect.type_programme]}
+          </span>
+        )}
       </div>
 
-      {prospect.type_programme && (
-        <span
-          style={{
-            alignSelf: 'flex-start',
-            fontSize: 10.5,
-            fontWeight: 700,
-            letterSpacing: 0.4,
-            textTransform: 'uppercase',
-            color: 'var(--muted-2)',
-            border: '1px solid var(--border)',
-            borderRadius: 999,
-            padding: '3px 10px',
-          }}
-        >
-          {LABEL_PROGRAMME[prospect.type_programme]}
-        </span>
-      )}
+      {detailOuvert && (
+        <Modale titre={`${prospect.prenom} ${prospect.nom}`} onFermer={() => setDetailOuvert(false)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
 
-      {prospect.objectif && (
-        <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px' }}>
-          « {prospect.objectif} »
-        </p>
-      )}
+            {prospect.objectif && (
+              <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
+                « {prospect.objectif} »
+              </p>
+            )}
 
-      {prospect.statut === 'diagnostic_planifie' &&
-        (prospect.diagnostic ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, borderRadius: 10, border: '1px solid rgba(233,207,148,.28)', background: 'rgba(233,207,148,.1)', padding: '10px 12px' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>
-              {new Date(prospect.diagnostic.date_appel).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+            {prospect.statut === 'diagnostic_planifie' &&
+              (prospect.diagnostic ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, borderRadius: 10, border: '1px solid rgba(233,207,148,.28)', background: 'rgba(233,207,148,.1)', padding: '10px 12px' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>
+                    {new Date(prospect.diagnostic.date_appel).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+                  </span>
+                </div>
+              ) : (
+                <span style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>Réservé via Calendly</span>
+              ))}
+
+            {prospect.statut === 'diagnostic_fait' && prospect.diagnostic?.niveau_evalue && (
+              <span style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
+                Niveau évalué {prospect.diagnostic.niveau_evalue}
+              </span>
+            )}
+
+            <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
+              Dossier créé le {new Date(prospect.created_at).toLocaleDateString('fr-FR')}
             </span>
+
+            {erreur && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{erreur}</p>}
+
+            {prospect.statut === 'prospect' &&
+              !ouvert &&
+              (calendlyUrl ? (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <a
+                    href={calendlyUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-shine"
+                    style={{ flex: 1, textAlign: 'center', fontSize: 12.5, padding: 10, background: 'var(--accent-gradient)', color: '#1b1510' }}
+                  >
+                    Ouvrir Calendly
+                  </a>
+                  <button
+                    onClick={() => onChangerStatut(prospect, 'diagnostic_planifie')}
+                    className="btn-shine btn-secondary"
+                    title={`Marquer ${estPositionnement ? 'le test' : "l'appel"} comme planifié`}
+                    style={{ fontSize: 12.5, padding: '0 14px' }}
+                  >
+                    ✓
+                  </button>
+                </div>
+              ) : (
+                <button onClick={() => setOuvert(true)} className="btn-shine" style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-gradient)', color: '#1b1510' }}>
+                  Planifier {estPositionnement ? 'le test de positionnement' : "l'appel diagnostic"}
+                </button>
+              ))}
+            {prospect.statut === 'prospect' && ouvert && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                  {estPositionnement ? 'Test de positionnement' : 'Appel diagnostic'}
+                </span>
+                <input
+                  type="datetime-local"
+                  value={dateAppel}
+                  onChange={(e) => setDateAppel(e.target.value)}
+                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+                />
+                <button onClick={planifierAppel} disabled={enCours || !dateAppel} className="btn-shine" style={{ fontSize: 12.5, padding: 9, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours ? 0.7 : 1 }}>
+                  Confirmer
+                </button>
+              </div>
+            )}
+
+            {prospect.statut === 'diagnostic_planifie' && !ouvert && (
+              <button onClick={() => setOuvert(true)} className="btn-shine btn-secondary" style={{ width: '100%', fontSize: 12.5, padding: 10 }}>
+                Marquer {estPositionnement ? 'le test' : 'le diagnostic'} comme fait
+              </button>
+            )}
+            {prospect.statut === 'diagnostic_planifie' && ouvert && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <input
+                  placeholder="Niveau évalué (ex. B1)"
+                  value={niveauEvalue}
+                  onChange={(e) => setNiveauEvalue(e.target.value)}
+                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+                />
+                <input
+                  placeholder="Rythme convenu (ex. 2h / semaine)"
+                  value={rythmeConvenu}
+                  onChange={(e) => setRythmeConvenu(e.target.value)}
+                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+                />
+                <button onClick={marquerRealise} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
+                  Confirmer
+                </button>
+              </div>
+            )}
+
+            {prospect.statut === 'diagnostic_fait' && (
+              <button onClick={convertirEnEtudiant} disabled={enCours} className="btn-shine" style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-blue-gradient)', color: '#fff', opacity: enCours ? 0.7 : 1 }}>
+                Convertir en étudiant
+              </button>
+            )}
           </div>
-        ) : (
-          <span style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>Réservé via Calendly</span>
-        ))}
-
-      {prospect.statut === 'diagnostic_fait' && prospect.diagnostic?.niveau_evalue && (
-        <span style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
-          Niveau évalué {prospect.diagnostic.niveau_evalue}
-        </span>
+        </Modale>
       )}
-
-      <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
-        {new Date(prospect.created_at).toLocaleDateString('fr-FR')}
-      </span>
-
-      {erreur && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{erreur}</p>}
-
-      {prospect.statut === 'prospect' &&
-        !ouvert &&
-        (calendlyUrl ? (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <a
-              href={calendlyUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-shine"
-              style={{ flex: 1, textAlign: 'center', fontSize: 12.5, padding: 10, background: 'var(--accent-gradient)', color: '#1b1510' }}
-            >
-              Ouvrir Calendly
-            </a>
-            <button
-              onClick={() => onChangerStatut(prospect, 'diagnostic_planifie')}
-              className="btn-shine btn-secondary"
-              title={`Marquer ${estPositionnement ? 'le test' : "l'appel"} comme planifié`}
-              style={{ fontSize: 12.5, padding: '0 14px' }}
-            >
-              ✓
-            </button>
-          </div>
-        ) : (
-          <button onClick={() => setOuvert(true)} className="btn-shine" style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-gradient)', color: '#1b1510' }}>
-            Planifier {estPositionnement ? 'le test de positionnement' : "l'appel diagnostic"}
-          </button>
-        ))}
-      {prospect.statut === 'prospect' && ouvert && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
-            {estPositionnement ? 'Test de positionnement' : 'Appel diagnostic'}
-          </span>
-          <input
-            type="datetime-local"
-            value={dateAppel}
-            onChange={(e) => setDateAppel(e.target.value)}
-            style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-          />
-          <button onClick={planifierAppel} disabled={enCours || !dateAppel} className="btn-shine" style={{ fontSize: 12.5, padding: 9, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours ? 0.7 : 1 }}>
-            Confirmer
-          </button>
-        </div>
-      )}
-
-      {prospect.statut === 'diagnostic_planifie' && !ouvert && (
-        <button onClick={() => setOuvert(true)} className="btn-shine btn-secondary" style={{ width: '100%', fontSize: 12.5, padding: 10 }}>
-          Marquer {estPositionnement ? 'le test' : 'le diagnostic'} comme fait
-        </button>
-      )}
-      {prospect.statut === 'diagnostic_planifie' && ouvert && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <input
-            placeholder="Niveau évalué (ex. B1)"
-            value={niveauEvalue}
-            onChange={(e) => setNiveauEvalue(e.target.value)}
-            style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-          />
-          <input
-            placeholder="Rythme convenu (ex. 2h / semaine)"
-            value={rythmeConvenu}
-            onChange={(e) => setRythmeConvenu(e.target.value)}
-            style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-          />
-          <button onClick={marquerRealise} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
-            Confirmer
-          </button>
-        </div>
-      )}
-
-      {prospect.statut === 'diagnostic_fait' && (
-        <button onClick={convertirEnEtudiant} disabled={enCours} className="btn-shine" style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-blue-gradient)', color: '#fff', opacity: enCours ? 0.7 : 1 }}>
-          Convertir en étudiant
-        </button>
-      )}
-    </div>
+    </>
   )
 }

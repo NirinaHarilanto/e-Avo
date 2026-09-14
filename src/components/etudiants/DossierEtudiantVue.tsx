@@ -6,6 +6,7 @@ import { GrilleStats, Stat } from '../ui/Stat'
 import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { LigneInfo } from '../ui/Champ'
+import { Icone } from '../ui/Icones'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -31,6 +32,30 @@ function LigneDiagnostic({ diagnostic }: { diagnostic: NonNullable<DossierEtudia
         Appel diagnostic réalisé{diagnostic.niveau_evalue ? ` · niveau initial ${diagnostic.niveau_evalue}` : ''}
       </span>
       <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{new Date(diagnostic.date_appel).toLocaleDateString('fr-FR')}</span>
+    </div>
+  )
+}
+
+function EtapeAvancement({ fait, label }: { fait: boolean; label: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+      <span
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: 999,
+          flexShrink: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: fait ? '#0a1530' : 'var(--muted-2)',
+          background: fait ? 'var(--accent-teal)' : 'transparent',
+          border: fait ? 'none' : '1px dashed var(--muted-2)',
+        }}
+      >
+        {fait && <Icone nom="valide" taille={11} />}
+      </span>
+      <span style={{ fontSize: 12, color: fait ? 'var(--ink-2)' : 'var(--muted)' }}>{label}</span>
     </div>
   )
 }
@@ -226,12 +251,6 @@ export function DossierEtudiantVue({
       : null
   const professeurActuel = periodes[0] && !periodes[0].affectation.date_fin ? periodes[0] : null
 
-  // La colonne latérale pouvait se retrouver totalement vide sur un dossier qui vient d'être
-  // créé (ni professeur, ni diagnostic, ni programme) en laissant une gouttière de 320 px sans
-  // rien dedans, et sans dire à l'utilisateur ce qu'il lui restait à faire.
-  const colonneLateraleVide =
-    !panneauInformations && !professeurActuel && !panneauProfesseur && !diagnostic && !cohorte && !forfait && !panneauChoixInitial
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
@@ -256,8 +275,9 @@ export function DossierEtudiantVue({
         </div>
       </div>
 
-      <GrilleStats min={180}>
+      <GrilleStats min={160} compact>
         <Stat
+          compact
           libelle="Heures suivies"
           valeur={heuresConsommees}
           unite={forfait ? `h / ${forfait.total_heures} h` : 'h'}
@@ -265,32 +285,34 @@ export function DossierEtudiantVue({
           aide={forfait ? `Forfait de ${forfait.total_heures} h` : 'Aucun forfait rattaché'}
         />
         <Stat
+          compact
           libelle="Assiduité"
           valeur={assiduite === null ? '—' : `${assiduite} %`}
           ton="teal"
           aide={seancesTerminees.length > 0 ? `Sur ${seancesTerminees.length} séance${seancesTerminees.length > 1 ? 's' : ''} clôturée${seancesTerminees.length > 1 ? 's' : ''}` : 'Aucune séance clôturée'}
         />
         <Stat
+          compact
           libelle="Prochaine séance"
           valeur={
             prochaineSeance ? (
-              <span style={{ fontSize: 17 }}>
+              <span style={{ fontSize: 13.5 }}>
                 {new Date(prochaineSeance.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
               </span>
             ) : (
-              <span style={{ fontSize: 17 }}>Aucune planifiée</span>
+              <span style={{ fontSize: 13.5 }}>Aucune planifiée</span>
             )
           }
           ton="bleu"
           pied={
             prochaineSeance?.video ? (
-              <a href={getJoinUrl(prochaineSeance.video)} target="_blank" rel="noreferrer" className="btn-shine btn-secondary" style={{ fontSize: 11.5, padding: '7px 13px' }}>
+              <a href={getJoinUrl(prochaineSeance.video)} target="_blank" rel="noreferrer" className="btn-shine btn-secondary" style={{ fontSize: 11, padding: '6px 11px' }}>
                 Rejoindre la visio
               </a>
             ) : undefined
           }
         />
-        <Stat libelle="Niveau évalué" valeur={diagnostic?.niveau_evalue ?? '—'} ton="violet" aide={diagnostic ? 'Établi lors de l’appel diagnostic' : 'Pas encore de diagnostic'} />
+        <Stat compact libelle="Niveau évalué" valeur={diagnostic?.niveau_evalue ?? '—'} ton="violet" aide={diagnostic ? 'Établi lors de l’appel diagnostic' : 'Pas encore de diagnostic'} />
       </GrilleStats>
 
       <div className="grille-dossier">
@@ -323,6 +345,21 @@ export function DossierEtudiantVue({
         </Section>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
+          {/* Tant que le dossier n'a ni professeur ni programme, la colonne de droite ne
+              contenait que la carte d'informations personnelles, avec un grand vide en dessous
+              (le « Parcours pédagogique » à gauche est généralement plus haut). Ce récapitulatif
+              occupe cet espace utilement plutôt que de le laisser vide, et disparaît de
+              lui-même une fois le dossier complet. */}
+          {(!professeurActuel || (!forfait && !cohorte)) && (
+            <Section titre="Avancement du dossier" padding="14px 16px">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+                <EtapeAvancement fait={!!diagnostic} label="Appel diagnostic réalisé" />
+                <EtapeAvancement fait={!!professeurActuel} label="Professeur attribué" />
+                <EtapeAvancement fait={!!(forfait || cohorte)} label="Programme choisi (forfait ou vague)" />
+              </div>
+            </Section>
+          )}
+
           {panneauInformations}
 
           {/* Une seule carte « Professeur actuel » : la version lecture seule et la version avec
@@ -433,14 +470,6 @@ export function DossierEtudiantVue({
             </Section>
           )}
 
-          {colonneLateraleVide && (
-            <EtatVide
-              compact
-              icone="dossier"
-              titre="Dossier à compléter"
-              description="Ce dossier n’a encore ni professeur, ni programme, ni appel diagnostic. Un administrateur doit attribuer un professeur puis choisir un programme pour que le suivi démarre."
-            />
-          )}
         </div>
       </div>
     </div>

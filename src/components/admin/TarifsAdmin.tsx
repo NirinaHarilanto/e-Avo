@@ -4,9 +4,10 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useTarifs } from '../../hooks/useTarifs'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
+import { GroupeSection } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement } from '../ui/Etats'
-import { boutonPrimaireStyle } from '../ui/Boutons'
+import { boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
@@ -21,52 +22,56 @@ const PROGRAMMES_LABEL: Record<TypeProgrammeProspect, string> = {
   collectif: 'Collectif',
 }
 
+/* Ordre et couleur d'accent propres à cette page — distincts de la palette générique de
+   `ui/Stat`, pour que chaque groupe de tarifs se reconnaisse d'un coup d'œil sur la vitrine
+   comme dans cette grille d'édition. Ordre demandé par le client : Individuel, Collectif, Duo. */
+const GROUPES_PROGRAMME: { type: TypeProgrammeProspect; couleur: string }[] = [
+  { type: 'individuel', couleur: 'var(--accent-blue)' },
+  { type: 'collectif', couleur: 'var(--accent-teal)' },
+  { type: 'duo', couleur: 'var(--accent-violet)' },
+]
+
 export function TarifsAdmin() {
   const { profile } = useProfileContext()
   const { tarifs, loading, recharger } = useTarifs(profile?.etablissement_id)
+
+  async function ajouterTarif(type: TypeProgrammeProspect) {
+    if (!profile) return
+    const nbDansGroupe = tarifs.filter((t) => t.type_programme === type).length
+    await supabase.from('tarifs').insert({
+      etablissement_id: profile.etablissement_id,
+      type_programme: type,
+      titre: 'Nouveau tarif',
+      prix: 0,
+      unite: 'Ar',
+      ordre: nbDansGroupe,
+    })
+    recharger()
+  }
 
   return (
     <AdminLayout actif="Tarifs">
       <EnTetePage
         titre="Tarifs"
-        description="La grille affichée dans la section « Tarifs » de votre page vitrine publique. Seuls ces chiffres et ces textes s'y reflètent : la mise en page de la vitrine ne change pas."
-        actions={
-          <button
-            onClick={async () => {
-              if (!profile) return
-              await supabase.from('tarifs').insert({
-                etablissement_id: profile.etablissement_id,
-                type_programme: 'individuel',
-                titre: 'Nouveau tarif',
-                prix: 0,
-                unite: 'Ar',
-                ordre: tarifs.length,
-              })
-              recharger()
-            }}
-            className="btn-shine"
-            style={boutonPrimaireStyle}
-          >
-            <Icone nom="plus" taille={15} />
-            Ajouter un tarif
-          </button>
-        }
+        description="La grille affichée dans la section « Tarifs » de votre page vitrine publique, regroupée par type de programme. Seuls ces chiffres et ces textes s'y reflètent : la mise en page de la vitrine ne change pas."
       />
 
       <GuidePage
         id="admin-tarifs"
         etapes={[
           <>
-            <strong>Ajouter un tarif</strong> crée immédiatement une ligne vierge en bas de la grille : il n'y a pas de
-            formulaire séparé, vous la remplissez directement sur place.
+            Les tarifs sont regroupés par <strong>type de programme</strong> — Individuel, Collectif, Duo — pour
+            correspondre aux trois formules proposées sur votre vitrine. Le bouton « Ajouter un tarif » de chaque
+            groupe crée directement une ligne du bon type.
           </>,
           <>
             Chaque ligne s'édite en place. Pensez à cliquer sur <strong>Enregistrer</strong> sur la ligne concernée :
             une modification non enregistrée n'est pas publiée sur la vitrine.
           </>,
           <>
-            Le champ <strong>Ordre</strong> détermine la position d'affichage sur la vitrine, du plus petit au plus
-            grand. Le champ <strong>Unité</strong> accepte n'importe quelle devise ou mention (Ar, €, « / mois »).
+            Le champ <strong>Ordre</strong> détermine la position d'affichage à l'intérieur de son groupe, du plus
+            petit au plus grand. Le champ <strong>Unité</strong> accepte n'importe quelle mention (Ar, « / mois »,
+            etc.).
           </>,
           <>
             Ces tarifs sont purement informatifs pour vos visiteurs. Ils n'alimentent pas automatiquement les devis et
@@ -77,17 +82,63 @@ export function TarifsAdmin() {
 
       {loading ? (
         <EtatChargement lignes={3} hauteur={130} />
-      ) : tarifs.length === 0 ? (
-        <EtatVide
-          icone="tarifs"
-          titre="Aucun tarif renseigné"
-          description="Tant que cette grille est vide, la section « Tarifs » de votre page vitrine reste masquée pour les visiteurs. Ajoutez une première ligne pour l'afficher."
-        />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {tarifs.map((tarif) => (
-            <LigneTarif key={tarif.id} tarif={tarif} onChange={recharger} />
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+          {GROUPES_PROGRAMME.map(({ type, couleur }) => {
+            const tarifsGroupe = [...tarifs.filter((t) => t.type_programme === type)].sort((a, b) => a.ordre - b.ordre)
+            return (
+              <GroupeSection
+                key={type}
+                titre={
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 999, background: couleur, flexShrink: 0 }} />
+                    {PROGRAMMES_LABEL[type]}
+                    <span
+                      style={{
+                        fontFamily: 'inherit',
+                        fontSize: 11,
+                        fontWeight: 800,
+                        color: 'var(--ink-2)',
+                        background: 'rgba(255,255,255,.07)',
+                        border: '1px solid var(--border-soft)',
+                        borderRadius: 999,
+                        padding: '2px 9px',
+                      }}
+                    >
+                      {tarifsGroupe.length}
+                    </span>
+                  </span>
+                }
+                actions={
+                  <button onClick={() => ajouterTarif(type)} className="btn-shine" style={{ ...boutonPrimaireStyle, fontSize: 12, padding: '7px 13px' }}>
+                    <Icone nom="plus" taille={13} />
+                    Ajouter un tarif
+                  </button>
+                }
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                    paddingLeft: 14,
+                    borderLeft: `2px solid ${couleur}`,
+                  }}
+                >
+                  {tarifsGroupe.length === 0 ? (
+                    <EtatVide
+                      compact
+                      icone="tarifs"
+                      titre={`Aucun tarif ${PROGRAMMES_LABEL[type].toLowerCase()}`}
+                      description="Cette formule n'apparaît pas sur la vitrine tant qu'aucune ligne n'y est ajoutée."
+                    />
+                  ) : (
+                    tarifsGroupe.map((tarif) => <LigneTarif key={tarif.id} tarif={tarif} onChange={recharger} />)
+                  )}
+                </div>
+              </GroupeSection>
+            )
+          })}
         </div>
       )}
     </AdminLayout>
@@ -133,8 +184,8 @@ function LigneTarif({ tarif, onChange }: { tarif: Tarif; onChange: () => void })
   }
 
   return (
-    <div className="card" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+    <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 11 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 11 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Programme</label>
           <select value={typeProgramme} onChange={(e) => setTypeProgramme(e.target.value as TypeProgrammeProspect)} style={champStyle}>
@@ -174,14 +225,11 @@ function LigneTarif({ tarif, onChange }: { tarif: Tarif; onChange: () => void })
           onClick={enregistrer}
           disabled={enregistrement}
           className="btn-shine"
-          style={{ fontSize: 12.5, padding: '9px 16px', background: 'var(--accent-gradient)', color: '#1b1510', opacity: enregistrement ? 0.7 : 1 }}
+          style={{ ...boutonPrimaireStyle, fontSize: 12.5, padding: '9px 16px', opacity: enregistrement ? 0.7 : 1 }}
         >
           {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
         </button>
-        <button
-          onClick={supprimer}
-          style={{ fontSize: 12.5, padding: '9px 16px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, color: 'var(--danger)', cursor: 'pointer' }}
-        >
+        <button onClick={supprimer} style={{ ...boutonSecondaireStyle, color: 'var(--danger)', fontSize: 12.5, padding: '9px 16px' }}>
           Supprimer
         </button>
       </div>

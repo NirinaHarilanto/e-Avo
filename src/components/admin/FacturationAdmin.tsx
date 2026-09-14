@@ -104,7 +104,7 @@ export function FacturationAdmin() {
             <Stat
               libelle="Montant accepté"
               valeur={devisAcceptes.reduce((total, d) => total + d.devis.montant_ttc, 0).toFixed(2)}
-              unite="€"
+              unite="Ar"
               ton="teal"
             />
           </GrilleStats>
@@ -117,20 +117,20 @@ export function FacturationAdmin() {
             <Stat
               libelle="Total facturé"
               valeur={factures.reduce((total, f) => (f.facture.statut === 'annulee' ? total : total + f.facture.montant_ttc), 0).toFixed(2)}
-              unite="€"
+              unite="Ar"
               ton="or"
               aide="Hors factures annulées"
             />
             <Stat
               libelle="Réglé"
               valeur={factures.filter((f) => f.facture.statut === 'payee').reduce((total, f) => total + f.facture.montant_ttc, 0).toFixed(2)}
-              unite="€"
+              unite="Ar"
               ton="teal"
             />
             <Stat
               libelle="En retard"
               valeur={factures.filter((f) => f.facture.statut === 'en_retard').reduce((total, f) => total + f.facture.montant_ttc, 0).toFixed(2)}
-              unite="€"
+              unite="Ar"
               ton={factures.some((f) => f.facture.statut === 'en_retard') ? 'alerte' : 'neutre'}
             />
             <Stat libelle="Factures émises" valeur={factures.length} ton="neutre" />
@@ -260,7 +260,7 @@ function LigneDevis({
         <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{devis.objet}</div>
       </div>
       <span className="brand-font" style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)', flexShrink: 0 }}>
-        {devis.montant_ttc.toFixed(2)} €
+        {devis.montant_ttc.toFixed(2)} Ar
       </span>
       <select
         value={devis.statut}
@@ -380,7 +380,7 @@ function LigneFacture({
         <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{facture.objet}</div>
       </div>
       <span className="brand-font" style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)', flexShrink: 0 }}>
-        {facture.montant_ttc.toFixed(2)} €
+        {facture.montant_ttc.toFixed(2)} Ar
       </span>
       <select
         value={facture.statut}

@@ -77,8 +77,8 @@ export function EditeurLignes({ lignes, onChange }: EditeurLignesProps) {
         + Ajouter une ligne
       </button>
       <div style={{ fontSize: 12.5, color: 'var(--ink-2)', textAlign: 'right' }}>
-        HT : <strong>{montant_ht.toFixed(2)} €</strong> · TVA : <strong>{montant_tva.toFixed(2)} €</strong> · TTC :{' '}
-        <strong style={{ color: 'var(--accent-gold, #e9cf94)' }}>{montant_ttc.toFixed(2)} €</strong>
+        HT : <strong>{montant_ht.toFixed(2)} Ar</strong> · TVA : <strong>{montant_tva.toFixed(2)} Ar</strong> · TTC :{' '}
+        <strong style={{ color: 'var(--accent-gold, #e9cf94)' }}>{montant_ttc.toFixed(2)} Ar</strong>
       </div>
     </div>
   )

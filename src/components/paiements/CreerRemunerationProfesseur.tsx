@@ -134,7 +134,7 @@ export function CreerRemunerationProfesseur({ etablissementId, onCree, onAnnuler
         {mode === 'mensuel' ? (
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 130 }}>
-              <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Montant (€)</label>
+              <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Montant (Ar)</label>
               <input required type="number" min={0} step="0.01" value={montant} onChange={(e) => setMontant(e.target.value)} style={champStyle} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 150 }}>
@@ -180,8 +180,8 @@ export function CreerRemunerationProfesseur({ etablissementId, onCree, onAnnuler
             </div>
           )}
           <div style={{ fontSize: 12.5, color: 'var(--ink-2)', textAlign: 'right' }}>
-            Total : <strong>{heuresSelectionnees} h</strong> × {professeur.taux_horaire} €/h ={' '}
-            <strong style={{ color: 'var(--accent-gold, #e9cf94)' }}>{montantHoraire.toFixed(2)} €</strong>
+            Total : <strong>{heuresSelectionnees} h</strong> × {professeur.taux_horaire} Ar/h ={' '}
+            <strong style={{ color: 'var(--accent-gold, #e9cf94)' }}>{montantHoraire.toFixed(2)} Ar</strong>
           </div>
         </div>
       )}

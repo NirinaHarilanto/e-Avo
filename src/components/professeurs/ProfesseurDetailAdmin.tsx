@@ -39,7 +39,7 @@ export function ProfesseurDetailAdmin() {
             <Stat
               libelle="Taux horaire"
               valeur={detail.professeur.taux_horaire ? `${detail.professeur.taux_horaire}` : '—'}
-              unite={detail.professeur.taux_horaire ? '€/h' : undefined}
+              unite={detail.professeur.taux_horaire ? 'Ar/h' : undefined}
               ton={detail.professeur.taux_horaire ? 'teal' : 'alerte'}
               aide={
                 detail.professeur.taux_horaire

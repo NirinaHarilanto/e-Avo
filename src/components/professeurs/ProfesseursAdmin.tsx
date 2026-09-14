@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
@@ -11,6 +11,24 @@ import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement } from '../ui/Etats'
 import { boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
+import { BarreOutils, ChampRecherche } from '../ui/BarreOutils'
+import { champStyle } from '../ui/Champ'
+
+type FiltreCharge = 'tous' | 'sans' | 'leger' | 'charge'
+
+const OPTIONS_CHARGE: { value: FiltreCharge; label: string }[] = [
+  { value: 'tous', label: 'Toutes les charges' },
+  { value: 'sans', label: 'Sans élève actif (0)' },
+  { value: 'leger', label: '1 à 2 élèves actifs' },
+  { value: 'charge', label: '3 élèves actifs ou plus' },
+]
+
+function correspondALaCharge(nb: number, filtre: FiltreCharge): boolean {
+  if (filtre === 'tous') return true
+  if (filtre === 'sans') return nb === 0
+  if (filtre === 'leger') return nb >= 1 && nb <= 2
+  return nb >= 3
+}
 
 export function ProfesseursAdmin() {
   const navigate = useNavigate()
@@ -18,6 +36,8 @@ export function ProfesseursAdmin() {
   const [comptes, setComptes] = useState<Record<string, number>>({})
   const [heures, setHeures] = useState<Record<string, number>>({})
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
+  const [recherche, setRecherche] = useState('')
+  const [filtreCharge, setFiltreCharge] = useState<FiltreCharge>('tous')
 
   useEffect(() => {
     if (professeurs.length === 0) return
@@ -46,6 +66,15 @@ export function ProfesseursAdmin() {
   const totalEleves = Object.values(comptes).reduce((total, n) => total + n, 0)
   const totalHeures = Object.values(heures).reduce((total, n) => total + n, 0)
   const sansEleve = professeurs.filter((p) => (comptes[p.id] ?? 0) === 0).length
+
+  const filtres = useMemo(
+    () =>
+      professeurs.filter((p) => {
+        const correspondNom = `${p.prenom ?? ''} ${p.nom ?? ''} ${p.email ?? ''}`.toLowerCase().includes(recherche.toLowerCase())
+        return correspondNom && correspondALaCharge(comptes[p.id] ?? 0, filtreCharge)
+      }),
+    [professeurs, recherche, filtreCharge, comptes],
+  )
 
   return (
     <AdminLayout actif="Professeurs">
@@ -76,6 +105,10 @@ export function ProfesseursAdmin() {
           <>
             L’attribution d’un élève ne se fait pas ici mais depuis le dossier de l’élève, page{' '}
             <strong>Étudiants</strong> : chaque changement y est tracé avec son motif.
+          </>,
+          <>
+            Utilisez la <strong>recherche</strong> ou le filtre par <strong>charge</strong> pour retrouver un
+            professeur, ou repérer ceux qui n’ont pas encore d’élève attribué.
           </>,
         ]}
       />
@@ -114,8 +147,33 @@ export function ProfesseursAdmin() {
             />
           </GrilleStats>
 
+          <BarreOutils>
+            <ChampRecherche valeur={recherche} onChange={setRecherche} placeholder="Rechercher un professeur (nom ou e-mail)…" etiquette="Rechercher un professeur" />
+            <select
+              value={filtreCharge}
+              onChange={(e) => setFiltreCharge(e.target.value as FiltreCharge)}
+              aria-label="Filtrer par nombre d’élèves actifs"
+              style={{ ...champStyle, width: 'auto', minWidth: 200, flexShrink: 0 }}
+            >
+              {OPTIONS_CHARGE.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </BarreOutils>
+
+          {filtres.length === 0 && (
+            <EtatVide
+              compact
+              icone="recherche"
+              titre="Aucun professeur ne correspond"
+              description="Essayez un autre nom, ou passez le filtre de charge sur « Toutes les charges »."
+            />
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
-            {professeurs.map((prof) => (
+            {filtres.map((prof) => (
               <button
                 key={prof.id}
                 onClick={() => navigate(`/admin/professeurs/${prof.id}`)}

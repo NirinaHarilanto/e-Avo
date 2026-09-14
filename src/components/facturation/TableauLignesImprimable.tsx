@@ -25,17 +25,17 @@ export function TableauLignesImprimable({ lignes, montant_ht, montant_tva, monta
             <tr key={index} style={{ borderBottom: '1px solid #ccc' }}>
               <td style={{ padding: '8px 4px' }}>{ligne.description}</td>
               <td style={{ textAlign: 'right', padding: '8px 4px' }}>{ligne.quantite}</td>
-              <td style={{ textAlign: 'right', padding: '8px 4px' }}>{ligne.prix_unitaire_ht.toFixed(2)} €</td>
+              <td style={{ textAlign: 'right', padding: '8px 4px' }}>{ligne.prix_unitaire_ht.toFixed(2)} Ar</td>
               <td style={{ textAlign: 'right', padding: '8px 4px' }}>{ligne.tva_pct}%</td>
-              <td style={{ textAlign: 'right', padding: '8px 4px' }}>{(ligne.quantite * ligne.prix_unitaire_ht).toFixed(2)} €</td>
+              <td style={{ textAlign: 'right', padding: '8px 4px' }}>{(ligne.quantite * ligne.prix_unitaire_ht).toFixed(2)} Ar</td>
             </tr>
           ))}
         </tbody>
       </table>
       <div style={{ marginTop: 16, textAlign: 'right', fontSize: 14 }}>
-        <div>Total HT : {montant_ht.toFixed(2)} €</div>
-        <div>Total TVA : {montant_tva.toFixed(2)} €</div>
-        <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>Total TTC : {montant_ttc.toFixed(2)} €</div>
+        <div>Total HT : {montant_ht.toFixed(2)} Ar</div>
+        <div>Total TVA : {montant_tva.toFixed(2)} Ar</div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>Total TTC : {montant_ttc.toFixed(2)} Ar</div>
       </div>
     </>
   )

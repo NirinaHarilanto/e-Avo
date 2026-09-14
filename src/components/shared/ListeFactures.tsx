@@ -47,9 +47,9 @@ export function ListeFactures({ colonne, titreVide, descriptionVide }: ListeFact
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <GrilleStats min={180}>
-        <Stat libelle="Total" valeur={total.toFixed(2)} unite="€" ton="or" aide="Hors documents annulés" />
-        <Stat libelle="Réglé" valeur={regle.toFixed(2)} unite="€" ton="teal" />
-        <Stat libelle="En attente" valeur={enAttente.toFixed(2)} unite="€" ton={enAttente > 0 ? 'bleu' : 'neutre'} />
+        <Stat libelle="Total" valeur={total.toFixed(2)} unite="Ar" ton="or" aide="Hors documents annulés" />
+        <Stat libelle="Réglé" valeur={regle.toFixed(2)} unite="Ar" ton="teal" />
+        <Stat libelle="En attente" valeur={enAttente.toFixed(2)} unite="Ar" ton={enAttente > 0 ? 'bleu' : 'neutre'} />
       </GrilleStats>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -65,7 +65,7 @@ export function ListeFactures({ colonne, titreVide, descriptionVide }: ListeFact
               </div>
             </div>
             <span className="brand-font" style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>
-              {f.montant_ttc.toFixed(2)} €
+              {f.montant_ttc.toFixed(2)} Ar
             </span>
             <BadgeStatutFacture statut={f.statut} />
             <button onClick={() => setFactureAImprimer(f)} style={boutonSecondaireStyle}>
