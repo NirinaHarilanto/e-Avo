@@ -124,7 +124,18 @@ function IdentiteProfesseur({ periode, taille = 46 }: { periode: PeriodeProfesse
   )
 }
 
-function BlocPeriode({ periode, estActuelle }: { periode: PeriodeProfesseur; estActuelle: boolean }) {
+function BlocPeriode({
+  periode,
+  estActuelle,
+  onModifierSeance,
+}: {
+  periode: PeriodeProfesseur
+  estActuelle: boolean
+  /* Absent en lecture seule (élève/professeur) ; sinon, cliquer une séance encore planifiée
+     ouvre le même pop-up de reprogrammation que l'onglet Forfait & Planning — même interaction,
+     deux points d'entrée. */
+  onModifierSeance?: (seance: SeanceDuParcours) => void
+}) {
   const heures = periode.seances.reduce((total, s) => total + s.session.duree_minutes / 60, 0)
   return (
     <div
@@ -211,20 +222,33 @@ function BlocPeriode({ periode, estActuelle }: { periode: PeriodeProfesseur; est
           {/* Une période peut compter des dizaines de séances : n'en montrer que les premières
               garde le parcours lisible quand plusieurs périodes s'enchaînent. */}
           <ListeRepliable visibles={3} nom="séances">
-          {periode.seances.map((seance) => (
-            <div key={seance.enrollment.id} className="row-hl" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '11px 18px', borderBottom: '1px solid var(--border-soft)' }}>
-              <span style={{ fontSize: 12, color: 'var(--muted)', width: 90, flexShrink: 0 }}>
-                {new Date(seance.session.debut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
-              </span>
-              <span style={{ fontSize: 13, color: 'var(--ink)', flexGrow: 1 }}>
-                {seance.session.type === 'individuel' ? 'Séance individuelle' : 'Séance collective'}
-              </span>
-              <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{seance.session.duree_minutes / 60} h</span>
-              <span style={{ width: 72, textAlign: 'right' }}>
-                <StatutSeance enrollment={seance.enrollment} statutSession={seance.session.statut} />
-              </span>
-            </div>
-          ))}
+          {periode.seances.map((seance) => {
+            const modifiable = !!onModifierSeance && seance.session.statut === 'planifiee'
+            return (
+              <div
+                key={seance.enrollment.id}
+                className="row-hl"
+                onClick={modifiable ? () => onModifierSeance(seance) : undefined}
+                style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '11px 18px', borderBottom: '1px solid var(--border-soft)', cursor: modifiable ? 'pointer' : 'default' }}
+              >
+                <span style={{ fontSize: 12, color: 'var(--muted)', width: 90, flexShrink: 0 }}>
+                  {new Date(seance.session.debut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                </span>
+                <span style={{ fontSize: 13, color: 'var(--ink)', flexGrow: 1 }}>
+                  {seance.session.type === 'individuel' ? 'Séance individuelle' : 'Séance collective'}
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{seance.session.duree_minutes / 60} h</span>
+                {seance.session.changement_statut === 'en_attente' && (
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(255,190,110,.14)', border: '1px solid rgba(255,190,110,.3)', borderRadius: 999, padding: '2px 8px' }}>
+                    En attente
+                  </span>
+                )}
+                <span style={{ width: 72, textAlign: 'right' }}>
+                  <StatutSeance enrollment={seance.enrollment} statutSession={seance.session.statut} />
+                </span>
+              </div>
+            )
+          })}
           </ListeRepliable>
         </div>
       )}
@@ -307,7 +331,7 @@ export function DossierEtudiantVue({
     { value: 'parcours', label: 'Parcours pédagogique' },
     ...(panneauInformations ? [{ value: 'informations' as const, label: 'Informations personnelles' }] : []),
     ...(professeurActuel || panneauProfesseur ? [{ value: 'professeur' as const, label: 'Professeur' }] : []),
-    ...(forfait || cohorte || panneauChoixInitial ? [{ value: 'programme' as const, label: cohorte ? 'Programme' : 'Forfait' }] : []),
+    ...(forfait || cohorte || panneauChoixInitial ? [{ value: 'programme' as const, label: cohorte ? 'Programme' : 'Forfait & Planning' }] : []),
   ]
   const ongletActif = onglets.some((o) => o.value === ongletDemande) ? ongletDemande : onglets[0].value
 
@@ -430,7 +454,12 @@ export function DossierEtudiantVue({
             {periodes.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {periodes.map((periode, index) => (
-                  <BlocPeriode key={periode.affectation.id} periode={periode} estActuelle={index === 0 && !periode.affectation.date_fin} />
+                  <BlocPeriode
+                    key={periode.affectation.id}
+                    periode={periode}
+                    estActuelle={index === 0 && !periode.affectation.date_fin}
+                    onModifierSeance={peutModifierPlanning ? setSeanceEnEdition : undefined}
+                  />
                 ))}
                 {diagnostic && <BlocDiagnostic diagnostic={diagnostic} />}
               </div>

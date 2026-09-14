@@ -48,9 +48,10 @@ export function SeancesAdmin() {
   const aVenir = seances
     .filter((s) => s.session.statut === 'planifiee')
     .sort((a, b) => a.session.debut.localeCompare(b.session.debut))
+  // Chronologique comme le reste des plannings de l'app, y compris l'historique.
   const passees = seances
     .filter((s) => s.session.statut !== 'planifiee')
-    .sort((a, b) => b.session.debut.localeCompare(a.session.debut))
+    .sort((a, b) => a.session.debut.localeCompare(b.session.debut))
 
   return (
     <AdminLayout actif="Séances & visio">

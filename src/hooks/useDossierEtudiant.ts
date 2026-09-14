@@ -84,9 +84,11 @@ export function useDossierEtudiant(studentId: string | undefined) {
     const periodes: PeriodeProfesseur[] = (affectations ?? []).map((affectation) => ({
       affectation,
       professeur: professeurParId.get(affectation.teacher_id) ?? null,
+      // Chronologique, de la première séance à la dernière — cohérent avec tous les autres
+      // plannings de l'app (voir CalendrierProfesseur.tsx, SeancesAdmin.tsx).
       seances: seancesToutes
         .filter((s) => s.enrollment.teacher_assignment_id === affectation.id)
-        .sort((a, b) => b.session.debut.localeCompare(a.session.debut)),
+        .sort((a, b) => a.session.debut.localeCompare(b.session.debut)),
     }))
 
     let diagnostic: DiagnosticCall | null = null
