@@ -381,6 +381,28 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['hour_ledger']['Insert']>
         Relationships: []
       }
+      google_integrations: {
+        Row: {
+          etablissement_id: string
+          google_email: string
+          refresh_token_chiffre: string
+          scope: string | null
+          connecte_par: string | null
+          connecte_le: string
+          derniere_erreur: string | null
+        }
+        Insert: {
+          etablissement_id: string
+          google_email: string
+          refresh_token_chiffre: string
+          scope?: string | null
+          connecte_par?: string | null
+          connecte_le?: string
+          derniere_erreur?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['google_integrations']['Insert']>
+        Relationships: []
+      }
       video_sessions: {
         Row: {
           id: string
@@ -389,6 +411,8 @@ export interface Database {
           room_ref: string | null
           statut: string | null
           enregistrement_url: string | null
+          google_event_id: string | null
+          organisateur_email: string | null
           created_at: string
         }
         Insert: {
@@ -398,6 +422,8 @@ export interface Database {
           room_ref?: string | null
           statut?: string | null
           enregistrement_url?: string | null
+          google_event_id?: string | null
+          organisateur_email?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['video_sessions']['Insert']>
@@ -792,6 +818,15 @@ export interface Database {
       }
     }
     Views: {
+      google_integration_statut: {
+        Row: {
+          etablissement_id: string
+          google_email: string
+          connecte_le: string
+          derniere_erreur: string | null
+        }
+        Relationships: []
+      }
       student_hours_summary: {
         Row: {
           student_id: string

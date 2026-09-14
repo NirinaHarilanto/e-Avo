@@ -7,6 +7,7 @@ import { EtatChargement, MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonPrimaireStyle } from '../ui/Boutons'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
+import { IntegrationGoogleMeet } from './IntegrationGoogleMeet'
 import type { Database } from '../../types/database.types'
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
@@ -110,6 +111,10 @@ export function ParametresAdmin() {
           </button>
         </form>
       )}
+
+      <div style={{ marginTop: 20 }}>
+        <IntegrationGoogleMeet />
+      </div>
     </AdminLayout>
   )
 }
