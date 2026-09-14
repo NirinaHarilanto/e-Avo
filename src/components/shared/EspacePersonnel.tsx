@@ -21,7 +21,9 @@ export function EspacePersonnel() {
     if (!session) navigate('/connexion', { replace: true })
   }, [session, loading, navigate])
 
-  if (loading || !profile) {
+  // Sans `loading` : voir EspaceLayout.tsx — un rafraîchissement de fond ne doit pas vider la
+  // page une fois le profil connu.
+  if (!profile) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
         Chargement…

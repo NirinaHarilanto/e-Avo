@@ -39,6 +39,7 @@ export type SourceVariable =
   | 'langue_programme'
   | 'type_programme_label'
   | 'heures_programme'
+  | 'montant_programme'
   | 'date_debut_programme'
   | 'date_echeance_programme'
   | 'rythme_programme'
@@ -66,6 +67,7 @@ export const SOURCES_VARIABLE: { valeur: SourceVariable; label: string; groupe: 
   { valeur: 'langue_programme', label: 'Langue visée / suivie', groupe: 'Programme (étudiant)' },
   { valeur: 'type_programme_label', label: 'Type de programme', groupe: 'Programme (étudiant)' },
   { valeur: 'heures_programme', label: "Nombre d'heures du programme", groupe: 'Programme (étudiant)' },
+  { valeur: 'montant_programme', label: 'Montant du forfait', groupe: 'Programme (étudiant)' },
   { valeur: 'date_debut_programme', label: 'Date de début du programme', groupe: 'Programme (étudiant)' },
   { valeur: 'date_echeance_programme', label: 'Échéance du programme', groupe: 'Programme (étudiant)' },
   { valeur: 'rythme_programme', label: 'Rythme hebdomadaire convenu', groupe: 'Programme (étudiant)' },
@@ -108,6 +110,7 @@ export interface ContexteProgramme {
   langueProgramme?: string | null
   typeProgrammeLabel?: string | null
   heuresProgramme?: number | null
+  montantProgramme?: number | null
   dateDebutProgramme?: string | null
   dateEcheanceProgramme?: string | null
   rythmeProgramme?: string | null
@@ -166,6 +169,11 @@ export function resoudreSource(
       return contexte?.typeProgrammeLabel ?? null
     case 'heures_programme':
       return contexte?.heuresProgramme != null ? String(contexte.heuresProgramme) : null
+    /* Seul montant de l'app rendu avec son unité : « 1 200 000 » seul dans un contrat se lirait
+       aussi bien en ariary qu'en euros, alors que le reste des sources (taux horaire, heures)
+       s'insère dans une phrase qui porte déjà l'unité. */
+    case 'montant_programme':
+      return contexte?.montantProgramme != null ? `${contexte.montantProgramme.toLocaleString('fr-FR')} Ar` : null
     case 'date_debut_programme':
       return contexte?.dateDebutProgramme ? new Date(contexte.dateDebutProgramme).toLocaleDateString('fr-FR') : null
     case 'date_echeance_programme':
@@ -226,6 +234,7 @@ export function deduireSource(cle: string, label: string): SourceVariable | unde
   if (/langues?.*enseignees?|enseignees?.*langues?/.test(texte)) return 'langues_enseignees'
   if (/heures?.*enseignees?|enseignees?.*heures?/.test(texte)) return 'heures_enseignees'
   if (/nombre.*eleves?|effectif.*eleves?/.test(texte)) return 'nombre_eleves_actifs'
+  if (/prix total|montant total|montant.*(forfait|programme|contrat)|prix.*(forfait|programme)|^prix$|^montant$/.test(texte)) return 'montant_programme'
   if (/heures?.*programme|nombre.*heures?|volume.*heures?|forfait.*heures?/.test(texte)) return 'heures_programme'
   if (/type.*programme/.test(texte)) return 'type_programme_label'
   if (/rythme.*hebdo/.test(texte)) return 'rythme_programme'

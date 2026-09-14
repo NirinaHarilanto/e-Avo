@@ -36,7 +36,9 @@ export function PlateformeLayout({ children, actif }: { children: ReactNode; act
     }
   }, [session, profile, platformAdmin, loading, navigate])
 
-  if (loading || !session || !profile || !platformAdmin) {
+  // Sans `loading` : voir EspaceLayout.tsx — un rafraîchissement de fond ne doit pas vider la
+  // page une fois la session et le profil connus.
+  if (!session || !profile || !platformAdmin) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
         Chargement…

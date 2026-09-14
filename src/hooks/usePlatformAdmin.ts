@@ -17,10 +17,15 @@ export function usePlatformAdmin(session: Session | null, contextLoading: boolea
   const [platformAdmin, setPlatformAdmin] = useState<PlatformAdmin | null>(null)
   const [loading, setLoading] = useState(true)
 
+  /* Même raison que dans useProfile.ts : un renouvellement de jeton au retour sur l'onglet donne
+     un nouvel objet session pour le même utilisateur, et relançait donc inutilement cette
+     requête avec un passage par `loading`. */
+  const utilisateurId = session?.user.id ?? null
+
   useEffect(() => {
     if (contextLoading) return
 
-    if (!session) {
+    if (!utilisateurId) {
       setPlatformAdmin(null)
       setLoading(false)
       return
@@ -31,7 +36,7 @@ export function usePlatformAdmin(session: Session | null, contextLoading: boolea
     supabase
       .from('platform_admins')
       .select('*')
-      .eq('id', session.user.id)
+      .eq('id', utilisateurId)
       .maybeSingle()
       .then(({ data }) => {
         if (!annule) {
@@ -43,7 +48,7 @@ export function usePlatformAdmin(session: Session | null, contextLoading: boolea
     return () => {
       annule = true
     }
-  }, [session, contextLoading])
+  }, [utilisateurId, contextLoading])
 
   return { platformAdmin, loading }
 }

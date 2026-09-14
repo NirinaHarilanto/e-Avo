@@ -62,6 +62,7 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
       langueProgramme: dossier.cohorte?.langue ?? periodeActuelle?.affectation.langue ?? null,
       typeProgrammeLabel: dossier.cohorte ? libelleTypeProgramme('collectif') : forfait ? libelleTypeProgramme(forfait.type_programme) : null,
       heuresProgramme: forfait?.total_heures ?? null,
+      montantProgramme: forfait?.montant ?? null,
       dateDebutProgramme: dossier.cohorte?.date_debut ?? periodeActuelle?.affectation.date_debut ?? null,
       dateEcheanceProgramme: forfait?.echeance ?? dossier.cohorte?.date_fin ?? null,
       rythmeProgramme: dossier.diagnostic?.rythme_convenu ?? null,
@@ -75,7 +76,11 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
   }
 
   const variables = modele ? preparerVariables(modele.corps_template, modele.variables_disponibles, destinataire, etablissement, contexteProgramme) : []
-  const remplies = variables.filter((v) => v.valeurAuto !== undefined)
+  /* Une variable résolue à vide (clause de minorité d'un étudiant majeur : il n'y a rien à
+     insérer) disparaît du récapitulatif — la mentionner ne ferait qu'attirer l'attention sur un
+     champ dont la réponse est « rien à faire ». Elle reste bien substituée par du vide dans le
+     texte du contrat. */
+  const remplies = variables.filter((v) => !!v.valeurAuto)
   const aCompleter = variables.filter((v) => v.valeurAuto === undefined)
 
   const valeurs: Record<string, string> = {}
@@ -196,10 +201,7 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
             {remplies.length} champ{remplies.length > 1 ? 's remplis' : ' rempli'} automatiquement
           </div>
           {remplies.map((variable) => (
-            // Une clause de minorité résolue automatiquement chez un étudiant majeur donne une
-            // valeur vide (rien à coller) : afficher explicitement « Sans objet » plutôt qu'un
-            // libellé suivi de rien, qui laisserait croire à un oubli.
-            <LigneInfo key={variable.cle} label={variable.label} valeur={variable.valeurAuto || 'Sans objet'} />
+            <LigneInfo key={variable.cle} label={variable.label} valeur={variable.valeurAuto} />
           ))}
         </div>
       )}

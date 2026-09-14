@@ -20,8 +20,16 @@ export function useAuth() {
       setLoading(false)
     })
 
+    /* supabase-js réémet un événement d'auth à chaque retour sur l'onglet (il écoute
+       `visibilitychange` pour rafraîchir le jeton) avec un NOUVEL objet session, même quand
+       rien n'a changé. Remplacer l'état par ce nouvel objet changeait l'identité de la valeur
+       du ProfileContext et relançait les effets qui en dépendent — d'où l'écran de chargement
+       qui réapparaissait dès qu'on revenait sur la fenêtre. On ne remplace donc la session que
+       lorsqu'elle change réellement (autre utilisateur, ou jeton effectivement renouvelé). */
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession)
+      setSession((precedente) =>
+        precedente?.access_token === nextSession?.access_token && precedente?.user.id === nextSession?.user.id ? precedente : nextSession,
+      )
     })
 
     return () => listener.subscription.unsubscribe()

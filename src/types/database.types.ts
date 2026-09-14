@@ -277,6 +277,7 @@ export interface Database {
           student_id: string
           type_programme: TypeProgrammeProspect
           total_heures: number
+          montant: number | null
           echeance: string | null
           created_at: string
         }
@@ -286,6 +287,7 @@ export interface Database {
           student_id: string
           type_programme?: TypeProgrammeProspect
           total_heures: number
+          montant?: number | null
           echeance?: string | null
           created_at?: string
         }

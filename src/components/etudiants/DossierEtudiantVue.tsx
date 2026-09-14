@@ -8,6 +8,7 @@ import { EtatVide } from '../ui/EtatVide'
 import { LigneInfo } from '../ui/Champ'
 import { Icone } from '../ui/Icones'
 import { Onglets, type Onglet } from '../ui/Onglets'
+import { ListeRepliable, TexteRepliable } from '../ui/Repliable'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -40,9 +41,9 @@ function BlocDiagnostic({ diagnostic }: { diagnostic: NonNullable<DossierEtudian
       </div>
       {diagnostic.rythme_convenu && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Rythme convenu : {diagnostic.rythme_convenu}</span>}
       {diagnostic.notes && (
-        <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)', background: 'rgba(0,0,0,.24)', borderRadius: 12, padding: '11px 13px', margin: 0 }}>
-          « {diagnostic.notes} »
-        </p>
+        <div style={{ background: 'rgba(0,0,0,.24)', borderRadius: 12, padding: '11px 13px' }}>
+          <TexteRepliable texte={`« ${diagnostic.notes} »`} style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)' }} />
+        </div>
       )}
     </div>
   )
@@ -204,6 +205,9 @@ function BlocPeriode({ periode, estActuelle }: { periode: PeriodeProfesseur; est
               Présence
             </span>
           </div>
+          {/* Une période peut compter des dizaines de séances : n'en montrer que les premières
+              garde le parcours lisible quand plusieurs périodes s'enchaînent. */}
+          <ListeRepliable visibles={3} nom="séances">
           {periode.seances.map((seance) => (
             <div key={seance.enrollment.id} className="row-hl" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '11px 18px', borderBottom: '1px solid var(--border-soft)' }}>
               <span style={{ fontSize: 12, color: 'var(--muted)', width: 90, flexShrink: 0 }}>
@@ -218,6 +222,7 @@ function BlocPeriode({ periode, estActuelle }: { periode: PeriodeProfesseur; est
               </span>
             </div>
           ))}
+          </ListeRepliable>
         </div>
       )}
     </div>
@@ -441,6 +446,7 @@ export function DossierEtudiantVue({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <LigneInfo label="Programme" valeur={forfait.type_programme === 'duo' ? 'Duo' : 'Individuel'} />
                   <LigneInfo label="Formule" valeur={`${forfait.total_heures} h`} />
+                  <LigneInfo label="Montant" valeur={forfait.montant !== null ? `${forfait.montant.toLocaleString('fr-FR')} Ar` : '—'} />
                   <LigneInfo label="Consommées" valeur={`${heuresConsommees} h`} />
                   <LigneInfo label="Restantes" valeur={`${Math.max(0, forfait.total_heures - heuresConsommees)} h`} />
                   <LigneInfo label="Échéance" valeur={forfait.echeance ? new Date(forfait.echeance).toLocaleDateString('fr-FR') : '—'} />

@@ -18,10 +18,17 @@ export function useProfile(session: Session | null, authLoading: boolean) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
+  /* Dépendre de l'identifiant plutôt que de l'objet session : un simple renouvellement de jeton
+     (supabase-js en déclenche un au retour sur l'onglet) produit un nouvel objet session pour le
+     même utilisateur. Avec `session` en dépendance, l'effet repartait à chaque fois, reposait
+     `loading` à true et refaisait la requête — le profil ne change pourtant pas parce que le
+     jeton a été rafraîchi. */
+  const utilisateurId = session?.user.id ?? null
+
   useEffect(() => {
     if (authLoading) return
 
-    if (!session) {
+    if (!utilisateurId) {
       setProfile(null)
       setLoading(false)
       return
@@ -32,7 +39,7 @@ export function useProfile(session: Session | null, authLoading: boolean) {
     supabase
       .from('profiles')
       .select('*')
-      .eq('id', session.user.id)
+      .eq('id', utilisateurId)
       .single()
       .then(({ data }) => {
         if (!annule) {
@@ -44,7 +51,7 @@ export function useProfile(session: Session | null, authLoading: boolean) {
     return () => {
       annule = true
     }
-  }, [session, authLoading])
+  }, [utilisateurId, authLoading])
 
   return { profile, loading }
 }

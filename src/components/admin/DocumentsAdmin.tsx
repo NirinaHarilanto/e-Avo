@@ -15,6 +15,7 @@ import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GroupeSection } from '../ui/Section'
 import { Onglets } from '../ui/Onglets'
+import { TexteRepliable } from '../ui/Repliable'
 import { ChampRecherche } from '../ui/BarreOutils'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
@@ -267,7 +268,7 @@ function PanneauComptesRendus() {
               <strong>Thèmes :</strong> {rapport.themes}
             </p>
           )}
-          {rapport.resume && <p style={{ fontSize: 12.5, color: 'var(--ink-2)', margin: 0 }}>{rapport.resume}</p>}
+          {rapport.resume && <TexteRepliable texte={rapport.resume} style={{ fontSize: 12.5, color: 'var(--ink-2)' }} />}
         </div>
       ))}
     </div>

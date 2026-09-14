@@ -208,6 +208,16 @@ describe('preparerVariables — contexte de programme', () => {
     expect(parCle.rythme.valeurAuto).toBe('2 séances par semaine')
   })
 
+  it('remplit le prix du contrat avec le montant figé sur le forfait', () => {
+    // « Prix total (Ar) » est le libellé réellement utilisé dans le modèle de l'établissement.
+    const resolues = preparerVariables('{{prix}}', [{ cle: 'prix', label: 'Prix total (Ar)' }], etudiant, etablissement, {
+      montantProgramme: 1200000,
+    })
+    // Séparateur de milliers laissé à toLocaleString : selon la version d'ICU c'est une espace
+    // fine insécable (U+202F) ou une espace ordinaire — les deux conviennent à l'affichage.
+    expect(resolues[0].valeurAuto).toMatch(/^1\s?200\s?000 Ar$/)
+  })
+
   it("remplit les champs d'activité professeur depuis son dossier", () => {
     const modele = [
       { cle: 'langues', label: 'Langue(s) enseignée(s)' },

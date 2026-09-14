@@ -9,6 +9,7 @@ import { GuidePage } from '../ui/GuidePage'
 import { GroupeSection } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
+import { TexteRepliable } from '../ui/Repliable'
 
 export function DocumentsEtudiant() {
   const { profile } = useProfileContext()
@@ -91,7 +92,7 @@ export function DocumentsEtudiant() {
                       <strong>Thèmes :</strong> {rapport.themes}
                     </p>
                   )}
-                  {rapport.resume && <p style={{ fontSize: 12.5, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6 }}>{rapport.resume}</p>}
+                  {rapport.resume && <TexteRepliable texte={rapport.resume} style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.6 }} />}
                 </div>
               ))}
             </div>

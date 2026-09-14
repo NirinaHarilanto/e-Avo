@@ -87,7 +87,12 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
     setTiroirOuvert(false)
   }, [location.pathname])
 
-  if (loading || !session || !profile || !accesAutorise) {
+  /* Volontairement sans `loading` : tant que session et profil sont déjà connus, un
+     rafraîchissement de fond (renouvellement de jeton au retour sur l'onglet, rechargement du
+     profil après une modification) ne doit pas remplacer toute la page par « Chargement… » —
+     c'est ce clignotement que l'utilisateur voyait à chaque changement de fenêtre. Au tout
+     premier chargement, session et profil sont encore nuls : l'écran d'attente s'affiche bien. */
+  if (!session || !profile || !accesAutorise) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
         Chargement…
