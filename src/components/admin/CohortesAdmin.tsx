@@ -55,6 +55,10 @@ export function CohortesAdmin() {
             quand la session est finie : elle restera consultable dans les dossiers des élèves.
           </>,
           <>
+            <strong>Modifier</strong> permet de corriger le nom, la langue, les dates ou la capacité d’une vague déjà
+            créée, sans toucher aux élèves déjà inscrits.
+          </>,
+          <>
             Le bouton <strong>Voir les inscrits</strong> déplie la liste des élèves rattachés, pour vérifier le
             remplissage avant d’ouvrir une nouvelle vague.
           </>,
@@ -65,7 +69,7 @@ export function CohortesAdmin() {
         <CreerVague
           etablissementId={profile.etablissement_id}
           onAnnuler={() => setFormulaireOuvert(false)}
-          onCree={() => {
+          onEnregistre={() => {
             setFormulaireOuvert(false)
             recharger()
           }}
@@ -102,40 +106,58 @@ export function CohortesAdmin() {
   )
 }
 
-function CreerVague({ etablissementId, onAnnuler, onCree }: { etablissementId: string; onAnnuler: () => void; onCree: () => void }) {
+interface CreerVagueProps {
+  etablissementId: string
+  onAnnuler: () => void
+  onEnregistre: () => void
+  /* Présent en mode modification : préremplit le formulaire et bascule l'enregistrement vers
+     une mise à jour de la vague existante plutôt qu'une création. Les élèves déjà inscrits ne
+     sont pas affectés par ce changement. */
+  vague?: Cohort
+}
+
+function CreerVague({ etablissementId, onAnnuler, onEnregistre, vague }: CreerVagueProps) {
   const { profile } = useProfileContext()
-  const [nom, setNom] = useState('')
-  const [langue, setLangue] = useState('')
-  const [dateDebut, setDateDebut] = useState('')
-  const [dateFin, setDateFin] = useState('')
-  const [capaciteMax, setCapaciteMax] = useState<number | ''>('')
+  const [nom, setNom] = useState(vague?.nom ?? '')
+  const [langue, setLangue] = useState(vague?.langue ?? '')
+  const [dateDebut, setDateDebut] = useState(vague?.date_debut ?? '')
+  const [dateFin, setDateFin] = useState(vague?.date_fin ?? '')
+  const [capaciteMax, setCapaciteMax] = useState<number | ''>(vague?.capacite_max ?? '')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  const enModification = !!vague
 
-  async function creer() {
-    if (!profile || !nom || !dateDebut || !dateFin) return
+  async function enregistrer() {
+    if ((!profile && !enModification) || !nom || !dateDebut || !dateFin) return
     setEnCours(true)
     setErreur(null)
-    const { error } = await supabase.from('cohorts').insert({
-      etablissement_id: etablissementId,
-      nom,
-      langue: langue || null,
-      date_debut: dateDebut,
-      date_fin: dateFin,
-      capacite_max: capaciteMax === '' ? null : capaciteMax,
-      created_by_profile_id: profile.id,
-    })
+
+    const { error } = enModification
+      ? await supabase
+          .from('cohorts')
+          .update({ nom, langue: langue || null, date_debut: dateDebut, date_fin: dateFin, capacite_max: capaciteMax === '' ? null : capaciteMax })
+          .eq('id', vague.id)
+      : await supabase.from('cohorts').insert({
+          etablissement_id: etablissementId,
+          nom,
+          langue: langue || null,
+          date_debut: dateDebut,
+          date_fin: dateFin,
+          capacite_max: capaciteMax === '' ? null : capaciteMax,
+          created_by_profile_id: profile!.id,
+        })
+
     setEnCours(false)
     if (error) {
       setErreur(error.message)
       return
     }
-    onCree()
+    onEnregistre()
   }
 
   return (
-    <div className="card" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 18 }}>
-      <h3 style={{ fontSize: 16, color: 'var(--ink)' }}>Nouvelle vague</h3>
+    <div className="card" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14, marginBottom: enModification ? 0 : 18 }}>
+      <h3 style={{ fontSize: 16, color: 'var(--ink)' }}>{enModification ? `Modifier « ${vague.nom} »` : 'Nouvelle vague'}</h3>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Nom de la vague</label>
@@ -170,12 +192,12 @@ function CreerVague({ etablissementId, onAnnuler, onCree }: { etablissementId: s
           Annuler
         </button>
         <button
-          onClick={creer}
+          onClick={enregistrer}
           disabled={enCours || !nom || !dateDebut || !dateFin}
           className="btn-shine"
           style={{ flexGrow: 1, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours || !nom || !dateDebut || !dateFin ? 0.6 : 1 }}
         >
-          {enCours ? 'Création…' : 'Créer la vague'}
+          {enCours ? 'Enregistrement…' : enModification ? 'Enregistrer les modifications' : 'Créer la vague'}
         </button>
       </div>
     </div>
@@ -184,6 +206,7 @@ function CreerVague({ etablissementId, onAnnuler, onCree }: { etablissementId: s
 
 function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => void }) {
   const [ouverte, setOuverte] = useState(false)
+  const [edition, setEdition] = useState(false)
   const [inscrits, setInscrits] = useState<Profile[] | null>(null)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -232,6 +255,20 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
     onChange()
   }
 
+  if (edition) {
+    return (
+      <CreerVague
+        etablissementId={cohorte.etablissement_id}
+        vague={cohorte}
+        onAnnuler={() => setEdition(false)}
+        onEnregistre={() => {
+          setEdition(false)
+          onChange()
+        }}
+      />
+    )
+  }
+
   return (
     <div className="card card-lift" style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
@@ -257,6 +294,9 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
             </option>
           ))}
         </select>
+        <button onClick={() => setEdition(true)} style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
+          Modifier
+        </button>
         <button onClick={basculerDetail} style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
           {ouverte ? 'Masquer les inscrits' : 'Voir les inscrits'}
         </button>
