@@ -15,15 +15,31 @@ const cache = new Map<string, unknown>()
    montage, avec un `recharger()` appelé après une mutation). `cle` à `null`/`undefined`
    suspend la requête — utile tant qu'un id de route n'est pas encore connu.
 
-   Volontairement minimal : pas d'expiration, pas d'invalidation croisée entre clés, pas de
-   déduplication de requêtes concurrentes. Le stock de hooks de l'app n'en a pas besoin — chacun
-   n'a qu'un seul consommateur actif à la fois, et `recharger()` (appelé après chaque mutation)
-   écrase déjà la valeur en cache avec la donnée fraîche. */
+   Volontairement minimal : pas d'expiration, pas de déduplication de requêtes concurrentes pour
+   une même clé. Deux garanties restent nécessaires dès qu'une INSTANCE DÉJÀ MONTÉE change de
+   clé — ce qui arrive dès qu'un id d'URL change sans remonter le composant (React Router ne
+   remonte pas un élément de route quand seul `useParams()` change), par exemple en cliquant un
+   autre étudiant dans une liste maître-détail :
+   1. ne pas continuer d'afficher la donnée de l'ancienne clé sous la nouvelle le temps que la
+      requête réponde (on montrerait le dossier d'une autre personne sous le mauvais nom) ;
+   2. ne pas laisser une requête devenue obsolète (l'admin a déjà cliqué sur quelqu'un d'autre
+      entre-temps) écraser, en répondant en retard, le résultat déjà affiché de la clé actuelle. */
 export function useCacheRequete<T>(cle: string | null | undefined, requete: () => Promise<T>) {
+  const [cleTraitee, setCleTraitee] = useState(cle)
   const dejaEnCache = cle != null && cache.has(cle)
   const [valeur, setValeur] = useState<T | undefined>(() => (dejaEnCache ? (cache.get(cle as string) as T) : undefined))
   const [loading, setLoading] = useState(cle != null && !dejaEnCache)
   const [erreur, setErreur] = useState<string | null>(null)
+
+  /* Garantie 1, ci-dessus — ajusté pendant le rendu (pattern React « Adjusting state when a
+     prop changes »), pas dans un effet : un effet s'exécute après la peinture, ce qui
+     laisserait passer un rendu affichant la mauvaise donnée. */
+  if (cle !== cleTraitee) {
+    setCleTraitee(cle)
+    setValeur(dejaEnCache ? (cache.get(cle as string) as T) : undefined)
+    setLoading(cle != null && !dejaEnCache)
+    setErreur(null)
+  }
 
   /* La fonction `requete` est recréée à chaque rendu (elle ferme souvent sur des props) ; la
      passer telle quelle en dépendance de l'effet redéclencherait la requête à chaque rendu.
@@ -35,16 +51,28 @@ export function useCacheRequete<T>(cle: string | null | undefined, requete: () =
     requeteRef.current = requete
   })
 
+  /* Garantie 2, ci-dessus. Mise à jour dans un effet (donc après tout rendu jeté), toujours
+     avant qu'une promesse déjà en vol ne puisse se résoudre : la résolution d'une promesse est
+     mise en file de micro-tâches, exécutée seulement une fois React revenu à la boucle
+     d'événements — donc après le flush synchrone des effets du rendu qui vient de committer. */
+  const cleActuelleRef = useRef(cle)
+  useEffect(() => {
+    cleActuelleRef.current = cle
+  }, [cle])
+
   const executer = useCallback(async () => {
-    if (cle == null) return
+    const cleDeCetAppel = cle
+    if (cleDeCetAppel == null) return
     setErreur(null)
     try {
       const resultat = await requeteRef.current()
-      cache.set(cle, resultat)
+      if (cleActuelleRef.current !== cleDeCetAppel) return
+      cache.set(cleDeCetAppel, resultat)
       setValeur(resultat)
+      setLoading(false)
     } catch (e) {
+      if (cleActuelleRef.current !== cleDeCetAppel) return
       setErreur(e instanceof Error ? e.message : 'Une erreur est survenue.')
-    } finally {
       setLoading(false)
     }
   }, [cle])

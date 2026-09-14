@@ -5,6 +5,14 @@ import type { Database } from '../../types/database.types'
 type Profile = Database['public']['Tables']['profiles']['Row']
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
 
+/* Anniversaire tombant aujourd'hui, `annees` plus tôt : l'âge attendu est exactement `annees`,
+   quel que soit le jour où le test s'exécute (pas d'effet de bord lié à la date du jour). */
+function dateNaissanceIlYA(annees: number): string {
+  const date = new Date()
+  date.setFullYear(date.getFullYear() - annees)
+  return date.toISOString().slice(0, 10)
+}
+
 const etudiant: Profile = {
   id: 'p1',
   etablissement_id: 'e1',
@@ -22,6 +30,16 @@ const etudiant: Profile = {
   lieu_naissance: null,
   taux_horaire: null,
   created_at: '2026-01-01T00:00:00Z',
+}
+
+const professeur: Profile = {
+  ...etudiant,
+  id: 'p2',
+  role: 'professeur',
+  nom: 'Randria',
+  prenom: 'Fanja',
+  email: 'fanja@example.mg',
+  taux_horaire: 25000,
 }
 
 const etablissement: Etablissement = {
@@ -61,8 +79,15 @@ describe('deduireSource', () => {
 
   it('distingue la date de signature des autres dates du contrat', () => {
     expect(deduireSource('date_signature', 'Date de signature')).toBe('date_du_jour')
-    expect(deduireSource('date_naissance_etudiant', "Date de naissance de l'étudiant")).toBeUndefined()
-    expect(deduireSource('date_debut', 'Date de début des cours')).toBeUndefined()
+    // La date de naissance se remplit désormais seule (elle est sur la fiche depuis la
+    // migration 0034) — seule une date sans source connue (début de cours, non stockée) reste
+    // manuelle.
+    expect(deduireSource('date_naissance_etudiant', "Date de naissance de l'étudiant")).toBe('date_naissance')
+    // Idem pour la date de début des cours : dérivée de l'affectation professeur ou de la
+    // vague en cours (voir `date_debut_programme`, résolu via le contexte de programme).
+    expect(deduireSource('date_debut', 'Date de début des cours')).toBe('date_debut_programme')
+    // « Ville de signature » ne doit pas hériter de la ville de résidence de l'étudiant : ce
+    // n'est pas la même donnée (le mot « signature » bloque volontairement la déduction).
     expect(deduireSource('ville_signature', 'Ville de signature')).toBeUndefined()
   })
 
@@ -111,6 +136,99 @@ describe('preparerVariables', () => {
 
   it('retombe sur la saisie quand la donnée est absente de la fiche', () => {
     const resolues = preparerVariables('{{taux_horaire}}', [{ cle: 'taux_horaire', label: 'Taux horaire' }], etudiant, etablissement)
+    expect(resolues[0].valeurAuto).toBeUndefined()
+  })
+})
+
+describe('preparerVariables — âge et clause de minorité', () => {
+  const modele = [
+    { cle: 'age_etudiant', label: "Âge de l'étudiant" },
+    { cle: 'mention_mineur', label: "Si l'étudiant est mineur, coller : « Représenté(e) par [Nom]… »" },
+  ]
+  const corps = '{{age_etudiant}} {{mention_mineur}}'
+
+  it("calcule l'âge à partir de la date de naissance", () => {
+    const majeur = { ...etudiant, date_naissance: dateNaissanceIlYA(20) }
+    const resolues = preparerVariables(corps, modele, majeur, etablissement)
+    expect(resolues.find((v) => v.cle === 'age_etudiant')?.valeurAuto).toBe('20')
+  })
+
+  it('un étudiant majeur ne demande plus la clause de minorité — elle se vide toute seule', () => {
+    const majeur = { ...etudiant, date_naissance: dateNaissanceIlYA(20) }
+    const resolues = preparerVariables(corps, modele, majeur, etablissement)
+    const clause = resolues.find((v) => v.cle === 'mention_mineur')
+    expect(clause?.valeurAuto).toBe('')
+    expect(clause?.defaut).toBeUndefined()
+  })
+
+  it('un étudiant mineur reçoit une suggestion à vérifier plutôt qu’un remplissage silencieux', () => {
+    const mineur = { ...etudiant, date_naissance: dateNaissanceIlYA(15) }
+    const resolues = preparerVariables(corps, modele, mineur, etablissement)
+    const clause = resolues.find((v) => v.cle === 'mention_mineur')
+    // Le nom du représentant légal n'est connu d'aucune fiche : pas de valeurAuto (une mention à
+    // portée juridique reste soumise à relecture), seulement une suggestion de départ éditable.
+    expect(clause?.valeurAuto).toBeUndefined()
+    expect(clause?.defaut).toMatch(/représentant légal/i)
+  })
+
+  it("sans date de naissance connue, la clause de minorité reste entièrement manuelle (comportement inchangé)", () => {
+    const resolues = preparerVariables(corps, modele, etudiant, etablissement)
+    const clause = resolues.find((v) => v.cle === 'mention_mineur')
+    expect(clause?.valeurAuto).toBeUndefined()
+    expect(clause?.defaut).toBeUndefined()
+  })
+})
+
+describe('preparerVariables — contexte de programme', () => {
+  it('remplit les champs de programme étudiant depuis le dossier pédagogique', () => {
+    const modele = [
+      { cle: 'langue', label: 'Langue visée' },
+      { cle: 'type_prog', label: 'Type de programme' },
+      { cle: 'heures', label: "Nombre d'heures du programme" },
+      { cle: 'debut', label: 'Date de début des cours' },
+      { cle: 'echeance', label: 'Échéance du programme' },
+      { cle: 'rythme', label: 'Rythme hebdomadaire' },
+    ]
+    const corps = '{{langue}} {{type_prog}} {{heures}} {{debut}} {{echeance}} {{rythme}}'
+    const resolues = preparerVariables(corps, modele, etudiant, etablissement, {
+      langueProgramme: 'Anglais',
+      typeProgrammeLabel: 'Individuel',
+      heuresProgramme: 40,
+      dateDebutProgramme: '2026-01-15',
+      dateEcheanceProgramme: '2026-07-15',
+      rythmeProgramme: '2 séances par semaine',
+    })
+    const parCle = Object.fromEntries(resolues.map((v) => [v.cle, v]))
+
+    expect(parCle.langue.valeurAuto).toBe('Anglais')
+    expect(parCle.type_prog.valeurAuto).toBe('Individuel')
+    expect(parCle.heures.valeurAuto).toBe('40')
+    expect(parCle.debut.valeurAuto).toBe(new Date('2026-01-15').toLocaleDateString('fr-FR'))
+    expect(parCle.echeance.valeurAuto).toBe(new Date('2026-07-15').toLocaleDateString('fr-FR'))
+    expect(parCle.rythme.valeurAuto).toBe('2 séances par semaine')
+  })
+
+  it("remplit les champs d'activité professeur depuis son dossier", () => {
+    const modele = [
+      { cle: 'langues', label: 'Langue(s) enseignée(s)' },
+      { cle: 'nb_eleves', label: "Nombre d'élèves du professeur" },
+      { cle: 'heures_ens', label: 'Heures enseignées par le professeur' },
+    ]
+    const corps = '{{langues}} {{nb_eleves}} {{heures_ens}}'
+    const resolues = preparerVariables(corps, modele, professeur, etablissement, {
+      languesEnseignees: ['Anglais', 'Espagnol'],
+      nombreElevesActifs: 6,
+      heuresEnseignees: 87.5,
+    })
+    const parCle = Object.fromEntries(resolues.map((v) => [v.cle, v]))
+
+    expect(parCle.langues.valeurAuto).toBe('Anglais, Espagnol')
+    expect(parCle.nb_eleves.valeurAuto).toBe('6')
+    expect(parCle.heures_ens.valeurAuto).toBe('88')
+  })
+
+  it('sans contexte de programme, ces champs restent en saisie manuelle plutôt que vides à tort', () => {
+    const resolues = preparerVariables('{{type_prog}}', [{ cle: 'type_prog', label: 'Type de programme' }], etudiant, etablissement)
     expect(resolues[0].valeurAuto).toBeUndefined()
   })
 })

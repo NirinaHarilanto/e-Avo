@@ -3,8 +3,10 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useEtablissement } from '../../hooks/useEtablissement'
+import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
+import { useProfesseurDetailAdmin } from '../../hooks/useProfesseurDetailAdmin'
 import { supabase } from '../../lib/supabaseClient'
-import { preparerVariables, substituerVariables } from '../../lib/contrats'
+import { libelleTypeProgramme, preparerVariables, substituerVariables, type ContexteProgramme } from '../../lib/contrats'
 import type { Database, Role } from '../../types/database.types'
 import { Champ, LigneInfo, champStyle } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
@@ -43,7 +45,36 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
   const destinataire = personnes.find((p) => p.id === destinataireId) ?? null
   const modele = modelesDuType.find((m) => m.id === templateId) ?? null
 
-  const variables = modele ? preparerVariables(modele.corps_template, modele.variables_disponibles, destinataire, etablissement) : []
+  /* Ce que la fiche du destinataire seule ne porte pas — forfait, vague, affectation pour un
+     étudiant ; élèves actifs et heures enseignées pour un professeur — vient de son dossier
+     pédagogique complet, chargé via les mêmes hooks (et le même cache) que les pages Étudiants/
+     Professeurs de l'admin. Un seul des deux hooks interroge réellement Supabase à la fois : les
+     deux sont montés en permanence, mais chacun suspend sa requête tant que l'id qu'on lui passe
+     n'est pas le sien (voir `useCacheRequete`, `cle` à `undefined`). */
+  const { dossier } = useDossierEtudiant(typeContrat === 'etudiant' ? destinataireId || undefined : undefined)
+  const { detail } = useProfesseurDetailAdmin(typeContrat === 'professeur' ? destinataireId || undefined : undefined)
+
+  let contexteProgramme: ContexteProgramme | undefined
+  if (typeContrat === 'etudiant' && dossier) {
+    const periodeActuelle = dossier.periodes[0] ?? null
+    const forfait = dossier.packages[0] ?? null
+    contexteProgramme = {
+      langueProgramme: dossier.cohorte?.langue ?? periodeActuelle?.affectation.langue ?? null,
+      typeProgrammeLabel: dossier.cohorte ? libelleTypeProgramme('collectif') : forfait ? libelleTypeProgramme(forfait.type_programme) : null,
+      heuresProgramme: forfait?.total_heures ?? null,
+      dateDebutProgramme: dossier.cohorte?.date_debut ?? periodeActuelle?.affectation.date_debut ?? null,
+      dateEcheanceProgramme: forfait?.echeance ?? dossier.cohorte?.date_fin ?? null,
+      rythmeProgramme: dossier.diagnostic?.rythme_convenu ?? null,
+    }
+  } else if (typeContrat === 'professeur' && detail) {
+    contexteProgramme = {
+      languesEnseignees: [...new Set(detail.eleves.map((e) => e.affectation.langue).filter((l): l is string => !!l))],
+      nombreElevesActifs: detail.eleves.length,
+      heuresEnseignees: detail.heuresTotalEnseignees,
+    }
+  }
+
+  const variables = modele ? preparerVariables(modele.corps_template, modele.variables_disponibles, destinataire, etablissement, contexteProgramme) : []
   const remplies = variables.filter((v) => v.valeurAuto !== undefined)
   const aCompleter = variables.filter((v) => v.valeurAuto === undefined)
 
@@ -165,7 +196,10 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
             {remplies.length} champ{remplies.length > 1 ? 's remplis' : ' rempli'} automatiquement
           </div>
           {remplies.map((variable) => (
-            <LigneInfo key={variable.cle} label={variable.label} valeur={variable.valeurAuto} />
+            // Une clause de minorité résolue automatiquement chez un étudiant majeur donne une
+            // valeur vide (rien à coller) : afficher explicitement « Sans objet » plutôt qu'un
+            // libellé suivi de rien, qui laisserait croire à un oubli.
+            <LigneInfo key={variable.cle} label={variable.label} valeur={variable.valeurAuto || 'Sans objet'} />
           ))}
         </div>
       )}
