@@ -6,15 +6,7 @@ import { getJoinUrl } from '../../lib/visio'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { CompteRenduSeance } from './CompteRenduSeance'
-
-const champStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 10,
-  padding: '11px 14px',
-  fontSize: 13.5,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
-}
+import { champStyle } from '../ui/Champ'
 
 export function CalendrierProfesseur() {
   const { profile } = useProfileContext()

@@ -2,9 +2,16 @@ import { useState } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useTarifs } from '../../hooks/useTarifs'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
+import { EtatVide } from '../ui/EtatVide'
+import { EtatChargement } from '../ui/Etats'
+import { boutonPrimaireStyle } from '../ui/Boutons'
+import { Icone } from '../ui/Icones'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import type { TypeProgrammeProspect } from '../../types/database.types'
+import { champStyle } from '../ui/Champ'
 
 type Tarif = Database['public']['Tables']['tarifs']['Row']
 
@@ -14,55 +21,68 @@ const PROGRAMMES_LABEL: Record<TypeProgrammeProspect, string> = {
   collectif: 'Collectif',
 }
 
-const champStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  padding: '9px 11px',
-  fontSize: 13,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
-  width: '100%',
-  fontFamily: 'inherit',
-}
-
 export function TarifsAdmin() {
   const { profile } = useProfileContext()
   const { tarifs, loading, recharger } = useTarifs(profile?.etablissement_id)
 
   return (
     <AdminLayout actif="Tarifs">
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22 }}>
-        <div>
-          <h1 style={{ fontSize: 28, color: '#fff', marginBottom: 6 }}>Tarifs</h1>
-          <p style={{ fontSize: 13.5, color: 'var(--muted)' }}>
-            Grille tarifaire affichée dans la section « Tarifs » de votre landing — l'apparence des
-            brochures ne change pas, seuls ces chiffres et textes s'y reflètent.
-          </p>
-        </div>
-        <button
-          onClick={async () => {
-            if (!profile) return
-            await supabase.from('tarifs').insert({
-              etablissement_id: profile.etablissement_id,
-              type_programme: 'individuel',
-              titre: 'Nouveau tarif',
-              prix: 0,
-              unite: 'Ar',
-              ordre: tarifs.length,
-            })
-            recharger()
-          }}
-          className="btn-shine"
-          style={{ background: 'var(--accent-gradient)', color: '#1b1510' }}
-        >
-          + Ajouter un tarif
-        </button>
-      </div>
+      <EnTetePage
+        titre="Tarifs"
+        description="La grille affichée dans la section « Tarifs » de votre page vitrine publique. Seuls ces chiffres et ces textes s'y reflètent : la mise en page de la vitrine ne change pas."
+        actions={
+          <button
+            onClick={async () => {
+              if (!profile) return
+              await supabase.from('tarifs').insert({
+                etablissement_id: profile.etablissement_id,
+                type_programme: 'individuel',
+                titre: 'Nouveau tarif',
+                prix: 0,
+                unite: 'Ar',
+                ordre: tarifs.length,
+              })
+              recharger()
+            }}
+            className="btn-shine"
+            style={boutonPrimaireStyle}
+          >
+            <Icone nom="plus" taille={15} />
+            Ajouter un tarif
+          </button>
+        }
+      />
+
+      <GuidePage
+        id="admin-tarifs"
+        etapes={[
+          <>
+            <strong>Ajouter un tarif</strong> crée immédiatement une ligne vierge en bas de la grille : il n'y a pas de
+            formulaire séparé, vous la remplissez directement sur place.
+          </>,
+          <>
+            Chaque ligne s'édite en place. Pensez à cliquer sur <strong>Enregistrer</strong> sur la ligne concernée :
+            une modification non enregistrée n'est pas publiée sur la vitrine.
+          </>,
+          <>
+            Le champ <strong>Ordre</strong> détermine la position d'affichage sur la vitrine, du plus petit au plus
+            grand. Le champ <strong>Unité</strong> accepte n'importe quelle devise ou mention (Ar, €, « / mois »).
+          </>,
+          <>
+            Ces tarifs sont purement informatifs pour vos visiteurs. Ils n'alimentent pas automatiquement les devis et
+            les factures, qui restent chiffrés au cas par cas.
+          </>,
+        ]}
+      />
 
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+        <EtatChargement lignes={3} hauteur={130} />
       ) : tarifs.length === 0 ? (
-        <p style={{ color: 'var(--muted)' }}>Aucun tarif renseigné pour le moment.</p>
+        <EtatVide
+          icone="tarifs"
+          titre="Aucun tarif renseigné"
+          description="Tant que cette grille est vide, la section « Tarifs » de votre page vitrine reste masquée pour les visiteurs. Ajoutez une première ligne pour l'afficher."
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {tarifs.map((tarif) => (

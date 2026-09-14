@@ -9,6 +9,14 @@ import { GenererContrat } from '../contrats/GenererContrat'
 import { ContratImprimable } from '../contrats/ContratImprimable'
 import { UploaderDocument } from '../documents/UploaderDocument'
 import type { Database, StatutContrat } from '../../types/database.types'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
+import { GrilleStats, Stat } from '../ui/Stat'
+import { Onglets } from '../ui/Onglets'
+import { EtatVide } from '../ui/EtatVide'
+import { EtatChargement, MessageErreur } from '../ui/Etats'
+import { boutonPrimaireStyle } from '../ui/Boutons'
+import { Icone } from '../ui/Icones'
 
 type Onglet = 'modeles' | 'contrats'
 
@@ -39,36 +47,69 @@ export function ContratsAdmin() {
 
   return (
     <AdminLayout actif="Contrats">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontSize: 28, color: '#fff' }}>Contrats</h1>
-        <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510' }}>
-          {onglet === 'modeles' ? 'Nouveau modèle' : 'Générer un contrat'}
-        </button>
+      <EnTetePage
+        titre="Contrats"
+        description="Vos modèles de contrat et les contrats effectivement émis. La signature se fait directement dans l'application, sans prestataire externe."
+        actions={
+          <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
+            <Icone nom="plus" taille={15} />
+            {formulaireOuvert ? 'Fermer' : onglet === 'modeles' ? 'Nouveau modèle' : 'Générer un contrat'}
+          </button>
+        }
+      />
+
+      <GuidePage
+        id="admin-contrats"
+        etapes={[
+          <>
+            Créez d'abord un <strong>modèle</strong> dans le premier onglet. Insérez-y des variables entre doubles
+            accolades, comme <code>{'{{prenom}}'}</code>, qui seront remplacées automatiquement.
+          </>,
+          <>
+            Passez ensuite à <strong>Contrats générés</strong> et choisissez un modèle et un destinataire : le texte
+            est figé au moment de l'émission, une modification ultérieure du modèle ne change pas les contrats déjà émis.
+          </>,
+          <>
+            Passez le contrat à <strong>Envoyé</strong> pour que le destinataire le voie apparaître dans son espace et
+            puisse le signer. Le statut bascule seul sur « Signé » une fois les deux signatures posées.
+          </>,
+          <>
+            Si vous préférez une signature papier, utilisez <strong>Joindre le scan signé</strong> sur la ligne du
+            contrat pour archiver le document numérisé.
+          </>,
+        ]}
+      />
+
+      <div style={{ marginBottom: 18 }}>
+        <Onglets
+          etiquette="Type de contenu"
+          actif={onglet}
+          onChange={(valeur) => {
+            setOnglet(valeur)
+            setFormulaireOuvert(false)
+          }}
+          onglets={[
+            { value: 'modeles', label: 'Modèles', compteur: modeles.length },
+            { value: 'contrats', label: 'Contrats générés', compteur: contrats.length },
+          ]}
+        />
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-        {(['modeles', 'contrats'] as const).map((o) => (
-          <button
-            key={o}
-            onClick={() => {
-              setOnglet(o)
-              setFormulaireOuvert(false)
-            }}
-            className={`nav-item${onglet === o ? ' nav-item-active' : ''}`}
-            style={{
-              padding: '9px 16px',
-              borderRadius: 999,
-              fontSize: 13,
-              fontWeight: onglet === o ? 800 : 600,
-              color: onglet === o ? '#1b1510' : 'var(--ink-2)',
-              background: onglet === o ? 'var(--accent-gradient)' : undefined,
-              cursor: 'pointer',
-            }}
-          >
-            {o === 'modeles' ? 'Modèles' : 'Contrats générés'}
-          </button>
-        ))}
-      </div>
+      {onglet === 'contrats' && !chargementContrats && contrats.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <GrilleStats min={180}>
+            <Stat libelle="Contrats émis" valeur={contrats.length} ton="or" />
+            <Stat
+              libelle="En attente de signature"
+              valeur={contrats.filter((c) => c.contrat.statut === 'envoye').length}
+              ton={contrats.some((c) => c.contrat.statut === 'envoye') ? 'alerte' : 'neutre'}
+              aide="Côté établissement ou côté destinataire"
+            />
+            <Stat libelle="Signés" valeur={contrats.filter((c) => c.contrat.statut === 'signe').length} ton="teal" />
+            <Stat libelle="Résiliés" valeur={contrats.filter((c) => c.contrat.statut === 'resilie').length} ton="neutre" />
+          </GrilleStats>
+        </div>
+      )}
 
       {formulaireOuvert && profile && onglet === 'modeles' && (
         <CreerContratTemplate
@@ -94,11 +135,15 @@ export function ContratsAdmin() {
 
       {onglet === 'modeles' ? (
         chargementModeles ? (
-          <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+          <EtatChargement lignes={3} hauteur={64} />
         ) : erreurModeles ? (
-          <p style={{ color: 'var(--danger)' }}>{erreurModeles}</p>
+          <MessageErreur>{erreurModeles}</MessageErreur>
         ) : modeles.length === 0 ? (
-          <p style={{ color: 'var(--muted)' }}>Aucun modèle de contrat.</p>
+          <EtatVide
+            icone="contrats"
+            titre="Aucun modèle de contrat"
+            description="Créez un premier modèle pour pouvoir générer des contrats. Sans modèle, l'onglet « Contrats générés » n'a rien à proposer."
+          />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {modeles.map((m) => (
@@ -139,11 +184,15 @@ export function ContratsAdmin() {
           </div>
         )
       ) : chargementContrats ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+        <EtatChargement lignes={3} hauteur={96} />
       ) : erreurContrats ? (
-        <p style={{ color: 'var(--danger)' }}>{erreurContrats}</p>
+        <MessageErreur>{erreurContrats}</MessageErreur>
       ) : contrats.length === 0 ? (
-        <p style={{ color: 'var(--muted)' }}>Aucun contrat généré.</p>
+        <EtatVide
+          icone="contrats"
+          titre="Aucun contrat généré"
+          description="Générez un contrat à partir d'un de vos modèles et d'un destinataire. Il apparaîtra dans son espace dès que vous le passerez au statut « Envoyé »."
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {contrats.map((c) => (

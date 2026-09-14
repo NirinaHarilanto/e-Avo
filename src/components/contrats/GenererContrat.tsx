@@ -5,17 +5,9 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { supabase } from '../../lib/supabaseClient'
 import { substituerVariables } from '../../lib/contrats'
 import type { Database } from '../../types/database.types'
+import { champStyle } from '../ui/Champ'
 
 type ContractTemplate = Database['public']['Tables']['contract_templates']['Row']
-
-const champStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  padding: '9px 11px',
-  fontSize: 13,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
-}
 
 interface GenererContratProps {
   etablissementId: string

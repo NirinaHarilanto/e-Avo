@@ -4,15 +4,7 @@ import { useEtudiants } from '../../hooks/useEtudiants'
 import { supabase } from '../../lib/supabaseClient'
 import type { LigneFacturation } from '../../types/database.types'
 import { EditeurLignes, calculerTotaux } from './EditeurLignes'
-
-const champStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  padding: '9px 11px',
-  fontSize: 13,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
-}
+import { champStyle } from '../ui/Champ'
 
 interface CreerDevisProps {
   etablissementId: string

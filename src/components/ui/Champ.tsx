@@ -12,7 +12,17 @@ export const champStyle: CSSProperties = {
   fontSize: 13.5,
   color: 'var(--ink)',
   background: 'rgba(0,0,0,.24)',
-  width: '100%',
+}
+
+/* Variante dense, pour les tableaux de saisie ou chaque ligne compte (editeur de lignes de
+   devis et de facture) : le style standard y rendrait le tableau deux fois plus haut. */
+export const champStyleCompact: CSSProperties = {
+  border: '1px solid var(--border)',
+  borderRadius: 7,
+  padding: '7px 9px',
+  fontSize: 12.5,
+  color: 'var(--ink)',
+  background: 'rgba(0,0,0,.24)',
 }
 
 export const etiquetteStyle: CSSProperties = {

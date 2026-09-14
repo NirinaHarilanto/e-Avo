@@ -1,13 +1,5 @@
 import type { LigneFacturation } from '../../types/database.types'
-
-const champStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 7,
-  padding: '7px 9px',
-  fontSize: 12.5,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
-}
+import { champStyleCompact } from '../ui/Champ'
 
 export function calculerTotaux(lignes: LigneFacturation[]) {
   const montant_ht = lignes.reduce((t, l) => t + l.quantite * l.prix_unitaire_ht, 0)
@@ -38,7 +30,7 @@ export function EditeurLignes({ lignes, onChange }: EditeurLignesProps) {
             placeholder="Description"
             value={ligne.description}
             onChange={(e) => modifierLigne(index, 'description', e.target.value)}
-            style={{ ...champStyle, flexGrow: 1, minWidth: 120 }}
+            style={{ ...champStyleCompact, flexGrow: 1, minWidth: 120 }}
           />
           <input
             type="number"
@@ -46,7 +38,7 @@ export function EditeurLignes({ lignes, onChange }: EditeurLignesProps) {
             step="1"
             value={ligne.quantite}
             onChange={(e) => modifierLigne(index, 'quantite', Number(e.target.value))}
-            style={{ ...champStyle, width: 60 }}
+            style={{ ...champStyleCompact, width: 60 }}
             title="Quantité"
           />
           <input
@@ -55,7 +47,7 @@ export function EditeurLignes({ lignes, onChange }: EditeurLignesProps) {
             step="0.01"
             value={ligne.prix_unitaire_ht}
             onChange={(e) => modifierLigne(index, 'prix_unitaire_ht', Number(e.target.value))}
-            style={{ ...champStyle, width: 90 }}
+            style={{ ...champStyleCompact, width: 90 }}
             title="Prix unitaire HT"
           />
           <input
@@ -65,7 +57,7 @@ export function EditeurLignes({ lignes, onChange }: EditeurLignesProps) {
             step="0.1"
             value={ligne.tva_pct}
             onChange={(e) => modifierLigne(index, 'tva_pct', Number(e.target.value))}
-            style={{ ...champStyle, width: 70 }}
+            style={{ ...champStyleCompact, width: 70 }}
             title="TVA %"
           />
           <button

@@ -8,11 +8,28 @@ import { CreerPaiementEtudiant } from '../paiements/CreerPaiementEtudiant'
 import { CreerRemunerationProfesseur } from '../paiements/CreerRemunerationProfesseur'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
 import type { StatutPaiement } from '../../types/database.types'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
+import { GrilleStats, Stat } from '../ui/Stat'
+import { Onglets } from '../ui/Onglets'
+import { EtatVide } from '../ui/EtatVide'
+import { EtatChargement, MessageErreur } from '../ui/Etats'
+import { boutonPrimaireStyle } from '../ui/Boutons'
+import { Icone } from '../ui/Icones'
 
 type Onglet = 'etudiants' | 'professeurs'
 
 const STATUTS: StatutPaiement[] = ['attendu', 'paye', 'en_retard', 'annule']
 const LABELS_STATUT: Record<StatutPaiement, string> = { attendu: 'Attendu', paye: 'Payé', en_retard: 'En retard', annule: 'Annulé' }
+
+/* Totaux dérivés des lignes déjà chargées par les hooks — la page n'affichait jusqu'ici aucun
+   montant cumulé, obligeant à additionner les lignes à la main pour savoir où en était la
+   trésorerie. Les lignes annulées sont volontairement exclues de tous les totaux. */
+function totaux(lignes: { montant: number; statut: StatutPaiement }[]) {
+  const cumul = (statut: StatutPaiement) =>
+    lignes.filter((l) => l.statut === statut).reduce((total, l) => total + l.montant, 0)
+  return { paye: cumul('paye'), attendu: cumul('attendu'), enRetard: cumul('en_retard') }
+}
 
 export function PaiementsAdmin() {
   const { profile } = useProfileContext()
@@ -24,36 +41,107 @@ export function PaiementsAdmin() {
 
   return (
     <AdminLayout actif="Paiements">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontSize: 28, color: '#fff' }}>Paiements</h1>
-        <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510' }}>
-          {onglet === 'etudiants' ? 'Enregistrer un paiement' : 'Enregistrer une rémunération'}
-        </button>
+      <EnTetePage
+        titre="Paiements"
+        description="Le suivi financier de l’établissement dans les deux sens : ce que les étudiants règlent, et ce que vous versez aux professeurs. La saisie est manuelle, aucun prélèvement n’est automatisé."
+        actions={
+          <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
+            <Icone nom="plus" taille={15} />
+            {formulaireOuvert ? 'Fermer' : onglet === 'etudiants' ? 'Enregistrer un paiement' : 'Enregistrer une rémunération'}
+          </button>
+        }
+      />
+
+      <GuidePage
+        id="admin-paiements"
+        etapes={[
+          <>
+            Choisissez l’onglet <strong>Étudiants</strong> pour enregistrer un encaissement, ou{' '}
+            <strong>Professeurs</strong> pour une rémunération à verser.
+          </>,
+          <>
+            Créez la ligne avec son montant et son échéance, puis faites évoluer son <strong>statut</strong> (attendu,
+            payé, en retard, annulé) directement dans la liste, sans rouvrir de formulaire.
+          </>,
+          <>
+            Passer un paiement étudiant à <strong>payé</strong> génère automatiquement un reçu, que l’élève retrouve
+            dans son espace « Mes paiements ».
+          </>,
+          <>
+            Pour un professeur rémunéré à l’heure, le montant est proposé à partir de son taux horaire et de ses heures
+            non encore payées : vérifiez-le avant de valider.
+          </>,
+        ]}
+      />
+
+      <div style={{ marginBottom: 18 }}>
+        <Onglets
+          etiquette="Type de mouvement financier"
+          actif={onglet}
+          onChange={(valeur) => {
+            setOnglet(valeur)
+            setFormulaireOuvert(false)
+          }}
+          onglets={[
+            { value: 'etudiants', label: 'Étudiants', compteur: paiementsEtudiants.paiements.length },
+            { value: 'professeurs', label: 'Professeurs', compteur: remunerationsProfs.remunerations.length },
+          ]}
+        />
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-        {(['etudiants', 'professeurs'] as const).map((o) => (
-          <button
-            key={o}
-            onClick={() => {
-              setOnglet(o)
-              setFormulaireOuvert(false)
-            }}
-            className={`nav-item${onglet === o ? ' nav-item-active' : ''}`}
-            style={{
-              padding: '9px 16px',
-              borderRadius: 999,
-              fontSize: 13,
-              fontWeight: onglet === o ? 800 : 600,
-              color: onglet === o ? '#1b1510' : 'var(--ink-2)',
-              background: onglet === o ? 'var(--accent-gradient)' : undefined,
-              cursor: 'pointer',
-            }}
-          >
-            {o === 'etudiants' ? 'Étudiants' : 'Professeurs'}
-          </button>
-        ))}
-      </div>
+      {onglet === 'etudiants' && !paiementsEtudiants.loading && paiementsEtudiants.paiements.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <GrilleStats min={180}>
+            <Stat
+              libelle="Encaissé"
+              valeur={totaux(paiementsEtudiants.paiements.map((p) => p.paiement)).paye.toFixed(2)}
+              unite="€"
+              ton="teal"
+            />
+            <Stat
+              libelle="Attendu"
+              valeur={totaux(paiementsEtudiants.paiements.map((p) => p.paiement)).attendu.toFixed(2)}
+              unite="€"
+              ton="or"
+              aide="Échéances à venir non réglées"
+            />
+            <Stat
+              libelle="En retard"
+              valeur={totaux(paiementsEtudiants.paiements.map((p) => p.paiement)).enRetard.toFixed(2)}
+              unite="€"
+              ton={totaux(paiementsEtudiants.paiements.map((p) => p.paiement)).enRetard > 0 ? 'alerte' : 'neutre'}
+              aide="À relancer en priorité"
+            />
+            <Stat libelle="Lignes enregistrées" valeur={paiementsEtudiants.paiements.length} ton="neutre" />
+          </GrilleStats>
+        </div>
+      )}
+
+      {onglet === 'professeurs' && !remunerationsProfs.loading && remunerationsProfs.remunerations.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <GrilleStats min={180}>
+            <Stat
+              libelle="Versé"
+              valeur={totaux(remunerationsProfs.remunerations.map((r) => r.paiement)).paye.toFixed(2)}
+              unite="€"
+              ton="teal"
+            />
+            <Stat
+              libelle="À verser"
+              valeur={totaux(remunerationsProfs.remunerations.map((r) => r.paiement)).attendu.toFixed(2)}
+              unite="€"
+              ton="or"
+            />
+            <Stat
+              libelle="En retard"
+              valeur={totaux(remunerationsProfs.remunerations.map((r) => r.paiement)).enRetard.toFixed(2)}
+              unite="€"
+              ton={totaux(remunerationsProfs.remunerations.map((r) => r.paiement)).enRetard > 0 ? 'alerte' : 'neutre'}
+            />
+            <Stat libelle="Lignes enregistrées" valeur={remunerationsProfs.remunerations.length} ton="neutre" />
+          </GrilleStats>
+        </div>
+      )}
 
       {formulaireOuvert && profile && onglet === 'etudiants' && (
         <CreerPaiementEtudiant
@@ -106,9 +194,17 @@ function ListePaiementsEtudiants({
   erreur: string | null
   recharger: () => void
 }) {
-  if (loading) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>
-  if (erreur) return <p style={{ color: 'var(--danger)' }}>{erreur}</p>
-  if (paiements.length === 0) return <p style={{ color: 'var(--muted)' }}>Aucun paiement enregistré.</p>
+  if (loading) return <EtatChargement lignes={4} hauteur={70} />
+  if (erreur) return <MessageErreur>{erreur}</MessageErreur>
+  if (paiements.length === 0) {
+    return (
+      <EtatVide
+        icone="paiements"
+        titre="Aucun paiement enregistré"
+        description="Utilisez « Enregistrer un paiement » pour créer une première échéance : montant, date et étudiant concerné. Vous en suivrez ensuite le statut depuis cette liste."
+      />
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -145,9 +241,17 @@ function ListeRemunerationsProfesseurs({
   erreur: string | null
   recharger: () => void
 }) {
-  if (loading) return <p style={{ color: 'var(--muted)' }}>Chargement…</p>
-  if (erreur) return <p style={{ color: 'var(--danger)' }}>{erreur}</p>
-  if (remunerations.length === 0) return <p style={{ color: 'var(--muted)' }}>Aucune rémunération enregistrée.</p>
+  if (loading) return <EtatChargement lignes={4} hauteur={70} />
+  if (erreur) return <MessageErreur>{erreur}</MessageErreur>
+  if (remunerations.length === 0) {
+    return (
+      <EtatVide
+        icone="paiements"
+        titre="Aucune rémunération enregistrée"
+        description="Utilisez « Enregistrer une rémunération » pour créer un versement. Si le professeur a un taux horaire renseigné dans sa fiche, le montant vous sera proposé automatiquement à partir de ses heures non payées."
+      />
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

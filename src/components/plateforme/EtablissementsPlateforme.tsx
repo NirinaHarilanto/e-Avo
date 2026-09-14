@@ -3,15 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { PlateformeLayout } from '../layout/PlateformeLayout'
 import { useEtablissementsPlateforme } from '../../hooks/useEtablissementsPlateforme'
 import { supabase } from '../../lib/supabaseClient'
-
-const champStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  padding: '9px 11px',
-  fontSize: 13,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
-}
+import { champStyle } from '../ui/Champ'
 
 export function EtablissementsPlateforme() {
   const navigate = useNavigate()

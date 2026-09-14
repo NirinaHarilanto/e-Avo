@@ -3,19 +3,11 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
+import { champStyle } from '../ui/Champ'
 
 type Package = Database['public']['Tables']['packages']['Row']
 
 const LABEL_PROGRAMME: Record<Package['type_programme'], string> = { individuel: 'Individuel', duo: 'Duo', collectif: 'Collectif' }
-
-const champStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  padding: '9px 11px',
-  fontSize: 13,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
-}
 
 interface CreerPaiementEtudiantProps {
   etablissementId: string

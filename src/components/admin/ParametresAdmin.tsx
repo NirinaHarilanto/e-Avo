@@ -1,21 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
+import { Champ, champStyle } from '../ui/Champ'
+import { EtatChargement, MessageErreur, MessageSucces } from '../ui/Etats'
+import { boutonPrimaireStyle } from '../ui/Boutons'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
 
-const champStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 10,
-  padding: '12px 14px',
-  fontSize: 14,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
-  width: '100%',
-  fontFamily: 'inherit',
-}
 
 export function ParametresAdmin() {
   const { profile } = useProfileContext()
@@ -60,18 +55,39 @@ export function ParametresAdmin() {
 
   return (
     <AdminLayout actif="Paramètres">
-      <h1 style={{ fontSize: 28, color: '#fff', marginBottom: 6 }}>Paramètres</h1>
-      <p style={{ fontSize: 13.5, color: 'var(--muted)', marginBottom: 22 }}>
-        Réglages propres à votre établissement.
-      </p>
+      <EnTetePage
+        titre="Paramètres"
+        description="Les réglages propres à votre établissement. Ils s'appliquent à votre page vitrine publique et au parcours de vos visiteurs."
+      />
+
+      <GuidePage
+        id="admin-parametres"
+        etapes={[
+          <>
+            Le <strong>lien Calendly</strong> est facultatif. Laissé vide, le formulaire de réservation de votre page
+            vitrine se contente d'enregistrer le visiteur comme prospect.
+          </>,
+          <>
+            Renseigné, le visiteur est d'abord enregistré comme prospect, <strong>puis redirigé</strong> vers votre
+            Calendly pour choisir son créneau lui-même : vous n'avez plus à organiser la prise de rendez-vous.
+          </>,
+          <>
+            Dans les deux cas, le dossier apparaît dans la page <strong>Prospects</strong>, où vous le faites avancer
+            jusqu'à sa conversion en étudiant.
+          </>,
+        ]}
+      />
 
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+        <EtatChargement lignes={1} hauteur={220} />
       ) : (
-        <form onSubmit={enregistrer} className="card" style={{ maxWidth: 520, padding: 24, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <h2 style={{ fontSize: 17, color: 'var(--ink)', margin: 0 }}>Réservation des appels</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Lien Calendly</label>
+        <form onSubmit={enregistrer} className="card" style={{ maxWidth: 560, padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <h2 style={{ fontSize: 16, color: 'var(--accent-gold, #e9cf94)', margin: 0 }}>Réservation des appels</h2>
+
+          <Champ
+            label="Lien Calendly"
+            aide="Si renseigné, un visiteur qui valide le formulaire de réservation de votre page vitrine est d'abord enregistré comme prospect, puis redirigé vers ce lien pour choisir son créneau directement sur votre Calendly."
+          >
             <input
               type="url"
               placeholder="https://calendly.com/votre-etablissement/appel-diagnostic"
@@ -79,21 +95,16 @@ export function ParametresAdmin() {
               onChange={(e) => setCalendlyUrl(e.target.value)}
               style={champStyle}
             />
-            <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
-              Si renseigné, un visiteur qui valide le formulaire de réservation de la landing est
-              d'abord enregistré comme prospect, puis redirigé vers ce lien pour choisir son
-              créneau directement sur votre Calendly.
-            </p>
-          </div>
+          </Champ>
 
-          {erreur && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{erreur}</p>}
-          {enregistre && <p style={{ color: 'var(--success)', fontSize: 13 }}>Enregistré.</p>}
+          {erreur && <MessageErreur>{erreur}</MessageErreur>}
+          {enregistre && <MessageSucces>Réglages enregistrés.</MessageSucces>}
 
           <button
             type="submit"
             disabled={enregistrement}
             className="btn-shine"
-            style={{ alignSelf: 'flex-start', background: 'var(--accent-gradient)', color: '#1b1510', fontSize: 13.5, padding: '11px 20px', opacity: enregistrement ? 0.7 : 1 }}
+            style={{ ...boutonPrimaireStyle, alignSelf: 'flex-start', fontSize: 13.5, padding: '11px 20px', opacity: enregistrement ? 0.7 : 1 }}
           >
             {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
           </button>

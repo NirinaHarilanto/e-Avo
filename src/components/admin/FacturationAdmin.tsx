@@ -10,6 +10,14 @@ import { CreerFacture } from '../facturation/CreerFacture'
 import { DevisImprimable } from '../facturation/DevisImprimable'
 import { FactureImprimable } from '../facturation/FactureImprimable'
 import type { StatutDevis, StatutFacture } from '../../types/database.types'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
+import { GrilleStats, Stat } from '../ui/Stat'
+import { Onglets } from '../ui/Onglets'
+import { EtatVide } from '../ui/EtatVide'
+import { EtatChargement, MessageErreur } from '../ui/Etats'
+import { boutonPrimaireStyle } from '../ui/Boutons'
+import { Icone } from '../ui/Icones'
 
 type Onglet = 'devis' | 'factures'
 
@@ -39,37 +47,96 @@ export function FacturationAdmin() {
 
   return (
     <AdminLayout actif="Facturation">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontSize: 28, color: '#fff' }}>Facturation</h1>
-        <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510' }}>
-          {onglet === 'devis' ? 'Nouveau devis' : 'Nouvelle facture'}
-        </button>
+      <EnTetePage
+        titre="Facturation"
+        description="Les devis proposés aux étudiants et les factures émises. Un devis accepté se transforme en facture en un clic, sans ressaisir les lignes."
+        actions={
+          <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
+            <Icone nom="plus" taille={15} />
+            {formulaireOuvert ? 'Fermer' : onglet === 'devis' ? 'Nouveau devis' : 'Nouvelle facture'}
+          </button>
+        }
+      />
+
+      <GuidePage
+        id="admin-facturation"
+        etapes={[
+          <>
+            Créez un <strong>devis</strong> avec ses lignes détaillées, puis passez-le à « Envoyé ». Le bouton
+            « Imprimer » ouvre une version propre à remettre ou à enregistrer en PDF depuis votre navigateur.
+          </>,
+          <>
+            Quand le devis est <strong>accepté</strong>, allez dans l’onglet Factures et créez la facture : les devis
+            acceptés y sont proposés pour reprendre leur contenu automatiquement.
+          </>,
+          <>
+            Rattachez ensuite un <strong>paiement</strong> à la facture depuis sa ligne : c’est ce lien qui fait la
+            correspondance entre le document émis et l’encaissement suivi dans la page Paiements.
+          </>,
+          <>
+            Les factures de vos professeurs apparaissent aussi dans cet onglet : elles sont générées automatiquement au
+            moment du versement de leur rémunération.
+          </>,
+        ]}
+      />
+
+      <div style={{ marginBottom: 18 }}>
+        <Onglets
+          etiquette="Type de document"
+          actif={onglet}
+          onChange={(valeur) => {
+            setOnglet(valeur)
+            setFormulaireOuvert(false)
+          }}
+          onglets={[
+            { value: 'devis', label: 'Devis', compteur: devis.length },
+            { value: 'factures', label: 'Factures', compteur: factures.length },
+          ]}
+        />
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-        {(['devis', 'factures'] as const).map((o) => (
-          <button
-            key={o}
-            onClick={() => {
-              setOnglet(o)
-              setFormulaireOuvert(false)
-            }}
-            className={`nav-item${onglet === o ? ' nav-item-active' : ''}`}
-            style={{
-              padding: '9px 16px',
-              borderRadius: 999,
-              fontSize: 13,
-              fontWeight: onglet === o ? 800 : 600,
-              color: onglet === o ? '#1b1510' : 'var(--ink-2)',
-              background: onglet === o ? 'var(--accent-gradient)' : undefined,
-              cursor: 'pointer',
-              textTransform: 'capitalize',
-            }}
-          >
-            {o}
-          </button>
-        ))}
-      </div>
+      {onglet === 'devis' && !chargementDevis && devis.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <GrilleStats min={180}>
+            <Stat libelle="Devis émis" valeur={devis.length} ton="or" />
+            <Stat libelle="En attente de réponse" valeur={devis.filter((d) => d.devis.statut === 'envoye').length} ton="bleu" />
+            <Stat libelle="Acceptés" valeur={devisAcceptes.length} ton="teal" aide="Prêts à être convertis en facture" />
+            <Stat
+              libelle="Montant accepté"
+              valeur={devisAcceptes.reduce((total, d) => total + d.devis.montant_ttc, 0).toFixed(2)}
+              unite="€"
+              ton="teal"
+            />
+          </GrilleStats>
+        </div>
+      )}
+
+      {onglet === 'factures' && !chargementFactures && factures.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <GrilleStats min={180}>
+            <Stat
+              libelle="Total facturé"
+              valeur={factures.reduce((total, f) => (f.facture.statut === 'annulee' ? total : total + f.facture.montant_ttc), 0).toFixed(2)}
+              unite="€"
+              ton="or"
+              aide="Hors factures annulées"
+            />
+            <Stat
+              libelle="Réglé"
+              valeur={factures.filter((f) => f.facture.statut === 'payee').reduce((total, f) => total + f.facture.montant_ttc, 0).toFixed(2)}
+              unite="€"
+              ton="teal"
+            />
+            <Stat
+              libelle="En retard"
+              valeur={factures.filter((f) => f.facture.statut === 'en_retard').reduce((total, f) => total + f.facture.montant_ttc, 0).toFixed(2)}
+              unite="€"
+              ton={factures.some((f) => f.facture.statut === 'en_retard') ? 'alerte' : 'neutre'}
+            />
+            <Stat libelle="Factures émises" valeur={factures.length} ton="neutre" />
+          </GrilleStats>
+        </div>
+      )}
 
       {formulaireOuvert && profile && onglet === 'devis' && (
         <CreerDevis
@@ -95,11 +162,15 @@ export function FacturationAdmin() {
 
       {onglet === 'devis' ? (
         chargementDevis ? (
-          <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+          <EtatChargement lignes={3} hauteur={84} />
         ) : erreurDevis ? (
-          <p style={{ color: 'var(--danger)' }}>{erreurDevis}</p>
+          <MessageErreur>{erreurDevis}</MessageErreur>
         ) : devis.length === 0 ? (
-          <p style={{ color: 'var(--muted)' }}>Aucun devis enregistré.</p>
+          <EtatVide
+            icone="facturation"
+            titre="Aucun devis enregistré"
+            description="Créez un devis pour proposer une formule chiffrée à un étudiant. Une fois accepté, il servira de base à la facture, sans ressaisie."
+          />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {devis.map((d) => (
@@ -108,11 +179,15 @@ export function FacturationAdmin() {
           </div>
         )
       ) : chargementFactures ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+        <EtatChargement lignes={3} hauteur={84} />
       ) : erreurFactures ? (
-        <p style={{ color: 'var(--danger)' }}>{erreurFactures}</p>
+        <MessageErreur>{erreurFactures}</MessageErreur>
       ) : factures.length === 0 ? (
-        <p style={{ color: 'var(--muted)' }}>Aucune facture enregistrée.</p>
+        <EtatVide
+          icone="facturation"
+          titre="Aucune facture enregistrée"
+          description="Créez une facture depuis un devis accepté, ou directement si vous n’êtes pas passé par un devis. Les factures de rémunération des professeurs apparaîtront aussi ici."
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {factures.map((f) => (

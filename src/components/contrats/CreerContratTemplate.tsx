@@ -3,15 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { extraireVariables } from '../../lib/contrats'
 import type { Role, VariableTemplate } from '../../types/database.types'
-
-const champStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  padding: '9px 11px',
-  fontSize: 13,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
-}
+import { champStyle } from '../ui/Champ'
 
 interface CreerContratTemplateProps {
   etablissementId: string

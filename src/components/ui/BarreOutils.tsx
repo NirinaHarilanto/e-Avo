@@ -31,7 +31,7 @@ export function ChampRecherche({ valeur, onChange, placeholder = 'Rechercher…'
         placeholder={placeholder}
         value={valeur}
         onChange={(evenement) => onChange(evenement.target.value)}
-        style={{ ...champStyle, paddingLeft: 35 }}
+        style={{ ...champStyle, paddingLeft: 35, width: '100%' }}
       />
     </div>
   )

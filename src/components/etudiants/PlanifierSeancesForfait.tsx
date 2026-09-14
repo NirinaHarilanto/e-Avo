@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
+import { champStyle } from '../ui/Champ'
 
 const JOURS = [
   { valeur: 1, label: 'Lun' },
@@ -10,15 +11,6 @@ const JOURS = [
   { valeur: 6, label: 'Sam' },
   { valeur: 0, label: 'Dim' },
 ]
-
-const champStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  padding: '9px 10px',
-  fontSize: 12.5,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
-}
 
 interface Creneau {
   jour: number
