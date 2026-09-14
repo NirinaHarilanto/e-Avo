@@ -4,6 +4,7 @@ import { useEtudiants } from '../../hooks/useEtudiants'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import type { Database } from '../../types/database.types'
+import { EtatChargement } from '../ui/Etats'
 
 type DocumentPermission = Database['public']['Tables']['document_permissions']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -57,7 +58,7 @@ export function GestionAccesDocument({ documentId }: { documentId: string }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 10, marginTop: 8 }}>
       <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Accès (liste blanche — personne d'autre ne voit ce document)</span>
       {loading ? (
-        <p style={{ fontSize: 12, color: 'var(--muted)' }}>Chargement…</p>
+        <EtatChargement lignes={2} hauteur={28} />
       ) : (
         <>
           {permissions.length === 0 ? (

@@ -3,7 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { PlateformeLayout } from '../layout/PlateformeLayout'
 import { useEtablissementsPlateforme } from '../../hooks/useEtablissementsPlateforme'
 import { supabase } from '../../lib/supabaseClient'
-import { champStyle } from '../ui/Champ'
+import { Champ, champStyle } from '../ui/Champ'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
+import { EtatVide } from '../ui/EtatVide'
+import { EtatChargement, MessageErreur } from '../ui/Etats'
+import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
+import { Icone } from '../ui/Icones'
 
 export function EtablissementsPlateforme() {
   const navigate = useNavigate()
@@ -12,12 +18,35 @@ export function EtablissementsPlateforme() {
 
   return (
     <PlateformeLayout actif="Établissements">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
-        <h1 style={{ fontSize: 28, color: '#fff' }}>Établissements</h1>
-        <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510' }}>
-          Nouvel établissement
-        </button>
-      </div>
+      <EnTetePage
+        titre="Établissements"
+        description="Toutes les écoles hébergées sur la plateforme. Chaque établissement a sa page vitrine publique, ses propres administrateurs, et des données totalement cloisonnées des autres."
+        actions={
+          <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
+            <Icone nom="plus" taille={15} />
+            {formulaireOuvert ? 'Fermer' : 'Nouvel établissement'}
+          </button>
+        }
+      />
+
+      <GuidePage
+        id="plateforme-etablissements"
+        etapes={[
+          <>
+            Créez l’établissement avec son nom et son <strong>slug</strong>, qui devient l’adresse de sa page vitrine
+            publique : <code>/e/mon-etablissement</code>.
+          </>,
+          <>
+            Ouvrez ensuite sa fiche pour y <strong>inviter un premier administrateur</strong>. C’est l’étape qui rend
+            l’établissement réellement utilisable : sans administrateur, personne ne peut y inviter d’élèves ni de
+            professeurs.
+          </>,
+          <>
+            La <strong>couleur d’accent</strong> est facultative et ne teinte que la page vitrine publique. Les espaces
+            de travail gardent la charte commune.
+          </>,
+        ]}
+      />
 
       {formulaireOuvert && (
         <FormulaireCreationEtablissement
@@ -30,9 +59,13 @@ export function EtablissementsPlateforme() {
       )}
 
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+        <EtatChargement lignes={2} hauteur={120} />
       ) : etablissements.length === 0 ? (
-        <p style={{ color: 'var(--muted)' }}>Aucun établissement pour le moment.</p>
+        <EtatVide
+          icone="etablissements"
+          titre="Aucun établissement"
+          description="Créez un premier établissement pour démarrer. Vous pourrez ensuite lui désigner un administrateur, qui prendra la main sur ses élèves, ses professeurs et sa facturation."
+        />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
           {etablissements.map((etablissement) => (
@@ -40,7 +73,7 @@ export function EtablissementsPlateforme() {
               key={etablissement.id}
               onClick={() => navigate(`/plateforme/etablissements/${etablissement.id}`)}
               className="card card-lift"
-              style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10, textAlign: 'left', cursor: 'pointer', color: 'inherit' }}
+              style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left', cursor: 'pointer', color: 'inherit' }}
             >
               <span
                 className="brand-font"
@@ -60,7 +93,7 @@ export function EtablissementsPlateforme() {
               >
                 {etablissement.nom.slice(0, 2).toUpperCase()}
               </span>
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
                   {etablissement.nom}
                 </span>
@@ -69,6 +102,10 @@ export function EtablissementsPlateforme() {
                   {etablissement.specialite && ` · ${etablissement.specialite}`}
                 </div>
               </div>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)' }}>
+                Gérer ses administrateurs
+                <Icone nom="chevron" taille={12} />
+              </span>
             </button>
           ))}
         </div>
@@ -105,29 +142,29 @@ function FormulaireCreationEtablissement({ onAnnuler, onCree }: { onAnnuler: () 
   }
 
   return (
-    <form onSubmit={creer} className="card" style={{ padding: 18, marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexGrow: 1, minWidth: 180 }}>
-        <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Nom</label>
-        <input required value={nom} onChange={(e) => setNom(e.target.value)} style={champStyle} />
+    <form onSubmit={creer} className="card" style={{ padding: 20, marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <Champ label="Nom" obligatoire style={{ flexGrow: 1, minWidth: 180 }}>
+          <input required value={nom} onChange={(e) => setNom(e.target.value)} style={champStyle} />
+        </Champ>
+        <Champ label="Slug" obligatoire aide="Adresse de la page vitrine : /e/…" style={{ minWidth: 170 }}>
+          <input required value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="mon-etablissement" style={champStyle} />
+        </Champ>
+        <Champ label="Spécialité" aide="Affichée sur la vitrine. Facultatif." style={{ minWidth: 170 }}>
+          <input value={specialite} onChange={(e) => setSpecialite(e.target.value)} style={champStyle} />
+        </Champ>
+        <Champ label="Couleur" aide="Code hexadécimal. Facultatif." style={{ width: 140 }}>
+          <input value={couleurAccent} onChange={(e) => setCouleurAccent(e.target.value)} placeholder="#e9cf94" style={champStyle} />
+        </Champ>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 160 }}>
-        <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Slug (URL /e/…)</label>
-        <input required value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="mon-etablissement" style={champStyle} />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 160 }}>
-        <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Spécialité (optionnel)</label>
-        <input value={specialite} onChange={(e) => setSpecialite(e.target.value)} style={champStyle} />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 120 }}>
-        <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Couleur (optionnel)</label>
-        <input value={couleurAccent} onChange={(e) => setCouleurAccent(e.target.value)} placeholder="#e9cf94" style={champStyle} />
-      </div>
-      {erreur && <p style={{ color: 'var(--danger)', fontSize: 12.5, width: '100%' }}>{erreur}</p>}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button type="button" onClick={onAnnuler} style={{ fontSize: 12.5, padding: '10px 16px', borderRadius: 999, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink-2)', cursor: 'pointer' }}>
+
+      {erreur && <MessageErreur>{erreur}</MessageErreur>}
+
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button type="button" onClick={onAnnuler} style={{ ...boutonNeutreStyle, fontSize: 12.5, padding: '10px 16px' }}>
           Annuler
         </button>
-        <button type="submit" disabled={enCours} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours ? 0.6 : 1 }}>
+        <button type="submit" disabled={enCours} className="btn-shine" style={{ ...boutonPrimaireStyle, opacity: enCours ? 0.6 : 1 }}>
           {enCours ? 'Création…' : 'Créer'}
         </button>
       </div>

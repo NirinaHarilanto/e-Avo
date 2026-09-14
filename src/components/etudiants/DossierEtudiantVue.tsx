@@ -148,26 +148,27 @@ function BlocPeriode({ periode, estActuelle }: { periode: PeriodeProfesseur; est
       </div>
 
       {periode.seances.length > 0 && (
-        <div role="table" aria-label="Séances de la période">
+        <div>
+          {/* En-têtes purement visuels : chaque ligne reste lisible seule à la lecture d'écran
+              (une date, un libellé, une durée, un statut), donc les répéter en rôles ARIA de
+              tableau n'apporterait rien et imposerait un balisage de cellules complet. */}
           <div
-            role="row"
+            aria-hidden
             style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '7px 18px', background: 'rgba(0,0,0,.18)', borderBottom: '1px solid var(--border-soft)' }}
           >
-            <span role="columnheader" style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 90, flexShrink: 0 }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 90, flexShrink: 0 }}>
               Date
             </span>
-            <span role="columnheader" style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, flexGrow: 1 }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, flexGrow: 1 }}>
               Séance
             </span>
-            <span role="columnheader" style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Durée
-            </span>
-            <span role="columnheader" style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 72, textAlign: 'right' }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Durée</span>
+            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 72, textAlign: 'right' }}>
               Présence
             </span>
           </div>
           {periode.seances.map((seance) => (
-            <div key={seance.enrollment.id} role="row" className="row-hl" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '11px 18px', borderBottom: '1px solid var(--border-soft)' }}>
+            <div key={seance.enrollment.id} className="row-hl" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '11px 18px', borderBottom: '1px solid var(--border-soft)' }}>
               <span style={{ fontSize: 12, color: 'var(--muted)', width: 90, flexShrink: 0 }}>
                 {new Date(seance.session.debut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
               </span>

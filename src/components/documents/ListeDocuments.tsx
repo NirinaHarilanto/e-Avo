@@ -46,9 +46,10 @@ export function ListeDocuments({ documents, peutSupprimer, onChange, messageVide
 
   return (
     <div>
-      {/* La liste se lisait comme un tableau sans jamais dire ce que contenaient ses colonnes. */}
+      {/* La liste se lisait comme un tableau sans jamais dire ce que contenaient ses colonnes.
+          En-têtes visuels uniquement : chaque ligne reste lisible seule à la lecture d'écran. */}
       <div
-        className="ligne-entete-documents"
+        aria-hidden
         style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '0 4px 8px', borderBottom: '1px solid var(--border-soft)' }}
       >
         <span style={{ ...enTeteStyle, flexGrow: 1, minWidth: 200 }}>Fichier</span>

@@ -4,6 +4,7 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useHeuresNonPayeesProfesseur } from '../../hooks/useHeuresNonPayeesProfesseur'
 import { supabase } from '../../lib/supabaseClient'
 import { champStyle } from '../ui/Champ'
+import { EtatChargement } from '../ui/Etats'
 
 interface CreerRemunerationProfesseurProps {
   etablissementId: string
@@ -164,7 +165,7 @@ export function CreerRemunerationProfesseur({ etablissementId, onCree, onAnnuler
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Heures enseignées non payées</label>
           {chargementHeures ? (
-            <p style={{ color: 'var(--muted)', fontSize: 12.5 }}>Chargement…</p>
+            <EtatChargement lignes={2} hauteur={30} />
           ) : heuresNonPayees.length === 0 ? (
             <p style={{ color: 'var(--muted)', fontSize: 12.5 }}>Aucune heure non payée pour ce professeur.</p>
           ) : (
