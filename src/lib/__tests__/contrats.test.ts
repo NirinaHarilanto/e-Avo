@@ -15,7 +15,11 @@ const etudiant: Profile = {
   prenom: 'Miora',
   email: 'miora@example.mg',
   telephone: '+261 34 00 000 00',
+  whatsapp: null,
   adresse: 'Lot II M 12, Antananarivo',
+  ville: 'Antananarivo',
+  date_naissance: null,
+  lieu_naissance: null,
   taux_horaire: null,
   created_at: '2026-01-01T00:00:00Z',
 }

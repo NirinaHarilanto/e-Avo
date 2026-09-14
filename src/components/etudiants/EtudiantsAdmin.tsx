@@ -206,7 +206,7 @@ function DossierPanel({ studentId }: { studentId: string }) {
           onTermine={recharger}
         />
       }
-      panneauInformations={<InformationsPersonnelles personne={etudiant} onChange={recharger} />}
+      panneauInformations={<InformationsPersonnelles personne={etudiant} onChange={recharger} carte={false} />}
       panneauChoixInitial={
         <ChoixProgrammeInitial studentId={etudiant.id} etablissementId={etudiant.etablissement_id} onCree={recharger} />
       }

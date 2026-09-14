@@ -84,6 +84,10 @@ export interface Database {
           email: string | null
           telephone: string | null
           adresse: string | null
+          ville: string | null
+          date_naissance: string | null
+          lieu_naissance: string | null
+          whatsapp: string | null
           taux_horaire: number | null
           created_at: string
         }
@@ -98,6 +102,10 @@ export interface Database {
           email?: string | null
           telephone?: string | null
           adresse?: string | null
+          ville?: string | null
+          date_naissance?: string | null
+          lieu_naissance?: string | null
+          whatsapp?: string | null
           taux_horaire?: number | null
           created_at?: string
         }

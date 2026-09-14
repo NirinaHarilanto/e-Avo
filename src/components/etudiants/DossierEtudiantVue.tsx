@@ -7,6 +7,7 @@ import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { LigneInfo } from '../ui/Champ'
 import { Icone } from '../ui/Icones'
+import { Onglets, type Onglet } from '../ui/Onglets'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -25,13 +26,24 @@ const boutonPanneauStyle: React.CSSProperties = {
   cursor: 'pointer',
 }
 
-function LigneDiagnostic({ diagnostic }: { diagnostic: NonNullable<DossierEtudiant['diagnostic']> }) {
+/* Fusionne l'ancien résumé compact (une ligne dans le parcours) et l'ancienne carte « Appel
+   diagnostic » détaillée (rythme convenu, notes) : un seul affichage, dans l'onglet Parcours
+   pédagogique, plutôt que la même information répétée à deux endroits du dossier. */
+function BlocDiagnostic({ diagnostic }: { diagnostic: NonNullable<DossierEtudiant['diagnostic']> }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', borderRadius: 14, border: '1px solid rgba(255,255,255,.08)', background: 'rgba(255,255,255,.03)', padding: '15px 18px' }}>
-      <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink-2)', flexGrow: 1 }}>
-        Appel diagnostic réalisé{diagnostic.niveau_evalue ? ` · niveau initial ${diagnostic.niveau_evalue}` : ''}
-      </span>
-      <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{new Date(diagnostic.date_appel).toLocaleDateString('fr-FR')}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 14, border: '1px solid rgba(255,255,255,.08)', background: 'rgba(255,255,255,.03)', padding: '15px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink-2)', flexGrow: 1 }}>
+          Appel diagnostic réalisé{diagnostic.niveau_evalue ? ` · niveau initial ${diagnostic.niveau_evalue}` : ''}
+        </span>
+        <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{new Date(diagnostic.date_appel).toLocaleDateString('fr-FR')}</span>
+      </div>
+      {diagnostic.rythme_convenu && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Rythme convenu : {diagnostic.rythme_convenu}</span>}
+      {diagnostic.notes && (
+        <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)', background: 'rgba(0,0,0,.24)', borderRadius: 12, padding: '11px 13px', margin: 0 }}>
+          « {diagnostic.notes} »
+        </p>
+      )}
     </div>
   )
 }
@@ -212,6 +224,8 @@ function BlocPeriode({ periode, estActuelle }: { periode: PeriodeProfesseur; est
   )
 }
 
+type OngletDossier = 'parcours' | 'informations' | 'professeur' | 'programme'
+
 interface DossierEtudiantVueProps {
   dossier: DossierEtudiant
   /* Blocs admin uniquement — absents en vue élève/professeur. */
@@ -244,12 +258,25 @@ export function DossierEtudiantVue({
   const [editionForfaitOuverte, setEditionForfaitOuverte] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
   const [editionVagueOuverte, setEditionVagueOuverte] = useState(false)
+  const [ongletDemande, setOngletDemande] = useState<OngletDossier>('parcours')
   const seancesTerminees = periodes.flatMap((p) => p.seances).filter((s) => s.session.statut === 'terminee')
   const assiduite =
     seancesTerminees.length > 0
       ? Math.round((seancesTerminees.filter((s) => s.enrollment.present).length / seancesTerminees.length) * 100)
       : null
   const professeurActuel = periodes[0] && !periodes[0].affectation.date_fin ? periodes[0] : null
+
+  /* Les quatre blocs auparavant séparés (parcours, informations, professeur, forfait) tiennent
+     dans une seule carte à onglets — leur contenu ne change pas, seul l'habillage se
+     regroupe. Un onglet n'apparaît que s'il a quelque chose à montrer : en lecture seule
+     (espace élève/professeur), « Informations personnelles » n'est par exemple jamais passé. */
+  const onglets: Onglet<OngletDossier>[] = [
+    { value: 'parcours', label: 'Parcours pédagogique' },
+    ...(panneauInformations ? [{ value: 'informations' as const, label: 'Informations personnelles' }] : []),
+    ...(professeurActuel || panneauProfesseur ? [{ value: 'professeur' as const, label: 'Professeur' }] : []),
+    ...(forfait || cohorte || panneauChoixInitial ? [{ value: 'programme' as const, label: cohorte ? 'Programme' : 'Forfait' }] : []),
+  ]
+  const ongletActif = onglets.some((o) => o.value === ongletDemande) ? ongletDemande : onglets[0].value
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -315,162 +342,139 @@ export function DossierEtudiantVue({
         <Stat compact libelle="Niveau évalué" valeur={diagnostic?.niveau_evalue ?? '—'} ton="violet" aide={diagnostic ? 'Établi lors de l’appel diagnostic' : 'Pas encore de diagnostic'} />
       </GrilleStats>
 
-      <div className="grille-dossier">
-        <Section
-          titre="Parcours pédagogique"
-          description={
-            periodes.length > 0
-              ? `${periodes.length} période${periodes.length > 1 ? 's' : ''} de suivi${periodes.length > 1 ? ` · ${periodes.length} professeurs depuis l’inscription` : ''}. Chaque période liste les séances du professeur concerné.`
-              : undefined
-          }
-          padding={22}
-        >
-          {periodes.length === 0 && diagnostic && <LigneDiagnostic diagnostic={diagnostic} />}
-          {periodes.length === 0 && !diagnostic && (
-            <EtatVide
-              icone="seances"
-              titre="Aucune séance enregistrée"
-              description="Le parcours se remplit automatiquement dès qu’un professeur est attribué et que ses séances sont planifiées puis clôturées."
-            />
-          )}
-
-          {periodes.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {periodes.map((periode, index) => (
-                <BlocPeriode key={periode.affectation.id} periode={periode} estActuelle={index === 0 && !periode.affectation.date_fin} />
-              ))}
-              {diagnostic && <LigneDiagnostic diagnostic={diagnostic} />}
-            </div>
-          )}
+      {/* Tant que le dossier n'a ni professeur ni programme, ce récapitulatif occupe l'espace
+          utilement plutôt que de laisser un onglet « Professeur » ou « Programme » manquant sans
+          explication ; il disparaît de lui-même une fois le dossier complet. */}
+      {(!professeurActuel || (!forfait && !cohorte)) && (
+        <Section titre="Avancement du dossier" padding="14px 16px">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            <EtapeAvancement fait={!!diagnostic} label="Appel diagnostic réalisé" />
+            <EtapeAvancement fait={!!professeurActuel} label="Professeur attribué" />
+            <EtapeAvancement fait={!!(forfait || cohorte)} label="Programme choisi (forfait ou vague)" />
+          </div>
         </Section>
+      )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
-          {/* Tant que le dossier n'a ni professeur ni programme, la colonne de droite ne
-              contenait que la carte d'informations personnelles, avec un grand vide en dessous
-              (le « Parcours pédagogique » à gauche est généralement plus haut). Ce récapitulatif
-              occupe cet espace utilement plutôt que de le laisser vide, et disparaît de
-              lui-même une fois le dossier complet. */}
-          {(!professeurActuel || (!forfait && !cohorte)) && (
-            <Section titre="Avancement du dossier" padding="14px 16px">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                <EtapeAvancement fait={!!diagnostic} label="Appel diagnostic réalisé" />
-                <EtapeAvancement fait={!!professeurActuel} label="Professeur attribué" />
-                <EtapeAvancement fait={!!(forfait || cohorte)} label="Programme choisi (forfait ou vague)" />
+      {/* Les quatre blocs (parcours, informations, professeur, forfait) tenaient auparavant dans
+          une grille à deux colonnes ; ils vivent maintenant dans une seule carte à onglets. */}
+      <div className="card" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
+        <Onglets etiquette="Sections du dossier" actif={ongletActif} onChange={setOngletDemande} onglets={onglets} />
+
+        {ongletActif === 'parcours' && (
+          <div>
+            {periodes.length > 0 && (
+              <p style={{ margin: '0 0 14px', fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>
+                {periodes.length} période{periodes.length > 1 ? 's' : ''} de suivi
+                {periodes.length > 1 ? ` · ${periodes.length} professeurs depuis l’inscription` : ''}. Chaque période liste
+                les séances du professeur concerné.
+              </p>
+            )}
+            {periodes.length === 0 && diagnostic && <BlocDiagnostic diagnostic={diagnostic} />}
+            {periodes.length === 0 && !diagnostic && (
+              <EtatVide
+                icone="seances"
+                titre="Aucune séance enregistrée"
+                description="Le parcours se remplit automatiquement dès qu’un professeur est attribué et que ses séances sont planifiées puis clôturées."
+              />
+            )}
+            {periodes.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {periodes.map((periode, index) => (
+                  <BlocPeriode key={periode.affectation.id} periode={periode} estActuelle={index === 0 && !periode.affectation.date_fin} />
+                ))}
+                {diagnostic && <BlocDiagnostic diagnostic={diagnostic} />}
               </div>
-            </Section>
-          )}
+            )}
+          </div>
+        )}
 
-          {panneauInformations}
+        {ongletActif === 'informations' && panneauInformations}
 
-          {/* Une seule carte « Professeur actuel » : la version lecture seule et la version avec
-              actions étaient auparavant deux blocs jumeaux de 16 lignes, à maintenir en double. */}
-          {professeurActuel && (
-            <Section titre="Professeur actuel" padding="18px 20px">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <IdentiteProfesseur periode={professeurActuel} />
-                {panneauProfesseur}
-              </div>
-            </Section>
-          )}
-          {panneauProfesseur && !professeurActuel && panneauProfesseur}
+        {ongletActif === 'professeur' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {professeurActuel && <IdentiteProfesseur periode={professeurActuel} />}
+            {panneauProfesseur}
+          </div>
+        )}
 
-          {diagnostic && (
-            <Section titre="Appel diagnostic" padding="18px 20px">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <LigneInfo label="Date" valeur={new Date(diagnostic.date_appel).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })} />
-                <LigneInfo label="Niveau évalué" valeur={diagnostic.niveau_evalue ?? '—'} />
-                <LigneInfo label="Rythme convenu" valeur={diagnostic.rythme_convenu ?? '—'} />
-              </div>
-              {diagnostic.notes && (
-                <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)', background: 'rgba(0,0,0,.24)', borderRadius: 12, padding: '11px 13px', margin: '14px 0 0' }}>
-                  « {diagnostic.notes} »
-                </p>
-              )}
-            </Section>
-          )}
+        {ongletActif === 'programme' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {!forfait && !cohorte && panneauChoixInitial}
 
-          {!forfait && !cohorte && panneauChoixInitial}
-
-          {cohorte && (
-            <Section
-              titre="Programme collectif"
-              padding="18px 20px"
-              actions={
-                panneauVague ? (
-                  <button onClick={() => setEditionVagueOuverte((v) => !v)} style={boutonPanneauStyle}>
-                    {editionVagueOuverte ? 'Annuler' : 'Changer'}
-                  </button>
-                ) : undefined
-              }
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <LigneInfo label="Vague" valeur={cohorte.nom} />
-                <LigneInfo label="Langue" valeur={cohorte.langue ?? '—'} />
-                <LigneInfo
-                  label="Dates"
-                  valeur={`${new Date(cohorte.date_debut).toLocaleDateString('fr-FR')} → ${new Date(cohorte.date_fin).toLocaleDateString('fr-FR')}`}
-                />
-              </div>
-              {editionVagueOuverte && <div style={{ marginTop: 14 }}>{panneauVague}</div>}
-            </Section>
-          )}
-
-          {!cohorte && forfait && (
-            <Section
-              titre="Forfait en cours"
-              padding="18px 20px"
-              actions={
-                <>
-                  {panneauPlanification && (
-                    <button onClick={() => setPlanificationOuverte((v) => !v)} style={boutonPanneauStyle}>
-                      {planificationOuverte ? 'Annuler' : 'Planifier les séances'}
+            {cohorte && (
+              <>
+                {panneauVague && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button onClick={() => setEditionVagueOuverte((v) => !v)} style={boutonPanneauStyle}>
+                      {editionVagueOuverte ? 'Annuler' : 'Changer'}
                     </button>
-                  )}
-                  {panneauForfaitEdition && (
-                    <button onClick={() => setEditionForfaitOuverte((v) => !v)} style={boutonPanneauStyle}>
-                      {editionForfaitOuverte ? 'Annuler' : 'Modifier'}
-                    </button>
-                  )}
-                </>
-              }
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <LigneInfo label="Programme" valeur={forfait.type_programme === 'duo' ? 'Duo' : 'Individuel'} />
-                <LigneInfo label="Formule" valeur={`${forfait.total_heures} h`} />
-                <LigneInfo label="Consommées" valeur={`${heuresConsommees} h`} />
-                <LigneInfo label="Restantes" valeur={`${Math.max(0, forfait.total_heures - heuresConsommees)} h`} />
-                <LigneInfo label="Échéance" valeur={forfait.echeance ? new Date(forfait.echeance).toLocaleDateString('fr-FR') : '—'} />
-              </div>
-              <div style={{ marginTop: 14 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Progression du forfait</span>
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>
-                    {Math.round(Math.min(100, (heuresConsommees / forfait.total_heures) * 100))} %
-                  </span>
-                </div>
-                <div
-                  role="progressbar"
-                  aria-valuenow={heuresConsommees}
-                  aria-valuemin={0}
-                  aria-valuemax={forfait.total_heures}
-                  aria-label="Heures consommées sur le forfait"
-                  style={{ height: 10, borderRadius: 999, background: 'rgba(0,0,0,.3)', overflow: 'hidden', display: 'flex' }}
-                >
-                  <span
-                    style={{
-                      width: `${Math.min(100, (heuresConsommees / forfait.total_heures) * 100)}%`,
-                      background: 'linear-gradient(90deg,#5eb3ff,#e9cf94)',
-                      borderRadius: 999,
-                    }}
+                  </div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <LigneInfo label="Vague" valeur={cohorte.nom} />
+                  <LigneInfo label="Langue" valeur={cohorte.langue ?? '—'} />
+                  <LigneInfo
+                    label="Dates"
+                    valeur={`${new Date(cohorte.date_debut).toLocaleDateString('fr-FR')} → ${new Date(cohorte.date_fin).toLocaleDateString('fr-FR')}`}
                   />
                 </div>
-              </div>
-              {editionForfaitOuverte && <div style={{ marginTop: 14 }}>{panneauForfaitEdition}</div>}
-              {planificationOuverte && <div style={{ marginTop: 14 }}>{panneauPlanification}</div>}
-            </Section>
-          )}
+                {editionVagueOuverte && panneauVague}
+              </>
+            )}
 
-        </div>
+            {!cohorte && forfait && (
+              <>
+                {(panneauPlanification || panneauForfaitEdition) && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    {panneauPlanification && (
+                      <button onClick={() => setPlanificationOuverte((v) => !v)} style={boutonPanneauStyle}>
+                        {planificationOuverte ? 'Annuler' : 'Planifier les séances'}
+                      </button>
+                    )}
+                    {panneauForfaitEdition && (
+                      <button onClick={() => setEditionForfaitOuverte((v) => !v)} style={boutonPanneauStyle}>
+                        {editionForfaitOuverte ? 'Annuler' : 'Modifier'}
+                      </button>
+                    )}
+                  </div>
+                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <LigneInfo label="Programme" valeur={forfait.type_programme === 'duo' ? 'Duo' : 'Individuel'} />
+                  <LigneInfo label="Formule" valeur={`${forfait.total_heures} h`} />
+                  <LigneInfo label="Consommées" valeur={`${heuresConsommees} h`} />
+                  <LigneInfo label="Restantes" valeur={`${Math.max(0, forfait.total_heures - heuresConsommees)} h`} />
+                  <LigneInfo label="Échéance" valeur={forfait.echeance ? new Date(forfait.echeance).toLocaleDateString('fr-FR') : '—'} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Progression du forfait</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>
+                      {Math.round(Math.min(100, (heuresConsommees / forfait.total_heures) * 100))} %
+                    </span>
+                  </div>
+                  <div
+                    role="progressbar"
+                    aria-valuenow={heuresConsommees}
+                    aria-valuemin={0}
+                    aria-valuemax={forfait.total_heures}
+                    aria-label="Heures consommées sur le forfait"
+                    style={{ height: 10, borderRadius: 999, background: 'rgba(0,0,0,.3)', overflow: 'hidden', display: 'flex' }}
+                  >
+                    <span
+                      style={{
+                        width: `${Math.min(100, (heuresConsommees / forfait.total_heures) * 100)}%`,
+                        background: 'linear-gradient(90deg,#5eb3ff,#e9cf94)',
+                        borderRadius: 999,
+                      }}
+                    />
+                  </div>
+                </div>
+                {editionForfaitOuverte && panneauForfaitEdition}
+                {planificationOuverte && panneauPlanification}
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
