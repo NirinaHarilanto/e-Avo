@@ -1,5 +1,6 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { creerCompteSansEmail } from '../_lib/creerCompte.js'
+import { trouverProfilHomonyme, messageHomonyme } from '../_lib/nomDuplique.js'
 
 export const config = { runtime: 'edge' }
 
@@ -29,6 +30,18 @@ export default async function handler(request: Request): Promise<Response> {
 
     if (prospectError || !prospect) {
       return Response.json({ error: 'Prospect introuvable pour cet établissement.' }, { status: 404 })
+    }
+
+    // Même règle qu'à l'invitation directe : la liste des étudiants ne doit jamais contenir
+    // deux fois le même nom, y compris quand l'étudiant arrive par le pipeline prospect.
+    const homonyme = await trouverProfilHomonyme(serviceClient, {
+      etablissementId,
+      role: 'etudiant',
+      nom: prospect.nom,
+      prenom: prospect.prenom,
+    })
+    if (homonyme) {
+      return Response.json({ error: messageHomonyme('etudiant', homonyme) }, { status: 409 })
     }
 
     const { data: invited, error: inviteError } = await creerCompteSansEmail(serviceClient, {

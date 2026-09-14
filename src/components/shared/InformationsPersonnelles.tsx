@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { memeNom, nomComplet } from '../../lib/nomDuplique'
 import type { Database } from '../../types/database.types'
 import { GroupeSection, Section } from '../ui/Section'
 import { Champ, LigneInfo, champStyle } from '../ui/Champ'
@@ -56,6 +57,28 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
   async function enregistrer() {
     setEnCours(true)
     setErreur(null)
+
+    /* Même règle qu'à l'invitation (api/_lib/nomDuplique.ts) : deux personnes du même nom ne
+       doivent jamais coexister dans la liste des étudiants ou des professeurs. Ce panneau écrit
+       directement dans `profiles` sans passer par une fonction `api/`, la vérification se fait
+       donc ici — l'admin voit déjà tous les profils de son établissement (policies de 0004/0017),
+       la requête ne révèle rien de nouveau. */
+    if (nom.trim() && prenom.trim()) {
+      const { data: profils } = await supabase
+        .from('profiles')
+        .select('id, nom, prenom')
+        .eq('etablissement_id', personne.etablissement_id)
+        .eq('role', personne.role)
+      const homonyme = (profils ?? []).find((p) => p.id !== personne.id && memeNom(p, { nom, prenom }))
+      if (homonyme) {
+        setEnCours(false)
+        setErreur(
+          `${nomComplet(homonyme)} existe déjà dans cet établissement. Ajoutez de quoi les distinguer (second prénom, initiale) plutôt que deux fiches au même nom.`,
+        )
+        return
+      }
+    }
+
     const { error } = await supabase
       .from('profiles')
       .update({

@@ -49,7 +49,14 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
           .map((e) => ({ ...e, etudiant: etudiantParId.get(e.student_id) ?? null })),
         video: videoParSession.get(session.id) ?? null,
       })),
-      etudiantsActifs: (affectations ?? []).map((a) => etudiantParId.get(a.student_id)).filter((e): e is Profile => !!e),
+      /* Dédupliqué par élève, pas par affectation : cette liste alimente « Mes étudiants » et
+         les pastilles de sélection du formulaire de planification, où un même nom ne doit
+         jamais apparaître deux fois. La migration 0039 interdit désormais deux affectations
+         actives pour un même élève, mais la liste ne doit pas dépendre de cette garantie pour
+         rester correcte. */
+      etudiantsActifs: [...new Set((affectations ?? []).map((a) => a.student_id))]
+        .map((studentId) => etudiantParId.get(studentId))
+        .filter((e): e is Profile => !!e),
       heuresEnseignees: resumeHeures?.heures_enseignees ?? 0,
     }
   })

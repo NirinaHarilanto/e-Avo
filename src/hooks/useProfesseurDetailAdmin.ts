@@ -68,7 +68,16 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
       }
     }
 
-    const eleves: EleveDuProfesseur[] = (affectations ?? [])
+    /* Une ligne par élève, pas par affectation : la fiche professeur liste des personnes, un
+       même nom ne doit jamais y figurer deux fois (voir aussi useCalendrierProfesseur.ts).
+       `affectations` est trié du plus récent au plus ancien, on garde donc la première vue. */
+    const affectationParEleve = new Map<string, TeacherAssignment>()
+    for (const affectation of affectations ?? []) {
+      if (!affectationParEleve.has(affectation.student_id)) {
+        affectationParEleve.set(affectation.student_id, affectation)
+      }
+    }
+    const eleves: EleveDuProfesseur[] = [...affectationParEleve.values()]
       .map((affectation) => {
         const eleve = eleveParId.get(affectation.student_id)
         return eleve

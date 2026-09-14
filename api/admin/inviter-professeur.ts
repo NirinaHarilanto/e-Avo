@@ -1,5 +1,6 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { creerCompteSansEmail } from '../_lib/creerCompte.js'
+import { trouverProfilHomonyme, messageHomonyme } from '../_lib/nomDuplique.js'
 
 export const config = { runtime: 'edge' }
 
@@ -17,6 +18,17 @@ export default async function handler(request: Request): Promise<Response> {
     const body = (await request.json()) as { email?: string; nom?: string; prenom?: string }
     if (!body.email || !body.nom || !body.prenom) {
       return Response.json({ error: 'Email, nom et prénom requis.' }, { status: 400 })
+    }
+
+    // Avant la création du compte Auth : un refus ne doit laisser aucun utilisateur orphelin.
+    const homonyme = await trouverProfilHomonyme(serviceClient, {
+      etablissementId,
+      role: 'professeur',
+      nom: body.nom,
+      prenom: body.prenom,
+    })
+    if (homonyme) {
+      return Response.json({ error: messageHomonyme('professeur', homonyme) }, { status: 409 })
     }
 
     const { data: invited, error: inviteError } = await creerCompteSansEmail(serviceClient, {
