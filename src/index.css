@@ -417,6 +417,128 @@ select { color-scheme: dark; }
   }
 }
 
+/* --- Socle d'interface partagé (src/components/ui/) ------------------------------------- */
+
+/* `.carte-ligne` et `.row-hl` étaient déjà posées en JSX (listes d'étudiants, filtres de
+   professeurs, tableaux d'heures) mais n'ont jamais existé dans cette feuille : ces éléments
+   cliquables n'avaient donc aucun retour au survol. */
+.carte-ligne {
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+.carte-ligne:hover {
+  border-color: rgba(94, 179, 255, 0.45) !important;
+  background: linear-gradient(155deg, #142450, #0d1938) !important;
+  transform: translateX(2px);
+}
+.row-hl {
+  transition: background 0.16s ease;
+  border-radius: 8px;
+}
+.row-hl:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* Squelette de chargement : bande claire qui balaie un bloc neutre, pour occuper la place du
+   contenu à venir plutôt que d'afficher un « Chargement… » qui fait sauter la mise en page. */
+@keyframes squeletteBalayage {
+  0% { background-position: 180% 0; }
+  100% { background-position: -60% 0; }
+}
+.squelette {
+  background:
+    linear-gradient(90deg, transparent 12%, rgba(255, 255, 255, 0.07) 38%, transparent 64%),
+    var(--surface-alt);
+  background-size: 240% 100%;
+  border: 1px solid var(--border-soft);
+  animation: squeletteBalayage 1.5s ease-in-out infinite;
+}
+
+/* Coquille des espaces : barre latérale collante + colonne de contenu. Les media queries ne
+   peuvent pas vivre dans les styles inline utilisés partout ailleurs dans ce projet, donc
+   toute la bascule responsive de la navigation se joue obligatoirement ici. */
+.coquille {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  align-items: flex-start;
+}
+.barre-laterale {
+  width: 248px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 14px 20px;
+  border-right: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, rgba(10, 21, 48, 0.92), rgba(5, 10, 22, 0.92));
+  backdrop-filter: blur(8px);
+}
+.zone-contenu {
+  flex-grow: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.bouton-tiroir {
+  display: none;
+}
+.voile-tiroir {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .barre-laterale {
+    position: fixed;
+    z-index: 40;
+    left: 0;
+    top: 0;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+  }
+  .barre-laterale.tiroir-ouvert {
+    transform: none;
+  }
+  .bouton-tiroir {
+    display: inline-flex;
+  }
+  .voile-tiroir.tiroir-ouvert {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    background: rgba(3, 7, 16, 0.62);
+  }
+}
+
+/* L'application n'avait aucun indicateur de focus clavier : la navigation au clavier était
+   possible mais invisible. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-2);
+}
+
+input[type='search']::-webkit-search-cancel-button {
+  filter: invert(0.7);
+  cursor: pointer;
+}
+
 /* Vues imprimables (devis/facture/contrat, src/components/facturation/) : technique classique
    "n'imprimer qu'un élément" — masquer tout via visibility (pas display, pour que .zone-
    imprimable garde sa mise en page) puis ne rendre visible que la zone ciblée, sortie du flux

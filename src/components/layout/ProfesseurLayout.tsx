@@ -3,13 +3,19 @@ import { EspaceLayout, type NavGroup } from './EspaceLayout'
 
 const PROFESSEUR_NAV_GROUPS: NavGroup[] = [
   {
+    titre: 'Mon enseignement',
     items: [
-      { label: 'Calendrier', href: '/professeur/calendrier', disponible: true },
-      { label: 'Mes étudiants', href: '/professeur/etudiants', disponible: true },
-      { label: 'Mes heures', href: '/professeur/heures', disponible: true },
-      { label: 'Mes factures', href: '/professeur/factures', disponible: true },
-      { label: 'Mes contrats', href: '/professeur/contrats', disponible: true },
-      { label: 'Documents', href: '/professeur/documents', disponible: true },
+      { label: 'Calendrier', href: '/professeur/calendrier', disponible: true, icone: 'seances', description: 'Vos séances à venir et passées' },
+      { label: 'Mes étudiants', href: '/professeur/etudiants', disponible: true, icone: 'etudiants', description: 'Les élèves qui vous sont attribués' },
+      { label: 'Mes heures', href: '/professeur/heures', disponible: true, icone: 'heures', description: 'Heures enseignées par élève' },
+      { label: 'Documents', href: '/professeur/documents', disponible: true, icone: 'documents', description: 'Vos pièces et celles de vos élèves' },
+    ],
+  },
+  {
+    titre: 'Administratif',
+    items: [
+      { label: 'Mes factures', href: '/professeur/factures', disponible: true, icone: 'facturation', description: 'Vos rémunérations facturées' },
+      { label: 'Mes contrats', href: '/professeur/contrats', disponible: true, icone: 'contrats', description: 'Contrats à lire et à signer' },
     ],
   },
 ]
