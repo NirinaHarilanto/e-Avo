@@ -12,19 +12,20 @@ import { GroupeSection } from '../ui/Section'
 import { Onglets } from '../ui/Onglets'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
-
-const JOURS_SEMAINE = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
-
-function lundiDeLaSemaine(date: Date): Date {
-  const d = new Date(date)
-  const jour = d.getDay()
-  const diff = jour === 0 ? -6 : 1 - jour
-  d.setDate(d.getDate() + diff)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
+import { AgendaHebdo } from '../ui/AgendaHebdo'
+import { ajouterJours, lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
 
 type Vue = 'semaine' | 'globale'
+
+/* Une teinte par professeur, stable d'une semaine à l'autre : sur l'agenda de l'établissement,
+   la couleur est le seul repère qui permet de distinguer d'un coup d'œil les cours de chacun
+   quand aucun filtre n'est actif. */
+const TONS_PROFESSEUR = ['bleu', 'or', 'teal', 'violet'] as const
+
+function tonDuProfesseur(professeurIds: string[], id: string | undefined): EvenementAgenda['ton'] {
+  const index = id ? professeurIds.indexOf(id) : -1
+  return index === -1 ? 'neutre' : TONS_PROFESSEUR[index % TONS_PROFESSEUR.length]
+}
 
 export function SeancesAdmin() {
   const { seances, loading, erreur, recharger } = useSeancesAdmin()
@@ -33,16 +34,35 @@ export function SeancesAdmin() {
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
   const [professeurId, setProfesseurId] = useState<string | null>(null)
 
-  const semaineFin = useMemo(() => {
-    const fin = new Date(semaineDebut)
-    fin.setDate(fin.getDate() + 7)
-    return fin
-  }, [semaineDebut])
+  const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
+
+  const semaineFin = useMemo(() => ajouterJours(semaineDebut, 7), [semaineDebut])
 
   const seancesSemaine = useMemo(
     () => seances.filter((s) => s.session.debut >= semaineDebut.toISOString() && s.session.debut < semaineFin.toISOString()),
     [seances, semaineDebut, semaineFin],
   )
+
+  const professeurIds = useMemo(() => professeurs.map((p) => p.id), [professeurs])
+  const evenements = useMemo(() => {
+    const visibles = professeurId ? seancesSemaine.filter((s) => s.professeur?.id === professeurId) : seancesSemaine
+    return visibles.map((seance): EvenementAgenda => {
+      const eleves = seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`.trim())
+      return {
+        id: seance.session.id,
+        debut: seance.session.debut,
+        dureeMinutes: seance.session.duree_minutes,
+        titre: seance.professeur ? `${seance.professeur.prenom} ${seance.professeur.nom}` : 'Professeur inconnu',
+        sousTitre: eleves.join(', ') || 'Aucun élève inscrit',
+        ton: seance.session.statut === 'annulee' ? 'neutre' : tonDuProfesseur(professeurIds, seance.professeur?.id),
+        attenue: seance.session.statut === 'annulee',
+        marqueur: seance.session.changement_statut === 'en_attente' ? 'à valider' : undefined,
+      }
+    })
+  }, [seancesSemaine, professeurId, professeurIds])
+
+  // Seule une séance encore planifiée s'ouvre en édition, comme dans la vue liste.
+  const seanceOuverte = seances.find((s) => s.session.id === seanceOuverteId && s.session.statut === 'planifiee') ?? null
 
   const maintenant = new Date().toISOString()
   const aVenir = seances
@@ -154,27 +174,8 @@ export function SeancesAdmin() {
         )
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-            <button
-              onClick={() => setSemaineDebut((d) => { const n = new Date(d); n.setDate(n.getDate() - 7); return n })}
-              style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '6px 12px', cursor: 'pointer' }}
-            >
-              ← Semaine précédente
-            </button>
-            <span className="brand-font" style={{ fontSize: 13.5, color: 'var(--ink)' }}>
-              Semaine du {semaineDebut.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' })} au{' '}
-              {new Date(semaineFin.getTime() - 86400000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' })}
-            </span>
-            <button
-              onClick={() => setSemaineDebut((d) => { const n = new Date(d); n.setDate(n.getDate() + 7); return n })}
-              style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '6px 12px', cursor: 'pointer' }}
-            >
-              Semaine suivante →
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: 14 }}>
-            <aside style={{ width: 210, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div className="grille-agenda-filtre">
+            <aside style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
               <button
                 onClick={() => setProfesseurId(null)}
                 className="carte-ligne"
@@ -223,76 +224,34 @@ export function SeancesAdmin() {
               })}
             </aside>
 
-            <div style={{ flexGrow: 1, minWidth: 0 }}>
-              <AgendaSemaine
-                seances={professeurId ? seancesSemaine.filter((s) => s.professeur?.id === professeurId) : seancesSemaine}
+            <div style={{ minWidth: 0 }}>
+              <AgendaHebdo
+                evenements={evenements}
                 semaineDebut={semaineDebut}
+                onSemaineChange={setSemaineDebut}
+                onSelectionner={(evenement) => setSeanceOuverteId(evenement.id)}
+                videMessage={
+                  professeurId
+                    ? 'Aucune séance pour ce professeur cette semaine. Retirez le filtre ou changez de semaine.'
+                    : 'Aucune séance cette semaine. Les professeurs les créent depuis leur propre calendrier, ou l’admin en lot depuis un forfait étudiant.'
+                }
               />
             </div>
           </div>
         </div>
       )}
+
+      {seanceOuverte && (
+        <EditerSeancePlanifieeModale
+          session={seanceOuverte.session}
+          onFermer={() => setSeanceOuverteId(null)}
+          onEnregistre={() => {
+            setSeanceOuverteId(null)
+            recharger()
+          }}
+        />
+      )}
     </AdminLayout>
-  )
-}
-
-function AgendaSemaine({ seances, semaineDebut }: { seances: SeanceAdmin[]; semaineDebut: Date }) {
-  const jours = useMemo(() => {
-    return JOURS_SEMAINE.map((label, index) => {
-      const date = new Date(semaineDebut)
-      date.setDate(date.getDate() + index)
-      const dateIso = date.toISOString().slice(0, 10)
-      const seancesJour = seances
-        .filter((s) => s.session.debut.slice(0, 10) === dateIso)
-        .sort((a, b) => a.session.debut.localeCompare(b.session.debut))
-      return { label, date, seancesJour }
-    })
-  }, [seances, semaineDebut])
-
-  if (seances.length === 0) {
-    return (
-      <EtatVide
-        icone="seances"
-        titre="Aucune séance cette semaine"
-        description="Utilisez les flèches ci-dessus pour changer de semaine, ou retirez le filtre par professeur s’il en reste un d’actif."
-      />
-    )
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {jours.map(({ label, date, seancesJour }) => (
-        <div key={label} className="card" style={{ padding: '9px 14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: seancesJour.length ? 7 : 0 }}>
-            <span className="brand-font" style={{ fontSize: 12.5, color: 'var(--ink)' }}>
-              {label}
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>{date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
-          </div>
-          {seancesJour.length === 0 ? (
-            <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0 }}>Aucune séance.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {seancesJour.map((seance) => (
-                <div key={seance.session.id} style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '6px 9px', borderRadius: 8, background: 'rgba(255,255,255,.03)' }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', width: 46, flexShrink: 0 }}>
-                    {new Date(seance.session.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                  <span className="brand-font" style={{ fontSize: 12, color: 'var(--ink)', width: 150, flexShrink: 0 }}>
-                    {seance.professeur ? `${seance.professeur.prenom} ${seance.professeur.nom}` : 'Professeur inconnu'}
-                  </span>
-                  <span style={{ fontSize: 11.5, color: 'var(--ink-2)', flexGrow: 1, minWidth: 150 }}>
-                    {seance.session.type === 'individuel' ? 'Individuel' : 'Collectif'} · {seance.session.duree_minutes} min ·{' '}
-                    {seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`).join(', ') || 'aucun élève inscrit'}
-                  </span>
-                  <BadgeStatutSeance statut={seance.session.statut} />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
   )
 }
 

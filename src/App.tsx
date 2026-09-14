@@ -22,6 +22,7 @@ import { HeuresProfesseur } from './components/professeurs/HeuresProfesseur'
 import { DocumentsProfesseur } from './components/professeurs/DocumentsProfesseur'
 import { FacturesProfesseur } from './components/professeurs/FacturesProfesseur'
 import { ContratsProfesseur } from './components/professeurs/ContratsProfesseur'
+import { AgendaEtudiant } from './components/etudiants/AgendaEtudiant'
 import { DocumentsEtudiant } from './components/etudiants/DocumentsEtudiant'
 import { PaiementsEtudiant } from './components/etudiants/PaiementsEtudiant'
 import { ContratsEtudiant } from './components/etudiants/ContratsEtudiant'
@@ -59,6 +60,7 @@ export default function App() {
           <Route path="/professeur/factures" element={<FacturesProfesseur />} />
           <Route path="/professeur/contrats" element={<ContratsProfesseur />} />
           <Route path="/mon-espace" element={<EspacePersonnel />} />
+          <Route path="/mon-espace/agenda" element={<AgendaEtudiant />} />
           <Route path="/mon-espace/documents" element={<DocumentsEtudiant />} />
           <Route path="/mon-espace/paiements" element={<PaiementsEtudiant />} />
           <Route path="/mon-espace/contrats" element={<ContratsEtudiant />} />

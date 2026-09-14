@@ -562,6 +562,20 @@ input[type='search']::-webkit-search-cancel-button {
   align-items: start;
 }
 
+/* Agenda de l'établissement : liste des professeurs à gauche, grille horaire à droite. Elle
+   retombe en une colonne sur écran étroit, où la grille passe elle-même en vue « jour ». */
+.grille-agenda-filtre {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .grille-agenda-filtre {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Les 4 étapes du pipeline prospects sont un nombre fixe de colonnes (COLONNES_PIPELINE), pas
    un nombre variable de cartes — `repeat(4, minmax(0,1fr))` plutôt qu'un `auto-fit` avec un
    plancher de largeur, qui faisait retomber la 4e colonne sur une seconde ligne dès que la

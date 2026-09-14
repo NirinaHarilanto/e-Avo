@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { useCalendrierProfesseur, type SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { getJoinUrl } from '../../lib/visio'
+import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -12,15 +13,48 @@ import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
+import { Onglets } from '../ui/Onglets'
+import { Modale } from '../ui/Modale'
+import { AgendaHebdo } from '../ui/AgendaHebdo'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { CompteRenduSeance } from './CompteRenduSeance'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
 import { champStyle } from '../ui/Champ'
 
+type VueCalendrier = 'agenda' | 'liste'
+
+/* Une séance telle que l'agenda hebdomadaire la connaît. Le composant de grille ignore tout des
+   séances et des inscriptions : il ne manipule que des `EvenementAgenda`. */
+function versEvenement(seance: SeanceProfesseur): EvenementAgenda {
+  const eleves = seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`.trim())
+  return {
+    id: seance.session.id,
+    debut: seance.session.debut,
+    dureeMinutes: seance.session.duree_minutes,
+    titre: eleves.join(', ') || 'Séance sans élève inscrit',
+    sousTitre: `${seance.session.type === 'individuel' ? 'Individuel' : 'Collectif'} · ${seance.session.duree_minutes} min`,
+    ton: seance.session.statut === 'terminee' ? 'teal' : seance.session.statut === 'annulee' ? 'neutre' : 'bleu',
+    attenue: seance.session.statut === 'annulee',
+    marqueur: seance.session.changement_statut === 'en_attente' ? 'à valider' : undefined,
+  }
+}
+
+function versDatetimeLocal(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 export function CalendrierProfesseur() {
   const { profile } = useProfileContext()
   const { seances, etudiantsActifs, heuresEnseignees, loading, erreur, recharger } = useCalendrierProfesseur(profile?.id)
+  const [vue, setVue] = useState<VueCalendrier>('agenda')
+  const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
+  const [debutPreselectionne, setDebutPreselectionne] = useState<string>('')
+  /* La séance ouverte est retenue par son identifiant, pas par sa valeur : après une clôture ou
+     une reprogrammation, `recharger()` remplace l'objet et la fiche doit afficher la version à
+     jour, pas celle capturée au moment du clic. */
+  const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
 
   const maintenant = new Date().toISOString()
   const aVenir = seances
@@ -31,16 +65,35 @@ export function CalendrierProfesseur() {
     .filter((s) => s.session.statut !== 'planifiee')
     .sort((a, b) => a.session.debut.localeCompare(b.session.debut))
 
+  const evenements = useMemo(() => seances.map(versEvenement), [seances])
+  const seanceOuverte = seances.find((s) => s.session.id === seanceOuverteId) ?? null
+
+  function ouvrirPlanification(debut?: Date) {
+    setDebutPreselectionne(debut ? versDatetimeLocal(debut) : '')
+    setFormulaireOuvert(true)
+  }
+
   return (
     <ProfesseurLayout actif="Calendrier">
       <EnTetePage
         titre="Mon calendrier"
-        description="Vos séances à venir et passées. C’est ici que vous planifiez un cours, que vous notez les présences et que vous clôturez une séance une fois donnée."
+        description="Votre semaine de cours, heure par heure. C’est ici que vous planifiez une séance, que vous notez les présences et que vous clôturez un cours une fois donné."
         actions={
-          <button onClick={() => setFormulaireOuvert(true)} className="btn-shine" style={boutonPrimaireStyle}>
-            <Icone nom="plus" taille={15} />
-            Planifier une séance
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <Onglets
+              etiquette="Mode d’affichage du calendrier"
+              actif={vue}
+              onChange={setVue}
+              onglets={[
+                { value: 'agenda', label: 'Agenda' },
+                { value: 'liste', label: 'Liste' },
+              ]}
+            />
+            <button onClick={() => ouvrirPlanification()} className="btn-shine" style={boutonPrimaireStyle}>
+              <Icone nom="plus" taille={15} />
+              Planifier une séance
+            </button>
+          </div>
         }
       />
 
@@ -48,19 +101,23 @@ export function CalendrierProfesseur() {
         id="professeur-calendrier"
         etapes={[
           <>
+            L’<strong>agenda</strong> affiche votre semaine comme un agenda professionnel. Cliquez un{' '}
+            <strong>créneau libre</strong> pour y planifier un cours, ou un cours existant pour l’ouvrir.
+          </>,
+          <>
             <strong>Planifier une séance</strong> : choisissez un ou plusieurs élèves, une date et une durée. Plusieurs
             élèves sélectionnés créent une séance collective.
           </>,
           <>
-            Après le cours, dépliez la séance et notez la <strong>présence</strong> de chaque élève, puis clôturez-la.
+            Après le cours, ouvrez la séance et notez la <strong>présence</strong> de chaque élève, puis clôturez-la.
           </>,
           <>
             La clôture est le geste important : c’est elle qui met à jour vos heures enseignées, le forfait de l’élève
             et son taux d’assiduité. Une séance passée non clôturée ne compte nulle part.
           </>,
           <>
-            Vous pouvez enfin rédiger un <strong>compte rendu</strong> sur chaque séance terminée : l’élève et
-            l’administration y ont accès.
+            Tout ce que vous planifiez ici alimente directement le planning prévisionnel de l’élève et la vue de
+            l’administration : il n’y a rien à ressaisir ailleurs.
           </>,
         ]}
       />
@@ -85,6 +142,7 @@ export function CalendrierProfesseur() {
         {formulaireOuvert && profile && (
           <FormulairePlanification
             etudiantsActifs={etudiantsActifs}
+            debutInitial={debutPreselectionne}
             onAnnuler={() => setFormulaireOuvert(false)}
             onCree={() => {
               setFormulaireOuvert(false)
@@ -95,6 +153,19 @@ export function CalendrierProfesseur() {
 
         {loading ? (
           <EtatChargement lignes={3} hauteur={110} />
+        ) : vue === 'agenda' ? (
+          <AgendaHebdo
+            evenements={evenements}
+            semaineDebut={semaineDebut}
+            onSemaineChange={setSemaineDebut}
+            onSelectionner={(evenement) => setSeanceOuverteId(evenement.id)}
+            onCreneauLibre={etudiantsActifs.length > 0 ? ouvrirPlanification : undefined}
+            videMessage={
+              etudiantsActifs.length === 0
+                ? 'Aucun élève ne vous est encore attribué : l’administration doit le faire avant que vous puissiez planifier un cours.'
+                : 'Aucun cours cette semaine. Cliquez un créneau libre pour en planifier un.'
+            }
+          />
         ) : (
           <>
             <GroupeSection titre="À venir" description="Vos prochaines séances, de la plus proche à la plus lointaine.">
@@ -127,22 +198,36 @@ export function CalendrierProfesseur() {
           </>
         )}
       </div>
+
+      {seanceOuverte && (
+        <Modale
+          titre={new Date(seanceOuverte.session.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
+          onFermer={() => setSeanceOuverteId(null)}
+          largeurMax={520}
+        >
+          {/* Exactement la carte de la vue liste, sans son cadre : présence, clôture, annulation,
+              reprogrammation et compte rendu restent écrits à un seul endroit. */}
+          <CarteSeance seance={seanceOuverte} maintenant={maintenant} onChange={recharger} sansCadre />
+        </Modale>
+      )}
     </ProfesseurLayout>
   )
 }
 
 function FormulairePlanification({
   etudiantsActifs,
+  debutInitial,
   onAnnuler,
   onCree,
 }: {
   etudiantsActifs: { id: string; prenom: string | null; nom: string | null }[]
+  debutInitial?: string
   onAnnuler: () => void
   onCree: () => void
 }) {
   const { session } = useProfileContext()
   const [studentIds, setStudentIds] = useState<string[]>([])
-  const [debut, setDebut] = useState('')
+  const [debut, setDebut] = useState(debutInitial ?? '')
   const [dureeMinutes, setDureeMinutes] = useState(60)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -240,7 +325,19 @@ function FormulairePlanification({
   )
 }
 
-function CarteSeance({ seance, maintenant, onChange }: { seance: SeanceProfesseur; maintenant: string; onChange: () => void }) {
+function CarteSeance({
+  seance,
+  maintenant,
+  onChange,
+  sansCadre = false,
+}: {
+  seance: SeanceProfesseur
+  maintenant: string
+  onChange: () => void
+  /* Montée dans une modale (depuis l'agenda), la carte perd son propre cadre pour éviter une
+     carte dans une carte — même convention que le prop `carte` d'InformationsPersonnelles. */
+  sansCadre?: boolean
+}) {
   const { session: authSession, profile } = useProfileContext()
   const [presences, setPresences] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(seance.inscriptions.map((i) => [i.student_id, true])),
@@ -283,7 +380,10 @@ function CarteSeance({ seance, maintenant, onChange }: { seance: SeanceProfesseu
   }
 
   return (
-    <div className="card card-lift" style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div
+      className={sansCadre ? undefined : 'card card-lift'}
+      style={{ padding: sansCadre ? 0 : 18, display: 'flex', flexDirection: 'column', gap: 12 }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
