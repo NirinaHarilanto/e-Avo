@@ -9,6 +9,7 @@ export type ProspectStatut = 'prospect' | 'diagnostic_planifie' | 'diagnostic_fa
 export type TypeProgrammeProspect = 'individuel' | 'duo' | 'collectif'
 export type SessionType = 'individuel' | 'collectif'
 export type SessionStatut = 'planifiee' | 'terminee' | 'annulee'
+export type StatutChangementSeance = 'aucun' | 'en_attente'
 export type InvitationStatut = 'en_attente' | 'acceptee' | 'excusee'
 export type LedgerType = 'credit_professeur' | 'debit_etudiant'
 export type CategorieDocument =
@@ -233,6 +234,12 @@ export interface Database {
           debut: string
           duree_minutes: number
           statut: SessionStatut
+          debut_propose: string | null
+          duree_minutes_propose: number | null
+          justificatif_changement: string | null
+          changement_demande_par: string | null
+          changement_demande_le: string | null
+          changement_statut: StatutChangementSeance
           created_at: string
         }
         Insert: {
@@ -243,6 +250,12 @@ export interface Database {
           debut: string
           duree_minutes: number
           statut?: SessionStatut
+          debut_propose?: string | null
+          duree_minutes_propose?: number | null
+          justificatif_changement?: string | null
+          changement_demande_par?: string | null
+          changement_demande_le?: string | null
+          changement_statut?: StatutChangementSeance
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['sessions']['Insert']>
@@ -751,6 +764,30 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['platform_admins']['Insert']>
+        Relationships: []
+      }
+      niveau_evaluations: {
+        Row: {
+          id: string
+          etablissement_id: string
+          student_id: string
+          niveau: string
+          date_evaluation: string
+          evalue_par: string
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          student_id: string
+          niveau: string
+          date_evaluation?: string
+          evalue_par: string
+          notes?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['niveau_evaluations']['Insert']>
         Relationships: []
       }
     }

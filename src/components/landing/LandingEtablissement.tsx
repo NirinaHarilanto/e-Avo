@@ -71,11 +71,13 @@ function BlocTarif({
   lignes,
   accent,
   onReserver,
+  lienReservation,
 }: {
   type: TypeProgrammeProspect
   lignes: Database['public']['Tables']['tarifs']['Row'][]
   accent: AccentPalette
   onReserver: () => void
+  lienReservation: { href: string; target?: string; rel?: string }
 }) {
   const [etendu, setEtendu] = useState(false)
   const lignesVisibles = etendu ? lignes : lignes.slice(0, LIMITE_TARIFS_VISIBLES)
@@ -149,7 +151,7 @@ function BlocTarif({
         )}
 
         <a
-          href="#reserver"
+          {...lienReservation}
           onClick={onReserver}
           className="btn-shine"
           style={{ alignSelf: 'flex-start', marginTop: 'auto', fontSize: 12.5, padding: '10px 18px', background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}
@@ -213,6 +215,16 @@ export function LandingEtablissement() {
   const accent = deriveAccent(etablissement.couleur_accent)
   const initiales = etablissement.nom.slice(0, 2).toUpperCase()
   const dossierAssets = `/etablissements/${etablissement.slug}`
+  /* Les CTA « Réserver » renvoyaient tous vers le formulaire de contact (#reserver) : un clic
+     n'y réservait donc rien tant que le visiteur n'avait pas rempli ses coordonnées, ce qui
+     passait pour un bouton cassé. Ils pointent maintenant directement vers le lien Calendly
+     paramétré en admin (Paramètres → Réservation des appels) quand il est renseigné, et ne
+     retombent sur le formulaire que pour un établissement qui n'a pas encore ce lien. Le
+     formulaire de prise de contact reste atteignable plus bas sur la page et garde son propre
+     comportement (ouvre aussi Calendly après capture du prospect). */
+  const lienReservation: { href: string; target?: string; rel?: string } = etablissement.calendly_url
+    ? { href: etablissement.calendly_url, target: '_blank', rel: 'noopener noreferrer' }
+    : { href: '#reserver' }
 
   return (
     <div style={{ background: 'var(--bg-page)', minHeight: '100vh' }}>
@@ -285,7 +297,7 @@ export function LandingEtablissement() {
           <a href="/connexion" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
             Espace personnel
           </a>
-          <a href="#reserver" className="btn-shine" style={{ background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}>
+          <a {...lienReservation} className="btn-shine" style={{ background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}>
             Réserver mon appel
           </a>
         </div>
@@ -322,7 +334,7 @@ export function LandingEtablissement() {
               Quinze minutes d'appel pour situer votre niveau et votre objectif. Ensuite, un professeur attitré
               chez {etablissement.nom} et des cours en visio à votre rythme.
             </p>
-            <a href="#reserver" className="btn-shine arrive" style={{ fontSize: 15, padding: '16px 28px', background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 6px 24px ${accent.accentGlow}`, animationDelay: '.3s' }}>
+            <a {...lienReservation} className="btn-shine arrive" style={{ fontSize: 15, padding: '16px 28px', background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 6px 24px ${accent.accentGlow}`, animationDelay: '.3s' }}>
               Réserver mon appel diagnostic
             </a>
           </CadreOrne>
@@ -368,7 +380,7 @@ export function LandingEtablissement() {
               <h3 style={{ fontSize: 18, color: 'var(--ink)' }}>{programme.titre}</h3>
               <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--muted)' }}>{programme.texte}</p>
               <a
-                href="#reserver"
+                {...lienReservation}
                 onClick={() => setProgrammeChoisi(programme.type)}
                 style={{ fontSize: 12.5, fontWeight: 700, color: accent.accent, marginTop: 4 }}
               >
@@ -393,6 +405,7 @@ export function LandingEtablissement() {
                   lignes={lignes}
                   accent={accent}
                   onReserver={() => setProgrammeChoisi(type)}
+                  lienReservation={lienReservation}
                 />
               )
             })}
@@ -476,7 +489,7 @@ export function LandingEtablissement() {
           Le point de départ de chaque parcours chez {etablissement.nom} : on situe votre niveau, on cadre
           votre objectif, et on vous propose le bon format de cours.
         </p>
-        <a href="#reserver" className="btn-shine" style={{ background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}>
+        <a {...lienReservation} className="btn-shine" style={{ background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}>
           Réserver mon appel diagnostic
         </a>
       </section>
@@ -584,7 +597,7 @@ export function LandingEtablissement() {
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--muted-2)' }}>
               Réserver
             </span>
-            <a href="#reserver" className="btn-shine" style={{ alignSelf: 'flex-start', background: accent.accentGrad, color: accent.accentInk, fontSize: 12.5 }}>
+            <a {...lienReservation} className="btn-shine" style={{ alignSelf: 'flex-start', background: accent.accentGrad, color: accent.accentInk, fontSize: 12.5 }}>
               Appel diagnostic
             </a>
           </div>

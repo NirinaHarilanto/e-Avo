@@ -14,6 +14,7 @@ import { boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { CompteRenduSeance } from './CompteRenduSeance'
+import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
 import { champStyle } from '../ui/Champ'
 
 export function CalendrierProfesseur() {
@@ -244,6 +245,7 @@ function CarteSeance({ seance, maintenant, onChange }: { seance: SeanceProfesseu
     Object.fromEntries(seance.inscriptions.map((i) => [i.student_id, true])),
   )
   const [clotureOuverte, setClotureOuverte] = useState(false)
+  const [editionHoraireOuverte, setEditionHoraireOuverte] = useState(false)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -291,7 +293,14 @@ function CarteSeance({ seance, maintenant, onChange }: { seance: SeanceProfesseu
             {seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`).join(', ')}
           </span>
         </div>
-        <BadgeStatutSeance statut={seance.session.statut} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {seance.session.changement_statut === 'en_attente' && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(255,190,110,.14)', border: '1px solid rgba(255,190,110,.3)', borderRadius: 999, padding: '3px 9px' }}>
+              Changement en attente
+            </span>
+          )}
+          <BadgeStatutSeance statut={seance.session.statut} />
+        </div>
       </div>
 
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 12.5 }}>{erreur}</p>}
@@ -308,6 +317,12 @@ function CarteSeance({ seance, maintenant, onChange }: { seance: SeanceProfesseu
               Clôturer
             </button>
           )}
+          <button
+            onClick={() => setEditionHoraireOuverte(true)}
+            style={{ fontSize: 12.5, padding: '9px 16px', borderRadius: 999, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent-blue)', cursor: 'pointer' }}
+          >
+            {seance.session.changement_statut === 'en_attente' ? 'Voir la demande' : "Modifier l'heure"}
+          </button>
           <button
             onClick={annuler}
             disabled={enCours}
@@ -344,6 +359,17 @@ function CarteSeance({ seance, maintenant, onChange }: { seance: SeanceProfesseu
 
       {seance.session.statut === 'terminee' && profile && (
         <CompteRenduSeance sessionId={seance.session.id} etablissementId={profile.etablissement_id} teacherId={profile.id} />
+      )}
+
+      {editionHoraireOuverte && (
+        <EditerSeancePlanifieeModale
+          session={seance.session}
+          onFermer={() => setEditionHoraireOuverte(false)}
+          onEnregistre={() => {
+            setEditionHoraireOuverte(false)
+            onChange()
+          }}
+        />
       )}
     </div>
   )

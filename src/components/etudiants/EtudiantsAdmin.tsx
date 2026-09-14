@@ -229,6 +229,9 @@ function DossierPanel({ studentId }: { studentId: string }) {
           <AssignerVague studentId={etudiant.id} etablissementId={etudiant.etablissement_id} vagueActuelle={dossier.cohorte} ouvertParDefaut onTermine={recharger} />
         ) : undefined
       }
+      peutModifierNiveau
+      peutModifierPlanning
+      onDossierChange={recharger}
     />
   )
 }

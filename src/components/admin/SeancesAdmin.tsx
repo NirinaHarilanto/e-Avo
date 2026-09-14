@@ -3,6 +3,7 @@ import { AdminLayout } from '../layout/AdminLayout'
 import { useSeancesAdmin, type SeanceAdmin } from '../../hooks/useSeancesAdmin'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
+import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -26,7 +27,7 @@ function lundiDeLaSemaine(date: Date): Date {
 type Vue = 'semaine' | 'globale'
 
 export function SeancesAdmin() {
-  const { seances, loading, erreur } = useSeancesAdmin()
+  const { seances, loading, erreur, recharger } = useSeancesAdmin()
   const { professeurs } = useProfesseurs()
   const [vue, setVue] = useState<Vue>('semaine')
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
@@ -132,7 +133,7 @@ export function SeancesAdmin() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {aVenir.map((seance) => (
-                    <LigneSeance key={seance.session.id} seance={seance} maintenant={maintenant} />
+                    <LigneSeance key={seance.session.id} seance={seance} maintenant={maintenant} onChange={recharger} />
                   ))}
                 </div>
               )}
@@ -143,7 +144,7 @@ export function SeancesAdmin() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {passees.map((seance) => (
-                    <LigneSeance key={seance.session.id} seance={seance} maintenant={maintenant} />
+                    <LigneSeance key={seance.session.id} seance={seance} maintenant={maintenant} onChange={recharger} />
                   ))}
                 </div>
               )}
@@ -294,9 +295,16 @@ function AgendaSemaine({ seances, semaineDebut }: { seances: SeanceAdmin[]; sema
   )
 }
 
-function LigneSeance({ seance }: { seance: SeanceAdmin; maintenant: string }) {
+function LigneSeance({ seance, onChange }: { seance: SeanceAdmin; maintenant: string; onChange: () => void }) {
+  const [editionOuverte, setEditionOuverte] = useState(false)
+  const modifiable = seance.session.statut === 'planifiee'
+
   return (
-    <div className="card card-lift" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+    <div
+      onClick={modifiable ? () => setEditionOuverte(true) : undefined}
+      className={modifiable ? 'card card-lift row-hl' : 'card card-lift'}
+      style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', cursor: modifiable ? 'pointer' : 'default' }}
+    >
       <span style={{ fontSize: 12.5, color: 'var(--muted)', width: 150, flexShrink: 0 }}>
         {new Date(seance.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
       </span>
@@ -307,7 +315,25 @@ function LigneSeance({ seance }: { seance: SeanceAdmin; maintenant: string }) {
         {seance.session.type === 'individuel' ? 'Individuel' : 'Collectif'} · {seance.session.duree_minutes} min ·{' '}
         {seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`).join(', ') || 'aucun élève inscrit'}
       </span>
+      {seance.session.changement_statut === 'en_attente' && (
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(255,190,110,.14)', border: '1px solid rgba(255,190,110,.3)', borderRadius: 999, padding: '3px 9px' }}>
+          Changement en attente
+        </span>
+      )}
       <BadgeStatutSeance statut={seance.session.statut} />
+
+      {editionOuverte && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <EditerSeancePlanifieeModale
+            session={seance.session}
+            onFermer={() => setEditionOuverte(false)}
+            onEnregistre={() => {
+              setEditionOuverte(false)
+              onChange()
+            }}
+          />
+        </div>
+      )}
     </div>
   )
 }

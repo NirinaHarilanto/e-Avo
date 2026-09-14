@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
-import type { DossierEtudiant, PeriodeProfesseur } from '../../hooks/useDossierEtudiant'
+import type { DossierEtudiant, PeriodeProfesseur, SeanceDuParcours } from '../../hooks/useDossierEtudiant'
+import { useNiveauxEtudiant } from '../../hooks/useNiveauxEtudiant'
 import { getJoinUrl } from '../../lib/visio'
 import type { Database } from '../../types/database.types'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -9,6 +10,8 @@ import { LigneInfo } from '../ui/Champ'
 import { Icone } from '../ui/Icones'
 import { Onglets, type Onglet } from '../ui/Onglets'
 import { ListeRepliable, TexteRepliable } from '../ui/Repliable'
+import { HistoriqueNiveauModale } from './HistoriqueNiveauModale'
+import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -245,6 +248,18 @@ interface DossierEtudiantVueProps {
   panneauPlanification?: ReactNode
   /* Formulaire d'assignation/changement de vague pour le programme collectif. */
   panneauVague?: ReactNode
+  /* Autorise l'ajout d'une réévaluation de niveau depuis la fenêtre d'historique — admin
+     uniquement, comme les autres panneaux d'action. */
+  peutModifierNiveau?: boolean
+  /* Autorise à cliquer une ligne du planning prévisionnel pour la reprogrammer — admin
+     uniquement depuis cette vue (le professeur passe par son propre calendrier, voir
+     CalendrierProfesseur.tsx : les forfaits/le programme d'un élève ne lui sont pas ouverts,
+     scope volontaire déjà en place ailleurs dans le dossier). */
+  peutModifierPlanning?: boolean
+  /* Rechargement du dossier après une action qui ne passe pas par un panneau externe (édition
+     d'une séance depuis la liste ci-dessous, par exemple) — les panneauXxx gèrent déjà leur
+     propre `onCree`/`onTermine`, celui-ci couvre ce que ce composant fait lui-même. */
+  onDossierChange?: () => void
 }
 
 /* Rendu du dossier étudiant, partagé entre la vue admin (avec actions) et l'espace élève/
@@ -257,19 +272,32 @@ export function DossierEtudiantVue({
   panneauForfaitEdition,
   panneauPlanification,
   panneauVague,
+  peutModifierNiveau,
+  peutModifierPlanning,
+  onDossierChange,
 }: DossierEtudiantVueProps) {
   const { etudiant, periodes, diagnostic, packages, cohorte, heuresConsommees, prochaineSeance } = dossier
   const forfait = packages[0] ?? null
   const [editionForfaitOuverte, setEditionForfaitOuverte] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
   const [editionVagueOuverte, setEditionVagueOuverte] = useState(false)
+  const [historiqueNiveauOuvert, setHistoriqueNiveauOuvert] = useState(false)
+  const [seanceEnEdition, setSeanceEnEdition] = useState<SeanceDuParcours | null>(null)
   const [ongletDemande, setOngletDemande] = useState<OngletDossier>('parcours')
+  const { evaluations: niveaux } = useNiveauxEtudiant(etudiant.id)
+  const niveauActuel = niveaux[niveaux.length - 1]?.niveau ?? diagnostic?.niveau_evalue ?? null
   const seancesTerminees = periodes.flatMap((p) => p.seances).filter((s) => s.session.statut === 'terminee')
   const assiduite =
     seancesTerminees.length > 0
       ? Math.round((seancesTerminees.filter((s) => s.enrollment.present).length / seancesTerminees.length) * 100)
       : null
   const professeurActuel = periodes[0] && !periodes[0].affectation.date_fin ? periodes[0] : null
+  /* Séances déjà planifiées (statut « planifiée ») pour la période en cours, triées
+     chronologiquement — le planning prévisionnel affiché en lecture seule avant que l'admin ne
+     clique « Modifier » pour rouvrir le formulaire de génération. */
+  const seancesPlanifiees = (professeurActuel?.seances ?? [])
+    .filter((s) => s.session.statut === 'planifiee')
+    .sort((a, b) => a.session.debut.localeCompare(b.session.debut))
 
   /* Les quatre blocs auparavant séparés (parcours, informations, professeur, forfait) tiennent
      dans une seule carte à onglets — leur contenu ne change pas, seul l'habillage se
@@ -344,7 +372,24 @@ export function DossierEtudiantVue({
             ) : undefined
           }
         />
-        <Stat compact libelle="Niveau évalué" valeur={diagnostic?.niveau_evalue ?? '—'} ton="violet" aide={diagnostic ? 'Établi lors de l’appel diagnostic' : 'Pas encore de diagnostic'} />
+        <Stat
+          compact
+          libelle="Niveau évalué"
+          valeur={niveauActuel ?? '—'}
+          ton="violet"
+          aide={diagnostic || niveaux.length > 0 ? 'Établi lors de l’appel diagnostic' : 'Pas encore de diagnostic'}
+          pied={
+            (diagnostic || niveaux.length > 0) && (
+              <button
+                type="button"
+                onClick={() => setHistoriqueNiveauOuvert(true)}
+                style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent-violet)', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+              >
+                {peutModifierNiveau ? "Voir l'historique · Modifier" : "Voir l'historique"}
+              </button>
+            )
+          }
+        />
       </GrilleStats>
 
       {/* Tant que le dossier n'a ni professeur ni programme, ce récapitulatif occupe l'espace
@@ -433,7 +478,7 @@ export function DossierEtudiantVue({
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                     {panneauPlanification && (
                       <button onClick={() => setPlanificationOuverte((v) => !v)} style={boutonPanneauStyle}>
-                        {planificationOuverte ? 'Annuler' : 'Planifier les séances'}
+                        {planificationOuverte ? 'Annuler' : seancesPlanifiees.length > 0 ? 'Modifier' : 'Planifier les séances'}
                       </button>
                     )}
                     {panneauForfaitEdition && (
@@ -441,6 +486,47 @@ export function DossierEtudiantVue({
                         {editionForfaitOuverte ? 'Annuler' : 'Modifier'}
                       </button>
                     )}
+                  </div>
+                )}
+
+                {/* Lecture seule tant que l'admin n'a pas cliqué « Modifier » : le planning déjà
+                    généré (voir PlanifierSeancesForfait) se voit d'un coup d'œil plutôt que de
+                    rouvrir aveuglément un formulaire vierge qui écraserait le contexte déjà en
+                    place. */}
+                {seancesPlanifiees.length > 0 && !planificationOuverte && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Planning prévisionnel · {seancesPlanifiees.length} séance{seancesPlanifiees.length > 1 ? 's' : ''}
+                    </span>
+                    <div style={{ opacity: 0.78, display: 'flex', flexDirection: 'column', gap: 2, borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' }}>
+                      <ListeRepliable visibles={4} nom="séances planifiées">
+                        {seancesPlanifiees.map((s) => (
+                          <div
+                            key={s.enrollment.id}
+                            onClick={peutModifierPlanning ? () => setSeanceEnEdition(s) : undefined}
+                            className={peutModifierPlanning ? 'row-hl' : undefined}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 14,
+                              padding: '9px 13px',
+                              borderBottom: '1px solid var(--border-soft)',
+                              cursor: peutModifierPlanning ? 'pointer' : 'default',
+                            }}
+                          >
+                            <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1 }}>
+                              {new Date(s.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+                            </span>
+                            <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{s.session.duree_minutes} min</span>
+                            {s.session.changement_statut === 'en_attente' && (
+                              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(255,190,110,.14)', border: '1px solid rgba(255,190,110,.3)', borderRadius: 999, padding: '2px 8px' }}>
+                                En attente
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </ListeRepliable>
+                    </div>
                   </div>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -482,6 +568,27 @@ export function DossierEtudiantVue({
           </div>
         )}
       </div>
+
+      {historiqueNiveauOuvert && (
+        <HistoriqueNiveauModale
+          studentId={etudiant.id}
+          etablissementId={etudiant.etablissement_id}
+          diagnostic={diagnostic}
+          peutModifier={peutModifierNiveau}
+          onFermer={() => setHistoriqueNiveauOuvert(false)}
+        />
+      )}
+
+      {seanceEnEdition && (
+        <EditerSeancePlanifieeModale
+          session={seanceEnEdition.session}
+          onFermer={() => setSeanceEnEdition(null)}
+          onEnregistre={() => {
+            setSeanceEnEdition(null)
+            onDossierChange?.()
+          }}
+        />
+      )}
     </div>
   )
 }
