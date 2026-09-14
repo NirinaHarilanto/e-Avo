@@ -19,6 +19,8 @@ import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
+import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
+import { BadgeStatutContrat } from '../shared/BadgeStatutContrat'
 
 export function EtudiantsAdmin() {
   const { id } = useParams<{ id: string }>()
@@ -36,6 +38,8 @@ export function EtudiantsAdmin() {
   )
 
   const actifs = etudiants.filter((e) => e.status === 'approved').length
+  const statutsContrats = useStatutsContratsSignature(useMemo(() => etudiants.map((e) => e.id), [etudiants]))
+  const sansContratSigne = etudiants.filter((e) => statutsContrats[e.id] && statutsContrats[e.id] !== 'signe').length
 
   return (
     <AdminLayout actif="Étudiants">
@@ -71,6 +75,10 @@ export function EtudiantsAdmin() {
             Le compteur d’heures et le taux d’assiduité se mettent à jour automatiquement à la clôture de chaque séance,
             il n’y a rien à saisir à la main.
           </>,
+          <>
+            Le badge <strong>Contrat signé / en attente / aucun contrat</strong> sous chaque nom indique s’il reste à
+            faire signer un contrat avant le début des cours — la génération se fait page <strong>Contrats</strong>.
+          </>,
         ]}
       />
 
@@ -96,6 +104,13 @@ export function EtudiantsAdmin() {
               valeur={etudiants.length - actifs}
               ton={etudiants.length - actifs > 0 ? 'alerte' : 'neutre'}
               aide="Invitation envoyée, pas encore acceptée"
+            />
+            <Stat
+              compact
+              libelle="Contrats non signés"
+              valeur={sansContratSigne}
+              ton={sansContratSigne > 0 ? 'alerte' : 'neutre'}
+              aide={sansContratSigne > 0 ? 'À signer avant le début des cours' : 'Tous les contrats sont signés'}
             />
           </GrilleStats>
         </div>
@@ -142,11 +157,12 @@ export function EtudiantsAdmin() {
               <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11.5, fontWeight: 800, flexShrink: 0 }}>
                 {initiales(etudiant)}
               </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                 <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
                   {etudiant.prenom} {etudiant.nom}
                 </span>
                 <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{etudiant.status === 'approved' ? 'Actif' : etudiant.status}</span>
+                {statutsContrats[etudiant.id] && <BadgeStatutContrat statut={statutsContrats[etudiant.id]} compact />}
               </div>
             </button>
           ))}

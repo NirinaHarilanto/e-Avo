@@ -13,6 +13,8 @@ import { boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { BarreOutils, ChampRecherche } from '../ui/BarreOutils'
 import { champStyle } from '../ui/Champ'
+import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
+import { BadgeStatutContrat } from '../shared/BadgeStatutContrat'
 
 type FiltreCharge = 'tous' | 'sans' | 'leger' | 'charge'
 
@@ -63,9 +65,12 @@ export function ProfesseursAdmin() {
       })
   }, [professeurs])
 
+  const statutsContrats = useStatutsContratsSignature(useMemo(() => professeurs.map((p) => p.id), [professeurs]))
+
   const totalEleves = Object.values(comptes).reduce((total, n) => total + n, 0)
   const totalHeures = Object.values(heures).reduce((total, n) => total + n, 0)
   const sansEleve = professeurs.filter((p) => (comptes[p.id] ?? 0) === 0).length
+  const sansContratSigne = professeurs.filter((p) => statutsContrats[p.id] && statutsContrats[p.id] !== 'signe').length
 
   const filtres = useMemo(
     () =>
@@ -110,6 +115,11 @@ export function ProfesseursAdmin() {
             Utilisez la <strong>recherche</strong> ou le filtre par <strong>charge</strong> pour retrouver un
             professeur, ou repérer ceux qui n’ont pas encore d’élève attribué.
           </>,
+          <>
+            Le badge <strong>Contrat signé / en attente / aucun contrat</strong> sur chaque carte indique s’il reste à
+            faire signer un contrat avant que ce professeur ne commence à enseigner — la génération se fait page{' '}
+            <strong>Contrats</strong>.
+          </>,
         ]}
       />
 
@@ -144,6 +154,13 @@ export function ProfesseursAdmin() {
               valeur={sansEleve}
               ton={sansEleve > 0 ? 'alerte' : 'neutre'}
               aide={sansEleve > 0 ? 'Disponibles pour de nouvelles attributions' : 'Tous les professeurs ont au moins un élève'}
+            />
+            <Stat
+              compact
+              libelle="Contrats non signés"
+              valeur={sansContratSigne}
+              ton={sansContratSigne > 0 ? 'alerte' : 'neutre'}
+              aide={sansContratSigne > 0 ? 'À signer avant le début des cours' : 'Tous les contrats sont signés'}
             />
           </GrilleStats>
 
@@ -200,6 +217,11 @@ export function ProfesseursAdmin() {
                   </span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>{heures[prof.id] ?? 0} h enseignées</span>
                 </div>
+                {statutsContrats[prof.id] && (
+                  <div>
+                    <BadgeStatutContrat statut={statutsContrats[prof.id]} compact />
+                  </div>
+                )}
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: 'var(--accent-blue)' }}>
                   Ouvrir la fiche
                   <Icone nom="chevron" taille={11} />
