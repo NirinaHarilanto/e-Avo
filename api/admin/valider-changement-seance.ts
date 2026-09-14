@@ -1,4 +1,5 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
+import { deplacerVisio } from '../_lib/synchroniserVisio.js'
 
 export const config = { runtime: 'edge' }
 
@@ -62,6 +63,16 @@ export default async function handler(request: Request): Promise<Response> {
 
     if (updateError) {
       return Response.json({ error: updateError.message }, { status: 500 })
+    }
+
+    if (body.approuver) {
+      // L'événement Google suit le nouvel horaire ; son lien Meet, lui, ne change pas.
+      await deplacerVisio(serviceClient, {
+        sessionId: session.id,
+        etablissementId,
+        debut: session.debut_propose ?? session.debut,
+        dureeMinutes: session.duree_minutes_propose ?? session.duree_minutes,
+      })
     }
 
     return Response.json({ ok: true })

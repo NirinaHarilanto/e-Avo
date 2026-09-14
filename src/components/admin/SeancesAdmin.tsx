@@ -13,6 +13,8 @@ import { Onglets } from '../ui/Onglets'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
+import { useProfileContext } from '../../context/ProfileContext'
+import { estLienReel, getJoinUrl } from '../../lib/visio'
 import { ajouterJours, lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
 
 type Vue = 'semaine' | 'globale'
@@ -109,8 +111,9 @@ export function SeancesAdmin() {
             geste qui alimente les compteurs d’heures et le taux d’assiduité.
           </>,
           <>
-            Le lien de visioconférence, quand il existe, apparaît directement sur la ligne de la séance à l’approche de
-            son horaire.
+            Le <strong>lien Google Meet</strong> de chaque séance à venir apparaît sur sa ligne. S’il manque — séance
+            créée avant la connexion du compte Google — le bouton <strong>Générer le lien Meet</strong> le crée et
+            prévient les participants.
           </>,
         ]}
       />
@@ -256,8 +259,30 @@ export function SeancesAdmin() {
 }
 
 function LigneSeance({ seance, onChange }: { seance: SeanceAdmin; maintenant: string; onChange: () => void }) {
+  const { session: authSession } = useProfileContext()
   const [editionOuverte, setEditionOuverte] = useState(false)
+  const [generationEnCours, setGenerationEnCours] = useState(false)
+  const [erreurVisio, setErreurVisio] = useState<string | null>(null)
   const modifiable = seance.session.statut === 'planifiee'
+  const lienReel = seance.video ? estLienReel(seance.video) : false
+
+  async function genererLienMeet() {
+    if (!authSession) return
+    setGenerationEnCours(true)
+    setErreurVisio(null)
+    const reponse = await fetch('/api/admin/generer-lien-visio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.access_token}` },
+      body: JSON.stringify({ sessionId: seance.session.id }),
+    })
+    setGenerationEnCours(false)
+    if (!reponse.ok) {
+      const corps = await reponse.json().catch(() => null)
+      setErreurVisio(corps?.error ?? 'La génération du lien a échoué.')
+      return
+    }
+    onChange()
+  }
 
   return (
     <div
@@ -281,6 +306,37 @@ function LigneSeance({ seance, onChange }: { seance: SeanceAdmin; maintenant: st
         </span>
       )}
       <BadgeStatutSeance statut={seance.session.statut} />
+
+      {modifiable &&
+        (lienReel && seance.video ? (
+          <a
+            href={getJoinUrl(seance.video)}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-teal)' }}
+          >
+            Lien Meet
+          </a>
+        ) : (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              genererLienMeet()
+            }}
+            disabled={generationEnCours}
+            style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+          >
+            {generationEnCours ? 'Génération…' : 'Générer le lien Meet'}
+          </button>
+        ))}
+
+      {erreurVisio && (
+        <span style={{ fontSize: 11, color: 'var(--danger)', flexBasis: '100%' }} onClick={(e) => e.stopPropagation()}>
+          {erreurVisio}
+        </span>
+      )}
 
       {editionOuverte && (
         <div onClick={(e) => e.stopPropagation()}>

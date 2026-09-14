@@ -5,11 +5,13 @@ import { useCacheRequete } from './useCacheRequete'
 type Session = Database['public']['Tables']['sessions']['Row']
 type SessionEnrollment = Database['public']['Tables']['session_enrollments']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
+type VideoSession = Database['public']['Tables']['video_sessions']['Row']
 
 export interface SeanceAdmin {
   session: Session
   professeur: Profile | null
   inscriptions: (SessionEnrollment & { etudiant: Profile | null })[]
+  video: VideoSession | null
 }
 
 /* Vue globale de toutes les séances de l'établissement pour l'admin — même agrégation
@@ -23,9 +25,10 @@ export function useSeancesAdmin() {
     const sessionIds = (sessions ?? []).map((s) => s.id)
     const teacherIds = [...new Set((sessions ?? []).map((s) => s.teacher_id))]
 
-    const [{ data: enrollments }, { data: professeurs }] = await Promise.all([
+    const [{ data: enrollments }, { data: professeurs }, { data: videos }] = await Promise.all([
       sessionIds.length ? supabase.from('session_enrollments').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as SessionEnrollment[] }),
       teacherIds.length ? supabase.from('profiles').select('*').in('id', teacherIds) : Promise.resolve({ data: [] as Profile[] }),
+      sessionIds.length ? supabase.from('video_sessions').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as VideoSession[] }),
     ])
 
     const studentIds = [...new Set((enrollments ?? []).map((e) => e.student_id))]
@@ -34,6 +37,7 @@ export function useSeancesAdmin() {
       : { data: [] as Profile[] }
 
     const profParId = new Map((professeurs ?? []).map((p) => [p.id, p]))
+    const videoParSession = new Map((videos ?? []).map((v) => [v.session_id, v]))
     const etudiantParId = new Map((etudiants ?? []).map((e) => [e.id, e]))
 
     return (sessions ?? []).map((session): SeanceAdmin => ({
@@ -42,6 +46,7 @@ export function useSeancesAdmin() {
       inscriptions: (enrollments ?? [])
         .filter((e) => e.session_id === session.id)
         .map((e) => ({ ...e, etudiant: etudiantParId.get(e.student_id) ?? null })),
+      video: videoParSession.get(session.id) ?? null,
     }))
   })
 

@@ -1,4 +1,5 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
+import { deplacerVisio } from '../_lib/synchroniserVisio.js'
 
 export const config = { runtime: 'edge' }
 
@@ -97,6 +98,18 @@ export default async function handler(request: Request): Promise<Response> {
 
     if (updateError) {
       return Response.json({ error: updateError.message }, { status: 500 })
+    }
+
+    // Seul le changement d'un admin s'applique tout de suite : l'événement Google ne bouge donc
+    // qu'ici. Une proposition de professeur attendra sa validation
+    // (api/admin/valider-changement-seance.ts), qui fait le même appel.
+    if (estAdmin) {
+      await deplacerVisio(serviceClient, {
+        sessionId: session.id,
+        etablissementId,
+        debut: nouveauDebut,
+        dureeMinutes: nouvelleDuree,
+      })
     }
 
     return Response.json({ ok: true, statut: estAdmin ? 'applique' : 'en_attente' })

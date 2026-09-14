@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { champStyle } from '../ui/Champ'
+import { AvertissementDureeMeet } from '../shared/AvertissementDureeMeet'
 
 const JOURS = [
   { valeur: 1, label: 'Lun' },
@@ -167,6 +168,8 @@ export function PlanifierSeancesForfait({
             ? `${debutsPrevus.length} séance(s) seront créées.`
             : 'Renseignez au moins un créneau et une plage de dates valide.'}
       </p>
+
+      <AvertissementDureeMeet dureeMinutes={dureeMinutes} nombreEleves={studentIds.length} />
 
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{erreur}</p>}
       {resultat !== null && <p style={{ color: 'var(--accent-teal)', fontSize: 13 }}>{resultat} séance(s) planifiée(s).</p>}

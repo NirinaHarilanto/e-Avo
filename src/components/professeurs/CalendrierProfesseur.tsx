@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
-import { supabase } from '../../lib/supabaseClient'
 import { useCalendrierProfesseur, type SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { getJoinUrl } from '../../lib/visio'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
@@ -17,6 +16,7 @@ import { Onglets } from '../ui/Onglets'
 import { Modale } from '../ui/Modale'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
+import { AvertissementDureeMeet } from '../shared/AvertissementDureeMeet'
 import { CompteRenduSeance } from './CompteRenduSeance'
 import { PlanningPrevisionnelProfesseur } from './PlanningPrevisionnelProfesseur'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
@@ -315,6 +315,8 @@ function FormulairePlanification({
         </div>
       </div>
 
+      <AvertissementDureeMeet dureeMinutes={dureeMinutes} nombreEleves={studentIds.length} />
+
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{erreur}</p>}
 
       <div style={{ display: 'flex', gap: 10 }}>
@@ -360,10 +362,23 @@ function CarteSeance({
   const dejaCommencee = seance.session.debut <= maintenant
 
   async function annuler() {
+    if (!authSession) return
     setEnCours(true)
-    const { error } = await supabase.from('sessions').update({ statut: 'annulee' }).eq('id', seance.session.id)
+    setErreur(null)
+    // Passe par l'API plutôt que par un update direct : l'annulation doit aussi supprimer
+    // l'événement Google Calendar et prévenir les invités, ce que seul le serveur peut faire.
+    const reponse = await fetch('/api/professeur/annuler-seance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.access_token}` },
+      body: JSON.stringify({ sessionId: seance.session.id }),
+    })
     setEnCours(false)
-    if (!error) onChange()
+    if (!reponse.ok) {
+      const corps = await reponse.json().catch(() => null)
+      setErreur(corps?.error ?? "L'annulation a échoué.")
+      return
+    }
+    onChange()
   }
 
   async function cloturer() {
