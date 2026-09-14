@@ -44,6 +44,7 @@ export function TarifsAdmin() {
       titre: 'Nouveau tarif',
       prix: 0,
       unite: 'Ar',
+      heures: type === 'collectif' ? null : 10,
       ordre: nbDansGroupe,
     })
     recharger()
@@ -74,8 +75,13 @@ export function TarifsAdmin() {
             etc.).
           </>,
           <>
-            Ces tarifs sont purement informatifs pour vos visiteurs. Ils n'alimentent pas automatiquement les devis et
-            les factures, qui restent chiffrés au cas par cas.
+            Le champ <strong>Heures</strong> (formules Individuel/Duo) relie un tarif à un volume d'heures précis : dès
+            qu'un admin crée un forfait de ce volume pour un étudiant, le prix correspondant se propose tout seul.
+            Laissez-le vide pour un tarif Collectif, ou pour toute ligne qui n'est pas un forfait fixe.
+          </>,
+          <>
+            Ces tarifs alimentent le montant proposé lors de la création d'un forfait étudiant (et donc les contrats
+            générés), mais restent modifiables au cas par cas — remises, ancienneté, accords particuliers.
           </>,
         ]}
       />
@@ -150,6 +156,7 @@ function LigneTarif({ tarif, onChange }: { tarif: Tarif; onChange: () => void })
   const [titre, setTitre] = useState(tarif.titre)
   const [prix, setPrix] = useState(String(tarif.prix))
   const [unite, setUnite] = useState(tarif.unite)
+  const [heures, setHeures] = useState(tarif.heures?.toString() ?? '')
   const [description, setDescription] = useState(tarif.description ?? '')
   const [ordre, setOrdre] = useState(String(tarif.ordre))
   const [enregistrement, setEnregistrement] = useState(false)
@@ -165,6 +172,7 @@ function LigneTarif({ tarif, onChange }: { tarif: Tarif; onChange: () => void })
         titre,
         prix: Number(prix) || 0,
         unite,
+        heures: heures ? Number(heures) : null,
         description: description || null,
         ordre: Number(ordre) || 0,
       })
@@ -207,6 +215,10 @@ function LigneTarif({ tarif, onChange }: { tarif: Tarif; onChange: () => void })
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Unité</label>
           <input value={unite} onChange={(e) => setUnite(e.target.value)} placeholder="Ar, Ar/mois, Ar/heure…" style={champStyle} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Heures (forfait individuel/duo)</label>
+          <input type="number" min={0} value={heures} onChange={(e) => setHeures(e.target.value)} placeholder="Vide = non lié à un volume fixe" style={champStyle} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>Ordre</label>

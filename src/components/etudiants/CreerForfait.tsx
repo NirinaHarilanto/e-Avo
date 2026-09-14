@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useTarifs } from '../../hooks/useTarifs'
 import type { Database, TypeProgrammeProspect } from '../../types/database.types'
@@ -26,15 +26,48 @@ export function CreerForfait({ studentId, etablissementId, forfaitExistant, type
   )
   const [totalHeures, setTotalHeures] = useState(forfaitExistant?.total_heures ?? 20)
   const [montant, setMontant] = useState(forfaitExistant?.montant?.toString() ?? '')
+  /* Un montant déjà présent sur un forfait existant a été décidé une fois (négociation, remise…)
+     : on ne le remplace plus tout seul en rouvrant le formulaire pour éditer autre chose. Dès
+     que l'admin retouche le champ à la main, l'attache automatique s'arrête pour de bon sur ce
+     forfait — reprendre la grille reste possible via le bouton dédié ci-dessous. */
+  const [montantManuel, setMontantManuel] = useState(!!forfaitExistant?.montant)
   const [echeance, setEcheance] = useState(forfaitExistant?.echeance ?? '')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
-  /* Rappel de la grille tarifaire de l'établissement pour le programme choisi : l'admin saisit
-     un montant, il n'est pas calculé — la grille est une brochure en texte libre, et le montant
-     réellement convenu peut s'en écarter (remise, ancienneté…). */
+  /* Grille tarifaire de l'établissement : sert à la fois de rappel affiché et de source pour
+     attacher automatiquement le montant correspondant dès que le programme ou le volume
+     d'heures change (`tarifs.heures`, migration 0036). Reste modifiable au cas par cas —
+     remise, ancienneté, accord particulier — la grille n'est qu'un point de départ. */
   const { tarifs } = useTarifs(etablissementId)
   const tarifsDuProgramme = tarifs.filter((t) => t.type_programme === typeProgramme)
+  const tarifCorrespondant = tarifsDuProgramme.find((t) => t.heures === totalHeures) ?? null
+
+  function appliquerTarif(type: 'individuel' | 'duo', heures: number) {
+    if (montantManuel) return
+    const tarif = tarifs.find((t) => t.type_programme === type && t.heures === heures)
+    if (tarif) setMontant(String(tarif.prix))
+  }
+
+  function changerTypeProgramme(type: 'individuel' | 'duo') {
+    setTypeProgramme(type)
+    appliquerTarif(type, totalHeures)
+  }
+
+  function changerTotalHeures(heures: number) {
+    setTotalHeures(heures)
+    appliquerTarif(typeProgramme, heures)
+  }
+
+  /* Le formulaire peut s'ouvrir directement pré-rempli (typeProgrammeInitial, via
+     ChoixProgrammeInitial) avant même que la grille tarifaire ait fini de charger : sans cet
+     effet, la sélection par défaut (20h) ne bénéficierait de l'attache automatique que si
+     l'admin retouchait ensuite le programme ou les heures à la main. */
+  useEffect(() => {
+    if (montantManuel || montant) return
+    const tarif = tarifs.find((t) => t.type_programme === typeProgramme && t.heures === totalHeures)
+    if (tarif) setMontant(String(tarif.prix))
+  }, [tarifs, montantManuel, montant, typeProgramme, totalHeures])
 
   async function enregistrer() {
     setEnCours(true)
@@ -76,7 +109,7 @@ export function CreerForfait({ studentId, etablissementId, forfaitExistant, type
             <button
               key={type}
               type="button"
-              onClick={() => setTypeProgramme(type)}
+              onClick={() => changerTypeProgramme(type)}
               style={{
                 flexGrow: 1,
                 fontSize: 12.5,
@@ -101,21 +134,43 @@ export function CreerForfait({ studentId, etablissementId, forfaitExistant, type
           type="number"
           min={1}
           value={totalHeures}
-          onChange={(e) => setTotalHeures(Number(e.target.value))}
+          onChange={(e) => changerTotalHeures(Number(e.target.value))}
           style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
         />
+        {tarifCorrespondant && (
+          <span style={{ fontSize: 11, color: 'var(--accent-teal)' }}>
+            Tarif « {tarifCorrespondant.titre} » repris automatiquement ci-dessous.
+          </span>
+        )}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Montant du forfait (Ar)</label>
-        <input
-          type="number"
-          min={0}
-          step="0.01"
-          value={montant}
-          onChange={(e) => setMontant(e.target.value)}
-          placeholder="Ex. 1 200 000"
-          style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-        />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={montant}
+            onChange={(e) => {
+              setMontant(e.target.value)
+              setMontantManuel(true)
+            }}
+            placeholder="Ex. 1 200 000"
+            style={{ flexGrow: 1, border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+          />
+          {tarifCorrespondant && montantManuel && String(tarifCorrespondant.prix) !== montant && (
+            <button
+              type="button"
+              onClick={() => {
+                setMontant(String(tarifCorrespondant.prix))
+                setMontantManuel(false)
+              }}
+              style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, padding: '0 12px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              Reprendre le tarif
+            </button>
+          )}
+        </div>
         {tarifsDuProgramme.length > 0 && (
           <span style={{ fontSize: 11, color: 'var(--muted-2)', lineHeight: 1.5 }}>
             Grille en vigueur :{' '}

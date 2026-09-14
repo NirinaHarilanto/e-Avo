@@ -178,6 +178,7 @@ export interface Database {
           titre: string
           prix: number
           unite: string
+          heures: number | null
           description: string | null
           ordre: number
           created_at: string
@@ -189,6 +190,7 @@ export interface Database {
           titre: string
           prix: number
           unite?: string
+          heures?: number | null
           description?: string | null
           ordre?: number
           created_at?: string
