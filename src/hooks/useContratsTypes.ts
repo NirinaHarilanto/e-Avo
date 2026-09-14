@@ -1,30 +1,15 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type ContractTemplate = Database['public']['Tables']['contract_templates']['Row']
 
 export function useContratsTypes() {
-  const [modeles, setModeles] = useState<ContractTemplate[]>([])
-  const [loading, setLoading] = useState(true)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  const charger = useCallback(async () => {
-    setLoading(true)
-    setErreur(null)
+  const { valeur, loading, erreur, recharger } = useCacheRequete('contrats-types', async () => {
     const { data, error } = await supabase.from('contract_templates').select('*').order('nom')
-    if (error) {
-      setErreur(error.message)
-      setLoading(false)
-      return
-    }
-    setModeles(data ?? [])
-    setLoading(false)
-  }, [])
+    if (error) throw new Error(error.message)
+    return data ?? []
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { modeles, loading, erreur, recharger: charger }
+  return { modeles: valeur ?? ([] as ContractTemplate[]), loading, erreur, recharger }
 }

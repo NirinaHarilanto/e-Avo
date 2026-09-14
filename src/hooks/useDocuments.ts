@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type Document = Database['public']['Tables']['documents']['Row']
 
@@ -8,31 +8,15 @@ type Document = Database['public']['Tables']['documents']['Row']
    filtre déjà selon qui regarde : propriétaire, uploadeur, professeur de l'élève, ou admin
    de l'établissement. Même pattern que useEtudiants.ts/useProfesseurs.ts. */
 export function useDocuments(ownerProfileId: string | undefined) {
-  const [documents, setDocuments] = useState<Document[]>([])
-  const [loading, setLoading] = useState(true)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  const charger = useCallback(async () => {
-    if (!ownerProfileId) return
-    setLoading(true)
-    setErreur(null)
+  const { valeur, loading, erreur, recharger } = useCacheRequete(ownerProfileId && `documents-${ownerProfileId}`, async () => {
     const { data, error } = await supabase
       .from('documents')
       .select('*')
-      .eq('owner_profile_id', ownerProfileId)
+      .eq('owner_profile_id', ownerProfileId as string)
       .order('created_at', { ascending: false })
-    if (error) {
-      setErreur(error.message)
-      setLoading(false)
-      return
-    }
-    setDocuments(data ?? [])
-    setLoading(false)
-  }, [ownerProfileId])
+    if (error) throw new Error(error.message)
+    return data ?? []
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { documents, loading, erreur, recharger: charger }
+  return { documents: valeur ?? ([] as Document[]), loading, erreur, recharger }
 }

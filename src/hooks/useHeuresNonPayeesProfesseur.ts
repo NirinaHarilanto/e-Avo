@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { useCacheRequete } from './useCacheRequete'
 
 export interface LigneHeureNonPayee {
   id: string
@@ -11,19 +11,11 @@ export interface LigneHeureNonPayee {
    (teacher_payment_id is null) — le détail des heures enseignées non payées demandé pour le
    règlement au forfait horaire. */
 export function useHeuresNonPayeesProfesseur(teacherId: string | undefined) {
-  const [lignes, setLignes] = useState<LigneHeureNonPayee[]>([])
-  const [loading, setLoading] = useState(false)
-
-  const charger = useCallback(async () => {
-    if (!teacherId) {
-      setLignes([])
-      return
-    }
-    setLoading(true)
+  const { valeur, loading, recharger } = useCacheRequete(teacherId && `heures-non-payees-${teacherId}`, async () => {
     const { data: ecritures } = await supabase
       .from('hour_ledger')
       .select('id, heures, session_id')
-      .eq('teacher_id', teacherId)
+      .eq('teacher_id', teacherId as string)
       .eq('type_ecriture', 'credit_professeur')
       .is('teacher_payment_id', null)
 
@@ -33,17 +25,10 @@ export function useHeuresNonPayeesProfesseur(teacherId: string | undefined) {
       : { data: [] as { id: string; debut: string }[] }
     const debutParSession = new Map((sessions ?? []).map((s) => [s.id, s.debut]))
 
-    setLignes(
-      (ecritures ?? [])
-        .map((e) => ({ id: e.id, heures: e.heures, sessionDebut: debutParSession.get(e.session_id) ?? null }))
-        .sort((a, b) => (a.sessionDebut ?? '').localeCompare(b.sessionDebut ?? '')),
-    )
-    setLoading(false)
-  }, [teacherId])
+    return (ecritures ?? [])
+      .map((e): LigneHeureNonPayee => ({ id: e.id, heures: e.heures, sessionDebut: debutParSession.get(e.session_id) ?? null }))
+      .sort((a, b) => (a.sessionDebut ?? '').localeCompare(b.sessionDebut ?? ''))
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { lignes, loading, recharger: charger }
+  return { lignes: valeur ?? [], loading, recharger }
 }

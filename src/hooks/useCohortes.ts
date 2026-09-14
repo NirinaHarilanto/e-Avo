@@ -1,30 +1,15 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type Cohort = Database['public']['Tables']['cohorts']['Row']
 
 export function useCohortes() {
-  const [cohortes, setCohortes] = useState<Cohort[]>([])
-  const [loading, setLoading] = useState(true)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  const charger = useCallback(async () => {
-    setLoading(true)
-    setErreur(null)
+  const { valeur, loading, erreur, recharger } = useCacheRequete('cohortes', async () => {
     const { data, error } = await supabase.from('cohorts').select('*').order('date_debut', { ascending: false })
-    if (error) {
-      setErreur(error.message)
-      setLoading(false)
-      return
-    }
-    setCohortes(data ?? [])
-    setLoading(false)
-  }, [])
+    if (error) throw new Error(error.message)
+    return data ?? []
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { cohortes, loading, erreur, recharger: charger }
+  return { cohortes: valeur ?? ([] as Cohort[]), loading, erreur, recharger }
 }

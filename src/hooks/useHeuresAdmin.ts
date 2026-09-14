@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -9,18 +9,17 @@ export interface LigneHeures {
   heures: number
 }
 
+interface HeuresAdmin {
+  etudiants: LigneHeures[]
+  professeurs: LigneHeures[]
+}
+
 /* Agrège les vues déjà existantes student_hours_summary/teacher_hours_summary (créées en
    Phase Cœur pédagogique) sur l'ensemble des étudiants/professeurs de l'établissement —
    aucune nouvelle table, seulement une lecture globale là où elle n'était affichée jusqu'ici
    qu'entité par entité (dossier étudiant, carte professeur). */
 export function useHeuresAdmin() {
-  const [etudiants, setEtudiants] = useState<LigneHeures[]>([])
-  const [professeurs, setProfesseurs] = useState<LigneHeures[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const charger = useCallback(async () => {
-    setLoading(true)
-
+  const { valeur, loading, recharger } = useCacheRequete('heures-admin', async (): Promise<HeuresAdmin> => {
     const [{ data: profilsEtudiants }, { data: profilsProfs }] = await Promise.all([
       supabase.from('profiles').select('*').eq('role', 'etudiant').order('nom'),
       supabase.from('profiles').select('*').eq('role', 'professeur').order('nom'),
@@ -37,14 +36,11 @@ export function useHeuresAdmin() {
     const heuresEtudiantParId = new Map((heuresEtudiants ?? []).map((h) => [h.student_id, h.heures_consommees]))
     const heuresProfParId = new Map((heuresProfs ?? []).map((h) => [h.teacher_id, h.heures_enseignees]))
 
-    setEtudiants((profilsEtudiants ?? []).map((p) => ({ profile: p, heures: heuresEtudiantParId.get(p.id) ?? 0 })))
-    setProfesseurs((profilsProfs ?? []).map((p) => ({ profile: p, heures: heuresProfParId.get(p.id) ?? 0 })))
-    setLoading(false)
-  }, [])
+    return {
+      etudiants: (profilsEtudiants ?? []).map((p) => ({ profile: p, heures: heuresEtudiantParId.get(p.id) ?? 0 })),
+      professeurs: (profilsProfs ?? []).map((p) => ({ profile: p, heures: heuresProfParId.get(p.id) ?? 0 })),
+    }
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { etudiants, professeurs, loading, recharger: charger }
+  return { etudiants: valeur?.etudiants ?? [], professeurs: valeur?.professeurs ?? [], loading, recharger }
 }

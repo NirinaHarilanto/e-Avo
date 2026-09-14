@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type TeacherPayment = Database['public']['Tables']['teacher_payments']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -11,23 +11,12 @@ export interface RemunerationProfesseur {
 }
 
 export function useRemunerationsProfesseurs() {
-  const [remunerations, setRemunerations] = useState<RemunerationProfesseur[]>([])
-  const [loading, setLoading] = useState(true)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  const charger = useCallback(async () => {
-    setLoading(true)
-    setErreur(null)
-
+  const { valeur, loading, erreur, recharger } = useCacheRequete('remunerations-professeurs', async () => {
     const { data, error } = await supabase
       .from('teacher_payments')
       .select('*')
       .order('date_echeance', { ascending: true, nullsFirst: false })
-    if (error) {
-      setErreur(error.message)
-      setLoading(false)
-      return
-    }
+    if (error) throw new Error(error.message)
 
     const teacherIds = [...new Set((data ?? []).map((p) => p.teacher_id))]
     const { data: professeurs } = teacherIds.length
@@ -35,13 +24,8 @@ export function useRemunerationsProfesseurs() {
       : { data: [] as Profile[] }
     const professeurParId = new Map((professeurs ?? []).map((p) => [p.id, p]))
 
-    setRemunerations((data ?? []).map((paiement) => ({ paiement, professeur: professeurParId.get(paiement.teacher_id) ?? null })))
-    setLoading(false)
-  }, [])
+    return (data ?? []).map((paiement): RemunerationProfesseur => ({ paiement, professeur: professeurParId.get(paiement.teacher_id) ?? null }))
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { remunerations, loading, erreur, recharger: charger }
+  return { remunerations: valeur ?? [], loading, erreur, recharger }
 }

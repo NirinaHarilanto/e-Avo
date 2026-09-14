@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type TeacherAssignment = Database['public']['Tables']['teacher_assignments']['Row']
@@ -37,33 +37,20 @@ export interface DossierEtudiant {
 }
 
 export function useDossierEtudiant(studentId: string | undefined) {
-  const [dossier, setDossier] = useState<DossierEtudiant | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  const charger = useCallback(async () => {
-    if (!studentId) return
-    setLoading(true)
-    setErreur(null)
-
+  const { valeur, loading, erreur, recharger } = useCacheRequete(studentId && `dossier-etudiant-${studentId}`, async (): Promise<DossierEtudiant> => {
     const { data: etudiant, error: etudiantError } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', studentId)
+      .eq('id', studentId as string)
       .single()
-
-    if (etudiantError || !etudiant) {
-      setErreur(etudiantError?.message ?? 'Étudiant introuvable.')
-      setLoading(false)
-      return
-    }
+    if (etudiantError || !etudiant) throw new Error(etudiantError?.message ?? 'Étudiant introuvable.')
 
     const [{ data: affectations }, { data: enrollments }, { data: packages }, { data: resume }, { data: inscriptionCohorte }] = await Promise.all([
-      supabase.from('teacher_assignments').select('*').eq('student_id', studentId).order('date_debut', { ascending: false }),
-      supabase.from('session_enrollments').select('*').eq('student_id', studentId),
-      supabase.from('packages').select('*').eq('student_id', studentId).order('created_at', { ascending: false }),
-      supabase.from('student_hours_summary').select('*').eq('student_id', studentId).maybeSingle(),
-      supabase.from('cohort_enrollments').select('cohort_id').eq('student_id', studentId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('teacher_assignments').select('*').eq('student_id', studentId as string).order('date_debut', { ascending: false }),
+      supabase.from('session_enrollments').select('*').eq('student_id', studentId as string),
+      supabase.from('packages').select('*').eq('student_id', studentId as string).order('created_at', { ascending: false }),
+      supabase.from('student_hours_summary').select('*').eq('student_id', studentId as string).maybeSingle(),
+      supabase.from('cohort_enrollments').select('cohort_id').eq('student_id', studentId as string).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ])
     const cohorte = inscriptionCohorte
       ? (await supabase.from('cohorts').select('*').eq('id', inscriptionCohorte.cohort_id).maybeSingle()).data
@@ -120,7 +107,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
         .filter((s) => s.session.statut === 'planifiee' && s.session.debut >= maintenant)
         .sort((a, b) => a.session.debut.localeCompare(b.session.debut))[0] ?? null
 
-    setDossier({
+    return {
       etudiant,
       periodes,
       diagnostic,
@@ -128,13 +115,8 @@ export function useDossierEtudiant(studentId: string | undefined) {
       cohorte: cohorte ?? null,
       heuresConsommees: resume?.heures_consommees ?? 0,
       prochaineSeance,
-    })
-    setLoading(false)
-  }, [studentId])
+    }
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { dossier, loading, erreur, recharger: charger }
+  return { dossier: valeur ?? null, loading, erreur, recharger }
 }

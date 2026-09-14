@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type Session = Database['public']['Tables']['sessions']['Row']
 type SessionEnrollment = Database['public']['Tables']['session_enrollments']['Row']
@@ -16,20 +16,9 @@ export interface SeanceAdmin {
    côté client que useCalendrierProfesseur.ts (pas de jointure SQL, pattern déjà établi dans
    ce projet), mais sans filtre teacher_id : la policy RLS `sessions_admin_all` s'en charge. */
 export function useSeancesAdmin() {
-  const [seances, setSeances] = useState<SeanceAdmin[]>([])
-  const [loading, setLoading] = useState(true)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  const charger = useCallback(async () => {
-    setLoading(true)
-    setErreur(null)
-
+  const { valeur, loading, erreur, recharger } = useCacheRequete('seances-admin', async () => {
     const { data: sessions, error: sessionsError } = await supabase.from('sessions').select('*').order('debut', { ascending: false })
-    if (sessionsError) {
-      setErreur(sessionsError.message)
-      setLoading(false)
-      return
-    }
+    if (sessionsError) throw new Error(sessionsError.message)
 
     const sessionIds = (sessions ?? []).map((s) => s.id)
     const teacherIds = [...new Set((sessions ?? []).map((s) => s.teacher_id))]
@@ -47,21 +36,14 @@ export function useSeancesAdmin() {
     const profParId = new Map((professeurs ?? []).map((p) => [p.id, p]))
     const etudiantParId = new Map((etudiants ?? []).map((e) => [e.id, e]))
 
-    setSeances(
-      (sessions ?? []).map((session) => ({
-        session,
-        professeur: profParId.get(session.teacher_id) ?? null,
-        inscriptions: (enrollments ?? [])
-          .filter((e) => e.session_id === session.id)
-          .map((e) => ({ ...e, etudiant: etudiantParId.get(e.student_id) ?? null })),
-      })),
-    )
-    setLoading(false)
-  }, [])
+    return (sessions ?? []).map((session): SeanceAdmin => ({
+      session,
+      professeur: profParId.get(session.teacher_id) ?? null,
+      inscriptions: (enrollments ?? [])
+        .filter((e) => e.session_id === session.id)
+        .map((e) => ({ ...e, etudiant: etudiantParId.get(e.student_id) ?? null })),
+    }))
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { seances, loading, erreur, recharger: charger }
+  return { seances: valeur ?? [], loading, erreur, recharger }
 }

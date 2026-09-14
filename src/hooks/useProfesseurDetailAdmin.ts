@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type TeacherAssignment = Database['public']['Tables']['teacher_assignments']['Row']
@@ -24,30 +24,18 @@ export interface ProfesseurDetail {
 }
 
 export function useProfesseurDetailAdmin(teacherId: string | undefined) {
-  const [detail, setDetail] = useState<ProfesseurDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  const charger = useCallback(async () => {
-    if (!teacherId) return
-    setLoading(true)
-    setErreur(null)
-
+  const { valeur, loading, erreur, recharger } = useCacheRequete(teacherId && `professeur-detail-${teacherId}`, async (): Promise<ProfesseurDetail> => {
     const { data: professeur, error: professeurError } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', teacherId)
+      .eq('id', teacherId as string)
       .single()
-    if (professeurError || !professeur) {
-      setErreur(professeurError?.message ?? 'Professeur introuvable.')
-      setLoading(false)
-      return
-    }
+    if (professeurError || !professeur) throw new Error(professeurError?.message ?? 'Professeur introuvable.')
 
     const { data: affectations } = await supabase
       .from('teacher_assignments')
       .select('*')
-      .eq('teacher_id', teacherId)
+      .eq('teacher_id', teacherId as string)
       .is('date_fin', null)
       .order('date_debut', { ascending: false })
 
@@ -56,7 +44,7 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
     const [{ data: eleveProfiles }, { data: packages }, { data: sessionsTerminees }] = await Promise.all([
       studentIds.length > 0 ? supabase.from('profiles').select('*').in('id', studentIds) : Promise.resolve({ data: [] as Profile[] }),
       studentIds.length > 0 ? supabase.from('packages').select('*').in('student_id', studentIds) : Promise.resolve({ data: [] as Package[] }),
-      supabase.from('sessions').select('id, duree_minutes').eq('teacher_id', teacherId).eq('statut', 'terminee'),
+      supabase.from('sessions').select('id, duree_minutes').eq('teacher_id', teacherId as string).eq('statut', 'terminee'),
     ])
 
     const eleveParId = new Map((eleveProfiles ?? []).map((e) => [e.id, e]))
@@ -94,17 +82,12 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
       })
       .filter((v): v is EleveDuProfesseur => v !== null)
 
-    setDetail({
+    return {
       professeur,
       eleves,
       heuresTotalEnseignees: [...heuresParEleve.values()].reduce((total, h) => total + h, 0),
-    })
-    setLoading(false)
-  }, [teacherId])
+    }
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { detail, loading, erreur, recharger: charger }
+  return { detail: valeur ?? null, loading, erreur, recharger }
 }

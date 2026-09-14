@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type Session = Database['public']['Tables']['sessions']['Row']
 type SessionEnrollment = Database['public']['Tables']['session_enrollments']['Row']
@@ -13,30 +13,20 @@ export interface SeanceProfesseur {
   video: VideoSession | null
 }
 
+interface CalendrierProfesseur {
+  seances: SeanceProfesseur[]
+  etudiantsActifs: Profile[]
+  heuresEnseignees: number
+}
+
 export function useCalendrierProfesseur(teacherId: string | undefined) {
-  const [seances, setSeances] = useState<SeanceProfesseur[]>([])
-  const [etudiantsActifs, setEtudiantsActifs] = useState<Profile[]>([])
-  const [heuresEnseignees, setHeuresEnseignees] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  const charger = useCallback(async () => {
-    if (!teacherId) return
-    setLoading(true)
-    setErreur(null)
-
+  const { valeur, loading, erreur, recharger } = useCacheRequete(teacherId && `calendrier-professeur-${teacherId}`, async (): Promise<CalendrierProfesseur> => {
     const [{ data: sessions, error: sessionsError }, { data: affectations }, { data: resumeHeures }] = await Promise.all([
-      supabase.from('sessions').select('*').eq('teacher_id', teacherId).order('debut', { ascending: false }),
-      supabase.from('teacher_assignments').select('*').eq('teacher_id', teacherId).is('date_fin', null),
-      supabase.from('teacher_hours_summary').select('*').eq('teacher_id', teacherId).maybeSingle(),
+      supabase.from('sessions').select('*').eq('teacher_id', teacherId as string).order('debut', { ascending: false }),
+      supabase.from('teacher_assignments').select('*').eq('teacher_id', teacherId as string).is('date_fin', null),
+      supabase.from('teacher_hours_summary').select('*').eq('teacher_id', teacherId as string).maybeSingle(),
     ])
-    setHeuresEnseignees(resumeHeures?.heures_enseignees ?? 0)
-
-    if (sessionsError) {
-      setErreur(sessionsError.message)
-      setLoading(false)
-      return
-    }
+    if (sessionsError) throw new Error(sessionsError.message)
 
     const sessionIds = (sessions ?? []).map((s) => s.id)
     const [{ data: enrollments }, { data: videos }] = await Promise.all([
@@ -51,22 +41,25 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
     const etudiantParId = new Map((etudiants ?? []).map((e) => [e.id, e]))
     const videoParSession = new Map((videos ?? []).map((v) => [v.session_id, v]))
 
-    setSeances(
-      (sessions ?? []).map((session) => ({
+    return {
+      seances: (sessions ?? []).map((session) => ({
         session,
         inscriptions: (enrollments ?? [])
           .filter((e) => e.session_id === session.id)
           .map((e) => ({ ...e, etudiant: etudiantParId.get(e.student_id) ?? null })),
         video: videoParSession.get(session.id) ?? null,
       })),
-    )
-    setEtudiantsActifs((affectations ?? []).map((a) => etudiantParId.get(a.student_id)).filter((e): e is Profile => !!e))
-    setLoading(false)
-  }, [teacherId])
+      etudiantsActifs: (affectations ?? []).map((a) => etudiantParId.get(a.student_id)).filter((e): e is Profile => !!e),
+      heuresEnseignees: resumeHeures?.heures_enseignees ?? 0,
+    }
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { seances, etudiantsActifs, heuresEnseignees, loading, erreur, recharger: charger }
+  return {
+    seances: valeur?.seances ?? [],
+    etudiantsActifs: valeur?.etudiantsActifs ?? [],
+    heuresEnseignees: valeur?.heuresEnseignees ?? 0,
+    loading,
+    erreur,
+    recharger,
+  }
 }

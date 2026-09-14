@@ -1,23 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
 
 export function useEtablissementsPlateforme() {
-  const [etablissements, setEtablissements] = useState<Etablissement[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const charger = useCallback(async () => {
-    setLoading(true)
+  const { valeur, loading, recharger } = useCacheRequete('etablissements-plateforme', async () => {
     const { data } = await supabase.from('etablissements').select('*').order('nom')
-    setEtablissements(data ?? [])
-    setLoading(false)
-  }, [])
+    return data ?? []
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { etablissements, loading, recharger: charger }
+  return { etablissements: valeur ?? ([] as Etablissement[]), loading, recharger }
 }

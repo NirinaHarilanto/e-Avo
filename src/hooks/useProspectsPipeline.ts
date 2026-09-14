@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database, ProspectStatut } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type Prospect = Database['public']['Tables']['prospects']['Row']
 type DiagnosticCall = Database['public']['Tables']['diagnostic_calls']['Row']
@@ -17,24 +17,12 @@ export const COLONNES_PIPELINE: { statut: ProspectStatut; titre: string }[] = [
 ]
 
 export function useProspectsPipeline() {
-  const [prospects, setProspects] = useState<ProspectAvecDiagnostic[]>([])
-  const [loading, setLoading] = useState(true)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  const recharger = useCallback(async () => {
-    setLoading(true)
-    setErreur(null)
-    const [{ data: prospectsData, error: prospectsError }, { data: diagnosticsData, error: diagnosticsError }] =
-      await Promise.all([
-        supabase.from('prospects').select('*').order('created_at', { ascending: false }),
-        supabase.from('diagnostic_calls').select('*').order('created_at', { ascending: false }),
-      ])
-
-    if (prospectsError || diagnosticsError) {
-      setErreur((prospectsError ?? diagnosticsError)?.message ?? 'Erreur de chargement.')
-      setLoading(false)
-      return
-    }
+  const { valeur, loading, erreur, recharger } = useCacheRequete('prospects-pipeline', async () => {
+    const [{ data: prospectsData, error: prospectsError }, { data: diagnosticsData, error: diagnosticsError }] = await Promise.all([
+      supabase.from('prospects').select('*').order('created_at', { ascending: false }),
+      supabase.from('diagnostic_calls').select('*').order('created_at', { ascending: false }),
+    ])
+    if (prospectsError || diagnosticsError) throw new Error((prospectsError ?? diagnosticsError)?.message ?? 'Erreur de chargement.')
 
     const diagnosticParProspect = new Map<string, DiagnosticCall>()
     for (const diagnostic of diagnosticsData ?? []) {
@@ -43,18 +31,11 @@ export function useProspectsPipeline() {
       }
     }
 
-    setProspects(
-      (prospectsData ?? []).map((prospect) => ({
-        ...prospect,
-        diagnostic: diagnosticParProspect.get(prospect.id) ?? null,
-      })),
-    )
-    setLoading(false)
-  }, [])
+    return (prospectsData ?? []).map((prospect): ProspectAvecDiagnostic => ({
+      ...prospect,
+      diagnostic: diagnosticParProspect.get(prospect.id) ?? null,
+    }))
+  })
 
-  useEffect(() => {
-    recharger()
-  }, [recharger])
-
-  return { prospects, loading, erreur, recharger }
+  return { prospects: valeur ?? [], loading, erreur, recharger }
 }

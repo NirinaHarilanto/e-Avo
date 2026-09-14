@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type SessionReport = Database['public']['Tables']['session_reports']['Row']
 type Session = Database['public']['Tables']['sessions']['Row']
@@ -17,20 +17,9 @@ export interface CompteRenduComplet {
    l'établissement, professeur auteur, ou étudiant ayant participé à la séance) : une seule
    requête `select *` suffit, pas besoin de la scoper explicitement ici. */
 export function useSessionReports() {
-  const [comptesRendus, setComptesRendus] = useState<CompteRenduComplet[]>([])
-  const [loading, setLoading] = useState(true)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  const charger = useCallback(async () => {
-    setLoading(true)
-    setErreur(null)
-
+  const { valeur, loading, erreur, recharger } = useCacheRequete('session-reports', async () => {
     const { data: rapports, error } = await supabase.from('session_reports').select('*').order('created_at', { ascending: false })
-    if (error) {
-      setErreur(error.message)
-      setLoading(false)
-      return
-    }
+    if (error) throw new Error(error.message)
 
     const sessionIds = [...new Set((rapports ?? []).map((r) => r.session_id))]
     const [{ data: sessions }, { data: enrollments }] = await Promise.all([
@@ -49,23 +38,16 @@ export function useSessionReports() {
       : { data: [] as Profile[] }
     const profilParId = new Map((profils ?? []).map((p) => [p.id, p]))
 
-    setComptesRendus(
-      (rapports ?? []).map((rapport) => ({
-        rapport,
-        session: sessionParId.get(rapport.session_id) ?? null,
-        professeur: profilParId.get(rapport.teacher_id) ?? null,
-        participants: (enrollments ?? [])
-          .filter((e) => e.session_id === rapport.session_id)
-          .map((e) => profilParId.get(e.student_id))
-          .filter((p): p is Profile => !!p),
-      })),
-    )
-    setLoading(false)
-  }, [])
+    return (rapports ?? []).map((rapport): CompteRenduComplet => ({
+      rapport,
+      session: sessionParId.get(rapport.session_id) ?? null,
+      professeur: profilParId.get(rapport.teacher_id) ?? null,
+      participants: (enrollments ?? [])
+        .filter((e) => e.session_id === rapport.session_id)
+        .map((e) => profilParId.get(e.student_id))
+        .filter((p): p is Profile => !!p),
+    }))
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { comptesRendus, loading, erreur, recharger: charger }
+  return { comptesRendus: valeur ?? [], loading, erreur, recharger }
 }

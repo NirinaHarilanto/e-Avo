@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type Contract = Database['public']['Tables']['contracts']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -11,20 +11,9 @@ export interface ContratAvecDestinataire {
 }
 
 export function useContrats() {
-  const [contrats, setContrats] = useState<ContratAvecDestinataire[]>([])
-  const [loading, setLoading] = useState(true)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  const charger = useCallback(async () => {
-    setLoading(true)
-    setErreur(null)
-
+  const { valeur, loading, erreur, recharger } = useCacheRequete('contrats', async () => {
     const { data, error } = await supabase.from('contracts').select('*').order('created_at', { ascending: false })
-    if (error) {
-      setErreur(error.message)
-      setLoading(false)
-      return
-    }
+    if (error) throw new Error(error.message)
 
     const profileIds = [...new Set((data ?? []).map((c) => c.destinataire_profile_id))]
     const { data: profils } = profileIds.length
@@ -32,13 +21,8 @@ export function useContrats() {
       : { data: [] as Profile[] }
     const profilParId = new Map((profils ?? []).map((p) => [p.id, p]))
 
-    setContrats((data ?? []).map((c) => ({ contrat: c, destinataire: profilParId.get(c.destinataire_profile_id) ?? null })))
-    setLoading(false)
-  }, [])
+    return (data ?? []).map((c): ContratAvecDestinataire => ({ contrat: c, destinataire: profilParId.get(c.destinataire_profile_id) ?? null }))
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { contrats, loading, erreur, recharger: charger }
+  return { contrats: valeur ?? [], loading, erreur, recharger }
 }

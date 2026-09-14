@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type StudentPayment = Database['public']['Tables']['student_payments']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -13,23 +13,12 @@ export interface PaiementEtudiant {
 }
 
 export function usePaiementsEtudiants() {
-  const [paiements, setPaiements] = useState<PaiementEtudiant[]>([])
-  const [loading, setLoading] = useState(true)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  const charger = useCallback(async () => {
-    setLoading(true)
-    setErreur(null)
-
+  const { valeur, loading, erreur, recharger } = useCacheRequete('paiements-etudiants', async () => {
     const { data, error } = await supabase
       .from('student_payments')
       .select('*')
       .order('date_echeance', { ascending: true, nullsFirst: false })
-    if (error) {
-      setErreur(error.message)
-      setLoading(false)
-      return
-    }
+    if (error) throw new Error(error.message)
 
     const studentIds = [...new Set((data ?? []).map((p) => p.student_id))]
     const packageIds = [...new Set((data ?? []).map((p) => p.package_id).filter((id): id is string => !!id))]
@@ -40,19 +29,12 @@ export function usePaiementsEtudiants() {
     const etudiantParId = new Map((etudiants ?? []).map((e) => [e.id, e]))
     const forfaitParId = new Map((forfaits ?? []).map((f) => [f.id, f]))
 
-    setPaiements(
-      (data ?? []).map((paiement) => ({
-        paiement,
-        etudiant: etudiantParId.get(paiement.student_id) ?? null,
-        forfait: paiement.package_id ? (forfaitParId.get(paiement.package_id) ?? null) : null,
-      })),
-    )
-    setLoading(false)
-  }, [])
+    return (data ?? []).map((paiement): PaiementEtudiant => ({
+      paiement,
+      etudiant: etudiantParId.get(paiement.student_id) ?? null,
+      forfait: paiement.package_id ? (forfaitParId.get(paiement.package_id) ?? null) : null,
+    }))
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { paiements, loading, erreur, recharger: charger }
+  return { paiements: valeur ?? [], loading, erreur, recharger }
 }

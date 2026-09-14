@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { useCacheRequete } from './useCacheRequete'
 
 type Quote = Database['public']['Tables']['quotes']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -11,20 +11,9 @@ export interface DevisAvecEtudiant {
 }
 
 export function useDevis() {
-  const [devis, setDevis] = useState<DevisAvecEtudiant[]>([])
-  const [loading, setLoading] = useState(true)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  const charger = useCallback(async () => {
-    setLoading(true)
-    setErreur(null)
-
+  const { valeur, loading, erreur, recharger } = useCacheRequete('devis', async () => {
     const { data, error } = await supabase.from('quotes').select('*').order('date_emission', { ascending: false })
-    if (error) {
-      setErreur(error.message)
-      setLoading(false)
-      return
-    }
+    if (error) throw new Error(error.message)
 
     const studentIds = [...new Set((data ?? []).map((d) => d.student_id))]
     const { data: etudiants } = studentIds.length
@@ -32,13 +21,8 @@ export function useDevis() {
       : { data: [] as Profile[] }
     const etudiantParId = new Map((etudiants ?? []).map((e) => [e.id, e]))
 
-    setDevis((data ?? []).map((d) => ({ devis: d, etudiant: etudiantParId.get(d.student_id) ?? null })))
-    setLoading(false)
-  }, [])
+    return (data ?? []).map((d): DevisAvecEtudiant => ({ devis: d, etudiant: etudiantParId.get(d.student_id) ?? null }))
+  })
 
-  useEffect(() => {
-    charger()
-  }, [charger])
-
-  return { devis, loading, erreur, recharger: charger }
+  return { devis: valeur ?? [], loading, erreur, recharger }
 }
