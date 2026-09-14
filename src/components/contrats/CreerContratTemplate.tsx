@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
-import { extraireVariables } from '../../lib/contrats'
+import { SOURCES_VARIABLE, SOURCE_MANUELLE, deduireSource, extraireVariables, libelleSource } from '../../lib/contrats'
 import type { Database, Role, VariableTemplate } from '../../types/database.types'
 import { champStyle } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
@@ -16,7 +16,7 @@ interface CreerContratTemplateProps {
   /* Présent en mode modification : préremplit le formulaire et bascule le clic sur
      « Enregistrer » vers une mise à jour de la ligne existante plutôt qu'une création. Les
      contrats déjà générés à partir de ce modèle ne sont pas affectés — `corps_genere` a figé
-     leur texte au moment de l'émission (voir GenererContrat.tsx). */
+     leur texte au moment de l'émission (voir LancerApprobationContrat.tsx). */
   modele?: ContractTemplate
 }
 
@@ -33,6 +33,10 @@ export function CreerContratTemplate({ etablissementId, onEnregistre, onAnnuler,
   function detecterVariables() {
     const cles = extraireVariables(corpsTemplate)
     setVariables(cles.map((cle) => variables.find((v) => v.cle === cle) ?? { cle, label: cle }))
+  }
+
+  function modifierVariable(index: number, changement: Partial<VariableTemplate>) {
+    setVariables(variables.map((v, i) => (i === index ? { ...v, ...changement } : v)))
   }
 
   async function enregistrer(e: FormEvent) {
@@ -106,18 +110,57 @@ export function CreerContratTemplate({ etablissementId, onEnregistre, onAnnuler,
       </div>
 
       {variables.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Libellés des variables (affichés à la génération)</label>
-          {variables.map((variable, index) => (
-            <div key={variable.cle} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <code style={{ fontSize: 12, color: 'var(--muted)', width: 160, flexShrink: 0 }}>{'{{' + variable.cle + '}}'}</code>
-              <input
-                value={variable.label}
-                onChange={(e) => setVariables(variables.map((v, i) => (i === index ? { ...v, label: e.target.value } : v)))}
-                style={{ ...champStyle, flexGrow: 1 }}
-              />
-            </div>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
+            <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Origine de chaque variable</label>
+            <p style={{ margin: '3px 0 0', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+              Par défaut, l'origine est déduite du libellé : les variables reconnues se remplissent seules depuis la
+              fiche de la personne au moment de lancer l'approbation. Forcez une origine ici uniquement pour corriger
+              une déduction, ou pour donner une valeur par défaut aux clauses libres.
+            </p>
+          </div>
+          {variables.map((variable, index) => {
+            const deduite = deduireSource(variable.cle, variable.label)
+            const manuelle = variable.source === SOURCE_MANUELLE || (!variable.source && !deduite)
+            return (
+              <div key={variable.cle} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <code style={{ fontSize: 12, color: 'var(--muted)', width: 170, flexShrink: 0, paddingTop: 10 }}>{'{{' + variable.cle + '}}'}</code>
+                <input
+                  value={variable.label}
+                  onChange={(e) => modifierVariable(index, { label: e.target.value })}
+                  placeholder="Libellé affiché à l'admin"
+                  style={{ ...champStyle, width: 200 }}
+                />
+                <select
+                  value={variable.source ?? ''}
+                  onChange={(e) => modifierVariable(index, { source: e.target.value || undefined })}
+                  style={{ ...champStyle, width: 230 }}
+                >
+                  <option value="">
+                    {deduite ? `Automatique · ${libelleSource(deduite)}` : 'Automatique · saisie à chaque contrat'}
+                  </option>
+                  <option value={SOURCE_MANUELLE}>Toujours ressaisi</option>
+                  {[...new Set(SOURCES_VARIABLE.map((s) => s.groupe))].map((groupe) => (
+                    <optgroup key={groupe} label={groupe}>
+                      {SOURCES_VARIABLE.filter((s) => s.groupe === groupe).map((s) => (
+                        <option key={s.valeur} value={s.valeur}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                {manuelle && (
+                  <input
+                    value={variable.valeur_defaut ?? ''}
+                    onChange={(e) => modifierVariable(index, { valeur_defaut: e.target.value || undefined })}
+                    placeholder="Valeur par défaut (optionnel)"
+                    style={{ ...champStyle, flexGrow: 1, minWidth: 200 }}
+                  />
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 

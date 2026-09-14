@@ -37,6 +37,12 @@ export interface LigneFacturation {
 export interface VariableTemplate {
   cle: string
   label: string
+  // Origine automatique de la valeur (voir `SourceVariable` dans lib/contrats.ts) : absent ou
+  // vide quand la variable doit être ressaisie à chaque contrat.
+  source?: string
+  // Valeur suggérée quand `source` est absent — reprise telle quelle dans le champ de saisie au
+  // lancement de l'approbation, mais reste modifiable par l'admin.
+  valeur_defaut?: string
 }
 
 export interface Database {

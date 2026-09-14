@@ -5,7 +5,7 @@ import { useContratsTypes } from '../../hooks/useContratsTypes'
 import { useContrats, type ContratAvecDestinataire } from '../../hooks/useContrats'
 import { supabase } from '../../lib/supabaseClient'
 import { CreerContratTemplate } from '../contrats/CreerContratTemplate'
-import { GenererContrat } from '../contrats/GenererContrat'
+import { LancerApprobationContrat } from '../contrats/LancerApprobationContrat'
 import { ContratImprimable } from '../contrats/ContratImprimable'
 import { UploaderDocument } from '../documents/UploaderDocument'
 import type { Database, StatutContrat } from '../../types/database.types'
@@ -52,7 +52,7 @@ export function ContratsAdmin() {
     <AdminLayout actif="Contrats">
       <EnTetePage
         titre="Contrats"
-        description="Vos modèles de contrat et les contrats effectivement émis. La signature se fait directement dans l'application, sans prestataire externe."
+        description="Vos modèles de contrat et les approbations lancées. Un contrat se génère à partir d'un modèle et de la fiche de la personne concernée ; la signature se fait directement dans l'application, sans prestataire externe."
         actions={
           <button
             onClick={() => {
@@ -63,7 +63,7 @@ export function ContratsAdmin() {
             style={boutonPrimaireStyle}
           >
             <Icone nom="plus" taille={15} />
-            {formulaireOuvert ? 'Fermer' : onglet === 'modeles' ? 'Nouveau modèle' : 'Générer un contrat'}
+            {formulaireOuvert ? 'Fermer' : onglet === 'modeles' ? 'Nouveau modèle' : "Lancer une approbation"}
           </button>
         }
       />
@@ -73,19 +73,22 @@ export function ContratsAdmin() {
         etapes={[
           <>
             Créez d'abord un <strong>modèle</strong> dans le premier onglet. Insérez-y des variables entre doubles
-            accolades, comme <code>{'{{prenom}}'}</code>, qui seront remplacées automatiquement.
+            accolades, comme <code>{'{{prenom_etudiant}}'}</code> : celles qui correspondent à un champ de fiche se
+            remplissent seules, l'éditeur de modèle liste lesquelles.
           </>,
           <>
             <strong>Modifier</strong> un modèle existant change son texte pour les prochains contrats générés à partir
             de lui. Les contrats déjà émis gardent leur texte d'origine, figé au moment de leur émission.
           </>,
           <>
-            Passez ensuite à <strong>Contrats générés</strong> et choisissez un modèle et un destinataire : le texte
-            est figé au moment de l'émission, une modification ultérieure du modèle ne change pas les contrats déjà émis.
+            Passez ensuite à <strong>Contrats</strong> et lancez une approbation : type de contrat, personne concernée,
+            modèle. Nom, coordonnées, adresse, taux horaire et établissement sont repris des fiches existantes, sans
+            ressaisie.
           </>,
           <>
-            Passez le contrat à <strong>Envoyé</strong> pour que le destinataire le voie apparaître dans son espace et
-            puisse le signer. Le statut bascule seul sur « Signé » une fois les deux signatures posées.
+            Le contrat part aussitôt en <strong>attente de signature</strong> : il apparaît dans l'espace du
+            destinataire, qui est notifié. Signez de votre côté depuis la ligne du contrat ; le statut bascule seul sur
+            « Signé » une fois les deux signatures posées.
           </>,
           <>
             Si vous préférez une signature papier, utilisez <strong>Joindre le scan signé</strong> sur la ligne du
@@ -105,7 +108,7 @@ export function ContratsAdmin() {
           }}
           onglets={[
             { value: 'modeles', label: 'Modèles', compteur: modeles.length },
-            { value: 'contrats', label: 'Contrats générés', compteur: contrats.length },
+            { value: 'contrats', label: 'Contrats', compteur: contrats.length },
           ]}
         />
       </div>
@@ -148,11 +151,11 @@ export function ContratsAdmin() {
         />
       )}
       {formulaireOuvert && profile && onglet === 'contrats' && (
-        <GenererContrat
+        <LancerApprobationContrat
           etablissementId={profile.etablissement_id}
           modeles={modeles.filter((m) => m.actif)}
           onAnnuler={() => setFormulaireOuvert(false)}
-          onCree={() => {
+          onLance={() => {
             setFormulaireOuvert(false)
             rechargerContrats()
           }}
@@ -168,7 +171,7 @@ export function ContratsAdmin() {
           <EtatVide
             icone="contrats"
             titre="Aucun modèle de contrat"
-            description="Créez un premier modèle pour pouvoir générer des contrats. Sans modèle, l'onglet « Contrats générés » n'a rien à proposer."
+            description="Créez un premier modèle pour pouvoir lancer une approbation. Sans modèle actif, l'onglet « Contrats » n'a rien à proposer."
           />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -225,8 +228,8 @@ export function ContratsAdmin() {
       ) : contrats.length === 0 ? (
         <EtatVide
           icone="contrats"
-          titre="Aucun contrat généré"
-          description="Générez un contrat à partir d'un de vos modèles et d'un destinataire. Il apparaîtra dans son espace dès que vous le passerez au statut « Envoyé »."
+          titre="Aucune approbation lancée"
+          description="Lancez une approbation en choisissant le type de contrat, la personne concernée et le modèle. Le contrat apparaît aussitôt dans son espace pour signature."
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
