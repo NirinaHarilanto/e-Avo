@@ -5,20 +5,19 @@ import { useCohortes } from '../../hooks/useCohortes'
 import { supabase } from '../../lib/supabaseClient'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import type { Database, StatutCohorte } from '../../types/database.types'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
+import { GrilleStats, Stat } from '../ui/Stat'
+import { EtatVide } from '../ui/EtatVide'
+import { EtatChargement, MessageErreur } from '../ui/Etats'
+import { boutonPrimaireStyle } from '../ui/Boutons'
+import { Icone } from '../ui/Icones'
+import { champStyle } from '../ui/Champ'
 
 type Cohort = Database['public']['Tables']['cohorts']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
 
 const LABELS_STATUT: Record<StatutCohorte, string> = { a_venir: 'À venir', en_cours: 'En cours', terminee: 'Terminée' }
-
-const champStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 10,
-  padding: '11px 14px',
-  fontSize: 13.5,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
-}
 
 export function CohortesAdmin() {
   const { profile } = useProfileContext()
@@ -27,12 +26,38 @@ export function CohortesAdmin() {
 
   return (
     <AdminLayout actif="Vagues">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontSize: 28, color: '#fff' }}>Vagues (cours collectifs)</h1>
-        <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510' }}>
-          Nouvelle vague
-        </button>
-      </div>
+      <EnTetePage
+        titre="Vagues (cours collectifs)"
+        description="Une vague est un groupe d’élèves qui suivent le même programme sur une même période. C’est l’alternative au forfait individuel ou en duo."
+        actions={
+          <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
+            <Icone nom="plus" taille={15} />
+            {formulaireOuvert ? 'Fermer' : 'Nouvelle vague'}
+          </button>
+        }
+      />
+
+      <GuidePage
+        id="admin-vagues"
+        etapes={[
+          <>
+            Créez une vague en lui donnant un nom, une langue, ses dates de début et de fin, et une{' '}
+            <strong>capacité maximale</strong> d’élèves.
+          </>,
+          <>
+            Inscrivez ensuite les élèves un par un depuis leur dossier, page <strong>Étudiants</strong> : choisissez le
+            programme « collectif » puis la vague voulue.
+          </>,
+          <>
+            Le <strong>statut</strong> de chaque vague se change directement dans sa ligne. Passez-la en « Terminée »
+            quand la session est finie : elle restera consultable dans les dossiers des élèves.
+          </>,
+          <>
+            Le bouton <strong>Voir les inscrits</strong> déplie la liste des élèves rattachés, pour vérifier le
+            remplissage avant d’ouvrir une nouvelle vague.
+          </>,
+        ]}
+      />
 
       {formulaireOuvert && profile && (
         <CreerVague
@@ -46,16 +71,29 @@ export function CohortesAdmin() {
       )}
 
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+        <EtatChargement lignes={3} hauteur={76} />
       ) : erreur ? (
-        <p style={{ color: 'var(--danger)' }}>{erreur}</p>
+        <MessageErreur>{erreur}</MessageErreur>
       ) : cohortes.length === 0 ? (
-        <p style={{ color: 'var(--muted)' }}>Aucune vague paramétrée pour le moment.</p>
+        <EtatVide
+          icone="vagues"
+          titre="Aucune vague paramétrée"
+          description="Créez une première vague pour pouvoir y inscrire des élèves en cours collectif. Sans vague, seuls les programmes individuels et en duo sont proposés dans les dossiers étudiants."
+        />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {cohortes.map((c) => (
-            <LigneVague key={c.id} cohorte={c} onChange={recharger} />
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <GrilleStats min={180}>
+            <Stat libelle="Vagues" valeur={cohortes.length} ton="or" />
+            <Stat libelle="En cours" valeur={cohortes.filter((c) => c.statut === 'en_cours').length} ton="teal" />
+            <Stat libelle="À venir" valeur={cohortes.filter((c) => c.statut === 'a_venir').length} ton="bleu" />
+            <Stat libelle="Terminées" valeur={cohortes.filter((c) => c.statut === 'terminee').length} ton="neutre" />
+          </GrilleStats>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {cohortes.map((c) => (
+              <LigneVague key={c.id} cohorte={c} onChange={recharger} />
+            ))}
+          </div>
         </div>
       )}
     </AdminLayout>
@@ -228,9 +266,14 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
       {ouverte && (
         <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
           {inscrits === null ? (
-            <p style={{ color: 'var(--muted)', fontSize: 12.5 }}>Chargement…</p>
+            <EtatChargement lignes={2} hauteur={38} />
           ) : inscrits.length === 0 ? (
-            <p style={{ color: 'var(--muted)', fontSize: 12.5 }}>Aucun étudiant inscrit à cette vague.</p>
+            <EtatVide
+              compact
+              icone="etudiants"
+              titre="Aucun élève inscrit"
+              description="Les inscriptions se font depuis le dossier de l’élève, page Étudiants, en choisissant le programme collectif."
+            />
           ) : (
             inscrits.map((etudiant) => (
               <div key={etudiant.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

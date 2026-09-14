@@ -4,6 +4,10 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import type { ProspectStatut } from '../../types/database.types'
 import { COLONNES_PIPELINE, useProspectsPipeline, type ProspectAvecDiagnostic } from '../../hooks/useProspectsPipeline'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
+import { GrilleStats, Stat } from '../ui/Stat'
+import { EtatChargement, MessageErreur } from '../ui/Etats'
 
 const COULEUR_COLONNE: Record<string, string> = {
   prospect: '#8b96b8',
@@ -83,21 +87,72 @@ export function PipelineCRM() {
 
   return (
     <AdminLayout actif="Prospects">
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 22 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 style={{ fontSize: 28, color: '#fff' }}>Prospects</h1>
-          <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-            {prospects.length} dossier{prospects.length > 1 ? 's' : ''} — glissez une carte vers une autre colonne pour changer son statut.
-          </p>
-        </div>
-        <button onClick={() => recharger()} className="btn-shine" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)', color: 'var(--ink-2)' }}>
-          Actualiser
-        </button>
-      </div>
+      <EnTetePage
+        titre="Prospects"
+        description="Le parcours d’un candidat, de sa demande initiale jusqu’à sa conversion en étudiant. Chaque colonne est une étape : faites glisser une carte vers la colonne suivante pour faire avancer le dossier."
+        actions={
+          <button onClick={() => recharger()} className="btn-shine" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)', color: 'var(--ink-2)' }}>
+            Actualiser
+          </button>
+        }
+      />
 
-      {erreur && <p style={{ color: 'var(--danger)', marginBottom: 16 }}>{erreur}</p>}
+      <GuidePage
+        id="admin-prospects"
+        etapes={[
+          <>
+            Les nouveaux dossiers arrivent seuls dans la première colonne : ils viennent du formulaire de contact de
+            votre page vitrine publique.
+          </>,
+          <>
+            <strong>Glissez une carte</strong> d’une colonne à l’autre pour changer son statut, ou utilisez les boutons
+            de la carte si vous préférez ne pas faire de glisser-déposer.
+          </>,
+          <>
+            Dépliez une carte pour planifier l’appel diagnostic, puis y noter le <strong>niveau évalué</strong> et le
+            rythme convenu : ces informations suivront l’élève dans son dossier.
+          </>,
+          <>
+            En déposant une carte dans <strong>Étudiant</strong>, une invitation par e-mail est envoyée automatiquement
+            et le dossier bascule vers la page Étudiants. Cette action vous est confirmée avant d’être exécutée.
+          </>,
+        ]}
+      />
+
+      {erreur && (
+        <div style={{ marginBottom: 16 }}>
+          <MessageErreur>{erreur}</MessageErreur>
+        </div>
+      )}
+
+      {!loading && prospects.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <GrilleStats min={175}>
+            <Stat libelle="Dossiers en cours" valeur={prospects.length} ton="or" />
+            <Stat
+              libelle="Appels à planifier"
+              valeur={prospects.filter((p) => p.statut === 'prospect').length}
+              ton="alerte"
+              aide="En attente d’une première prise de contact"
+            />
+            <Stat
+              libelle="Diagnostics réalisés"
+              valeur={prospects.filter((p) => p.statut === 'diagnostic_fait').length}
+              ton="bleu"
+              aide="Prêts à être convertis en étudiant"
+            />
+            <Stat
+              libelle="Taux de conversion"
+              valeur={`${Math.round((prospects.filter((p) => p.statut === 'etudiant').length / prospects.length) * 100)} %`}
+              ton="teal"
+              aide={`${prospects.filter((p) => p.statut === 'etudiant').length} dossier(s) devenu(s) étudiant`}
+            />
+          </GrilleStats>
+        </div>
+      )}
+
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+        <EtatChargement lignes={3} hauteur={120} />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, alignItems: 'start' }}>
           {COLONNES_PIPELINE.map((colonne) => {
@@ -131,8 +186,20 @@ export function PipelineCRM() {
                   </span>
                 </div>
                 {items.length === 0 && (
-                  <span style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted-2)', border: '1px dashed rgba(255,255,255,.14)', borderRadius: 14, padding: 16 }}>
+                  <span
+                    style={{
+                      textAlign: 'center',
+                      fontSize: 11.5,
+                      lineHeight: 1.5,
+                      color: 'var(--muted-2)',
+                      border: '1px dashed rgba(255,255,255,.14)',
+                      borderRadius: 14,
+                      padding: '18px 14px',
+                    }}
+                  >
                     Aucun dossier
+                    <br />
+                    <span style={{ fontSize: 11, opacity: 0.8 }}>Déposez une carte ici</span>
                   </span>
                 )}
                 {items.map((prospect) => (

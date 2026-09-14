@@ -4,6 +4,13 @@ import { useSeancesAdmin, type SeanceAdmin } from '../../hooks/useSeancesAdmin'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { initiales } from '../etudiants/DossierEtudiantVue'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
+import { GrilleStats, Stat } from '../ui/Stat'
+import { GroupeSection } from '../ui/Section'
+import { Onglets } from '../ui/Onglets'
+import { EtatVide } from '../ui/EtatVide'
+import { EtatChargement, MessageErreur } from '../ui/Etats'
 
 const JOURS_SEMAINE = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 
@@ -46,53 +53,98 @@ export function SeancesAdmin() {
 
   return (
     <AdminLayout actif="Séances & visio">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
-        <h1 style={{ fontSize: 28, color: '#fff' }}>Séances & visio</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {(['semaine', 'globale'] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setVue(v)}
-              className={`nav-item${vue === v ? ' nav-item-active' : ''}`}
-              style={{
-                padding: '9px 16px',
-                borderRadius: 999,
-                fontSize: 13,
-                fontWeight: vue === v ? 800 : 600,
-                color: vue === v ? '#1b1510' : 'var(--ink-2)',
-                background: vue === v ? 'var(--accent-gradient)' : undefined,
-                cursor: 'pointer',
-              }}
-            >
-              {v === 'semaine' ? 'Vue par semaine' : 'Vue globale'}
-            </button>
-          ))}
-        </div>
-      </div>
+      <EnTetePage
+        titre="Séances & visio"
+        description="Le planning de tous les cours de l’établissement. Les séances sont créées par les professeurs depuis leur propre espace, ou en lot depuis un forfait étudiant : cette page sert à les consulter et à les suivre."
+        actions={
+          <Onglets
+            etiquette="Mode d’affichage du planning"
+            actif={vue}
+            onChange={setVue}
+            onglets={[
+              { value: 'semaine', label: 'Vue par semaine' },
+              { value: 'globale', label: 'Vue globale' },
+            ]}
+          />
+        }
+      />
 
-      {erreur && <p style={{ color: 'var(--danger)' }}>{erreur}</p>}
+      <GuidePage
+        id="admin-seances"
+        etapes={[
+          <>
+            La <strong>vue par semaine</strong> montre l’agenda jour par jour et permet de filtrer par professeur :
+            c’est la vue à utiliser pour repérer les chevauchements et les trous dans un planning.
+          </>,
+          <>
+            La <strong>vue globale</strong> liste toutes les séances à venir puis toutes les séances passées, sans
+            limite de période : pratique pour retrouver une séance ancienne.
+          </>,
+          <>
+            Une séance passe de « Planifiée » à « Terminée » quand le professeur la clôture depuis son espace. C’est ce
+            geste qui alimente les compteurs d’heures et le taux d’assiduité.
+          </>,
+          <>
+            Le lien de visioconférence, quand il existe, apparaît directement sur la ligne de la séance à l’approche de
+            son horaire.
+          </>,
+        ]}
+      />
+
+      {erreur && (
+        <div style={{ marginBottom: 16 }}>
+          <MessageErreur>{erreur}</MessageErreur>
+        </div>
+      )}
+
+      {!loading && seances.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <GrilleStats min={180}>
+            <Stat libelle="Séances au total" valeur={seances.length} ton="or" />
+            <Stat libelle="À venir" valeur={aVenir.length} ton="bleu" aide="Statut « planifiée »" />
+            <Stat libelle="Cette semaine" valeur={seancesSemaine.length} ton="teal" aide="Sur la semaine affichée" />
+            <Stat
+              libelle="Annulées"
+              valeur={seances.filter((s) => s.session.statut === 'annulee').length}
+              ton="neutre"
+            />
+          </GrilleStats>
+        </div>
+      )}
 
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+        <EtatChargement lignes={4} hauteur={74} />
       ) : vue === 'globale' ? (
         seances.length === 0 ? (
-          <p style={{ color: 'var(--muted)' }}>Aucune séance planifiée pour le moment.</p>
+          <EtatVide
+            icone="seances"
+            titre="Aucune séance planifiée"
+            description="Les séances apparaîtront ici dès qu’un professeur en programmera depuis son calendrier, ou dès qu’un forfait étudiant sera planifié en lot depuis son dossier."
+          />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <h2 style={{ fontSize: 17, color: 'var(--accent-gold, #e9cf94)' }}>À venir · {aVenir.length}</h2>
-              {aVenir.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>Aucune séance à venir.</p>}
-              {aVenir.map((seance) => (
-                <LigneSeance key={seance.session.id} seance={seance} maintenant={maintenant} />
-              ))}
-            </section>
-            <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <h2 style={{ fontSize: 17, color: 'var(--accent-gold, #e9cf94)' }}>Passées · {passees.length}</h2>
-              {passees.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>Aucune séance passée.</p>}
-              {passees.map((seance) => (
-                <LigneSeance key={seance.session.id} seance={seance} maintenant={maintenant} />
-              ))}
-            </section>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+            <GroupeSection titre={`À venir · ${aVenir.length}`}>
+              {aVenir.length === 0 ? (
+                <EtatVide compact icone="seances" titre="Aucune séance à venir" description="Toutes les séances programmées sont déjà passées." />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {aVenir.map((seance) => (
+                    <LigneSeance key={seance.session.id} seance={seance} maintenant={maintenant} />
+                  ))}
+                </div>
+              )}
+            </GroupeSection>
+            <GroupeSection titre={`Passées · ${passees.length}`}>
+              {passees.length === 0 ? (
+                <EtatVide compact icone="seances" titre="Aucune séance passée" description="L’historique se remplira au fil des séances clôturées." />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {passees.map((seance) => (
+                    <LigneSeance key={seance.session.id} seance={seance} maintenant={maintenant} />
+                  ))}
+                </div>
+              )}
+            </GroupeSection>
           </div>
         )
       ) : (
@@ -193,7 +245,13 @@ function AgendaSemaine({ seances, semaineDebut }: { seances: SeanceAdmin[]; sema
   }, [seances, semaineDebut])
 
   if (seances.length === 0) {
-    return <p style={{ color: 'var(--muted)' }}>Aucune séance cette semaine.</p>
+    return (
+      <EtatVide
+        icone="seances"
+        titre="Aucune séance cette semaine"
+        description="Utilisez les flèches ci-dessus pour changer de semaine, ou retirez le filtre par professeur s’il en reste un d’actif."
+      />
+    )
   }
 
   return (

@@ -4,6 +4,13 @@ import { AdminLayout } from '../layout/AdminLayout'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { supabase } from '../../lib/supabaseClient'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
+import { GrilleStats, Stat } from '../ui/Stat'
+import { EtatVide } from '../ui/EtatVide'
+import { EtatChargement } from '../ui/Etats'
+import { boutonPrimaireStyle } from '../ui/Boutons'
+import { Icone } from '../ui/Icones'
 
 export function ProfesseursAdmin() {
   const navigate = useNavigate()
@@ -36,14 +43,40 @@ export function ProfesseursAdmin() {
       })
   }, [professeurs])
 
+  const totalEleves = Object.values(comptes).reduce((total, n) => total + n, 0)
+  const totalHeures = Object.values(heures).reduce((total, n) => total + n, 0)
+  const sansEleve = professeurs.filter((p) => (comptes[p.id] ?? 0) === 0).length
+
   return (
     <AdminLayout actif="Professeurs">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
-        <h1 style={{ fontSize: 28, color: '#fff' }}>Professeurs</h1>
-        <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510' }}>
-          Inviter un professeur
-        </button>
-      </div>
+      <EnTetePage
+        titre="Professeurs"
+        description="L’équipe enseignante de l’établissement et sa charge actuelle. Cliquez sur une carte pour ouvrir la fiche détaillée du professeur."
+        actions={
+          <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
+            <Icone nom="plus" taille={15} />
+            {formulaireOuvert ? 'Fermer' : 'Inviter un professeur'}
+          </button>
+        }
+      />
+
+      <GuidePage
+        id="admin-professeurs"
+        etapes={[
+          <>
+            <strong>Invitez</strong> un professeur par e-mail : il définira son mot de passe et accèdera à son espace,
+            où il planifiera lui-même ses séances.
+          </>,
+          <>
+            Ouvrez sa fiche pour voir ses élèves, ses heures enseignées par élève, et renseigner son{' '}
+            <strong>taux horaire</strong> — c’est lui qui alimente le calcul des rémunérations.
+          </>,
+          <>
+            L’attribution d’un élève ne se fait pas ici mais depuis le dossier de l’élève, page{' '}
+            <strong>Étudiants</strong> : chaque changement y est tracé avec son motif.
+          </>,
+        ]}
+      />
 
       {formulaireOuvert && (
         <FormulaireInvitation
@@ -57,36 +90,62 @@ export function ProfesseursAdmin() {
       )}
 
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+        <EtatChargement lignes={2} hauteur={130} />
       ) : professeurs.length === 0 ? (
-        <p style={{ color: 'var(--muted)' }}>Aucun professeur pour le moment.</p>
+        <EtatVide
+          icone="professeurs"
+          titre="Aucun professeur pour le moment"
+          description="Invitez votre premier professeur pour pouvoir attribuer des élèves et planifier des séances. Tant qu’aucun professeur n’est enregistré, aucun cours ne peut être programmé."
+        />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
-          {professeurs.map((prof) => (
-            <div
-              key={prof.id}
-              onClick={() => navigate(`/admin/professeurs/${prof.id}`)}
-              className="card card-lift"
-              style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 10, cursor: 'pointer' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-                <span style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--accent-blue-gradient)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 800, flexShrink: 0 }}>
-                  {(prof.prenom?.[0] ?? '').toUpperCase()}
-                  {(prof.nom?.[0] ?? '').toUpperCase()}
-                </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
-                    {prof.prenom} {prof.nom}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+          <GrilleStats>
+            <Stat libelle="Professeurs" valeur={professeurs.length} ton="or" />
+            <Stat libelle="Élèves attribués" valeur={totalEleves} ton="teal" aide="Attributions en cours, tous professeurs confondus" />
+            <Stat libelle="Heures enseignées" valeur={totalHeures} unite="h" ton="bleu" aide="Depuis l’ouverture de l’établissement" />
+            <Stat
+              libelle="Sans élève attribué"
+              valeur={sansEleve}
+              ton={sansEleve > 0 ? 'alerte' : 'neutre'}
+              aide={sansEleve > 0 ? 'Disponibles pour de nouvelles attributions' : 'Tous les professeurs ont au moins un élève'}
+            />
+          </GrilleStats>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 16 }}>
+            {professeurs.map((prof) => (
+              <button
+                key={prof.id}
+                onClick={() => navigate(`/admin/professeurs/${prof.id}`)}
+                className="card card-lift"
+                style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer', textAlign: 'left', color: 'inherit' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 13, minWidth: 0 }}>
+                  <span style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--accent-blue-gradient)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 800, flexShrink: 0 }}>
+                    {(prof.prenom?.[0] ?? '').toUpperCase()}
+                    {(prof.nom?.[0] ?? '').toUpperCase()}
                   </span>
-                  <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{prof.email}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                    <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
+                      {prof.prenom} {prof.nom}
+                    </span>
+                    <span style={{ fontSize: 11.5, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {prof.email}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--border-soft)', paddingTop: 10 }}>
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{comptes[prof.id] ?? 0} élève(s) actif(s)</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>{heures[prof.id] ?? 0} h enseignées</span>
-              </div>
-            </div>
-          ))}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderTop: '1px solid var(--border-soft)', paddingTop: 11 }}>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    {comptes[prof.id] ?? 0} élève{(comptes[prof.id] ?? 0) > 1 ? 's' : ''} actif{(comptes[prof.id] ?? 0) > 1 ? 's' : ''}
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>{heures[prof.id] ?? 0} h enseignées</span>
+                </div>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)' }}>
+                  Ouvrir la fiche
+                  <Icone nom="chevron" taille={12} />
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </AdminLayout>
