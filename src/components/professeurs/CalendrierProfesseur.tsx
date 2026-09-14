@@ -18,10 +18,11 @@ import { Modale } from '../ui/Modale'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { CompteRenduSeance } from './CompteRenduSeance'
+import { PlanningPrevisionnelProfesseur } from './PlanningPrevisionnelProfesseur'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
 import { champStyle } from '../ui/Champ'
 
-type VueCalendrier = 'agenda' | 'liste'
+type VueCalendrier = 'agenda' | 'liste' | 'previsionnel'
 
 /* Une séance telle que l'agenda hebdomadaire la connaît. Le composant de grille ignore tout des
    séances et des inscriptions : il ne manipule que des `EvenementAgenda`. */
@@ -87,6 +88,7 @@ export function CalendrierProfesseur() {
               onglets={[
                 { value: 'agenda', label: 'Agenda' },
                 { value: 'liste', label: 'Liste' },
+                { value: 'previsionnel', label: 'Planning prévisionnel' },
               ]}
             />
             <button onClick={() => ouvrirPlanification()} className="btn-shine" style={boutonPrimaireStyle}>
@@ -116,8 +118,13 @@ export function CalendrierProfesseur() {
             et son taux d’assiduité. Une séance passée non clôturée ne compte nulle part.
           </>,
           <>
-            Tout ce que vous planifiez ici alimente directement le planning prévisionnel de l’élève et la vue de
-            l’administration : il n’y a rien à ressaisir ailleurs.
+            L’onglet <strong>Planning prévisionnel</strong> crée d’un coup toutes les séances récurrentes d’un élève
+            (par exemple tous les mardis à 18 h jusqu’à la fin de son forfait) et permet de reprogrammer chaque séance
+            au cas par cas. Un changement d’horaire de votre part est soumis à validation de l’administration.
+          </>,
+          <>
+            Agenda et planning prévisionnel montrent les mêmes séances : un cours créé depuis l’agenda apparaît
+            aussitôt dans le planning de l’élève et dans la vue de l’administration, sans ressaisie.
           </>,
         ]}
       />
@@ -166,6 +173,8 @@ export function CalendrierProfesseur() {
                 : 'Aucun cours cette semaine. Cliquez un créneau libre pour en planifier un.'
             }
           />
+        ) : vue === 'previsionnel' ? (
+          <PlanningPrevisionnelProfesseur seances={seances} etudiantsActifs={etudiantsActifs} onChange={recharger} />
         ) : (
           <>
             <GroupeSection titre="À venir" description="Vos prochaines séances, de la plus proche à la plus lointaine.">

@@ -19,9 +19,14 @@ interface Creneau {
 
 interface PlanifierSeancesForfaitProps {
   studentIds: string[]
-  teacherId: string
+  /* Omis côté professeur : la route `api/professeur/...` planifie forcément pour l'appelant.
+     Renseigné côté admin, qui planifie pour le professeur attribué à l'élève. */
+  teacherId?: string
   dureeParDefaut?: number
   dateFinParDefaut?: string | null
+  /* Route cible — la version professeur restreint la planification à ses propres élèves. */
+  endpoint?: string
+  titre?: string
   onCree: () => void
 }
 
@@ -30,7 +35,15 @@ interface PlanifierSeancesForfaitProps {
    garde le calcul dans le fuseau horaire du navigateur plutôt que de le refaire côté serveur.
    L'API `/api/admin/planifier-seances-prevision` ne fait ensuite que créer une séance par
    date déjà résolue. */
-export function PlanifierSeancesForfait({ studentIds, teacherId, dureeParDefaut, dateFinParDefaut, onCree }: PlanifierSeancesForfaitProps) {
+export function PlanifierSeancesForfait({
+  studentIds,
+  teacherId,
+  dureeParDefaut,
+  dateFinParDefaut,
+  endpoint = '/api/admin/planifier-seances-prevision',
+  titre = 'Planning prévisionnel',
+  onCree,
+}: PlanifierSeancesForfaitProps) {
   const { session } = useProfileContext()
   const [creneaux, setCreneaux] = useState<Creneau[]>([{ jour: 1, heure: '18:00' }])
   const [dateDebut, setDateDebut] = useState(() => new Date().toISOString().slice(0, 10))
@@ -73,14 +86,14 @@ export function PlanifierSeancesForfait({ studentIds, teacherId, dureeParDefaut,
   const debutsPrevus = calculerDebuts()
 
   async function creer() {
-    if (!session || debutsPrevus.length === 0) return
+    if (!session || debutsPrevus.length === 0 || studentIds.length === 0) return
     setEnCours(true)
     setErreur(null)
     setResultat(null)
-    const reponse = await fetch('/api/admin/planifier-seances-prevision', {
+    const reponse = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ studentIds, teacherId, dureeMinutes, debuts: debutsPrevus }),
+      body: JSON.stringify({ studentIds, ...(teacherId ? { teacherId } : {}), dureeMinutes, debuts: debutsPrevus }),
     })
     setEnCours(false)
     if (!reponse.ok) {
@@ -94,7 +107,7 @@ export function PlanifierSeancesForfait({ studentIds, teacherId, dureeParDefaut,
 
   return (
     <div className="card" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <h3 style={{ fontSize: 16, color: 'var(--ink)' }}>Planning prévisionnel</h3>
+      <h3 style={{ fontSize: 16, color: 'var(--ink)' }}>{titre}</h3>
       <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
         Les séances sont créées avec le statut « planifiée » ; c'est le professeur qui, séance après séance, indique si
         elle a bien eu lieu.
@@ -148,7 +161,11 @@ export function PlanifierSeancesForfait({ studentIds, teacherId, dureeParDefaut,
       </div>
 
       <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: 0 }}>
-        {debutsPrevus.length > 0 ? `${debutsPrevus.length} séance(s) seront créées.` : 'Renseigne au moins un créneau et une plage de dates valide.'}
+        {studentIds.length === 0
+          ? 'Sélectionnez au moins un élève.'
+          : debutsPrevus.length > 0
+            ? `${debutsPrevus.length} séance(s) seront créées.`
+            : 'Renseignez au moins un créneau et une plage de dates valide.'}
       </p>
 
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{erreur}</p>}
@@ -156,9 +173,13 @@ export function PlanifierSeancesForfait({ studentIds, teacherId, dureeParDefaut,
 
       <button
         onClick={creer}
-        disabled={enCours || debutsPrevus.length === 0}
+        disabled={enCours || debutsPrevus.length === 0 || studentIds.length === 0}
         className="btn-shine"
-        style={{ background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours || debutsPrevus.length === 0 ? 0.6 : 1 }}
+        style={{
+          background: 'var(--accent-gradient)',
+          color: '#1b1510',
+          opacity: enCours || debutsPrevus.length === 0 || studentIds.length === 0 ? 0.6 : 1,
+        }}
       >
         {enCours ? 'Planification…' : 'Planifier'}
       </button>
