@@ -3,6 +3,11 @@ import { AdminLayout } from '../layout/AdminLayout'
 import { useProfesseurDetailAdmin, type EleveDuProfesseur } from '../../hooks/useProfesseurDetailAdmin'
 import { InformationsPersonnelles } from '../shared/InformationsPersonnelles'
 import { initiales } from '../etudiants/DossierEtudiantVue'
+import { EnTetePage, BoutonRetour } from '../ui/EnTetePage'
+import { GrilleStats, Stat } from '../ui/Stat'
+import { Section } from '../ui/Section'
+import { EtatVide } from '../ui/EtatVide'
+import { EtatChargement, MessageErreur } from '../ui/Etats'
 
 export function ProfesseurDetailAdmin() {
   const { id } = useParams<{ id: string }>()
@@ -11,51 +16,52 @@ export function ProfesseurDetailAdmin() {
 
   return (
     <AdminLayout actif="Professeurs">
-      <button
-        onClick={() => navigate('/admin/professeurs')}
-        style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0, marginBottom: 16 }}
-      >
-        ← Tous les professeurs
-      </button>
-
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+        <EtatChargement lignes={3} hauteur={110} />
       ) : erreur || !detail ? (
-        <p style={{ color: 'var(--danger)' }}>{erreur ?? 'Professeur introuvable.'}</p>
+        <MessageErreur>{erreur ?? 'Professeur introuvable.'}</MessageErreur>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <span style={{ width: 54, height: 54, borderRadius: 999, background: 'var(--accent-blue-gradient)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18, fontWeight: 800, flexShrink: 0 }}>
-              {initiales(detail.professeur)}
-            </span>
-            <div>
-              <h1 style={{ fontSize: 24, color: '#fff' }}>
-                {detail.professeur.prenom} {detail.professeur.nom}
-              </h1>
-              <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{detail.professeur.email}</span>
-            </div>
-          </div>
+          <EnTetePage
+            avant={<BoutonRetour onClick={() => navigate('/admin/professeurs')} label="Tous les professeurs" />}
+            media={
+              <span style={{ width: 54, height: 54, borderRadius: 999, background: 'var(--accent-blue-gradient)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 18, fontWeight: 800, flexShrink: 0 }}>
+                {initiales(detail.professeur)}
+              </span>
+            }
+            titre={`${detail.professeur.prenom} ${detail.professeur.nom}`}
+            description={detail.professeur.email}
+          />
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-            <div className="card" style={{ padding: '18px 20px' }}>
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Élèves actifs</span>
-              <div className="brand-font" style={{ fontSize: 28, color: 'var(--accent-blue)', marginTop: 6 }}>
-                {detail.eleves.length}
-              </div>
-            </div>
-            <div className="card" style={{ padding: '18px 20px' }}>
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>Heures enseignées (total)</span>
-              <div className="brand-font" style={{ fontSize: 28, color: 'var(--accent-gold, #e9cf94)', marginTop: 6 }}>
-                {detail.heuresTotalEnseignees} h
-              </div>
-            </div>
-          </div>
+          <GrilleStats>
+            <Stat libelle="Élèves actifs" valeur={detail.eleves.length} ton="bleu" aide="Attributions en cours" />
+            <Stat libelle="Heures enseignées" valeur={detail.heuresTotalEnseignees} unite="h" ton="or" aide="Total depuis son arrivée" />
+            <Stat
+              libelle="Taux horaire"
+              valeur={detail.professeur.taux_horaire ? `${detail.professeur.taux_horaire}` : '—'}
+              unite={detail.professeur.taux_horaire ? '€/h' : undefined}
+              ton={detail.professeur.taux_horaire ? 'teal' : 'alerte'}
+              aide={
+                detail.professeur.taux_horaire
+                  ? 'Utilisé pour calculer ses rémunérations'
+                  : 'À renseigner pour automatiser le calcul de ses rémunérations'
+              }
+            />
+          </GrilleStats>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 300px', gap: 18, alignItems: 'start' }}>
-            <div className="card" style={{ padding: 24 }}>
-              <h2 style={{ fontSize: 19, color: 'var(--accent-gold, #e9cf94)', marginBottom: 16 }}>Élèves attribués</h2>
+          <div className="grille-dossier">
+            <Section
+              titre="Élèves attribués"
+              description="Les élèves actuellement suivis par ce professeur, avec le détail de leurs forfaits."
+              compteur={detail.eleves.length}
+              padding={22}
+            >
               {detail.eleves.length === 0 ? (
-                <p style={{ color: 'var(--muted)' }}>Aucun élève actif attribué à ce professeur.</p>
+                <EtatVide
+                  icone="etudiants"
+                  titre="Aucun élève attribué"
+                  description="L’attribution se fait depuis le dossier de l’élève, page Étudiants : ouvrez son dossier puis choisissez ce professeur dans la colonne de droite."
+                />
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {detail.eleves.map((e) => (
@@ -63,7 +69,7 @@ export function ProfesseurDetailAdmin() {
                   ))}
                 </div>
               )}
-            </div>
+            </Section>
 
             <InformationsPersonnelles personne={detail.professeur} onChange={recharger} />
           </div>

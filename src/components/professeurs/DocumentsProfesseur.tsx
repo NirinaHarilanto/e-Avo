@@ -5,6 +5,12 @@ import { useCalendrierProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { useDocuments } from '../../hooks/useDocuments'
 import { UploaderDocument } from '../documents/UploaderDocument'
 import { ListeDocuments } from '../documents/ListeDocuments'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
+import { GroupeSection } from '../ui/Section'
+import { Champ, champStyle } from '../ui/Champ'
+import { EtatVide } from '../ui/EtatVide'
+import { EtatChargement, MessageErreur } from '../ui/Etats'
 
 export function DocumentsProfesseur() {
   const { profile } = useProfileContext()
@@ -13,36 +19,69 @@ export function DocumentsProfesseur() {
 
   return (
     <ProfesseurLayout actif="Documents">
-      <h1 style={{ fontSize: 28, color: '#fff', marginBottom: 22 }}>Documents</h1>
+      <EnTetePage
+        titre="Documents"
+        description="Vos pièces administratives d’un côté, les dossiers de vos élèves de l’autre. Chaque fichier n’est visible que par les personnes concernées."
+      />
+
+      <GuidePage
+        id="professeur-documents"
+        etapes={[
+          <>
+            <strong>Mes documents</strong> réunit vos propres pièces (diplômes, pièce d’identité, justificatifs). Elles
+            sont visibles par vous et par l’administration de l’établissement.
+          </>,
+          <>
+            <strong>Documents de mes élèves</strong> : choisissez un élève dans la liste déroulante pour consulter son
+            dossier ou y déposer un support de cours.
+          </>,
+          <>
+            Choisissez toujours la <strong>catégorie</strong> appropriée au moment du dépôt : c’est elle qui détermine
+            qui pourra consulter le fichier.
+          </>,
+        ]}
+      />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-        <section>
-          <h2 style={{ fontSize: 17, color: 'var(--accent-gold, #e9cf94)', marginBottom: 12 }}>Mes documents</h2>
+        <GroupeSection titre="Mes documents" description="Vos pièces administratives, visibles par vous et par l’administration.">
           {profile && <SectionDocuments ownerProfileId={profile.id} etablissementId={profile.etablissement_id} />}
-        </section>
+        </GroupeSection>
 
-        <section>
-          <h2 style={{ fontSize: 17, color: 'var(--accent-gold, #e9cf94)', marginBottom: 12 }}>Documents de mes élèves</h2>
+        <GroupeSection
+          titre="Documents de mes élèves"
+          description="Le dossier de chaque élève qui vous est actuellement attribué. Vous pouvez y déposer des supports et y consulter les pièces existantes."
+        >
           {etudiantsActifs.length === 0 ? (
-            <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>Aucun élève assigné.</p>
+            <EtatVide
+              icone="etudiants"
+              titre="Aucun élève attribué"
+              description="Les dossiers de vos élèves apparaîtront ici dès que l’administration vous en aura attribué. L’attribution se fait depuis le dossier de l’élève, côté administration."
+            />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <select
-                value={eleveId ?? ''}
-                onChange={(e) => setEleveId(e.target.value || null)}
-                style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 11px', fontSize: 13, color: 'var(--ink)', background: 'rgba(0,0,0,.22)', maxWidth: 280 }}
-              >
-                <option value="">Sélectionner un élève…</option>
-                {etudiantsActifs.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.prenom} {e.nom}
-                  </option>
-                ))}
-              </select>
-              {eleveId && profile && <SectionDocuments ownerProfileId={eleveId} etablissementId={profile.etablissement_id} />}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <Champ label="Élève" aide="Sélectionnez un élève pour afficher son dossier de documents." style={{ maxWidth: 320 }}>
+                <select value={eleveId ?? ''} onChange={(e) => setEleveId(e.target.value || null)} style={champStyle}>
+                  <option value="">Sélectionner un élève…</option>
+                  {etudiantsActifs.map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.prenom} {e.nom}
+                    </option>
+                  ))}
+                </select>
+              </Champ>
+              {eleveId && profile ? (
+                <SectionDocuments ownerProfileId={eleveId} etablissementId={profile.etablissement_id} />
+              ) : (
+                <EtatVide
+                  compact
+                  icone="documents"
+                  titre="Aucun élève sélectionné"
+                  description="Choisissez un nom dans la liste ci-dessus pour ouvrir son dossier."
+                />
+              )}
             </div>
           )}
-        </section>
+        </GroupeSection>
       </div>
     </ProfesseurLayout>
   )
@@ -55,9 +94,9 @@ function SectionDocuments({ ownerProfileId, etablissementId }: { ownerProfileId:
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <UploaderDocument ownerProfileId={ownerProfileId} etablissementId={etablissementId} onUploade={recharger} />
-      {erreur && <p style={{ color: 'var(--danger)' }}>{erreur}</p>}
+      {erreur && <MessageErreur>{erreur}</MessageErreur>}
       {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+        <EtatChargement lignes={3} hauteur={52} />
       ) : (
         <div className="card" style={{ padding: 20 }}>
           <ListeDocuments documents={documents} peutSupprimer={(d) => d.uploaded_by_profile_id === profile?.id} onChange={recharger} />

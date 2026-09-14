@@ -4,6 +4,14 @@ import { supabase } from '../../lib/supabaseClient'
 import { useCalendrierProfesseur, type SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { getJoinUrl } from '../../lib/visio'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
+import { GrilleStats, Stat } from '../ui/Stat'
+import { GroupeSection } from '../ui/Section'
+import { EtatVide } from '../ui/EtatVide'
+import { EtatChargement, MessageErreur } from '../ui/Etats'
+import { boutonPrimaireStyle } from '../ui/Boutons'
+import { Icone } from '../ui/Icones'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { CompteRenduSeance } from './CompteRenduSeance'
 import { champStyle } from '../ui/Champ'
@@ -23,21 +31,54 @@ export function CalendrierProfesseur() {
 
   return (
     <ProfesseurLayout actif="Calendrier">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
-          <div>
-            <h1 style={{ fontSize: 28, color: '#fff', marginBottom: 4 }}>Mon calendrier</h1>
-            <span style={{ fontSize: 13, color: 'var(--muted)' }}>
-              {etudiantsActifs.length} élève{etudiantsActifs.length > 1 ? 's' : ''} actif{etudiantsActifs.length > 1 ? 's' : ''} ·{' '}
-              <span style={{ color: 'var(--accent-gold, #e9cf94)', fontWeight: 700 }}>{heuresEnseignees} h</span> enseignées
-            </span>
-          </div>
-          <button onClick={() => setFormulaireOuvert(true)} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510' }}>
+      <EnTetePage
+        titre="Mon calendrier"
+        description="Vos séances à venir et passées. C’est ici que vous planifiez un cours, que vous notez les présences et que vous clôturez une séance une fois donnée."
+        actions={
+          <button onClick={() => setFormulaireOuvert(true)} className="btn-shine" style={boutonPrimaireStyle}>
+            <Icone nom="plus" taille={15} />
             Planifier une séance
           </button>
-        </div>
+        }
+      />
 
-        {erreur && <p style={{ color: 'var(--danger)' }}>{erreur}</p>}
+      <GuidePage
+        id="professeur-calendrier"
+        etapes={[
+          <>
+            <strong>Planifier une séance</strong> : choisissez un ou plusieurs élèves, une date et une durée. Plusieurs
+            élèves sélectionnés créent une séance collective.
+          </>,
+          <>
+            Après le cours, dépliez la séance et notez la <strong>présence</strong> de chaque élève, puis clôturez-la.
+          </>,
+          <>
+            La clôture est le geste important : c’est elle qui met à jour vos heures enseignées, le forfait de l’élève
+            et son taux d’assiduité. Une séance passée non clôturée ne compte nulle part.
+          </>,
+          <>
+            Vous pouvez enfin rédiger un <strong>compte rendu</strong> sur chaque séance terminée : l’élève et
+            l’administration y ont accès.
+          </>,
+        ]}
+      />
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+        {erreur && <MessageErreur>{erreur}</MessageErreur>}
+
+        {!loading && (
+          <GrilleStats>
+            <Stat libelle="Élèves actifs" valeur={etudiantsActifs.length} ton="bleu" aide="Actuellement attribués" />
+            <Stat libelle="Heures enseignées" valeur={heuresEnseignees} unite="h" ton="or" aide="Séances clôturées uniquement" />
+            <Stat libelle="Séances à venir" valeur={aVenir.length} ton="teal" />
+            <Stat
+              libelle="À clôturer"
+              valeur={aVenir.filter((s) => s.session.debut < maintenant).length}
+              ton={aVenir.some((s) => s.session.debut < maintenant) ? 'alerte' : 'neutre'}
+              aide="Séances passées encore au statut planifiée"
+            />
+          </GrilleStats>
+        )}
 
         {formulaireOuvert && profile && (
           <FormulairePlanification
@@ -51,24 +92,36 @@ export function CalendrierProfesseur() {
         )}
 
         {loading ? (
-          <p style={{ color: 'var(--muted)' }}>Chargement…</p>
+          <EtatChargement lignes={3} hauteur={110} />
         ) : (
           <>
-            <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h2 style={{ fontSize: 18, color: 'var(--accent-gold, #e9cf94)' }}>À venir</h2>
-              {aVenir.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>Aucune séance planifiée.</p>}
-              {aVenir.map((seance) => (
-                <CarteSeance key={seance.session.id} seance={seance} maintenant={maintenant} onChange={recharger} />
-              ))}
-            </section>
+            <GroupeSection titre="À venir" description="Vos prochaines séances, de la plus proche à la plus lointaine.">
+              {aVenir.length === 0 ? (
+                <EtatVide
+                  icone="seances"
+                  titre="Aucune séance planifiée"
+                  description="Utilisez « Planifier une séance » pour programmer votre prochain cours. Sans séance planifiée, vos élèves n’ont aucune échéance affichée dans leur espace."
+                />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {aVenir.map((seance) => (
+                    <CarteSeance key={seance.session.id} seance={seance} maintenant={maintenant} onChange={recharger} />
+                  ))}
+                </div>
+              )}
+            </GroupeSection>
 
-            <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h2 style={{ fontSize: 18, color: 'var(--accent-gold, #e9cf94)' }}>Passées</h2>
-              {passees.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>Aucune séance passée.</p>}
-              {passees.map((seance) => (
-                <CarteSeance key={seance.session.id} seance={seance} maintenant={maintenant} onChange={recharger} />
-              ))}
-            </section>
+            <GroupeSection titre="Passées" description="Séances terminées ou annulées. C’est ici que vous rédigez vos comptes rendus.">
+              {passees.length === 0 ? (
+                <EtatVide compact icone="seances" titre="Aucune séance passée" description="Votre historique se remplira au fil de vos cours." />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {passees.map((seance) => (
+                    <CarteSeance key={seance.session.id} seance={seance} maintenant={maintenant} onChange={recharger} />
+                  ))}
+                </div>
+              )}
+            </GroupeSection>
           </>
         )}
       </div>

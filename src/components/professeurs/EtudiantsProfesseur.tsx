@@ -5,6 +5,11 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { DossierEtudiantVue, initiales } from '../etudiants/DossierEtudiantVue'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
+import { ChampRecherche } from '../ui/BarreOutils'
+import { EtatVide } from '../ui/EtatVide'
+import { EtatChargement, MessageErreur } from '../ui/Etats'
 
 /* Équivalent, côté professeur, de EtudiantsAdmin.tsx : même agencement liste + dossier, mais
    scope réduit aux élèves actuellement assignés à ce professeur, et en lecture seule (aucun
@@ -25,20 +30,52 @@ export function EtudiantsProfesseur() {
 
   return (
     <ProfesseurLayout actif="Mes étudiants">
-      <div style={{ display: 'flex', gap: 18 }}>
-        <aside style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <input
-            placeholder="Rechercher un élève…"
-            value={recherche}
-            onChange={(e) => setRecherche(e.target.value)}
-            style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '11px 14px', fontSize: 13.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-          />
-          {loading && <p style={{ color: 'var(--muted)', fontSize: 13 }}>Chargement…</p>}
-          {!loading && filtres.length === 0 && <p style={{ color: 'var(--muted-2)', fontSize: 13 }}>Aucun élève assigné.</p>}
+      <EnTetePage
+        titre="Mes étudiants"
+        description="Les élèves qui vous sont actuellement attribués. Sélectionnez un nom pour consulter son parcours, ses séances et son assiduité."
+      />
+
+      <GuidePage
+        id="professeur-etudiants"
+        etapes={[
+          <>
+            Cette page est en <strong>lecture seule</strong> : elle vous informe sans rien vous demander de saisir.
+          </>,
+          <>
+            Le <strong>parcours pédagogique</strong> d’un élève liste toutes ses séances avec vous et sa présence à
+            chacune, utile pour préparer votre prochain cours.
+          </>,
+          <>
+            Seuls les élèves <strong>actuellement attribués</strong> apparaissent. Un élève qui change de professeur
+            disparaît de cette liste, mais son historique avec vous reste conservé dans son dossier.
+          </>,
+        ]}
+      />
+
+      <div className="grille-maitre-detail">
+        <aside style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+          <ChampRecherche valeur={recherche} onChange={setRecherche} placeholder="Rechercher un élève…" etiquette="Rechercher un élève" />
+
+          {loading && <EtatChargement lignes={3} hauteur={58} />}
+
+          {!loading && etudiantsActifs.length === 0 && (
+            <EtatVide
+              compact
+              icone="etudiants"
+              titre="Aucun élève assigné"
+              description="L’administration ne vous a pas encore attribué d’élève."
+            />
+          )}
+
+          {!loading && etudiantsActifs.length > 0 && filtres.length === 0 && (
+            <EtatVide compact icone="recherche" titre="Aucun résultat" description={`Aucun élève ne correspond à « ${recherche} ».`} />
+          )}
+
           {filtres.map((etudiant) => (
             <button
               key={etudiant.id}
               onClick={() => navigate(`/professeur/etudiants/${etudiant.id}`)}
+              aria-current={etudiant.id === id ? 'true' : undefined}
               className="carte-ligne"
               style={{
                 textAlign: 'left',
@@ -63,8 +100,16 @@ export function EtudiantsProfesseur() {
           ))}
         </aside>
 
-        <div style={{ flexGrow: 1, minWidth: 0 }}>
-          {id ? <DossierPanel studentId={id} /> : <p style={{ color: 'var(--muted)' }}>Sélectionnez un élève dans la liste.</p>}
+        <div style={{ minWidth: 0 }}>
+          {id ? (
+            <DossierPanel studentId={id} />
+          ) : (
+            <EtatVide
+              icone="dossier"
+              titre="Sélectionnez un élève"
+              description="Choisissez un nom dans la liste de gauche pour afficher son parcours : séances suivies avec vous, présence, heures et prochaine échéance."
+            />
+          )}
         </div>
       </div>
     </ProfesseurLayout>
@@ -74,8 +119,8 @@ export function EtudiantsProfesseur() {
 function DossierPanel({ studentId }: { studentId: string }) {
   const { dossier, loading, erreur } = useDossierEtudiant(studentId)
 
-  if (loading) return <p style={{ color: 'var(--muted)' }}>Chargement du dossier…</p>
-  if (erreur || !dossier) return <p style={{ color: 'var(--danger)' }}>{erreur ?? 'Dossier introuvable.'}</p>
+  if (loading) return <EtatChargement lignes={3} hauteur={110} />
+  if (erreur || !dossier) return <MessageErreur>{erreur ?? 'Dossier introuvable.'}</MessageErreur>
 
   return <DossierEtudiantVue dossier={dossier} />
 }

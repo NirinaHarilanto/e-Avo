@@ -1,65 +1,38 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useProfileContext } from '../../context/ProfileContext'
-import { supabase } from '../../lib/supabaseClient'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
-import { FactureImprimable } from '../facturation/FactureImprimable'
-import { BadgeStatutFacture } from '../shared/BadgeStatutFacture'
-import type { Database } from '../../types/database.types'
-
-type Invoice = Database['public']['Tables']['invoices']['Row']
+import { ListeFactures } from '../shared/ListeFactures'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
 
 export function FacturesProfesseur() {
-  const { profile } = useProfileContext()
-  const [factures, setFactures] = useState<Invoice[]>([])
-  const [loading, setLoading] = useState(true)
-  const [factureAImprimer, setFactureAImprimer] = useState<Invoice | null>(null)
-
-  const charger = useCallback(async () => {
-    if (!profile) return
-    setLoading(true)
-    const { data } = await supabase.from('invoices').select('*').eq('teacher_id', profile.id).order('date_emission', { ascending: false })
-    setFactures(data ?? [])
-    setLoading(false)
-  }, [profile])
-
-  useEffect(() => {
-    charger()
-  }, [charger])
-
   return (
     <ProfesseurLayout actif="Mes factures">
-      <h1 style={{ fontSize: 28, color: '#fff', marginBottom: 22 }}>Mes factures</h1>
+      <EnTetePage
+        titre="Mes factures"
+        description="Les factures émises par l’établissement pour vos rémunérations. Elles sont générées automatiquement au moment du versement, vous n’avez rien à créer."
+      />
 
-      {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
-      ) : factures.length === 0 ? (
-        <p style={{ color: 'var(--muted)' }}>Aucune facture pour le moment.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {factures.map((f) => (
-            <div key={f.id} className="card card-lift" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-              <div style={{ flexGrow: 1, minWidth: 200 }}>
-                <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
-                  {f.numero}
-                </span>
-                <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{f.objet}</div>
-              </div>
-              <span className="brand-font" style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>
-                {f.montant_ttc.toFixed(2)} €
-              </span>
-              <BadgeStatutFacture statut={f.statut} />
-              <button
-                onClick={() => setFactureAImprimer(f)}
-                style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}
-              >
-                Voir / Imprimer
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      <GuidePage
+        id="professeur-factures"
+        etapes={[
+          <>
+            Une facture apparaît ici dès que l’établissement enregistre le versement d’une de vos rémunérations.
+          </>,
+          <>
+            Le bouton <strong>Voir / Imprimer</strong> ouvre le document complet. Depuis cette vue, la fonction
+            d’impression de votre navigateur permet aussi de l’enregistrer en PDF.
+          </>,
+          <>
+            Le montant dépend de votre <strong>taux horaire</strong> et de vos heures enseignées. Si un chiffre vous
+            semble inexact, vérifiez d’abord vos heures dans « Mes heures », puis signalez-le à l’administration.
+          </>,
+        ]}
+      />
 
-      {factureAImprimer && <FactureImprimable facture={factureAImprimer} destinataire={profile} onFermer={() => setFactureAImprimer(null)} />}
+      <ListeFactures
+        colonne="teacher_id"
+        titreVide="Aucune facture pour le moment"
+        descriptionVide="Vos factures de rémunération apparaîtront ici automatiquement, dès que l’établissement aura enregistré un premier versement."
+      />
     </ProfesseurLayout>
   )
 }
