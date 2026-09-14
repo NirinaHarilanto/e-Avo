@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
+import { Champ, champStyle } from '../ui/Champ'
+import { MessageErreur } from '../ui/Etats'
+import { boutonNeutreStyle, boutonSecondaireStyle, boutonPrimaireStyle } from '../ui/Boutons'
+import { Icone } from '../ui/Icones'
 
 type SessionReport = Database['public']['Tables']['session_reports']['Row']
 
@@ -63,39 +67,37 @@ export function CompteRenduSeance({ sessionId, etablissementId, teacherId }: Com
     return (
       <button
         onClick={() => setOuvert(true)}
-        style={{ fontSize: 12.5, padding: '9px 16px', borderRadius: 999, border: '1px solid var(--border)', background: 'transparent', color: rapport ? 'var(--accent-teal)' : 'var(--accent-blue)', cursor: 'pointer' }}
+        style={{ ...(rapport ? boutonNeutreStyle : boutonSecondaireStyle), color: rapport ? 'var(--accent-teal)' : 'var(--accent-blue)', fontSize: 12.5, padding: '9px 16px' }}
       >
+        <Icone nom={rapport ? 'valide' : 'plus'} taille={14} />
         {rapport ? 'Modifier le compte rendu' : 'Rédiger un compte rendu'}
       </button>
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Thèmes abordés</label>
-        <input
-          value={themes}
-          onChange={(e) => setThemes(e.target.value)}
-          style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-        />
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Résumé</label>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
+      <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted-2)', lineHeight: 1.5 }}>
+        Ce compte rendu est visible par l’élève concerné et par l’administration de l’établissement.
+      </p>
+      <Champ label="Thèmes abordés" aide="Quelques mots-clés suffisent, séparés par des virgules.">
+        <input value={themes} onChange={(e) => setThemes(e.target.value)} style={champStyle} />
+      </Champ>
+      <Champ label="Résumé" aide="Ce qui a été travaillé et ce qu’il reste à revoir.">
         <textarea
           value={resume}
           onChange={(e) => setResume(e.target.value)}
           rows={3}
-          style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)', resize: 'vertical', fontFamily: 'inherit' }}
+          style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
         />
-      </div>
-      {erreur && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{erreur}</p>}
+      </Champ>
+      {erreur && <MessageErreur>{erreur}</MessageErreur>}
       <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={() => setOuvert(false)} style={{ flexGrow: 1, fontSize: 12.5, padding: 9, borderRadius: 999, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink-2)', cursor: 'pointer' }}>
+        <button onClick={() => setOuvert(false)} style={{ ...boutonNeutreStyle, flexGrow: 1, fontSize: 12.5, padding: 9 }}>
           Annuler
         </button>
-        <button onClick={enregistrer} disabled={enCours} className="btn-shine" style={{ flexGrow: 1, fontSize: 12.5, padding: 9, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours ? 0.6 : 1 }}>
-          Enregistrer
+        <button onClick={enregistrer} disabled={enCours} className="btn-shine" style={{ ...boutonPrimaireStyle, flexGrow: 1, fontSize: 12.5, padding: 9, opacity: enCours ? 0.6 : 1 }}>
+          {enCours ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </div>
     </div>

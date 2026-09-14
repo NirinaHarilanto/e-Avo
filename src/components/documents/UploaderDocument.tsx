@@ -2,6 +2,9 @@ import { useState, type FormEvent } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import type { CategorieDocument, Database } from '../../types/database.types'
+import { Champ, champStyle } from '../ui/Champ'
+import { MessageErreur } from '../ui/Etats'
+import { boutonPrimaireStyle } from '../ui/Boutons'
 
 type Document = Database['public']['Tables']['documents']['Row']
 
@@ -103,34 +106,37 @@ export function UploaderDocument({ ownerProfileId, etablissementId, onUploade, f
   }
 
   return (
-    <form onSubmit={envoyer} className="card" style={{ padding: 18, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+    <form onSubmit={envoyer} className="card" style={{ padding: 18, display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
       {!forcerCategorie && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 200 }}>
-          <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Catégorie</label>
-          <select
-            value={categorie}
-            onChange={(e) => setCategorie(e.target.value as CategorieDocument)}
-            style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 11px', fontSize: 13, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-          >
+        <Champ label="Catégorie" aide="Détermine qui pourra voir ce fichier." style={{ minWidth: 200 }}>
+          <select value={categorie} onChange={(e) => setCategorie(e.target.value as CategorieDocument)} style={champStyle}>
             {CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>
             ))}
           </select>
-        </div>
+        </Champ>
       )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexGrow: 1, minWidth: 220 }}>
-        <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Fichier (PDF, image ou .docx, 20 Mo max)</label>
+      <Champ label="Fichier" aide="PDF, image ou .docx — 20 Mo maximum." obligatoire style={{ flexGrow: 1, minWidth: 220 }}>
         <input
           type="file"
           accept={TYPES_ACCEPTES.join(',')}
           onChange={(e) => setFichier(e.target.files?.[0] ?? null)}
-          style={{ fontSize: 12.5, color: 'var(--ink)' }}
+          style={{ fontSize: 12.5, color: 'var(--ink)', padding: '8px 0' }}
         />
-      </div>
-      {erreur && <p style={{ color: 'var(--danger)', fontSize: 12.5, width: '100%' }}>{erreur}</p>}
-      <button type="submit" disabled={!fichier || enCours} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510', opacity: !fichier || enCours ? 0.6 : 1 }}>
+      </Champ>
+      {erreur && (
+        <div style={{ width: '100%' }}>
+          <MessageErreur>{erreur}</MessageErreur>
+        </div>
+      )}
+      <button
+        type="submit"
+        disabled={!fichier || enCours}
+        className="btn-shine"
+        style={{ ...boutonPrimaireStyle, marginTop: 18, opacity: !fichier || enCours ? 0.6 : 1 }}
+      >
         {enCours ? 'Envoi…' : 'Ajouter le document'}
       </button>
     </form>

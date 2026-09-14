@@ -2,6 +2,10 @@ import { useState, type ReactNode } from 'react'
 import type { DossierEtudiant, PeriodeProfesseur } from '../../hooks/useDossierEtudiant'
 import { getJoinUrl } from '../../lib/visio'
 import type { Database } from '../../types/database.types'
+import { GrilleStats, Stat } from '../ui/Stat'
+import { Section } from '../ui/Section'
+import { EtatVide } from '../ui/EtatVide'
+import { LigneInfo } from '../ui/Champ'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -9,28 +13,20 @@ export function initiales(profile: Pick<Profile, 'nom' | 'prenom'>) {
   return `${(profile.prenom?.[0] ?? '').toUpperCase()}${(profile.nom?.[0] ?? '').toUpperCase()}`
 }
 
-function Tuile({ label, children, halo }: { label: string; children: ReactNode; halo?: string }) {
-  return (
-    <div className="card" style={{ position: 'relative', overflow: 'hidden', padding: '18px 20px' }}>
-      {halo && <span style={{ position: 'absolute', top: -30, right: -30, width: 150, height: 120, background: `radial-gradient(closest-side, ${halo}, transparent)` }} />}
-      <span style={{ position: 'relative', fontSize: 12, color: 'var(--muted)' }}>{label}</span>
-      <div style={{ position: 'relative', marginTop: 8 }}>{children}</div>
-    </div>
-  )
-}
-
-function LigneInfo({ label, valeur }: { label: string; valeur: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{label}</span>
-      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{valeur}</span>
-    </div>
-  )
+const boutonPanneauStyle: React.CSSProperties = {
+  fontSize: 11.5,
+  fontWeight: 700,
+  color: 'var(--accent-blue)',
+  background: 'transparent',
+  border: '1px solid var(--border)',
+  borderRadius: 999,
+  padding: '6px 12px',
+  cursor: 'pointer',
 }
 
 function LigneDiagnostic({ diagnostic }: { diagnostic: NonNullable<DossierEtudiant['diagnostic']> }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, borderRadius: 14, border: '1px solid rgba(255,255,255,.08)', background: 'rgba(255,255,255,.03)', padding: '15px 18px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', borderRadius: 14, border: '1px solid rgba(255,255,255,.08)', background: 'rgba(255,255,255,.03)', padding: '15px 18px' }}>
       <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink-2)', flexGrow: 1 }}>
         Appel diagnostic réalisé{diagnostic.niveau_evalue ? ` · niveau initial ${diagnostic.niveau_evalue}` : ''}
       </span>
@@ -55,6 +51,38 @@ function StatutSeance({ enrollment, statutSession }: { enrollment: { present: bo
   return <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>—</span>
 }
 
+/* Bloc d'identité du professeur d'une période, repris par la carte latérale et l'en-tête de
+   période — il était jusqu'ici recopié trois fois à l'identique dans ce fichier. */
+function IdentiteProfesseur({ periode, taille = 46 }: { periode: PeriodeProfesseur; taille?: number }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 13, minWidth: 0 }}>
+      <span
+        style={{
+          width: taille,
+          height: taille,
+          borderRadius: taille / 3,
+          background: 'var(--accent-blue-gradient)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#fff',
+          fontSize: 14,
+          fontWeight: 800,
+          flexShrink: 0,
+        }}
+      >
+        {periode.professeur ? initiales(periode.professeur) : '?'}
+      </span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+        <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
+          {periode.professeur ? `${periode.professeur.prenom} ${periode.professeur.nom}` : 'Professeur'}
+        </span>
+        <span style={{ fontSize: 12, color: 'var(--muted)' }}>{periode.affectation.langue ?? 'Langue non précisée'}</span>
+      </div>
+    </div>
+  )
+}
+
 function BlocPeriode({ periode, estActuelle }: { periode: PeriodeProfesseur; estActuelle: boolean }) {
   const heures = periode.seances.reduce((total, s) => total + s.session.duree_minutes / 60, 0)
   return (
@@ -66,7 +94,7 @@ function BlocPeriode({ periode, estActuelle }: { periode: PeriodeProfesseur; est
         overflow: 'hidden',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderBottom: periode.seances.length ? '1px solid var(--border-soft)' : 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '16px 18px', borderBottom: periode.seances.length ? '1px solid var(--border-soft)' : 'none' }}>
         <span
           style={{
             width: 44,
@@ -84,7 +112,7 @@ function BlocPeriode({ periode, estActuelle }: { periode: PeriodeProfesseur; est
         >
           {periode.professeur ? initiales(periode.professeur) : '?'}
         </span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexGrow: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexGrow: 1, minWidth: 160 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
             <span className="brand-font" style={{ fontSize: 16, color: 'var(--ink)' }}>
               {periode.professeur ? `${periode.professeur.prenom} ${periode.professeur.nom}` : 'Professeur'}
@@ -119,18 +147,41 @@ function BlocPeriode({ periode, estActuelle }: { periode: PeriodeProfesseur; est
         </div>
       </div>
 
-      {periode.seances.map((seance) => (
-        <div key={seance.enrollment.id} className="row-hl" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '11px 18px', borderBottom: '1px solid var(--border-soft)' }}>
-          <span style={{ fontSize: 12, color: 'var(--muted)', width: 90, flexShrink: 0 }}>
-            {new Date(seance.session.debut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
-          </span>
-          <span style={{ fontSize: 13, color: 'var(--ink)', flexGrow: 1 }}>
-            {seance.session.type === 'individuel' ? 'Séance individuelle' : 'Séance collective'}
-          </span>
-          <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{seance.session.duree_minutes / 60} h</span>
-          <StatutSeance enrollment={seance.enrollment} statutSession={seance.session.statut} />
+      {periode.seances.length > 0 && (
+        <div role="table" aria-label="Séances de la période">
+          <div
+            role="row"
+            style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '7px 18px', background: 'rgba(0,0,0,.18)', borderBottom: '1px solid var(--border-soft)' }}
+          >
+            <span role="columnheader" style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 90, flexShrink: 0 }}>
+              Date
+            </span>
+            <span role="columnheader" style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, flexGrow: 1 }}>
+              Séance
+            </span>
+            <span role="columnheader" style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Durée
+            </span>
+            <span role="columnheader" style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 72, textAlign: 'right' }}>
+              Présence
+            </span>
+          </div>
+          {periode.seances.map((seance) => (
+            <div key={seance.enrollment.id} role="row" className="row-hl" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '11px 18px', borderBottom: '1px solid var(--border-soft)' }}>
+              <span style={{ fontSize: 12, color: 'var(--muted)', width: 90, flexShrink: 0 }}>
+                {new Date(seance.session.debut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+              </span>
+              <span style={{ fontSize: 13, color: 'var(--ink)', flexGrow: 1 }}>
+                {seance.session.type === 'individuel' ? 'Séance individuelle' : 'Séance collective'}
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{seance.session.duree_minutes / 60} h</span>
+              <span style={{ width: 72, textAlign: 'right' }}>
+                <StatutSeance enrollment={seance.enrollment} statutSession={seance.session.statut} />
+              </span>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   )
 }
@@ -174,16 +225,22 @@ export function DossierEtudiantVue({
       : null
   const professeurActuel = periodes[0] && !periodes[0].affectation.date_fin ? periodes[0] : null
 
+  // La colonne latérale pouvait se retrouver totalement vide sur un dossier qui vient d'être
+  // créé (ni professeur, ni diagnostic, ni programme) en laissant une gouttière de 320 px sans
+  // rien dedans, et sans dire à l'utilisateur ce qu'il lui restait à faire.
+  const colonneLateraleVide =
+    !panneauInformations && !professeurActuel && !panneauProfesseur && !diagnostic && !cohorte && !forfait && !panneauChoixInitial
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <span style={{ width: 54, height: 54, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 18, fontWeight: 800, flexShrink: 0 }}>
           {initiales(etudiant)}
         </span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <h1 style={{ fontSize: 24, color: '#fff' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+          <h2 style={{ fontSize: 22, color: '#fff', margin: 0 }}>
             {etudiant.prenom} {etudiant.nom}
-          </h1>
+          </h2>
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 7 }}>
             <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.32)', borderRadius: 999, padding: '4px 11px' }}>
               {etudiant.status === 'approved' ? 'Étudiant actif' : etudiant.status}
@@ -198,133 +255,117 @@ export function DossierEtudiantVue({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
-        <Tuile label="Heures suivies" halo="rgba(233,207,148,.2)">
-          <span className="brand-font" style={{ fontSize: 26, color: 'var(--accent-gold, #e9cf94)' }}>
-            {heuresConsommees}
-          </span>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--muted)' }}> h{forfait ? ` / ${forfait.total_heures} h` : ''}</span>
-        </Tuile>
-        <Tuile label="Assiduité" halo="rgba(111,227,192,.2)">
-          <span className="brand-font" style={{ fontSize: 26, color: 'var(--accent-teal)' }}>
-            {assiduite === null ? '—' : `${assiduite} %`}
-          </span>
-        </Tuile>
-        <Tuile label="Prochaine séance" halo="rgba(94,179,255,.2)">
-          {prochaineSeance ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <span className="brand-font" style={{ fontSize: 18, color: 'var(--accent-cyan)' }}>
+      <GrilleStats min={180}>
+        <Stat
+          libelle="Heures suivies"
+          valeur={heuresConsommees}
+          unite={forfait ? `h / ${forfait.total_heures} h` : 'h'}
+          ton="or"
+          aide={forfait ? `Forfait de ${forfait.total_heures} h` : 'Aucun forfait rattaché'}
+        />
+        <Stat
+          libelle="Assiduité"
+          valeur={assiduite === null ? '—' : `${assiduite} %`}
+          ton="teal"
+          aide={seancesTerminees.length > 0 ? `Sur ${seancesTerminees.length} séance${seancesTerminees.length > 1 ? 's' : ''} clôturée${seancesTerminees.length > 1 ? 's' : ''}` : 'Aucune séance clôturée'}
+        />
+        <Stat
+          libelle="Prochaine séance"
+          valeur={
+            prochaineSeance ? (
+              <span style={{ fontSize: 17 }}>
                 {new Date(prochaineSeance.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
               </span>
-              {prochaineSeance.video && (
-                <a href={getJoinUrl(prochaineSeance.video)} target="_blank" rel="noreferrer" className="btn-shine btn-secondary" style={{ alignSelf: 'flex-start', fontSize: 11.5, padding: '7px 13px' }}>
-                  Rejoindre
-                </a>
-              )}
-            </div>
-          ) : (
-            <span style={{ fontSize: 13, color: 'var(--muted)' }}>Aucune planifiée</span>
-          )}
-        </Tuile>
-        <Tuile label="Niveau évalué" halo="rgba(199,156,255,.2)">
-          <span className="brand-font" style={{ fontSize: 26, color: 'var(--accent-violet)' }}>
-            {diagnostic?.niveau_evalue ?? '—'}
-          </span>
-        </Tuile>
-      </div>
+            ) : (
+              <span style={{ fontSize: 17 }}>Aucune planifiée</span>
+            )
+          }
+          ton="bleu"
+          pied={
+            prochaineSeance?.video ? (
+              <a href={getJoinUrl(prochaineSeance.video)} target="_blank" rel="noreferrer" className="btn-shine btn-secondary" style={{ fontSize: 11.5, padding: '7px 13px' }}>
+                Rejoindre la visio
+              </a>
+            ) : undefined
+          }
+        />
+        <Stat libelle="Niveau évalué" valeur={diagnostic?.niveau_evalue ?? '—'} ton="violet" aide={diagnostic ? 'Établi lors de l’appel diagnostic' : 'Pas encore de diagnostic'} />
+      </GrilleStats>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 300px', gap: 18, alignItems: 'start' }}>
-        <div className="card" style={{ padding: 24 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 20 }}>
-            <h2 style={{ fontSize: 19, color: 'var(--accent-gold, #e9cf94)' }}>Parcours pédagogique</h2>
-            <p style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-              {periodes.length} période{periodes.length > 1 ? 's' : ''} de suivi
-              {periodes.length > 1 ? ` · ${periodes.length} professeurs depuis l'inscription` : ''}
-            </p>
-          </div>
-
+      <div className="grille-dossier">
+        <Section
+          titre="Parcours pédagogique"
+          description={
+            periodes.length > 0
+              ? `${periodes.length} période${periodes.length > 1 ? 's' : ''} de suivi${periodes.length > 1 ? ` · ${periodes.length} professeurs depuis l’inscription` : ''}. Chaque période liste les séances du professeur concerné.`
+              : undefined
+          }
+          padding={22}
+        >
           {periodes.length === 0 && diagnostic && <LigneDiagnostic diagnostic={diagnostic} />}
-          {periodes.length === 0 && !diagnostic && <p style={{ color: 'var(--muted)' }}>Aucune séance enregistrée pour le moment.</p>}
+          {periodes.length === 0 && !diagnostic && (
+            <EtatVide
+              icone="seances"
+              titre="Aucune séance enregistrée"
+              description="Le parcours se remplit automatiquement dès qu’un professeur est attribué et que ses séances sont planifiées puis clôturées."
+            />
+          )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {periodes.map((periode, index) => (
-              <BlocPeriode key={periode.affectation.id} periode={periode} estActuelle={index === 0 && !periode.affectation.date_fin} />
-            ))}
-            {diagnostic && periodes.length > 0 && <LigneDiagnostic diagnostic={diagnostic} />}
-          </div>
-        </div>
+          {periodes.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {periodes.map((periode, index) => (
+                <BlocPeriode key={periode.affectation.id} periode={periode} estActuelle={index === 0 && !periode.affectation.date_fin} />
+              ))}
+              {diagnostic && <LigneDiagnostic diagnostic={diagnostic} />}
+            </div>
+          )}
+        </Section>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
           {panneauInformations}
 
-          {professeurActuel && !panneauProfesseur && (
-            <div className="card" style={{ padding: '20px 22px' }}>
-              <h3 style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)', marginBottom: 14 }}>Professeur actuel</h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-                <span style={{ width: 46, height: 46, borderRadius: 15, background: 'var(--accent-blue-gradient)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 800, flexShrink: 0 }}>
-                  {professeurActuel.professeur ? initiales(professeurActuel.professeur) : '?'}
-                </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
-                    {professeurActuel.professeur ? `${professeurActuel.professeur.prenom} ${professeurActuel.professeur.nom}` : 'Professeur'}
-                  </span>
-                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>{professeurActuel.affectation.langue}</span>
-                </div>
+          {/* Une seule carte « Professeur actuel » : la version lecture seule et la version avec
+              actions étaient auparavant deux blocs jumeaux de 16 lignes, à maintenir en double. */}
+          {professeurActuel && (
+            <Section titre="Professeur actuel" padding="18px 20px">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <IdentiteProfesseur periode={professeurActuel} />
+                {panneauProfesseur}
               </div>
-            </div>
-          )}
-
-          {panneauProfesseur && professeurActuel && (
-            <div className="card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <h3 style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>Professeur actuel</h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-                <span style={{ width: 46, height: 46, borderRadius: 15, background: 'var(--accent-blue-gradient)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 800, flexShrink: 0 }}>
-                  {professeurActuel.professeur ? initiales(professeurActuel.professeur) : '?'}
-                </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
-                    {professeurActuel.professeur ? `${professeurActuel.professeur.prenom} ${professeurActuel.professeur.nom}` : 'Professeur'}
-                  </span>
-                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>{professeurActuel.affectation.langue}</span>
-                </div>
-              </div>
-              {panneauProfesseur}
-            </div>
+            </Section>
           )}
           {panneauProfesseur && !professeurActuel && panneauProfesseur}
 
           {diagnostic && (
-            <div className="card" style={{ padding: '20px 22px' }}>
-              <h3 style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)', marginBottom: 14 }}>Appel diagnostic</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <Section titre="Appel diagnostic" padding="18px 20px">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <LigneInfo label="Date" valeur={new Date(diagnostic.date_appel).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })} />
                 <LigneInfo label="Niveau évalué" valeur={diagnostic.niveau_evalue ?? '—'} />
                 <LigneInfo label="Rythme convenu" valeur={diagnostic.rythme_convenu ?? '—'} />
               </div>
               {diagnostic.notes && (
-                <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)', background: 'rgba(0,0,0,.24)', borderRadius: 12, padding: '11px 13px', marginTop: 14 }}>
+                <p style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)', background: 'rgba(0,0,0,.24)', borderRadius: 12, padding: '11px 13px', margin: '14px 0 0' }}>
                   « {diagnostic.notes} »
                 </p>
               )}
-            </div>
+            </Section>
           )}
 
           {!forfait && !cohorte && panneauChoixInitial}
 
           {cohorte && (
-            <div className="card" style={{ padding: '20px 22px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <h3 style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>Programme collectif</h3>
-                {panneauVague && (
-                  <button
-                    onClick={() => setEditionVagueOuverte((v) => !v)}
-                    style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '6px 12px', cursor: 'pointer' }}
-                  >
-                    Changer
+            <Section
+              titre="Programme collectif"
+              padding="18px 20px"
+              actions={
+                panneauVague ? (
+                  <button onClick={() => setEditionVagueOuverte((v) => !v)} style={boutonPanneauStyle}>
+                    {editionVagueOuverte ? 'Annuler' : 'Changer'}
                   </button>
-                )}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                ) : undefined
+              }
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <LigneInfo label="Vague" valeur={cohorte.nom} />
                 <LigneInfo label="Langue" valeur={cohorte.langue ?? '—'} />
                 <LigneInfo
@@ -333,50 +374,71 @@ export function DossierEtudiantVue({
                 />
               </div>
               {editionVagueOuverte && <div style={{ marginTop: 14 }}>{panneauVague}</div>}
-            </div>
+            </Section>
           )}
 
           {!cohorte && forfait && (
-            <div className="card" style={{ padding: '20px 22px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 8, flexWrap: 'wrap' }}>
-                <h3 style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>Forfait en cours</h3>
-                <div style={{ display: 'flex', gap: 8 }}>
+            <Section
+              titre="Forfait en cours"
+              padding="18px 20px"
+              actions={
+                <>
                   {panneauPlanification && (
-                    <button
-                      onClick={() => setPlanificationOuverte((v) => !v)}
-                      style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '6px 12px', cursor: 'pointer' }}
-                    >
-                      Planifier les séances
+                    <button onClick={() => setPlanificationOuverte((v) => !v)} style={boutonPanneauStyle}>
+                      {planificationOuverte ? 'Annuler' : 'Planifier les séances'}
                     </button>
                   )}
                   {panneauForfaitEdition && (
-                    <button
-                      onClick={() => setEditionForfaitOuverte((v) => !v)}
-                      style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '6px 12px', cursor: 'pointer' }}
-                    >
-                      Modifier
+                    <button onClick={() => setEditionForfaitOuverte((v) => !v)} style={boutonPanneauStyle}>
+                      {editionForfaitOuverte ? 'Annuler' : 'Modifier'}
                     </button>
                   )}
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                </>
+              }
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <LigneInfo label="Programme" valeur={forfait.type_programme === 'duo' ? 'Duo' : 'Individuel'} />
                 <LigneInfo label="Formule" valeur={`${forfait.total_heures} h`} />
                 <LigneInfo label="Consommées" valeur={`${heuresConsommees} h`} />
+                <LigneInfo label="Restantes" valeur={`${Math.max(0, forfait.total_heures - heuresConsommees)} h`} />
                 <LigneInfo label="Échéance" valeur={forfait.echeance ? new Date(forfait.echeance).toLocaleDateString('fr-FR') : '—'} />
               </div>
-              <div style={{ height: 10, borderRadius: 999, background: 'rgba(0,0,0,.3)', overflow: 'hidden', display: 'flex', marginTop: 14 }}>
-                <span
-                  style={{
-                    width: `${Math.min(100, (heuresConsommees / forfait.total_heures) * 100)}%`,
-                    background: 'linear-gradient(90deg,#5eb3ff,#e9cf94)',
-                    borderRadius: 999,
-                  }}
-                />
+              <div style={{ marginTop: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Progression du forfait</span>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>
+                    {Math.round(Math.min(100, (heuresConsommees / forfait.total_heures) * 100))} %
+                  </span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-valuenow={heuresConsommees}
+                  aria-valuemin={0}
+                  aria-valuemax={forfait.total_heures}
+                  aria-label="Heures consommées sur le forfait"
+                  style={{ height: 10, borderRadius: 999, background: 'rgba(0,0,0,.3)', overflow: 'hidden', display: 'flex' }}
+                >
+                  <span
+                    style={{
+                      width: `${Math.min(100, (heuresConsommees / forfait.total_heures) * 100)}%`,
+                      background: 'linear-gradient(90deg,#5eb3ff,#e9cf94)',
+                      borderRadius: 999,
+                    }}
+                  />
+                </div>
               </div>
               {editionForfaitOuverte && <div style={{ marginTop: 14 }}>{panneauForfaitEdition}</div>}
               {planificationOuverte && <div style={{ marginTop: 14 }}>{panneauPlanification}</div>}
-            </div>
+            </Section>
+          )}
+
+          {colonneLateraleVide && (
+            <EtatVide
+              compact
+              icone="dossier"
+              titre="Dossier à compléter"
+              description="Ce dossier n’a encore ni professeur, ni programme, ni appel diagnostic. Un administrateur doit attribuer un professeur puis choisir un programme pour que le suivi démarre."
+            />
           )}
         </div>
       </div>

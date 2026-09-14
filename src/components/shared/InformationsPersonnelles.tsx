@@ -1,17 +1,12 @@
 import { useState, type ReactNode } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
+import { Section } from '../ui/Section'
+import { Champ, LigneInfo, champStyle } from '../ui/Champ'
+import { MessageErreur } from '../ui/Etats'
+import { boutonSecondaireStyle, boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
-
-const champStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  padding: '9px 10px',
-  fontSize: 12.5,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
-}
 
 interface InformationsPersonnellesProps {
   personne: Profile
@@ -69,21 +64,19 @@ export function InformationsPersonnelles({ personne, onChange, extra }: Informat
   }
 
   return (
-    <div className="card" style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h3 style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>Informations personnelles</h3>
-        {!edition && (
-          <button
-            onClick={() => setEdition(true)}
-            style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '6px 12px', cursor: 'pointer' }}
-          >
+    <Section
+      titre="Informations personnelles"
+      padding="18px 20px"
+      actions={
+        !edition ? (
+          <button onClick={() => setEdition(true)} style={boutonSecondaireStyle}>
             Modifier
           </button>
-        )}
-      </div>
-
+        ) : undefined
+      }
+    >
       {!edition ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <LigneInfo label="Nom" valeur={personne.nom ?? '—'} />
           <LigneInfo label="Prénom" valeur={personne.prenom ?? '—'} />
           <LigneInfo label="E-mail" valeur={personne.email ?? '—'} />
@@ -92,43 +85,40 @@ export function InformationsPersonnelles({ personne, onChange, extra }: Informat
           {estProfesseur && <LigneInfo label="Taux horaire" valeur={personne.taux_horaire ? `${personne.taux_horaire} €/h` : '—'} />}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <Champ label="Nom" value={nom} onChange={setNom} />
-          <Champ label="Prénom" value={prenom} onChange={setPrenom} />
-          <Champ label="Téléphone" value={telephone} onChange={setTelephone} />
-          <Champ label="Adresse" value={adresse} onChange={setAdresse} />
-          {estProfesseur && <Champ label="Taux horaire (€/h)" value={tauxHoraire} onChange={setTauxHoraire} type="number" />}
-          {erreur && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{erreur}</p>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+          <Champ label="Nom">
+            <input value={nom} onChange={(e) => setNom(e.target.value)} style={champStyle} />
+          </Champ>
+          <Champ label="Prénom">
+            <input value={prenom} onChange={(e) => setPrenom(e.target.value)} style={champStyle} />
+          </Champ>
+          <Champ label="E-mail" aide="L’e-mail sert d’identifiant de connexion : il se modifie depuis le compte, pas ici.">
+            <input value={personne.email ?? ''} disabled style={{ ...champStyle, opacity: 0.55, cursor: 'not-allowed' }} />
+          </Champ>
+          <Champ label="Téléphone">
+            <input value={telephone} onChange={(e) => setTelephone(e.target.value)} style={champStyle} />
+          </Champ>
+          <Champ label="Adresse">
+            <input value={adresse} onChange={(e) => setAdresse(e.target.value)} style={champStyle} />
+          </Champ>
+          {estProfesseur && (
+            <Champ label="Taux horaire (€/h)" aide="Sert au calcul automatique des rémunérations à l’heure enseignée.">
+              <input type="number" value={tauxHoraire} onChange={(e) => setTauxHoraire(e.target.value)} style={champStyle} />
+            </Champ>
+          )}
+          {erreur && <MessageErreur>{erreur}</MessageErreur>}
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={annuler} style={{ flexGrow: 1, fontSize: 12.5, padding: 9, borderRadius: 999, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink-2)', cursor: 'pointer' }}>
+            <button onClick={annuler} style={{ ...boutonNeutreStyle, flexGrow: 1, fontSize: 12.5, padding: 9 }}>
               Annuler
             </button>
-            <button onClick={enregistrer} disabled={enCours} className="btn-shine" style={{ flexGrow: 1, fontSize: 12.5, padding: 9, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours ? 0.6 : 1 }}>
-              Enregistrer
+            <button onClick={enregistrer} disabled={enCours} className="btn-shine" style={{ ...boutonPrimaireStyle, flexGrow: 1, fontSize: 12.5, padding: 9, opacity: enCours ? 0.6 : 1 }}>
+              {enCours ? 'Enregistrement…' : 'Enregistrer'}
             </button>
           </div>
         </div>
       )}
 
       {extra}
-    </div>
-  )
-}
-
-function LigneInfo({ label, valeur }: { label: string; valeur: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{label}</span>
-      <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)' }}>{valeur}</span>
-    </div>
-  )
-}
-
-function Champ({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; type?: string }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>{label}</label>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} style={champStyle} />
-    </div>
+    </Section>
   )
 }

@@ -3,6 +3,8 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { CATEGORIES } from './UploaderDocument'
+import { EtatVide } from '../ui/EtatVide'
+import { boutonSecondaireStyle, boutonDangerStyle } from '../ui/Boutons'
 
 type Document = Database['public']['Tables']['documents']['Row']
 
@@ -19,18 +21,44 @@ interface ListeDocumentsProps {
   documents: Document[]
   peutSupprimer: (document: Document) => boolean
   onChange: () => void
+  messageVide?: string
 }
 
-export function ListeDocuments({ documents, peutSupprimer, onChange }: ListeDocumentsProps) {
+const enTeteStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 800,
+  color: 'var(--muted-2)',
+  textTransform: 'uppercase',
+  letterSpacing: 0.5,
+}
+
+export function ListeDocuments({ documents, peutSupprimer, onChange, messageVide }: ListeDocumentsProps) {
   if (documents.length === 0) {
-    return <p style={{ color: 'var(--muted)', fontSize: 13 }}>Aucun document.</p>
+    return (
+      <EtatVide
+        compact
+        icone="documents"
+        titre="Aucun document"
+        description={messageVide ?? 'Utilisez le formulaire ci-dessus pour déposer un premier fichier (PDF, image ou .docx, 20 Mo maximum).'}
+      />
+    )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {documents.map((document) => (
-        <LigneDocument key={document.id} document={document} peutSupprimer={peutSupprimer(document)} onChange={onChange} />
-      ))}
+    <div>
+      {/* La liste se lisait comme un tableau sans jamais dire ce que contenaient ses colonnes. */}
+      <div
+        className="ligne-entete-documents"
+        style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '0 4px 8px', borderBottom: '1px solid var(--border-soft)' }}
+      >
+        <span style={{ ...enTeteStyle, flexGrow: 1, minWidth: 200 }}>Fichier</span>
+        <span style={{ ...enTeteStyle, width: 160, textAlign: 'right' }}>Actions</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {documents.map((document) => (
+          <LigneDocument key={document.id} document={document} peutSupprimer={peutSupprimer(document)} onChange={onChange} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -69,28 +97,34 @@ function LigneDocument({ document, peutSupprimer, onChange }: { document: Docume
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 4px', borderBottom: '1px solid var(--border-soft)', flexWrap: 'wrap' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexGrow: 1, minWidth: 200 }}>
+    <div className="row-hl" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 4px', borderBottom: '1px solid var(--border-soft)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexGrow: 1, minWidth: 200 }}>
         <span style={{ fontSize: 13, color: 'var(--ink)' }}>{document.nom_original}</span>
-        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-          {libelleCategorie(document.categorie)} · {formatTaille(document.taille_octets)} · {new Date(document.created_at).toLocaleDateString('fr-FR')}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 11, color: 'var(--muted)' }}>
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              color: 'var(--accent-cyan)',
+              background: 'rgba(94,179,255,.10)',
+              border: '1px solid rgba(94,179,255,.22)',
+              borderRadius: 999,
+              padding: '2px 8px',
+            }}
+          >
+            {libelleCategorie(document.categorie)}
+          </span>
+          {formatTaille(document.taille_octets)} · déposé le {new Date(document.created_at).toLocaleDateString('fr-FR')}
         </span>
         {erreur && <span style={{ fontSize: 11.5, color: 'var(--danger)' }}>{erreur}</span>}
       </div>
       <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-        <button
-          onClick={telecharger}
-          style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}
-        >
+        <button onClick={telecharger} style={boutonSecondaireStyle}>
           Télécharger
         </button>
         {peutSupprimer && (
-          <button
-            onClick={supprimer}
-            disabled={enCours}
-            style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer', opacity: enCours ? 0.6 : 1 }}
-          >
-            Supprimer
+          <button onClick={supprimer} disabled={enCours} style={{ ...boutonDangerStyle, opacity: enCours ? 0.6 : 1 }}>
+            {enCours ? 'Suppression…' : 'Supprimer'}
           </button>
         )}
       </div>

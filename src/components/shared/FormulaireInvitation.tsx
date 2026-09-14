@@ -1,14 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
-
-const champStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  padding: '9px 11px',
-  fontSize: 13,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
-}
+import { Champ, champStyle } from '../ui/Champ'
+import { MessageErreur, MessageSucces } from '../ui/Etats'
+import { boutonPrimaireStyle } from '../ui/Boutons'
 
 interface FormulaireInvitationProps {
   /* Route API cible : api/admin/inviter-professeur, api/admin/inviter-etudiant, ou
@@ -57,30 +51,42 @@ export function FormulaireInvitation({ endpoint, roleLabel, onTermine, corpsSupp
 
   if (succes) {
     return (
-      <div className="card" style={{ padding: 20, marginBottom: 20, color: 'var(--accent-teal)' }}>
-        Invitation envoyée à {email}.
+      <div style={{ marginBottom: 20 }}>
+        <MessageSucces>Invitation envoyée à {email}.</MessageSucces>
       </div>
     )
   }
 
   return (
-    <form onSubmit={envoyer} className="card" style={{ padding: 20, marginBottom: 20, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexGrow: 1, minWidth: 160 }}>
-        <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Prénom</label>
-        <input required value={prenom} onChange={(e) => setPrenom(e.target.value)} style={champStyle} />
+    <form
+      onSubmit={envoyer}
+      className="card"
+      style={{ padding: 20, marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 14 }}
+    >
+      <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6 }}>
+        Un e-mail d’invitation sera envoyé à cette adresse. La personne y choisira elle-même son mot de passe, puis
+        accédera directement à son espace : vous n’avez pas de mot de passe à créer ni à transmettre.
+      </p>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <Champ label="Prénom" obligatoire style={{ flexGrow: 1, minWidth: 160 }}>
+          <input required value={prenom} onChange={(e) => setPrenom(e.target.value)} style={champStyle} />
+        </Champ>
+        <Champ label="Nom" obligatoire style={{ flexGrow: 1, minWidth: 160 }}>
+          <input required value={nom} onChange={(e) => setNom(e.target.value)} style={champStyle} />
+        </Champ>
+        <Champ label="E-mail" obligatoire style={{ flexGrow: 2, minWidth: 220 }}>
+          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={champStyle} />
+        </Champ>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexGrow: 1, minWidth: 160 }}>
-        <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Nom</label>
-        <input required value={nom} onChange={(e) => setNom(e.target.value)} style={champStyle} />
+
+      {erreur && <MessageErreur>{erreur}</MessageErreur>}
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button type="submit" disabled={enCours} className="btn-shine" style={{ ...boutonPrimaireStyle, opacity: enCours ? 0.6 : 1 }}>
+          {enCours ? 'Envoi…' : `Inviter ${roleLabel.toLowerCase()}`}
+        </button>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexGrow: 2, minWidth: 220 }}>
-        <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>E-mail</label>
-        <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={champStyle} />
-      </div>
-      {erreur && <p style={{ color: 'var(--danger)', fontSize: 12.5, width: '100%' }}>{erreur}</p>}
-      <button type="submit" disabled={enCours} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours ? 0.6 : 1 }}>
-        {enCours ? 'Envoi…' : `Inviter ${roleLabel.toLowerCase()}`}
-      </button>
     </form>
   )
 }
