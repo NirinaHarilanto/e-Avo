@@ -19,6 +19,7 @@ import { boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 
 type Onglet = 'modeles' | 'contrats'
+type ContractTemplate = Database['public']['Tables']['contract_templates']['Row']
 
 const LABELS_STATUT: Record<StatutContrat, string> = { brouillon: 'Brouillon', envoye: 'Envoyé', signe: 'Signé', resilie: 'Résilié' }
 // 'signe' n'est jamais choisi manuellement : posé automatiquement par le trigger
@@ -29,6 +30,7 @@ export function ContratsAdmin() {
   const { profile } = useProfileContext()
   const [onglet, setOnglet] = useState<Onglet>('modeles')
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
+  const [modeleEnEdition, setModeleEnEdition] = useState<ContractTemplate | null>(null)
   const [contratAImprimer, setContratAImprimer] = useState<ContratAvecDestinataire | null>(null)
 
   const { modeles, loading: chargementModeles, erreur: erreurModeles, recharger: rechargerModeles } = useContratsTypes()
@@ -37,6 +39,7 @@ export function ContratsAdmin() {
   async function supprimerModele(id: string) {
     if (!window.confirm('Supprimer ce modèle ?')) return
     await supabase.from('contract_templates').delete().eq('id', id)
+    setModeleEnEdition((actuel) => (actuel?.id === id ? null : actuel))
     rechargerModeles()
   }
 
@@ -51,7 +54,14 @@ export function ContratsAdmin() {
         titre="Contrats"
         description="Vos modèles de contrat et les contrats effectivement émis. La signature se fait directement dans l'application, sans prestataire externe."
         actions={
-          <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
+          <button
+            onClick={() => {
+              setModeleEnEdition(null)
+              setFormulaireOuvert((v) => !v)
+            }}
+            className="btn-shine"
+            style={boutonPrimaireStyle}
+          >
             <Icone nom="plus" taille={15} />
             {formulaireOuvert ? 'Fermer' : onglet === 'modeles' ? 'Nouveau modèle' : 'Générer un contrat'}
           </button>
@@ -64,6 +74,10 @@ export function ContratsAdmin() {
           <>
             Créez d'abord un <strong>modèle</strong> dans le premier onglet. Insérez-y des variables entre doubles
             accolades, comme <code>{'{{prenom}}'}</code>, qui seront remplacées automatiquement.
+          </>,
+          <>
+            <strong>Modifier</strong> un modèle existant change son texte pour les prochains contrats générés à partir
+            de lui. Les contrats déjà émis gardent leur texte d'origine, figé au moment de leur émission.
           </>,
           <>
             Passez ensuite à <strong>Contrats générés</strong> et choisissez un modèle et un destinataire : le texte
@@ -87,6 +101,7 @@ export function ContratsAdmin() {
           onChange={(valeur) => {
             setOnglet(valeur)
             setFormulaireOuvert(false)
+            setModeleEnEdition(null)
           }}
           onglets={[
             { value: 'modeles', label: 'Modèles', compteur: modeles.length },
@@ -111,11 +126,22 @@ export function ContratsAdmin() {
         </div>
       )}
 
-      {formulaireOuvert && profile && onglet === 'modeles' && (
+      {modeleEnEdition && profile && onglet === 'modeles' && (
+        <CreerContratTemplate
+          etablissementId={profile.etablissement_id}
+          modele={modeleEnEdition}
+          onAnnuler={() => setModeleEnEdition(null)}
+          onEnregistre={() => {
+            setModeleEnEdition(null)
+            rechargerModeles()
+          }}
+        />
+      )}
+      {!modeleEnEdition && formulaireOuvert && profile && onglet === 'modeles' && (
         <CreerContratTemplate
           etablissementId={profile.etablissement_id}
           onAnnuler={() => setFormulaireOuvert(false)}
-          onCree={() => {
+          onEnregistre={() => {
             setFormulaireOuvert(false)
             rechargerModeles()
           }}
@@ -167,6 +193,15 @@ export function ContratsAdmin() {
                 >
                   {m.actif ? 'Actif' : 'Inactif'}
                 </span>
+                <button
+                  onClick={() => {
+                    setFormulaireOuvert(false)
+                    setModeleEnEdition(m)
+                  }}
+                  style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}
+                >
+                  Modifier
+                </button>
                 <button
                   onClick={() => basculerActif(m.id, m.actif)}
                   style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}
