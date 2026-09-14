@@ -7,12 +7,11 @@ type TeacherAssignment = Database['public']['Tables']['teacher_assignments']['Ro
 
 interface AttribuerProfesseurProps {
   studentId: string
-  etablissementId: string
   affectationActuelle: TeacherAssignment | null
   onTermine: () => void
 }
 
-export function AttribuerProfesseur({ studentId, etablissementId, affectationActuelle, onTermine }: AttribuerProfesseurProps) {
+export function AttribuerProfesseur({ studentId, affectationActuelle, onTermine }: AttribuerProfesseurProps) {
   const { professeurs, loading: chargementProfs } = useProfesseurs()
   const [ouvert, setOuvert] = useState(false)
   const [teacherId, setTeacherId] = useState('')
@@ -25,31 +24,19 @@ export function AttribuerProfesseur({ studentId, etablissementId, affectationAct
     if (!teacherId) return
     setEnCours(true)
     setErreur(null)
-    const aujourdhui = new Date().toISOString().slice(0, 10)
 
-    if (affectationActuelle) {
-      const { error } = await supabase
-        .from('teacher_assignments')
-        .update({ date_fin: aujourdhui, motif_changement: motif || null })
-        .eq('id', affectationActuelle.id)
-      if (error) {
-        setErreur(error.message)
-        setEnCours(false)
-        return
-      }
-    }
-
-    const { error: insertError } = await supabase.from('teacher_assignments').insert({
-      etablissement_id: etablissementId,
-      student_id: studentId,
-      teacher_id: teacherId,
-      langue: langue || null,
-      date_debut: aujourdhui,
-      motif_changement: affectationActuelle ? motif || null : null,
+    /* Une seule transaction côté base (migration 0039) : clôture de l'affectation en cours et
+       ouverture de la nouvelle. L'ancienne version enchaînait un update puis un insert depuis
+       le navigateur — un échec du second laissait l'élève sans aucun professeur actif. */
+    const { error } = await supabase.rpc('attribuer_professeur', {
+      p_student_id: studentId,
+      p_teacher_id: teacherId,
+      p_langue: langue || null,
+      p_motif: motif || null,
     })
     setEnCours(false)
-    if (insertError) {
-      setErreur(insertError.message)
+    if (error) {
+      setErreur(error.message)
       return
     }
     setOuvert(false)

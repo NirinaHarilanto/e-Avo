@@ -810,6 +810,15 @@ export interface Database {
       }
     }
     Functions: {
+      attribuer_professeur: {
+        Args: {
+          p_student_id: string
+          p_teacher_id: string
+          p_langue?: string | null
+          p_motif?: string | null
+        }
+        Returns: string
+      }
       current_etablissement_id: {
         Args: Record<string, never>
         Returns: string

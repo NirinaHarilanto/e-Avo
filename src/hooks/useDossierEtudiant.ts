@@ -26,6 +26,11 @@ export interface PeriodeProfesseur {
 export interface DossierEtudiant {
   etudiant: Profile
   periodes: PeriodeProfesseur[]
+  /* Affectation en cours, reconnue à `date_fin is null` — jamais « la première période de la
+     liste ». Deux affectations peuvent partager la même `date_debut` (c'est une date, pas un
+     instant : un changement de professeur le jour même en crée deux), et à égalité PostgreSQL
+     ne garantit aucun ordre. La migration 0039 garantit qu'il y en a au plus une active. */
+  periodeActuelle: PeriodeProfesseur | null
   diagnostic: DiagnosticCall | null
   packages: Package[]
   /* Vague (cohorte) collectif de l'étudiant, s'il en a une — sinon il est individuel/duo via
@@ -46,7 +51,14 @@ export function useDossierEtudiant(studentId: string | undefined) {
     if (etudiantError || !etudiant) throw new Error(etudiantError?.message ?? 'Étudiant introuvable.')
 
     const [{ data: affectations }, { data: enrollments }, { data: packages }, { data: resume }, { data: inscriptionCohorte }] = await Promise.all([
-      supabase.from('teacher_assignments').select('*').eq('student_id', studentId as string).order('date_debut', { ascending: false }),
+      // Tri secondaire sur created_at : `date_debut` est une date, deux affectations du même
+      // jour y sont à égalité et l'ordre serait alors arbitraire.
+      supabase
+        .from('teacher_assignments')
+        .select('*')
+        .eq('student_id', studentId as string)
+        .order('date_debut', { ascending: false })
+        .order('created_at', { ascending: false }),
       supabase.from('session_enrollments').select('*').eq('student_id', studentId as string),
       supabase.from('packages').select('*').eq('student_id', studentId as string).order('created_at', { ascending: false }),
       supabase.from('student_hours_summary').select('*').eq('student_id', studentId as string).maybeSingle(),
@@ -112,6 +124,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
     return {
       etudiant,
       periodes,
+      periodeActuelle: periodes.find((p) => !p.affectation.date_fin) ?? null,
       diagnostic,
       packages: packages ?? [],
       cohorte: cohorte ?? null,

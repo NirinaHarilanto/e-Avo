@@ -300,7 +300,7 @@ export function DossierEtudiantVue({
   peutModifierPlanning,
   onDossierChange,
 }: DossierEtudiantVueProps) {
-  const { etudiant, periodes, diagnostic, packages, cohorte, heuresConsommees, prochaineSeance } = dossier
+  const { etudiant, periodes, periodeActuelle, diagnostic, packages, cohorte, heuresConsommees, prochaineSeance } = dossier
   const forfait = packages[0] ?? null
   const [editionForfaitOuverte, setEditionForfaitOuverte] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
@@ -315,7 +315,7 @@ export function DossierEtudiantVue({
     seancesTerminees.length > 0
       ? Math.round((seancesTerminees.filter((s) => s.enrollment.present).length / seancesTerminees.length) * 100)
       : null
-  const professeurActuel = periodes[0] && !periodes[0].affectation.date_fin ? periodes[0] : null
+  const professeurActuel = periodeActuelle
   /* Séances déjà planifiées (statut « planifiée ») pour la période en cours, triées
      chronologiquement — le planning prévisionnel affiché en lecture seule avant que l'admin ne
      clique « Modifier » pour rouvrir le formulaire de génération. */
@@ -349,9 +349,9 @@ export function DossierEtudiantVue({
             <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.32)', borderRadius: 999, padding: '4px 11px' }}>
               {etudiant.status === 'approved' ? 'Étudiant actif' : etudiant.status}
             </span>
-            {periodes[0]?.affectation.langue && (
+            {(periodeActuelle ?? periodes[0])?.affectation.langue && (
               <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-violet)', background: 'rgba(199,156,255,.12)', border: '1px solid rgba(199,156,255,.3)', borderRadius: 999, padding: '4px 11px' }}>
-                {periodes[0].affectation.langue}
+                {(periodeActuelle ?? periodes[0]).affectation.langue}
               </span>
             )}
             {etudiant.email && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{etudiant.email}</span>}
@@ -453,11 +453,11 @@ export function DossierEtudiantVue({
             )}
             {periodes.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {periodes.map((periode, index) => (
+                {periodes.map((periode) => (
                   <BlocPeriode
                     key={periode.affectation.id}
                     periode={periode}
-                    estActuelle={index === 0 && !periode.affectation.date_fin}
+                    estActuelle={periode.affectation.id === periodeActuelle?.affectation.id}
                     onModifierSeance={peutModifierPlanning ? setSeanceEnEdition : undefined}
                   />
                 ))}

@@ -190,7 +190,7 @@ function DossierPanel({ studentId }: { studentId: string }) {
   if (loading) return <EtatChargement lignes={3} hauteur={110} />
   if (erreur || !dossier) return <MessageErreur>{erreur ?? 'Dossier introuvable.'}</MessageErreur>
 
-  const periodeActuelle = dossier.periodes[0] && !dossier.periodes[0].affectation.date_fin ? dossier.periodes[0] : null
+  const periodeActuelle = dossier.periodeActuelle
   const affectationActuelle = periodeActuelle?.affectation ?? null
   const forfait = dossier.packages[0] ?? null
   const { etudiant } = dossier
@@ -199,12 +199,7 @@ function DossierPanel({ studentId }: { studentId: string }) {
     <DossierEtudiantVue
       dossier={dossier}
       panneauProfesseur={
-        <AttribuerProfesseur
-          studentId={etudiant.id}
-          etablissementId={etudiant.etablissement_id}
-          affectationActuelle={affectationActuelle}
-          onTermine={recharger}
-        />
+        <AttribuerProfesseur studentId={etudiant.id} affectationActuelle={affectationActuelle} onTermine={recharger} />
       }
       panneauInformations={<InformationsPersonnelles personne={etudiant} onChange={recharger} carte={false} />}
       panneauChoixInitial={
