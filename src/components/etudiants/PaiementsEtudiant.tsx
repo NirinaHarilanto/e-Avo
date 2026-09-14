@@ -1,65 +1,43 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useProfileContext } from '../../context/ProfileContext'
-import { supabase } from '../../lib/supabaseClient'
 import { EtudiantLayout } from '../layout/EtudiantLayout'
-import { FactureImprimable } from '../facturation/FactureImprimable'
-import { BadgeStatutFacture } from '../shared/BadgeStatutFacture'
-import type { Database } from '../../types/database.types'
-
-type Invoice = Database['public']['Tables']['invoices']['Row']
+import { ListeFactures } from '../shared/ListeFactures'
+import { EnTetePage } from '../ui/EnTetePage'
+import { GuidePage } from '../ui/GuidePage'
 
 export function PaiementsEtudiant() {
-  const { profile } = useProfileContext()
-  const [factures, setFactures] = useState<Invoice[]>([])
-  const [loading, setLoading] = useState(true)
-  const [factureAImprimer, setFactureAImprimer] = useState<Invoice | null>(null)
-
-  const charger = useCallback(async () => {
-    if (!profile) return
-    setLoading(true)
-    const { data } = await supabase.from('invoices').select('*').eq('student_id', profile.id).order('date_emission', { ascending: false })
-    setFactures(data ?? [])
-    setLoading(false)
-  }, [profile])
-
-  useEffect(() => {
-    charger()
-  }, [charger])
-
   return (
     <EtudiantLayout actif="Mes paiements">
-      <h1 style={{ fontSize: 28, color: '#fff', marginBottom: 22 }}>Mes paiements</h1>
+      <EnTetePage
+        titre="Mes paiements"
+        description="Vos factures et vos reçus, du plus récent au plus ancien. Un reçu est ajouté automatiquement dès que l’établissement enregistre un règlement de votre part."
+      />
 
-      {loading ? (
-        <p style={{ color: 'var(--muted)' }}>Chargement…</p>
-      ) : factures.length === 0 ? (
-        <p style={{ color: 'var(--muted)' }}>Aucune facture ou reçu pour le moment.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {factures.map((f) => (
-            <div key={f.id} className="card card-lift" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-              <div style={{ flexGrow: 1, minWidth: 200 }}>
-                <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
-                  {f.numero}
-                </span>
-                <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{f.objet}</div>
-              </div>
-              <span className="brand-font" style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>
-                {f.montant_ttc.toFixed(2)} €
-              </span>
-              <BadgeStatutFacture statut={f.statut} />
-              <button
-                onClick={() => setFactureAImprimer(f)}
-                style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}
-              >
-                Voir / Imprimer
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+      <GuidePage
+        id="etudiant-paiements"
+        etapes={[
+          <>
+            Les trois encadrés du haut résument votre situation : le total, ce qui est déjà réglé, et ce qui reste en
+            attente.
+          </>,
+          <>
+            Le bouton <strong>Voir / Imprimer</strong> ouvre le document complet. Depuis cette vue, la fonction
+            d’impression de votre navigateur permet aussi de l’enregistrer en PDF.
+          </>,
+          <>
+            Les règlements se font directement auprès de votre établissement, selon les modalités convenues avec lui.{' '}
+            <strong>Aucun paiement ne se fait depuis cette page</strong> : elle sert uniquement au suivi.
+          </>,
+          <>
+            Un montant vous semble incorrect ? Contactez l’administration de votre établissement, qui est seule à
+            pouvoir corriger ces lignes.
+          </>,
+        ]}
+      />
 
-      {factureAImprimer && <FactureImprimable facture={factureAImprimer} destinataire={profile} onFermer={() => setFactureAImprimer(null)} />}
+      <ListeFactures
+        colonne="student_id"
+        titreVide="Aucune facture ni reçu pour le moment"
+        descriptionVide="Vos documents financiers apparaîtront ici dès que l’établissement aura émis une première facture ou enregistré un premier règlement."
+      />
     </EtudiantLayout>
   )
 }
