@@ -27,6 +27,13 @@ const ENTREES: { vue: Vue; libelle: string }[] = [
   { vue: 'avis', libelle: 'Avis' },
 ]
 
+/* Sur la vue d'accueil, la barre de navigation flotte AU-DESSUS du hero, qui porte déjà ses
+   propres raccourcis (voir HeroPublic.tsx) : deux entrées y font donc double emploi et sont
+   masquées — « Accueil », puisqu'on y est déjà, et « Avis », déplacé dans le badge Certifié vert
+   (demande client du 2026-09-15). Elles restent affichées sur les autres vues, d'où le hero et
+   son badge sont hors de portée. */
+const MASQUEES_SUR_ACCUEIL: Vue[] = ['accueil', 'avis']
+
 /* Page publique en vue unique : la barre de navigation remplace le contenu affiché au lieu de
    faire défiler la page (demande client du 2026-09-15). Chaque vue tient dans la hauteur de
    l'écran ; seul le corps d'une vue dense peut défiler dans son propre cadre, jamais la page. */
@@ -108,7 +115,7 @@ export function LandingEtablissement() {
         </button>
 
         <nav style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 24 }}>
-          {ENTREES.map((entree) => (
+          {ENTREES.filter((entree) => vue !== 'accueil' || !MASQUEES_SUR_ACCUEIL.includes(entree.vue)).map((entree) => (
             <button
               key={entree.vue}
               type="button"
@@ -133,7 +140,9 @@ export function LandingEtablissement() {
       </header>
 
       <main className="corps-unique">
-        {vue === 'accueil' && <HeroPublic nomEtablissement={etablissement.nom} onReserver={() => ouvrirReservation()} />}
+        {vue === 'accueil' && (
+          <HeroPublic nomEtablissement={etablissement.nom} onReserver={() => ouvrirReservation()} onNaviguer={setVue} />
+        )}
         {vue === 'programmes' && <VueProgrammes accent={accent} onReserver={ouvrirReservation} />}
         {vue === 'tarifs' && <VueTarifs tarifs={tarifs} accent={accent} onReserver={ouvrirReservation} />}
         {vue === 'professeurs' && (

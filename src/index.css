@@ -917,48 +917,119 @@ body.sans-defilement {
 .hero-image-zone {
   height: 100%;
   position: relative;
+  /* L'image déborde volontairement du cadre (voir HeroPublic.tsx) : c'est cet overflow qui la
+     rogne et garantit qu'aucune bande de fond n'apparaisse d'un côté ou de l'autre. */
   overflow: hidden;
   background: #efe8fb;
-  /* Distance de la caméra virtuelle pour l'inclinaison 3D au survol (voir .hero-profondeur) :
-     plus la valeur est grande, plus l'effet est subtil. */
-  perspective: 1400px;
 }
 
-/* Comble tout le cadre, y compris derrière la barre de navigation : `scale(1.15)` déborde
-   volontairement de son conteneur pour qu'aucun bord net et net non flouté ne soit visible une
-   fois le flou appliqué (le flou "mange" quelques pixels sur les bords de l'image d'origine). */
-.hero-fond-flou {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-}
-.hero-fond-flou img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  transform: scale(1.15);
-  filter: blur(38px) saturate(1.15) brightness(0.92);
-}
-
-/* Tout ce qui doit bouger ensemble sous l'inclinaison de survol — l'image ET le bouton posé
-   dessus — vit dans ce seul conteneur : une rotation 3D appliquée ici les fait pivoter comme un
-   seul panneau rigide, sans que leur alignement l'un sur l'autre ne bouge d'un pixel. Empilé
-   au-dessus du fond flouté (z-index) pour que le contraste net/flou reste visible. */
-.hero-profondeur {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  transform-style: preserve-3d;
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
-}
-
+/* Image unique, nette et IMMOBILE (plus d'inclinaison au survol, plus de calque flouté derrière).
+   Ses dimensions et son décalage vertical sont posés en pixels par HeroPublic.tsx ; elle est
+   calée à gauche pour que le rognage se fasse toujours par la droite, sur le décor. */
 .hero-image {
   position: absolute;
   top: 0;
   left: 0;
   display: block;
+}
+
+/* ── Raccourcis posés sur l'image (remplacent les pastilles dessinées) ─────── */
+
+.hero-raccourcis {
+  position: absolute;
+  z-index: 2;
+  right: clamp(14px, 2.4vw, 44px);
+  /* Descendu sous le milieu : à mi-hauteur exacte, la colonne mordait sur le visage de l'élève de
+     droite sur les écrans 16/9. */
+  top: 57%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: clamp(8px, 1vh, 13px);
+}
+
+/* Habillage repris des pastilles dessinées dans la maquette — dégradé violet, contour blanc
+   translucide, icône en médaillon clair — pour que les vrais boutons se fondent dans le décor au
+   lieu d'avoir l'air collés dessus. */
+.hero-pastille,
+.hero-badge-certifie {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.62em;
+  padding: 0.5em 1.15em 0.5em 0.5em;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: clamp(11.5px, 0.85vw, 15px);
+  font-weight: 650;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.hero-pastille {
+  min-width: clamp(132px, 11.5vw, 182px);
+  background: linear-gradient(135deg, rgba(141, 96, 243, 0.95) 0%, rgba(92, 46, 180, 0.95) 100%);
+  box-shadow: 0 8px 20px rgba(58, 25, 120, 0.32);
+}
+.hero-pastille:hover,
+.hero-badge-certifie:hover {
+  transform: translateX(-4px);
+  filter: brightness(1.09);
+}
+.hero-pastille:hover {
+  box-shadow: 0 12px 26px rgba(58, 25, 120, 0.45);
+}
+
+.hero-pastille-medaillon,
+.hero-badge-medaillon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 2em;
+  height: 2em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+.hero-pastille-medaillon svg,
+.hero-badge-medaillon svg {
+  width: 1.18em;
+  height: 1.18em;
+}
+
+/* Badge de certification : le vert est la seule couleur hors charte de la page — c'est ce qui le
+   fait lire comme un label et non comme un quatrième onglet. */
+.hero-badge-certifie {
+  min-width: clamp(132px, 11.5vw, 182px);
+  padding-top: 0.42em;
+  padding-bottom: 0.42em;
+  background: linear-gradient(135deg, rgba(41, 196, 108, 0.95) 0%, rgba(13, 130, 78, 0.95) 100%);
+  box-shadow: 0 8px 20px rgba(10, 92, 55, 0.34);
+}
+.hero-badge-certifie:hover {
+  box-shadow: 0 12px 26px rgba(10, 92, 55, 0.46);
+}
+.hero-badge-textes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.12;
+}
+.hero-badge-surtitre {
+  font-size: 0.72em;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.88;
+}
+.hero-badge-titre {
+  font-size: 1.05em;
+  font-weight: 750;
 }
 
 /* Bouton réel posé exactement sur le bouton dessiné dans l'image, assez opaque pour en recouvrir
@@ -1034,11 +1105,16 @@ body.sans-defilement {
   justify-content: safe center;
 }
 
+/* `width: 100%` n'est pas décoratif : ces grilles sont des éléments flex de .vue-secondaire-corps,
+   et leur `margin: 0 auto` y annule l'étirement par défaut — sans largeur explicite elles se
+   dimensionnent alors sur leur contenu maximal et débordent de l'écran sur un téléphone, au lieu
+   de retomber sur une seule colonne. */
 .grille-vue {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
   gap: 18px;
   align-items: stretch;
+  width: 100%;
   max-width: 1180px;
   margin: 0 auto;
 }
@@ -1047,6 +1123,7 @@ body.sans-defilement {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 20px;
+  width: 100%;
   max-width: 1000px;
   margin: 0 auto;
 }
@@ -1374,8 +1451,57 @@ body.sans-defilement {
   .corps-unique {
     overflow: visible;
   }
+  /* Une image de ratio 2.34 ne peut pas couvrir un écran de téléphone sans qu'il n'en reste qu'un
+     cinquième de la largeur — le titre lui-même en sortirait. Elle occupe donc une bande en haut
+     (hauteur imposée par la largeur, voir HeroPublic.tsx) et la zone garde toute la hauteur
+     restante, teintée du lavande de l'image pour se lire comme une continuation du décor et non
+     comme un vide entre la photo et le pied de page. */
+  /* Colonne, et non rangée : en rangée, les vues secondaires deviendraient des éléments flex qui
+     refusent de se réduire sous la largeur de leur grille de cartes et débordaient de l'écran. */
+  .corps-unique {
+    display: flex;
+    flex-direction: column;
+  }
   .hero-image-zone {
-    height: 340px;
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 430px;
+    background: linear-gradient(180deg, #efe8fb 0%, #f6f2ff 45%, #ffffff 100%);
+  }
+  /* La barre de navigation reprend sa place dans le flux : à cette largeur elle occupe trois
+     rangées, et en surimpression elle masquait la moitié du titre de l'image au lieu de se fondre
+     dans le décor comme sur grand écran. */
+  .page-unique .en-tete-public {
+    position: static;
+    background: #ffffff;
+    border-bottom: 1px solid var(--border-soft);
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  /* Corollaire : les vues secondaires n'ont plus à lui réserver sa hauteur en haut. */
+  .vue-secondaire {
+    padding-top: 20px;
+  }
+  /* La colonne verticale serait plus large que la frange de décor disponible : les raccourcis
+     repassent en rangée, posés juste SOUS la bande d'image — donc sur aucun texte de la maquette,
+     et ils occupent la place laissée libre au lieu de la laisser vide. */
+  .hero-raccourcis {
+    /* Centrés dans la bande laissée libre sous l'image plutôt que collés à son bord : c'est ce qui
+       fait lire cet espace comme une zone à part entière et non comme un reste. */
+    top: calc(var(--hauteur-image, 0px) + (100% - var(--hauteur-image, 0px)) / 2);
+    left: 12px;
+    right: 12px;
+    transform: translateY(-50%);
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+  }
+  .hero-pastille,
+  .hero-badge-certifie {
+    min-width: 0;
+    font-size: 12.5px;
   }
   .vue-secondaire {
     height: auto;
