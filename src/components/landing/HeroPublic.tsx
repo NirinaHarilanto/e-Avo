@@ -1,32 +1,31 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
-/* Vue d'accueil, tenant dans un seul écran : aucune barre de défilement, l'illustration couvre
-   toute la moitié droite jusqu'aux bords. Le texte de la maquette est reconstruit en HTML plutôt
-   que repris en image — sans quoi il serait impossible d'en changer un mot, et un moteur de
-   recherche ne lirait rien de la page. Chaque détail visuel de la maquette a son équivalent ici :
-   le trait manuscrit sous « Your Future », la fusée du bouton, les coches rondes, les compétences
-   empilées en escalier et les séparateurs de la barre d'atouts. */
+/* Vue d'accueil : reprend la maquette du client telle quelle (titre, script manuscrit, coches,
+   pile de livres avec leurs intitulés, décor de fond, badges) comme UNE SEULE image, plutôt que
+   de recomposer chaque détail en HTML — une reconstruction, même soignée, ne retombe jamais
+   exactement sur l'original (polices, inclinaison, ombres, placement du décor). Demande client
+   du 2026-09-15 : « il faut que l'image soit calquée exactement ».
 
-const COMPETENCES: { libelle: string; fond: string; icone: ReactNode }[] = [
-  { libelle: 'Speaking', fond: 'linear-gradient(135deg, #9b6bf5, #7038d4)', icone: <IconeMicro /> },
-  { libelle: 'Listening', fond: 'linear-gradient(135deg, #7b6cf0, #4a3fd8)', icone: <IconeCasque /> },
-  { libelle: 'Reading', fond: 'linear-gradient(135deg, #4f86e8, #2260c6)', icone: <IconeLivre /> },
-  { libelle: 'Writing', fond: 'linear-gradient(135deg, #34b394, #128069)', icone: <IconeCrayon /> },
-]
+   Seul le bouton doit rester un vrai bouton cliquable avec un nouveau libellé : il est posé en
+   surimpression, à l'emplacement exact du bouton dessiné dans l'image (mesuré sur le fichier
+   source, 1365×590 une fois la barre de navigation retirée), assez opaque pour recouvrir
+   entièrement l'ancien texte. Sa position est recalculée à chaque redimensionnement plutôt que
+   fixée en pourcentages CSS : l'image est affichée en « contain » (jamais rognée, pour ne perdre
+   aucun détail), et seul du JavaScript peut suivre le rectangle réellement affiché quand ses
+   proportions ne correspondent pas à celles de son cadre. */
+
+const RATIO_IMAGE = 1365 / 590
+
+/* Rectangle du bouton « Commencer maintenant » sur l'image source, en fraction de sa largeur et
+   hauteur (mesuré au pixel près sur le fichier fourni). Une marge est ajoutée à la mesure exacte
+   pour recouvrir aussi l'ombre portée du bouton d'origine. */
+const BOUTON = { gauche: 0.038, haut: 0.478, largeur: 0.2, hauteur: 0.108 }
 
 const ATOUTS: { icone: ReactNode; titre: string; detail: string }[] = [
   { icone: <IconeBulle />, titre: 'Cours interactifs', detail: 'et pratiques' },
   { icone: <IconeGroupe />, titre: 'Professeurs natifs', detail: 'et expérimentés' },
   { icone: <IconeCible />, titre: 'Un suivi personnalisé', detail: 'pour progresser vite' },
   { icone: <IconeEtoile />, titre: 'Une communauté', detail: 'motivée et bienveillante' },
-]
-
-const GARANTIES = ['100 % en ligne', 'Professeurs certifiés', 'Accès 24/7']
-
-export const TEMOIGNAGES = [
-  { initiales: 'AL', nom: 'A. L.', texte: 'Un vrai suivi, un professeur qui connaît mes objectifs semaine après semaine.' },
-  { initiales: 'MK', nom: 'M. K.', texte: 'Les cours en petit groupe m’ont redonné confiance pour parler sans hésiter.' },
-  { initiales: 'SB', nom: 'S. B.', texte: 'L’appel diagnostic a tout de suite posé un cap clair pour mes cours.' },
 ]
 
 export function HeroPublic({
@@ -36,82 +35,65 @@ export function HeroPublic({
   nomEtablissement: string
   onReserver: () => void
 }) {
+  const zoneRef = useRef<HTMLDivElement>(null)
+  const [cadre, setCadre] = useState({ gauche: 0, haut: 0, largeur: 0, hauteur: 0 })
+
+  useEffect(() => {
+    const zone = zoneRef.current
+    if (!zone) return
+
+    function recalculer() {
+      const { width, height } = zone!.getBoundingClientRect()
+      const ratioZone = width / height
+      // Même calcul qu'un `object-fit: contain` : l'image occupe toute la largeur si elle est
+      // proportionnellement plus « plate » que la zone, toute la hauteur sinon.
+      if (ratioZone > RATIO_IMAGE) {
+        const largeur = height * RATIO_IMAGE
+        setCadre({ gauche: (width - largeur) / 2, haut: 0, largeur, hauteur: height })
+      } else {
+        const hauteur = width / RATIO_IMAGE
+        setCadre({ gauche: 0, haut: (height - hauteur) / 2, largeur: width, hauteur })
+      }
+    }
+
+    recalculer()
+    const observateur = new ResizeObserver(recalculer)
+    observateur.observe(zone)
+    return () => observateur.disconnect()
+  }, [])
+
   return (
     <div className="vue-hero">
-      <div className="hero-visuel" aria-hidden>
+      <div ref={zoneRef} className="hero-image-zone">
         <picture>
-          <source srcSet="/hero-illustration.webp" type="image/webp" />
-          <img src="/hero-illustration.jpg" alt="" fetchPriority="high" />
+          <source srcSet="/hero-maquette.webp" type="image/webp" />
+          <img
+            src="/hero-maquette.jpg"
+            alt={`${nomEtablissement} — apprenez l’anglais à votre rythme : cours interactifs, professeurs passionnés, 100 % en ligne`}
+            className="hero-image"
+            fetchPriority="high"
+            style={{ left: cadre.gauche, top: cadre.haut, width: cadre.largeur, height: cadre.hauteur }}
+          />
         </picture>
-        <span className="hero-voile" />
-      </div>
 
-      <div className="hero-contenu">
-        <span className="hero-badge arrive-text">Appels diagnostic ouverts cette semaine</span>
-
-        <p className="bloc-manuscrit arrive-text">
-          <span className="mention-manuscrite">
-            Your English,
-            <br />
-            Your Future
-          </span>
-          {/* Le trait courbe tracé sous « Your Future » dans la maquette. */}
-          <svg className="trait-manuscrit" viewBox="0 0 210 22" fill="none" aria-hidden>
-            <path d="M3 13C38 4 120 2 178 9c12 1.5 22 4 27 8" stroke="#5a2fb5" strokeWidth="3.4" strokeLinecap="round" />
-          </svg>
-        </p>
-
-        <h1 className="titre-hero arrive-text">
-          Apprenez l’anglais
-          <br />
-          <span className="fragment-indigo">à votre </span>
-          <span className="fragment-violet">rythme</span>
-        </h1>
-
-        <p className="arrive-text hero-accroche">
-          Des cours interactifs, des professeurs passionnés et une expérience d’apprentissage unique.
-          Rejoignez {nomEtablissement} dès aujourd’hui !
-        </p>
-
-        <button type="button" onClick={onReserver} className="bouton-hero arrive">
-          <span className="fusee" aria-hidden>
+        {cadre.largeur > 0 && (
+          <button
+            type="button"
+            onClick={onReserver}
+            className="bouton-hero-image"
+            style={{
+              left: cadre.gauche + cadre.largeur * BOUTON.gauche,
+              top: cadre.haut + cadre.hauteur * BOUTON.haut,
+              width: cadre.largeur * BOUTON.largeur,
+              height: cadre.hauteur * BOUTON.hauteur,
+              fontSize: Math.max(10, cadre.largeur * 0.0092),
+            }}
+          >
             <IconeFusee />
-          </span>
-          Réserve ton appel gratuitement
-          <span className="fleche-cercle" aria-hidden>
-            →
-          </span>
-        </button>
-
-        <div className="ligne-garanties">
-          {GARANTIES.map((garantie) => (
-            <span key={garantie} className="garantie">
-              <span aria-hidden className="coche-garantie">
-                ✓
-              </span>
-              {garantie}
-            </span>
-          ))}
-        </div>
-
-        {/* Empilées en escalier comme la pile de livres de la maquette, chacune décalée un peu
-            plus à droite que la précédente. */}
-        <ul className="pile-competences">
-          {COMPETENCES.map((competence, index) => (
-            <li
-              key={competence.libelle}
-              className="pastille-competence arrive"
-              style={{
-                background: competence.fond,
-                marginLeft: index * 16,
-                animationDelay: `${0.32 + index * 0.08}s`,
-              }}
-            >
-              <span aria-hidden style={{ display: 'inline-flex' }}>{competence.icone}</span>
-              {competence.libelle}
-            </li>
-          ))}
-        </ul>
+            Réserve ton appel gratuitement
+            <span aria-hidden>→</span>
+          </button>
+        )}
       </div>
 
       <div className="hero-bandeau">
@@ -128,68 +110,16 @@ export function HeroPublic({
             </div>
           ))}
         </div>
-
-        {/* Avis conservés sur l'écran d'accueil, en version condensée : ils rassurent au moment
-            du choix, et n'ont plus de section à eux depuis le passage en vue unique. */}
-        <div className="hero-avis">
-          {TEMOIGNAGES.map((temoignage) => (
-            <div key={temoignage.nom} style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-              <span aria-hidden style={{ fontSize: 10, letterSpacing: 1.5, color: '#6d3bd1' }}>★★★★★</span>
-              <span className="avis-texte">« {temoignage.texte} »</span>
-              <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--muted-2)' }}>{temoignage.nom}</span>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   )
 }
 
-/* Icônes dessinées à la main plutôt qu'importées : la bibliothèque du socle admin n'a ni micro,
-   ni casque, ni crayon, et ajouter une dépendance d'icônes pour quatre pastilles serait cher
-   payé. Même trait de 1.7 que le reste de l'application. */
 const traits = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
-
-function IconeMicro() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" {...traits}>
-      <rect x="9" y="2.5" width="6" height="11" rx="3" />
-      <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" />
-    </svg>
-  )
-}
-
-function IconeCasque() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" {...traits}>
-      <path d="M4 14v-2a8 8 0 0 1 16 0v2" />
-      <rect x="2.5" y="13.5" width="4.5" height="7" rx="2" />
-      <rect x="17" y="13.5" width="4.5" height="7" rx="2" />
-    </svg>
-  )
-}
-
-function IconeLivre() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" {...traits}>
-      <path d="M12 6.5C10 4.8 7.5 4.2 4 4.5v13c3.5-.3 6 .3 8 2 2-1.7 4.5-2.3 8-2v-13c-3.5-.3-6 .3-8 2Z" />
-      <path d="M12 6.5v13" />
-    </svg>
-  )
-}
-
-function IconeCrayon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" {...traits}>
-      <path d="M4 20h4L19.5 8.5a2.8 2.8 0 0 0-4-4L4 16v4Z" />
-      <path d="M14.5 5.5l4 4" />
-    </svg>
-  )
-}
 
 function IconeFusee() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" {...traits}>
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M12 2.5c3.5 2.2 5.5 6 5.5 10l-2.6 3.2h-5.8L6.5 12.5c0-4 2-7.8 5.5-10Z" />
       <circle cx="12" cy="10" r="1.9" />
       <path d="M9.2 17.2 7 21l4-1.4M14.8 17.2 17 21l-4-1.4" />

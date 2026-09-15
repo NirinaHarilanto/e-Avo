@@ -6,7 +6,7 @@ import { deriveAccent } from '../../lib/accent'
 import { SLUG_ETABLISSEMENT_PRINCIPAL } from '../../lib/etablissement'
 import { useTarifs } from '../../hooks/useTarifs'
 import { HeroPublic } from './HeroPublic'
-import { VueProfesseurs, VueProgrammes, VueTarifs } from './VuesPubliques'
+import { VueAvis, VueProfesseurs, VueProgrammes, VueTarifs } from './VuesPubliques'
 import { ModaleReservation } from '../prospects/ModaleReservation'
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
@@ -17,13 +17,14 @@ type Etablissement = Database['public']['Tables']['etablissements']['Row']
    contrasté sur fond blanc, serait illisible ici. */
 const VIOLET_MARQUE = '#6d3bd1'
 
-type Vue = 'accueil' | 'programmes' | 'tarifs' | 'professeurs'
+type Vue = 'accueil' | 'programmes' | 'tarifs' | 'professeurs' | 'avis'
 
 const ENTREES: { vue: Vue; libelle: string }[] = [
   { vue: 'accueil', libelle: 'Accueil' },
   { vue: 'programmes', libelle: 'Programme' },
   { vue: 'tarifs', libelle: 'Tarifs' },
   { vue: 'professeurs', libelle: 'Professeurs' },
+  { vue: 'avis', libelle: 'Avis' },
 ]
 
 /* Page publique en vue unique : la barre de navigation remplace le contenu affiché au lieu de
@@ -137,6 +138,7 @@ export function LandingEtablissement() {
             onReserver={() => ouvrirReservation()}
           />
         )}
+        {vue === 'avis' && <VueAvis />}
       </main>
 
       {/* Bande légale réduite au strict nécessaire : sans elle, les liens de confidentialité et de

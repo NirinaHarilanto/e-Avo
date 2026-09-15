@@ -2,13 +2,57 @@ import { useState } from 'react'
 import type { Database, TypeProgrammeProspect } from '../../types/database.types'
 import type { AccentPalette } from '../../lib/accent'
 
-/* Les trois vues atteintes depuis la barre de navigation. Chacune remplace l'écran d'accueil au
-   lieu de s'empiler dessous : la page publique tient désormais dans une seule vue, sans
-   défilement (demande client du 2026-09-15). Seul le contenu d'une vue peut défiler à
-   l'intérieur de son propre cadre quand il est dense — les tarifs, typiquement — pour qu'aucune
-   information ne soit perdue au passage. */
+/* Les vues atteintes depuis la barre de navigation. Chacune remplace l'écran d'accueil au lieu de
+   s'empiler dessous : la page publique tient désormais dans une seule vue, sans défilement
+   (demande client du 2026-09-15). Seul le contenu d'une vue peut défiler à l'intérieur de son
+   propre cadre quand il est dense — les tarifs, typiquement — pour qu'aucune information ne soit
+   perdue au passage. */
 
 type Tarif = Database['public']['Tables']['tarifs']['Row']
+
+/* Repris de l'ancien pied de page de la landing, désormais atteignable depuis son propre onglet
+   plutôt que noyé en bas de l'écran d'accueil. */
+export const TEMOIGNAGES = [
+  { initiales: 'AL', nom: 'A. L.', texte: 'Un vrai suivi, un professeur qui connaît mes objectifs semaine après semaine.' },
+  { initiales: 'MK', nom: 'M. K.', texte: 'Les cours en petit groupe m’ont redonné confiance pour parler sans hésiter.' },
+  { initiales: 'SB', nom: 'S. B.', texte: 'L’appel diagnostic a tout de suite posé un cap clair pour mes cours.' },
+]
+
+export function VueAvis() {
+  return (
+    <CadreVue titre="Ce qu’en disent nos élèves" sousTitre="Exemples d’avis — à remplacer par de vrais témoignages avant mise en ligne.">
+      <div className="grille-vue">
+        {TEMOIGNAGES.map((temoignage) => (
+          <article key={temoignage.nom} className="card carte-avis">
+            <span aria-hidden style={{ fontSize: 14, letterSpacing: 2, color: '#6d3bd1' }}>★★★★★</span>
+            <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink-2)', fontStyle: 'italic', margin: 0 }}>
+              « {temoignage.texte} »
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 999,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #8b5cf6, #6d3bd1)',
+                  color: '#fff',
+                }}
+              >
+                {temoignage.initiales}
+              </span>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)' }}>{temoignage.nom}</span>
+            </div>
+          </article>
+        ))}
+      </div>
+    </CadreVue>
+  )
+}
 
 const PROGRAMMES: { type: TypeProgrammeProspect; tag: string; titre: string; texte: string; detail?: string }[] = [
   {
