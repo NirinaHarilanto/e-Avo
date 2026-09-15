@@ -27,9 +27,14 @@ export function EspacePersonnel() {
     if (!session) navigate('/connexion', { replace: true })
   }, [session, loading, navigate])
 
-  // Sans `loading` : voir EspaceLayout.tsx — un rafraîchissement de fond ne doit pas vider la
-  // page une fois le profil connu.
-  if (!profile) {
+  /* `platformAdminLoading` fait partie de la condition, sinon course perdue d'avance : le profil
+     arrive avant le statut d'admin plateforme (deux requêtes distinctes), et cette fonction
+     tranchait alors sur le seul `profile.role` — un admin plateforme dont le rôle vaut
+     'professeur' était redirigé vers /professeur/calendrier une fraction de seconde avant que son
+     statut n'arrive, donc ne voyait jamais l'écran de choix des 3 espaces. `profileLoading` reste
+     volontairement hors de la condition (voir EspaceLayout.tsx) : un rafraîchissement de fond ne
+     doit pas vider la page une fois le profil connu. */
+  if (!profile || platformAdminLoading) {
     return (
       <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
         Chargement…
