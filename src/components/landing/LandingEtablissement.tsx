@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { deriveAccent, type AccentPalette } from '../../lib/accent'
+import { SLUG_ETABLISSEMENT_PRINCIPAL } from '../../lib/etablissement'
 import { HeroDecor } from '../shared/HeroDecor'
 import { Logo } from '../shared/Logo'
 import { FormulaireProspect } from '../prospects/FormulaireProspect'
@@ -164,7 +165,11 @@ function BlocTarif({
 }
 
 export function LandingEtablissement() {
-  const { slug } = useParams<{ slug: string }>()
+  /* Sur `/` (page d'accueil) il n'y a pas de paramètre d'URL : on sert l'établissement
+     principal. La route `/e/:slug` reste servie par le même composant pour l'admin
+     plateforme. */
+  const { slug: slugUrl } = useParams<{ slug: string }>()
+  const slug = slugUrl ?? SLUG_ETABLISSEMENT_PRINCIPAL
   const [etablissement, setEtablissement] = useState<Etablissement | null>(null)
   const [loading, setLoading] = useState(true)
   const [introuvable, setIntrouvable] = useState(false)
@@ -206,14 +211,13 @@ export function LandingEtablissement() {
       <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, color: 'var(--ink)' }}>
         <p style={{ color: 'var(--danger)' }}>Établissement introuvable.</p>
         <a href="/" className="btn-shine" style={{ background: 'var(--accent-blue-gradient)', color: '#fff' }}>
-          Retour à la sélection
+          Retour à l'accueil
         </a>
       </div>
     )
   }
 
   const accent = deriveAccent(etablissement.couleur_accent)
-  const initiales = etablissement.nom.slice(0, 2).toUpperCase()
   const dossierAssets = `/etablissements/${etablissement.slug}`
   /* Les CTA « Réserver » renvoyaient tous vers le formulaire de contact (#reserver) : un clic
      n'y réservait donc rien tant que le visiteur n'avait pas rempli ses coordonnées, ce qui
@@ -244,38 +248,26 @@ export function LandingEtablissement() {
           backdropFilter: 'blur(6px)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-          <span
-            className="brand-font"
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 13,
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: 15,
-              background: accent.accentGrad,
-              color: accent.accentInk,
-              boxShadow: `0 0 0 1px rgba(255,255,255,.24) inset, 0 6px 20px ${accent.accentGlow}`,
-            }}
-          >
-            {initiales}
-          </span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <span className="logo-glow brand-font" style={{ fontWeight: 700, fontSize: 18, letterSpacing: 1.5 }}>
-              {etablissement.nom}
+        <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <Logo taille={40} />
+          {etablissement.specialite && (
+            <span
+              style={{
+                paddingLeft: 14,
+                borderLeft: `1px solid ${accent.accentBorder}`,
+                fontSize: 10.5,
+                fontWeight: 600,
+                letterSpacing: 0.6,
+                color: 'var(--muted-2)',
+                textTransform: 'uppercase',
+              }}
+            >
+              {etablissement.specialite}
             </span>
-            {etablissement.specialite && (
-              <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: 0.6, color: 'var(--muted-2)', textTransform: 'uppercase' }}>
-                {etablissement.specialite}
-              </span>
-            )}
-          </div>
-        </div>
+          )}
+        </a>
 
-        <nav style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
+        <nav style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 22 }}>
           <a href="#programmes" className="nav-link-glow" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
             Programmes
           </a>
@@ -562,10 +554,8 @@ export function LandingEtablissement() {
             paddingBottom: 30,
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <span className="logo-glow brand-font" style={{ fontWeight: 700, fontSize: 17 }}>
-              {etablissement.nom}
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
+            <Logo taille={34} />
             {etablissement.specialite && (
               <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>{etablissement.specialite}</span>
             )}
@@ -605,9 +595,9 @@ export function LandingEtablissement() {
 
         <div style={{ maxWidth: 1100, margin: '0 auto', paddingTop: 20, borderTop: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>© 2026 {etablissement.nom}</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9, fontSize: 12, color: 'var(--muted-2)' }}>
-            Propulsé par <Logo size={14} />
-          </span>
+          <a href="/plateforme/etablissements" style={{ fontSize: 12, color: 'var(--muted-2)' }}>
+            Admin plateforme
+          </a>
         </div>
       </footer>
     </div>

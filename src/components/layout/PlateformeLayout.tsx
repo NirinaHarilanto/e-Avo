@@ -51,7 +51,7 @@ export function PlateformeLayout({ children, actif }: { children: ReactNode; act
       <div className="coquille">
         <nav className="barre-laterale" aria-label="Navigation plateforme">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 6px' }}>
-            <Logo size={22} />
+            <Logo taille={30} />
             <span style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)' }}>Admin plateforme</span>
               <span style={{ fontSize: 10.5, color: 'var(--muted-2)' }}>Toutes les écoles</span>

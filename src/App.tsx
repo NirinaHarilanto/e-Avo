@@ -1,6 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { ProfileProvider } from './context/ProfileContext'
-import { SelecteurEtablissement } from './components/etablissements/SelecteurEtablissement'
 import { LandingEtablissement } from './components/landing/LandingEtablissement'
 import { Connexion } from './components/auth/Connexion'
 import { PipelineCRM } from './components/pipeline/PipelineCRM'
@@ -35,7 +34,7 @@ export default function App() {
     <ProfileProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<SelecteurEtablissement />} />
+          <Route path="/" element={<LandingEtablissement />} />
           <Route path="/e/:slug" element={<LandingEtablissement />} />
           <Route path="/connexion" element={<Connexion />} />
           <Route path="/admin/prospects" element={<PipelineCRM />} />

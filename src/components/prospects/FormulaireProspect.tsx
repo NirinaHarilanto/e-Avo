@@ -88,7 +88,7 @@ export function FormulaireProspect({ etablissementId, etablissementNom, accent, 
       setErreur("Votre demande n'a pas pu être envoyée. Réessayez dans un instant.")
       return
     }
-    // Le prospect est d'abord enregistré côté e-Avo. S'il y a un Calendly configuré, on
+    // Le prospect est d'abord enregistré côté HOC. S'il y a un Calendly configuré, on
     // l'ouvre dans un nouvel onglet et on demande confirmation sur cette page (le visiteur
     // reste dessus, rien ne le fait quitter la landing) — sans Calendly, on retombe sur le
     // message "on vous recontacte" ci-dessous.

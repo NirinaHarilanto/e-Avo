@@ -1,6 +1,8 @@
-# e-Avo
+# Hari Online Club (HOC)
 
-Plateforme e-learning multi-établissements (écoles de langues, extensible sciences/technique).
+Plateforme e-learning de Hari Online Club, école de langues. La page d'accueil (`/`) est la
+vitrine de l'établissement ; l'administration multi-établissements (`/plateforme/*`) reste en
+place mais un seul établissement est servi.
 
 ## Stack
 

@@ -121,7 +121,7 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <Logo size={22} />
+              <Logo taille={30} />
               <button
                 type="button"
                 onClick={() => setTiroirOuvert(false)}
@@ -132,22 +132,11 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
                 <Icone nom="fermer" taille={18} />
               </button>
             </div>
-            {etablissement && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-                <span
-                  className="brand-font"
-                  style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 10.5, fontWeight: 800, color: '#1b1510', background: 'var(--accent-gradient)' }}
-                >
-                  {etablissement.nom.slice(0, 2).toUpperCase()}
-                </span>
-                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {etablissement.nom}
-                  </span>
-                  <span style={{ fontSize: 10.5, color: 'var(--muted-2)' }}>{LIBELLE_ESPACE[roleAttendu]}</span>
-                </span>
-              </span>
-            )}
+            {/* Le nom de l'établissement est porté par le logo juste au-dessus : seul l'espace
+                courant reste à nommer ici. */}
+            <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--muted-2)' }}>
+              {LIBELLE_ESPACE[roleAttendu]}
+            </span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flexGrow: 1 }}>

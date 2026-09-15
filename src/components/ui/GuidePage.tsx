@@ -9,7 +9,7 @@ interface GuidePageProps {
   compact?: boolean
 }
 
-const PREFIXE_STOCKAGE = 'e-avo:guide:'
+const PREFIXE_STOCKAGE = 'hoc:guide:'
 
 /* localStorage lève dès que le navigateur bloque le stockage de site (navigation privée,
    cookies tiers coupés), et l'app perdrait alors sa page entière pour un simple encart d'aide.

@@ -16,7 +16,7 @@ export function getJoinUrl(videoSession: Pick<VideoSession, 'room_ref' | 'provid
   if (videoSession.provider === 'google_meet' && videoSession.room_ref) {
     return videoSession.room_ref
   }
-  return `https://meet.e-avo.example/salle/${videoSession.room_ref}`
+  return `https://meet.hari-online-club.example/salle/${videoSession.room_ref}`
 }
 
 export function estLienReel(videoSession: Pick<VideoSession, 'room_ref' | 'provider'>): boolean {

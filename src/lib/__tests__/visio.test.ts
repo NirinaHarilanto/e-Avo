@@ -9,8 +9,8 @@ describe('getJoinUrl', () => {
   })
 
   it('retombe sur le lien interne sans compte Google connecté', () => {
-    expect(getJoinUrl({ provider: 'stub', room_ref: 'id-de-seance' })).toBe('https://meet.e-avo.example/salle/id-de-seance')
-    expect(getJoinUrl({ provider: null, room_ref: 'id-de-seance' })).toBe('https://meet.e-avo.example/salle/id-de-seance')
+    expect(getJoinUrl({ provider: 'stub', room_ref: 'id-de-seance' })).toBe('https://meet.hari-online-club.example/salle/id-de-seance')
+    expect(getJoinUrl({ provider: null, room_ref: 'id-de-seance' })).toBe('https://meet.hari-online-club.example/salle/id-de-seance')
   })
 
   it('ne présente jamais un lien Meet vide comme réel', () => {

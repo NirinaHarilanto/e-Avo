@@ -136,7 +136,7 @@ export function IntegrationGoogleMeet() {
           <p style={{ margin: 0 }}>
             Chaque séance planifiée crée un événement dans l’agenda Google de ce compte, avec une réunion Meet. Le
             professeur et les élèves sont ajoutés comme invités : ils reçoivent l’invitation par e-mail et retrouvent
-            le lien dans leur espace e-Avo.
+            le lien dans leur espace Hari Online Club.
           </p>
           <p style={{ margin: 0 }}>
             Une séance reprogrammée déplace l’événement Google sans changer le lien ; une séance annulée supprime
