@@ -19,20 +19,17 @@ const VIOLET_MARQUE = '#6d3bd1'
 
 type Vue = 'accueil' | 'programmes' | 'tarifs' | 'professeurs' | 'avis'
 
+/* Mêmes intitulés, dans le même ordre, que la barre de navigation dessinée dans la maquette du
+   hero (voir HeroPublic.tsx) : en passant de l'accueil à une vue secondaire, on doit retrouver
+   le menu qu'on vient de quitter, et non un autre vocabulaire. « À propos » pointe sur les avis,
+   faute de page dédiée. */
 const ENTREES: { vue: Vue; libelle: string }[] = [
   { vue: 'accueil', libelle: 'Accueil' },
-  { vue: 'programmes', libelle: 'Programme' },
-  { vue: 'tarifs', libelle: 'Tarifs' },
+  { vue: 'programmes', libelle: 'Cours' },
   { vue: 'professeurs', libelle: 'Professeurs' },
-  { vue: 'avis', libelle: 'Avis' },
+  { vue: 'tarifs', libelle: 'Tarifs' },
+  { vue: 'avis', libelle: 'À propos' },
 ]
-
-/* Sur la vue d'accueil, la barre de navigation flotte AU-DESSUS du hero, qui porte déjà ses
-   propres raccourcis (voir HeroPublic.tsx) : deux entrées y font donc double emploi et sont
-   masquées — « Accueil », puisqu'on y est déjà, et « Avis », déplacé dans le badge Certifié vert
-   (demande client du 2026-09-15). Elles restent affichées sur les autres vues, d'où le hero et
-   son badge sont hors de portée. */
-const MASQUEES_SUR_ACCUEIL: Vue[] = ['accueil', 'avis']
 
 /* Page publique en vue unique : la barre de navigation remplace le contenu affiché au lieu de
    faire défiler la page (demande client du 2026-09-15). Chaque vue tient dans la hauteur de
@@ -106,8 +103,17 @@ export function LandingEtablissement() {
      index.css) plutôt que garder sa bande blanche translucide pensée pour la photo. */
   const sombre = vue !== 'accueil'
 
+  /* Sur l'accueil, la maquette dessine elle-même sa barre de navigation, ses boutons « Se
+     connecter » et « S'inscrire » et sa barre de bénéfices : superposer l'en-tête et le pied de
+     page HTML afficherait tout cela en double (demande client du 2026-09-15 : « pas de
+     redondance, il me faut exactement la figure de l'image »). Ils reviennent dès qu'on quitte
+     l'accueil, où ils sont le seul moyen de naviguer — c'est aussi là que restent accessibles les
+     mentions légales exigées par Google pour l'accès Calendar. */
+  const accueil = vue === 'accueil'
+
   return (
-    <div className={`page-claire page-unique${sombre ? ' page-unique--sombre' : ''}`}>
+    <div className={`page-claire page-unique${sombre ? ' page-unique--sombre' : ''}${accueil ? ' page-unique--accueil' : ''}`}>
+      {!accueil && (
       <header className="en-tete-public">
         <button type="button" onClick={() => setVue('accueil')} className="bloc-logo" aria-label={`Accueil ${etablissement.nom}`}>
           <img src="/logo-hoc.png" alt={etablissement.nom} style={{ height: 42, width: 'auto', display: 'block' }} />
@@ -115,7 +121,7 @@ export function LandingEtablissement() {
         </button>
 
         <nav style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 24 }}>
-          {ENTREES.filter((entree) => vue !== 'accueil' || !MASQUEES_SUR_ACCUEIL.includes(entree.vue)).map((entree) => (
+          {ENTREES.map((entree) => (
             <button
               key={entree.vue}
               type="button"
@@ -138,6 +144,7 @@ export function LandingEtablissement() {
           </button>
         </div>
       </header>
+      )}
 
       <main className="corps-unique">
         {vue === 'accueil' && (
@@ -156,9 +163,10 @@ export function LandingEtablissement() {
         {vue === 'avis' && <VueAvis />}
       </main>
 
-      {/* Bande légale réduite au strict nécessaire : sans elle, les liens de confidentialité et de
-          conditions d'utilisation exigés par Google pour l'accès Calendar n'existeraient plus
-          nulle part sur le site public, la page n'ayant plus de pied de page défilant. */}
+      {/* Bande légale : les liens de confidentialité et de conditions d'utilisation exigés par
+          Google pour l'accès Calendar vivent ici, sur les quatre vues secondaires. L'accueil n'en
+          porte pas, la maquette n'en dessinant aucun. */}
+      {!accueil && (
       <footer className="pied-unique">
         <span>© 2026 {etablissement.nom}</span>
         <span style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -167,6 +175,7 @@ export function LandingEtablissement() {
           <a href="/plateforme/etablissements">Admin plateforme</a>
         </span>
       </footer>
+      )}
 
       {reservation && (
         <ModaleReservation
