@@ -403,7 +403,8 @@ select { color-scheme: dark; }
   }
   .nav-item::before,
   .card-lift::before,
-  .nav-link-glow::before {
+  .nav-link-glow::before,
+  .carte-vue::before {
     animation: navGlowSpin 3.4s linear infinite !important;
   }
   .btn-shine:hover::after {
@@ -749,13 +750,41 @@ input[type='search']::-webkit-search-cancel-button {
   box-shadow: 0 8px 22px rgba(93, 47, 181, 0.26);
 }
 
+/* Même mécanique de halo tournant que .nav-link-glow (voir plus haut, conic-gradient piloté par
+   --glow-angle/navGlowSpin déjà déclarés) recolorée en violet plutôt qu'en doré, qui jurerait sur
+   ce fond clair — demande client du 2026-09-15 de reprendre les animations de l'application. */
 .lien-nav-public {
+  position: relative;
   font-size: 14px;
   font-weight: 600;
   color: #4a4266;
-  padding: 6px 2px;
+  padding: 6px 3px;
   border-bottom: 2px solid transparent;
   transition: color 0.15s ease, border-color 0.15s ease;
+}
+.lien-nav-public::before {
+  content: '';
+  position: absolute;
+  inset: -6px -8px;
+  border-radius: 8px;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%, transparent 76%,
+    #4a2494 83%, #a78bfa 88%, #f3e8ff 91%, #a78bfa 94%, #4a2494 99%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px rgba(124, 58, 237, 0.6));
+  animation: navGlowSpin 3.4s linear infinite;
+  transition: opacity 0.3s;
+}
+.lien-nav-public:hover::before {
+  opacity: 1;
 }
 .lien-nav-public:hover,
 .lien-nav-public[aria-current='page'] {
@@ -798,9 +827,15 @@ body.sans-defilement {
   align-items: center;
   justify-content: space-between;
   padding: 10px 34px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.4) 100%);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* Le dégradé retombe à une opacité nulle (et non 0.4 comme avant) : sinon le bord inférieur du
+     bandeau dessine une ligne blanche nette qui tranche sur l'image, visible même là où il n'y a
+     ni logo ni lien (au-dessus du décor, à droite) — signalé par le client comme une bande
+     parasite le 2026-09-15. */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0) 100%);
+  backdrop-filter: blur(6px);
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  -webkit-backdrop-filter: blur(6px);
   z-index: 4;
 }
 
@@ -833,6 +868,12 @@ body.sans-defilement {
   border: 1px solid rgba(74, 66, 102, 0.35);
   white-space: nowrap;
   background: rgba(255, 255, 255, 0.5);
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
+}
+.bouton-contour:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(109, 59, 209, 0.5);
+  transform: translateY(-1px);
 }
 
 /* Le corps occupe maintenant TOUTE la hauteur de la page (l'en-tête n'est plus dans le flux, elle
@@ -877,10 +918,46 @@ body.sans-defilement {
   height: 100%;
   position: relative;
   overflow: hidden;
+  background: #efe8fb;
+  /* Distance de la caméra virtuelle pour l'inclinaison 3D au survol (voir .hero-profondeur) :
+     plus la valeur est grande, plus l'effet est subtil. */
+  perspective: 1400px;
+}
+
+/* Comble tout le cadre, y compris derrière la barre de navigation : `scale(1.15)` déborde
+   volontairement de son conteneur pour qu'aucun bord net et net non flouté ne soit visible une
+   fois le flou appliqué (le flou "mange" quelques pixels sur les bords de l'image d'origine). */
+.hero-fond-flou {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.hero-fond-flou img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.15);
+  filter: blur(38px) saturate(1.15) brightness(0.92);
+}
+
+/* Tout ce qui doit bouger ensemble sous l'inclinaison de survol — l'image ET le bouton posé
+   dessus — vit dans ce seul conteneur : une rotation 3D appliquée ici les fait pivoter comme un
+   seul panneau rigide, sans que leur alignement l'un sur l'autre ne bouge d'un pixel. Empilé
+   au-dessus du fond flouté (z-index) pour que le contraste net/flou reste visible. */
+.hero-profondeur {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transform-style: preserve-3d;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
 .hero-image {
   position: absolute;
+  top: 0;
+  left: 0;
   display: block;
 }
 
@@ -891,6 +968,7 @@ body.sans-defilement {
    première version, qui débordait sur les coches de garantie juste en dessous. */
 .bouton-hero-image {
   position: absolute;
+  overflow: hidden;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
@@ -909,6 +987,24 @@ body.sans-defilement {
   box-shadow: 0 6px 16px rgba(58, 25, 120, 0.4);
   transition: filter 0.15s ease, box-shadow 0.15s ease;
 }
+/* Balayage lumineux au survol — même mécanique "btn-shine" que le reste de l'application
+   (voir .btn-shine dans ce fichier), reprise ici à l'identique puisque ce bouton est un élément
+   HTML à part (posé en surimpression sur l'image) et ne porte donc pas déjà cette classe. */
+.bouton-hero-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.55) 50%, transparent 80%);
+  background-size: 200% 100%;
+  background-position: -160% 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.bouton-hero-image:hover::after {
+  opacity: 1;
+  animation: shimmerSweep 1.1s ease-in-out infinite;
+}
 .bouton-hero-image:hover {
   filter: brightness(1.1);
   box-shadow: 0 8px 20px rgba(58, 25, 120, 0.5);
@@ -919,6 +1015,7 @@ body.sans-defilement {
 
 /* ── Vues Programme / Tarifs / Professeurs / Avis ──────────────────────────── */
 .vue-secondaire {
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -954,11 +1051,42 @@ body.sans-defilement {
   margin: 0 auto;
 }
 
+/* Même mécanique que .card-lift (liseré tournant + soulèvement + ombre, voir plus haut) recolorée
+   en violet — demande client du 2026-09-15 de reprendre les animations de l'application. */
 .carte-vue {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 20px;
+  transition: transform 0.2s ease, box-shadow 0.25s ease;
+}
+.carte-vue::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%, transparent 76%,
+    #4a2494 83%, #a78bfa 88%, #f3e8ff 91%, #a78bfa 94%, #4a2494 99%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  animation: navGlowSpin 3.4s linear infinite;
+  transition: opacity 0.35s;
+}
+.carte-vue:hover::before {
+  opacity: 1;
+}
+.carte-vue:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 34px rgba(76, 40, 150, 0.16);
 }
 
 .etiquette-programme {
@@ -978,6 +1106,195 @@ body.sans-defilement {
   flex-direction: column;
   gap: 12px;
   padding: 22px;
+  transition: transform 0.2s ease, box-shadow 0.25s ease;
+}
+.carte-avis:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 34px rgba(76, 40, 150, 0.16);
+}
+
+/* ── Vues Programme / Tarifs / Professeurs / Avis : thème sombre glassmorphism néon ──────────
+   Maquettes fournies par le client le 2026-09-15 (Tarifs.jpg / Programme.jpg) : ces quatre vues
+   quittent le fond clair lavande de `.page-claire` pour un fond violet nuit immersif, avec des
+   cartes en verre dépoli à bordure et halo néon, quelques éléments décoratifs flottants (icônes,
+   bulles, étincelles) et des pastilles de catégorie inversées (claires sur fond sombre). Même
+   principe que `.page-claire` : redéfinir les variables --ink/--muted & co sur le conteneur
+   racine de la vue, pour que tous les styles inline qui les lisent déjà basculent de teinte sans
+   rien connaître du thème. */
+.vue-sombre {
+  --ink: #f3edff;
+  --ink-2: #ddccff;
+  --muted: #baa6ea;
+  --muted-2: #9683c4;
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(700px 420px at 14% 8%, rgba(186, 140, 255, 0.32), transparent 62%),
+    radial-gradient(620px 380px at 92% 12%, rgba(150, 100, 240, 0.26), transparent 60%),
+    radial-gradient(900px 520px at 50% 105%, rgba(100, 50, 180, 0.32), transparent 70%),
+    linear-gradient(165deg, #2c1657 0%, #200f49 45%, #150a30 100%);
+}
+.vue-sombre .entete-vue,
+.vue-sombre .vue-secondaire-corps {
+  position: relative;
+  z-index: 1;
+}
+
+/* Le pied de page est pensé pour la photo claire du hero (bande blanche translucide) : sur les
+   vues sombres il doit au contraire se fondre dans le violet nuit plutôt que trancher dessus. */
+.page-unique--sombre .pied-unique {
+  background: transparent;
+  border-top-color: rgba(221, 204, 255, 0.14);
+  color: #a996d6;
+}
+.page-unique--sombre .pied-unique a {
+  color: #cbb8f2;
+}
+.page-unique--sombre .pied-unique a:hover {
+  color: #fff;
+}
+
+/* Titre encapsulé dans une pastille claire (maquette Tarifs uniquement) ; les autres vues
+   gardent un titre nu directement sur le fond sombre (maquette Programme). `!important` : le
+   titre porte déjà `color: var(--ink)` en style inline (device par CadreVue, réutilisé partout),
+   qui l'emporterait sinon sur cette pastille claire — même raison que `.nav-item:hover` plus haut. */
+.titre-pastille {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 auto 24px;
+  padding: 16px 36px;
+  border-radius: 20px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(244, 238, 255, 0.94));
+  box-shadow: 0 18px 40px rgba(20, 8, 50, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+}
+.titre-pastille h2 {
+  color: #2c1657 !important;
+}
+.titre-pastille p {
+  color: #6d5a99 !important;
+}
+
+/* Carte en verre dépoli : fond translucide flouté + halo néon qui « respire » doucement même
+   sans survol (c'est ce qui donne l'impression de profondeur lumineuse des maquettes). Vient en
+   complément de `.carte-vue` (liseré tournant + soulèvement déjà recolorés en violet un peu plus
+   haut) plutôt qu'en remplacement : les deux classes se combinent sur chaque carte. */
+@keyframes respirerNeon {
+  0%, 100% { box-shadow: 0 20px 50px rgba(15, 4, 40, 0.5), 0 0 26px rgba(178, 120, 255, 0.28); }
+  50% { box-shadow: 0 20px 50px rgba(15, 4, 40, 0.5), 0 0 42px rgba(178, 120, 255, 0.42); }
+}
+.carte-glass {
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02) 60%), rgba(60, 34, 110, 0.28);
+  border: 1px solid rgba(210, 180, 255, 0.4);
+  border-radius: 22px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  transition: background 0.3s ease;
+  animation-name: respirerNeon;
+  animation-duration: 4.5s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.carte-glass:hover {
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04) 60%), rgba(70, 42, 128, 0.32);
+}
+
+/* Pastille de catégorie sur fond sombre : inversée (claire) par rapport à `.etiquette-programme`
+   utilisée sur fond clair, pour rester lisible et fidèle aux maquettes fournies. */
+.etiquette-neon {
+  align-self: flex-start;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 999px;
+  color: #3c2170;
+  background: linear-gradient(120deg, #ffffff, #e8ddff);
+  box-shadow: 0 4px 14px rgba(20, 8, 50, 0.35);
+}
+
+/* Décor flottant : icônes/bulles/étincelles purement décoratives (aria-hidden côté JSX), posées
+   dans ce conteneur qui couvre toute la carte (y compris hors de ses bords, `overflow: visible`)
+   pour que chaque élément puisse être positionné librement en pourcentages par le composant, là
+   où la maquette le montre — jamais cliquable (pointer-events: none), toujours sous le contenu
+   de la carte (z-index 0, quand le titre/texte/bouton restent au niveau normal du flux). */
+.decor-flottant {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  /* Négatif et non 0 : un enfant positionné en z-index 0 peint APRÈS le contenu normal (titres,
+     texte, boutons) dans l'ordre de peinture CSS, donc au-dessus de lui — l'inverse de l'effet
+     recherché. En z-index négatif il peint juste après le fond de la carte (qui forme son propre
+     contexte d'empilement via `backdrop-filter`) et avant tout contenu normal : bien derrière. */
+  z-index: -1;
+}
+@keyframes flotterDecor {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+@keyframes scintillerDecor {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+.decor-icone,
+.decor-etincelle,
+.decor-bulle {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+.decor-icone {
+  filter: drop-shadow(0 6px 16px rgba(20, 8, 50, 0.5)) drop-shadow(0 0 14px rgba(200, 160, 255, 0.55));
+  animation-name: flotterDecor;
+  animation-duration: 5s;
+}
+.decor-etincelle {
+  color: #f4e8ff;
+  filter: drop-shadow(0 0 6px rgba(230, 200, 255, 0.9));
+  animation-name: scintillerDecor;
+  animation-duration: 2.4s;
+}
+.decor-bulle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 13px;
+  border-radius: 999px 999px 999px 4px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #4a2ea0;
+  white-space: nowrap;
+  background: linear-gradient(160deg, #ffffff, #e4d6ff);
+  box-shadow: 0 8px 20px rgba(20, 8, 50, 0.45);
+  animation-name: flotterDecor;
+  animation-duration: 6s;
+}
+
+/* Panneau photo (fondatrice / équipe, vue Professeurs) : l'ancien recadrage (`object-fit: cover`
+   sur 210px de haut) coupait le haut ou le bas des portraits. Le panneau est maintenant plus
+   grand et affiche la photo ENTIÈRE sans recadrage (`object-fit: contain`), sur un fond en verre
+   dépoli qui absorbe les bandes vides plutôt que de laisser du vide brut — demande client du
+   2026-09-15 : « les rendre plus visibles et complètes ». */
+.panneau-photo {
+  width: 100%;
+  height: 300px;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(210, 180, 255, 0.28);
+}
+.panneau-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 /* ── Fenêtre de réservation ────────────────────────────────────────────────── */
@@ -1067,5 +1384,19 @@ body.sans-defilement {
   }
   .vue-secondaire-corps {
     overflow: visible;
+  }
+  /* Le décor flottant (icônes/bulles/étincelles) suppose de la place tout autour des cartes pour
+     ne pas se chevaucher avec leur contenu : sous cette largeur, les cartes passent en une seule
+     colonne serrée où il n'y a plus cette place, donc on le retire plutôt que de le laisser
+     empiéter sur le texte. Le fond sombre et les cartes en verre restent inchangés. */
+  .decor-flottant {
+    display: none;
+  }
+  .titre-pastille {
+    padding: 14px 22px;
+    margin-bottom: 18px;
+  }
+  .panneau-photo {
+    height: 240px;
   }
 }

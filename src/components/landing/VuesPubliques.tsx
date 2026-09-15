@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import type { Database, TypeProgrammeProspect } from '../../types/database.types'
 import type { AccentPalette } from '../../lib/accent'
 
@@ -6,9 +6,124 @@ import type { AccentPalette } from '../../lib/accent'
    s'empiler dessous : la page publique tient désormais dans une seule vue, sans défilement
    (demande client du 2026-09-15). Seul le contenu d'une vue peut défiler à l'intérieur de son
    propre cadre quand il est dense — les tarifs, typiquement — pour qu'aucune information ne soit
-   perdue au passage. */
+   perdue au passage.
+
+   Thème sombre glassmorphism néon (maquettes Tarifs.jpg / Programme.jpg fournies le
+   2026-09-15) : les quatre vues (Programme, Tarifs, Professeurs, Avis) partagent désormais le
+   même habillage — fond violet nuit (`.vue-sombre`, posé par CadreVue), cartes en verre dépoli à
+   bordure néon qui « respire » (`.carte-glass`, combinée à `.carte-vue` pour le liseré tournant
+   déjà existant), pastilles de catégorie inversées (`.etiquette-neon`) et quelques éléments
+   décoratifs flottants (icônes/bulles/étincelles, voir les composants Decor* plus bas) — plutôt
+   qu'une reproduction pixel près des rendus 3D des maquettes, qui demanderait des illustrations
+   sur mesure. */
 
 type Tarif = Database['public']['Tables']['tarifs']['Row']
+
+/* ── Décor flottant : icônes/bulles/étincelles purement ornementaux (aria-hidden), un jeu par
+   vue pour varier la composition tout en gardant la même mécanique. Positions en pourcentage
+   (largeur de la vue) / pixels (depuis son sommet) : une approximation raisonnable du placement
+   des maquettes, qui ne prétend pas rester alignée au pixel près sur toutes les largeurs d'écran
+   — masquée sous 820px (voir index.css) où les cartes repassent en une colonne serrée. */
+function Etincelle({ style, taille = 18, duree = 2.4, delai = 0 }: { style: CSSProperties; taille?: number; duree?: number; delai?: number }) {
+  return (
+    <span
+      aria-hidden
+      className="decor-etincelle"
+      style={{ ...style, fontSize: taille, animationDuration: `${duree}s`, animationDelay: `${delai}s` }}
+    >
+      ✦
+    </span>
+  )
+}
+
+function IconeDecor({ style, taille = 42, duree = 5, delai = 0, children }: { style: CSSProperties; taille?: number; duree?: number; delai?: number; children: ReactNode }) {
+  return (
+    <span
+      aria-hidden
+      className="decor-icone"
+      style={{ ...style, fontSize: taille, animationDuration: `${duree}s`, animationDelay: `${delai}s` }}
+    >
+      {children}
+    </span>
+  )
+}
+
+function BulleDecor({ style, duree = 6, delai = 0, children }: { style: CSSProperties; duree?: number; delai?: number; children: ReactNode }) {
+  return (
+    <span
+      aria-hidden
+      className="decor-bulle"
+      style={{ ...style, animationDuration: `${duree}s`, animationDelay: `${delai}s` }}
+    >
+      {children}
+    </span>
+  )
+}
+
+/* Vue Tarifs : un chapeau de diplômé et une bulle « Learn » au-dessus de chaque formule
+   individuelle/duo, un « Hello! » en plus sur le duo, un cluster question/engrenage au-dessus du
+   collectif — même répartition que la maquette Tarifs.jpg. Les trois groupes flottent juste
+   au-dessus des cartes (et non près du titre, qui vit dans sa propre pastille juste au-dessus et
+   les cacherait sinon), avec quelques étincelles éparses plus haut pour l'ambiance. */
+function DecorTarifs() {
+  return (
+    <div className="decor-flottant">
+      <Etincelle style={{ left: '5%', top: 96 }} taille={20} duree={2.1} />
+      <Etincelle style={{ left: '94%', top: 110 }} taille={18} duree={2.3} delai={0.1} />
+
+      <IconeDecor style={{ left: '15%', top: 288 }} taille={44} duree={5.2}>🎓</IconeDecor>
+      <BulleDecor style={{ left: '20%', top: 344 }} duree={6.4} delai={0.4}>Learn</BulleDecor>
+      <Etincelle style={{ left: '6%', top: 322 }} taille={18} duree={2.4} delai={0.2} />
+
+      <IconeDecor style={{ left: '46%', top: 282 }} taille={44} duree={4.6} delai={0.6}>🎓</IconeDecor>
+      <BulleDecor style={{ left: '39%', top: 340 }} duree={5.8} delai={0.2}>Learn</BulleDecor>
+      <BulleDecor style={{ left: '57%', top: 310 }} duree={6.1} delai={0.8}>Hello!</BulleDecor>
+      <Etincelle style={{ left: '61%', top: 276 }} taille={20} duree={2.5} delai={0.3} />
+
+      <IconeDecor style={{ left: '82%', top: 294 }} taille={28} duree={5} delai={0.5}>❓</IconeDecor>
+      <IconeDecor style={{ left: '88%', top: 338 }} taille={28} duree={4.4} delai={0.9}>⚙️</IconeDecor>
+      <Etincelle style={{ left: '78%', top: 310 }} taille={18} duree={2.3} delai={0.1} />
+    </div>
+  )
+}
+
+/* Vue Programme : un cerveau au-dessus du cours individuel, un duo de personnes au-dessus du
+   petit groupe, une bulle de discussion au-dessus du cours en duo — même logique thématique que
+   la maquette Programme.jpg, sans la silhouette de carte de Madagascar en fond (illustration sur
+   mesure hors de portée d'une feuille de style). Les icônes flottent juste au-dessus des cartes
+   plutôt que près du titre, qui est ici un texte nu (pas de pastille) et les cacherait sinon. */
+function DecorProgramme() {
+  return (
+    <div className="decor-flottant">
+      <Etincelle style={{ left: '5%', top: 56 }} taille={20} duree={2.2} />
+      <Etincelle style={{ right: '10%', top: 66 }} taille={20} duree={2.4} delai={0.5} />
+
+      <IconeDecor style={{ left: '15%', top: 268 }} taille={44} duree={5}>🧠</IconeDecor>
+      <Etincelle style={{ left: '9%', top: 320 }} taille={14} duree={2.6} delai={0.4} />
+
+      <IconeDecor style={{ left: '48%', top: 264 }} taille={44} duree={4.6} delai={0.3}>👥</IconeDecor>
+      <Etincelle style={{ left: '57%', top: 240 }} taille={18} duree={2.4} delai={0.2} />
+
+      <IconeDecor style={{ left: '84%', top: 266 }} taille={44} duree={5.4} delai={0.6}>💬</IconeDecor>
+      <IconeDecor style={{ right: '4%', bottom: 34 }} taille={26} duree={4.2} delai={0.2}>⚙️</IconeDecor>
+    </div>
+  )
+}
+
+/* Vues Professeurs / Avis : décor plus sobre (quelques étincelles), même mécanique que les deux
+   vues précédentes — « même type d'animations » demandé pour ces deux sections, sans surcharger
+   des cartes déjà denses (photos, texte long). */
+function DecorSobre() {
+  return (
+    <div className="decor-flottant">
+      <Etincelle style={{ left: '6%', top: 66 }} taille={20} duree={2.4} />
+      <Etincelle style={{ left: '94%', top: 96 }} taille={22} duree={2.8} delai={0.3} />
+      <Etincelle style={{ left: '50%', top: 56 }} taille={16} duree={2.2} delai={0.6} />
+      <IconeDecor style={{ left: '3%', bottom: 30 }} taille={28} duree={5}>✨</IconeDecor>
+      <IconeDecor style={{ right: '3%', bottom: 50 }} taille={28} duree={4.6} delai={0.4}>✨</IconeDecor>
+    </div>
+  )
+}
 
 /* Repris de l'ancien pied de page de la landing, désormais atteignable depuis son propre onglet
    plutôt que noyé en bas de l'écran d'accueil. */
@@ -20,11 +135,15 @@ export const TEMOIGNAGES = [
 
 export function VueAvis() {
   return (
-    <CadreVue titre="Ce qu’en disent nos élèves" sousTitre="Exemples d’avis — à remplacer par de vrais témoignages avant mise en ligne.">
+    <CadreVue
+      titre="Ce qu’en disent nos élèves"
+      sousTitre="Exemples d’avis — à remplacer par de vrais témoignages avant mise en ligne."
+      decor={<DecorSobre />}
+    >
       <div className="grille-vue">
         {TEMOIGNAGES.map((temoignage) => (
-          <article key={temoignage.nom} className="card carte-avis">
-            <span aria-hidden style={{ fontSize: 14, letterSpacing: 2, color: '#6d3bd1' }}>★★★★★</span>
+          <article key={temoignage.nom} className="carte-glass carte-vue carte-avis">
+            <span aria-hidden style={{ fontSize: 14, letterSpacing: 2, color: '#c9a6ff' }}>★★★★★</span>
             <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink-2)', fontStyle: 'italic', margin: 0 }}>
               « {temoignage.texte} »
             </p>
@@ -97,13 +216,12 @@ export function VueProgrammes({
     <CadreVue
       titre="Trois façons d’apprendre, un seul cap : votre objectif."
       sousTitre="Choisissez la formule qui correspond à votre rythme et à votre budget."
+      decor={<DecorProgramme />}
     >
       <div className="grille-vue">
         {PROGRAMMES.map((programme) => (
-          <article key={programme.titre} className="card carte-vue">
-            <span className="etiquette-programme" style={{ color: accent.accent, borderColor: accent.accentBorder, background: accent.accentSoft }}>
-              {programme.tag}
-            </span>
+          <article key={programme.titre} className="carte-glass carte-vue">
+            <span className="etiquette-neon">{programme.tag}</span>
             <h3 style={{ fontSize: 19, margin: 0, color: 'var(--ink)' }}>{programme.titre}</h3>
             <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--muted)', margin: 0 }}>{programme.texte}</p>
             {programme.detail && (
@@ -113,7 +231,16 @@ export function VueProgrammes({
               type="button"
               onClick={() => onReserver(programme.type)}
               className="btn-shine"
-              style={{ marginTop: 'auto', alignSelf: 'flex-start', fontSize: 12.5, padding: '10px 18px', background: accent.accentGrad, color: accent.accentInk, border: 'none' }}
+              style={{
+                marginTop: 'auto',
+                alignSelf: 'flex-start',
+                fontSize: 12.5,
+                padding: '10px 18px',
+                background: accent.accentGrad,
+                color: accent.accentInk,
+                border: 'none',
+                boxShadow: `0 8px 22px ${accent.accentGlow}`,
+              }}
             >
               {programme.type === 'collectif' ? 'Réserver mon test →' : 'Réserver mon appel →'}
             </button>
@@ -136,7 +263,12 @@ export function VueTarifs({
   onReserver: (type: TypeProgrammeProspect) => void
 }) {
   return (
-    <CadreVue titre="Tarifs" sousTitre="Des formules claires, sans frais cachés. Le premier appel est toujours gratuit.">
+    <CadreVue
+      titre="Tarifs"
+      sousTitre="Des formules claires, sans frais cachés. Le premier appel est toujours gratuit."
+      pastille
+      decor={<DecorTarifs />}
+    >
       {tarifs.length === 0 ? (
         <p style={{ fontSize: 14, color: 'var(--muted)' }}>Les tarifs seront publiés très prochainement.</p>
       ) : (
@@ -168,10 +300,8 @@ function BlocTarif({
   const masquees = lignes.length - visibles.length
 
   return (
-    <article className="card carte-vue">
-      <span className="etiquette-programme" style={{ color: accent.accent, borderColor: accent.accentBorder, background: accent.accentSoft }}>
-        {PROGRAMME_LABEL[type]}
-      </span>
+    <article className="carte-glass carte-vue">
+      <span className="etiquette-neon">{PROGRAMME_LABEL[type]}</span>
       <h3 style={{ fontSize: 18, margin: 0, color: 'var(--ink)' }}>
         {type === 'individuel' ? 'Cours particuliers' : type === 'duo' ? 'Cours en duo' : 'Cours en petit groupe'}
       </h3>
@@ -191,7 +321,7 @@ function BlocTarif({
           >
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>{ligne.titre}</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: accent.accent, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 14, fontWeight: 800, color: '#f0e4ff', whiteSpace: 'nowrap', textShadow: '0 0 14px rgba(200,160,255,0.5)' }}>
                 {ligne.prix.toLocaleString('fr-FR')} {ligne.unite}
               </span>
             </div>
@@ -204,7 +334,7 @@ function BlocTarif({
         <button
           type="button"
           onClick={() => setEtendu((v) => !v)}
-          style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: accent.accent, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+          style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: '#d8c4ff', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
         >
           {etendu ? 'Réduire ↑' : `Voir tous les tarifs (+${masquees}) ↓`}
         </button>
@@ -214,7 +344,16 @@ function BlocTarif({
         type="button"
         onClick={() => onReserver(type)}
         className="btn-shine"
-        style={{ marginTop: 'auto', alignSelf: 'flex-start', fontSize: 12.5, padding: '10px 18px', background: accent.accentGrad, color: accent.accentInk, border: 'none' }}
+        style={{
+          marginTop: 'auto',
+          alignSelf: 'flex-start',
+          fontSize: 12.5,
+          padding: '10px 18px',
+          background: accent.accentGrad,
+          color: accent.accentInk,
+          border: 'none',
+          boxShadow: `0 8px 22px ${accent.accentGlow}`,
+        }}
       >
         Réserver →
       </button>
@@ -236,20 +375,23 @@ export function VueProfesseurs({
   onReserver: () => void
 }) {
   return (
-    <CadreVue titre="Notre équipe" sousTitre="Des professeurs choisis pour leur pédagogie autant que pour leur passion des langues.">
+    <CadreVue
+      titre="Notre équipe"
+      sousTitre="Des professeurs choisis pour leur pédagogie autant que pour leur passion des langues."
+      decor={<DecorSobre />}
+    >
       <div className="grille-professeurs">
-        <article className="card carte-vue" style={{ gap: 14 }}>
-          <img
-            src={`${dossierAssets}/Directrice.jpg`}
-            alt={`Directrice de ${nomEtablissement}`}
-            style={{ width: '100%', maxHeight: 210, objectFit: 'cover', objectPosition: 'top', borderRadius: 12, display: 'block' }}
-            onError={(e) => {
-              ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-            }}
-          />
-          <span className="etiquette-programme" style={{ color: accent.accent, borderColor: accent.accentBorder, background: accent.accentSoft }}>
-            Notre directrice
-          </span>
+        <article className="carte-glass carte-vue" style={{ gap: 14 }}>
+          <div className="panneau-photo">
+            <img
+              src={`${dossierAssets}/Directrice.jpg`}
+              alt={`Directrice de ${nomEtablissement}`}
+              onError={(e) => {
+                ;(e.currentTarget.parentElement as HTMLDivElement).style.display = 'none'
+              }}
+            />
+          </div>
+          <span className="etiquette-neon">Notre directrice</span>
           <h3 style={{ fontSize: 18, margin: 0, color: 'var(--ink)' }}>Une pédagogie pensée pour des résultats réels</h3>
           <p style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--muted)', margin: 0 }}>
             Persuadée qu’aucune application ne remplace le regard d’un professeur qui croit en vous, notre directrice
@@ -259,18 +401,17 @@ export function VueProfesseurs({
           </p>
         </article>
 
-        <article className="card carte-vue" style={{ gap: 14 }}>
-          <img
-            src={`${dossierAssets}/equipe.jpg`}
-            alt={`L’équipe de ${nomEtablissement}`}
-            style={{ width: '100%', maxHeight: 210, objectFit: 'cover', borderRadius: 12, display: 'block' }}
-            onError={(e) => {
-              ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-            }}
-          />
-          <span className="etiquette-programme" style={{ color: accent.accent, borderColor: accent.accentBorder, background: accent.accentSoft }}>
-            Notre équipe
-          </span>
+        <article className="carte-glass carte-vue" style={{ gap: 14 }}>
+          <div className="panneau-photo">
+            <img
+              src={`${dossierAssets}/equipe.jpg`}
+              alt={`L’équipe de ${nomEtablissement}`}
+              onError={(e) => {
+                ;(e.currentTarget.parentElement as HTMLDivElement).style.display = 'none'
+              }}
+            />
+          </div>
+          <span className="etiquette-neon">Notre équipe</span>
           <h3 style={{ fontSize: 18, margin: 0, color: 'var(--ink)' }}>Des professeurs choisis pour votre objectif</h3>
           <p style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--muted)', margin: 0 }}>
             Une équipe soudée, choisie pour sa pédagogie autant que pour sa passion des langues — la même exigence
@@ -280,7 +421,16 @@ export function VueProfesseurs({
             type="button"
             onClick={onReserver}
             className="btn-shine"
-            style={{ marginTop: 'auto', alignSelf: 'flex-start', fontSize: 12.5, padding: '10px 18px', background: accent.accentGrad, color: accent.accentInk, border: 'none' }}
+            style={{
+              marginTop: 'auto',
+              alignSelf: 'flex-start',
+              fontSize: 12.5,
+              padding: '10px 18px',
+              background: accent.accentGrad,
+              color: accent.accentInk,
+              border: 'none',
+              boxShadow: `0 8px 22px ${accent.accentGlow}`,
+            }}
           >
             Rencontrer un professeur →
           </button>
@@ -290,12 +440,40 @@ export function VueProfesseurs({
   )
 }
 
-function CadreVue({ titre, sousTitre, children }: { titre: string; sousTitre: string; children: React.ReactNode }) {
+function CadreVue({
+  titre,
+  sousTitre,
+  pastille = false,
+  decor,
+  children,
+}: {
+  titre: string
+  sousTitre: string
+  /* Titre encapsulé dans une pastille claire — seule la vue Tarifs en a une dans la maquette
+     fournie, les trois autres gardent un titre nu directement sur le fond sombre. */
+  pastille?: boolean
+  /* Éléments décoratifs flottants (icônes/bulles/étincelles) propres à chaque vue, voir les
+     composants Decor* en tête de fichier. */
+  decor?: ReactNode
+  children: ReactNode
+}) {
   return (
-    <section className="vue-secondaire">
-      <header style={{ textAlign: 'center', marginBottom: 20 }}>
-        <h2 style={{ fontSize: 28, margin: '0 0 6px', color: 'var(--ink)' }}>{titre}</h2>
-        <p style={{ fontSize: 13.5, color: 'var(--muted)', margin: 0 }}>{sousTitre}</p>
+    <section className="vue-secondaire vue-sombre">
+      {decor}
+      <header className="entete-vue" style={{ textAlign: 'center', marginBottom: 20 }}>
+        {pastille ? (
+          <div className="titre-pastille">
+            <h2 style={{ fontSize: 28, margin: 0, color: 'var(--ink)' }}>{titre}</h2>
+            <p style={{ fontSize: 13.5, margin: 0, color: 'var(--muted)' }}>{sousTitre}</p>
+          </div>
+        ) : (
+          <>
+            <h2 style={{ fontSize: 30, margin: '0 0 8px', color: 'var(--ink)', textShadow: '0 2px 20px rgba(150, 90, 255, 0.45)' }}>
+              {titre}
+            </h2>
+            <p style={{ fontSize: 14, color: 'var(--muted)', margin: 0 }}>{sousTitre}</p>
+          </>
+        )}
       </header>
       <div className="vue-secondaire-corps">{children}</div>
     </section>

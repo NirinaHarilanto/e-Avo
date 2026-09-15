@@ -93,8 +93,14 @@ export function LandingEtablissement() {
     setReservation(type)
   }
 
+  /* Les quatre vues Programme/Tarifs/Professeurs/Avis (CadreVue, voir VuesPubliques.tsx) portent
+     désormais un thème sombre glassmorphism néon — seule l'accueil garde la photo du hero sur
+     fond clair. Le pied de page doit s'adapter à ce fond sombre (voir .page-unique--sombre dans
+     index.css) plutôt que garder sa bande blanche translucide pensée pour la photo. */
+  const sombre = vue !== 'accueil'
+
   return (
-    <div className="page-claire page-unique">
+    <div className={`page-claire page-unique${sombre ? ' page-unique--sombre' : ''}`}>
       <header className="en-tete-public">
         <button type="button" onClick={() => setVue('accueil')} className="bloc-logo" aria-label={`Accueil ${etablissement.nom}`}>
           <img src="/logo-hoc.png" alt={etablissement.nom} style={{ height: 42, width: 'auto', display: 'block' }} />
