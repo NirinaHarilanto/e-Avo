@@ -316,6 +316,44 @@ export async function deplacerEvenement(
   }
 }
 
+/**
+ * Périodes déjà occupées dans l'agenda de l'établissement, pour ne pas proposer à un prospect un
+ * créneau où l'établissement est en réalité pris. Passe par `events.list` plutôt que par l'API
+ * freebusy : le scope déjà accordé (`calendar.events`) suffit, là où freebusy demanderait un
+ * nouveau consentement de l'établissement.
+ *
+ * Les événements « toute la journée » (`date` sans `dateTime`) sont ignorés : ce sont des repères
+ * (anniversaires, jours fériés) qui bloqueraient des journées entières sans raison.
+ */
+export async function occupationsAgenda(
+  integration: IntegrationGoogle,
+  debut: Date,
+  fin: Date,
+): Promise<{ debut: string; fin: string }[]> {
+  const parametres = new URLSearchParams({
+    timeMin: debut.toISOString(),
+    timeMax: fin.toISOString(),
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    maxResults: '2500',
+  })
+  const reponse = await fetch(`${CALENDAR_URL}?${parametres}`, {
+    headers: { Authorization: `Bearer ${integration.accessToken}` },
+  })
+  if (!reponse.ok) {
+    const corps = (await reponse.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new GoogleError(corps?.error?.message ?? "Google Calendar a refusé la lecture de l'agenda.")
+  }
+
+  const corps = (await reponse.json()) as {
+    items?: { status?: string; transparency?: string; start?: { dateTime?: string }; end?: { dateTime?: string } }[]
+  }
+  return (corps.items ?? [])
+    .filter((e) => e.status !== 'cancelled' && e.transparency !== 'transparent')
+    .map((e) => ({ debut: e.start?.dateTime, fin: e.end?.dateTime }))
+    .filter((e): e is { debut: string; fin: string } => Boolean(e.debut && e.fin))
+}
+
 export async function supprimerEvenement(integration: IntegrationGoogle, eventId: string): Promise<void> {
   const reponse = await fetch(`${CALENDAR_URL}/${encodeURIComponent(eventId)}?sendUpdates=all`, {
     method: 'DELETE',

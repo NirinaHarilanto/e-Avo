@@ -27,6 +27,7 @@ export type StatutDevis = 'brouillon' | 'envoye' | 'accepte' | 'refuse' | 'expir
 export type StatutFacture = 'emise' | 'envoyee' | 'payee' | 'en_retard' | 'annulee'
 export type StatutContrat = 'brouillon' | 'envoye' | 'signe' | 'resilie'
 export type StatutCohorte = 'a_venir' | 'en_cours' | 'terminee'
+export type StatutRendezVous = 'en_attente' | 'confirme' | 'refuse' | 'annule'
 
 export interface LigneFacturation {
   description: string
@@ -814,6 +815,86 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['niveau_evaluations']['Insert']>
+        Relationships: []
+      }
+      reservation_parametres: {
+        Row: {
+          etablissement_id: string
+          duree_minutes: number
+          delai_minimum_heures: number
+          horizon_jours: number
+          pause_minutes: number
+          fuseau: string
+          validation_requise: boolean
+          updated_at: string
+        }
+        Insert: {
+          etablissement_id: string
+          duree_minutes?: number
+          delai_minimum_heures?: number
+          horizon_jours?: number
+          pause_minutes?: number
+          fuseau?: string
+          validation_requise?: boolean
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['reservation_parametres']['Insert']>
+        Relationships: []
+      }
+      creneaux_disponibilites: {
+        Row: {
+          id: string
+          etablissement_id: string
+          jour_semaine: number
+          heure_debut: string
+          heure_fin: string
+          actif: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          jour_semaine: number
+          heure_debut: string
+          heure_fin: string
+          actif?: boolean
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['creneaux_disponibilites']['Insert']>
+        Relationships: []
+      }
+      rendez_vous: {
+        Row: {
+          id: string
+          etablissement_id: string
+          prospect_id: string
+          debut: string
+          duree_minutes: number
+          statut: StatutRendezVous
+          google_event_id: string | null
+          lien_meet: string | null
+          message: string | null
+          motif_refus: string | null
+          valide_par: string | null
+          valide_le: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          prospect_id: string
+          debut: string
+          duree_minutes: number
+          statut?: StatutRendezVous
+          google_event_id?: string | null
+          lien_meet?: string | null
+          message?: string | null
+          motif_refus?: string | null
+          valide_par?: string | null
+          valide_le?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['rendez_vous']['Insert']>
         Relationships: []
       }
     }
