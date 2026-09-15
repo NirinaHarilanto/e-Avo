@@ -593,11 +593,19 @@ export function LandingEtablissement() {
           </div>
         </div>
 
-        <div style={{ maxWidth: 1100, margin: '0 auto', paddingTop: 20, borderTop: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto', paddingTop: 20, borderTop: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
           <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>© 2026 {etablissement.nom}</span>
-          <a href="/plateforme/etablissements" style={{ fontSize: 12, color: 'var(--muted-2)' }}>
-            Admin plateforme
-          </a>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+            <a href="/confidentialite" style={{ fontSize: 12, color: 'var(--muted-2)' }}>
+              Confidentialité
+            </a>
+            <a href="/conditions-utilisation" style={{ fontSize: 12, color: 'var(--muted-2)' }}>
+              Conditions d'utilisation
+            </a>
+            <a href="/plateforme/etablissements" style={{ fontSize: 12, color: 'var(--muted-2)' }}>
+              Admin plateforme
+            </a>
+          </div>
         </div>
       </footer>
     </div>

@@ -1,6 +1,8 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { ProfileProvider } from './context/ProfileContext'
 import { LandingEtablissement } from './components/landing/LandingEtablissement'
+import { Confidentialite } from './components/legal/Confidentialite'
+import { ConditionsUtilisation } from './components/legal/ConditionsUtilisation'
 import { Connexion } from './components/auth/Connexion'
 import { PipelineCRM } from './components/pipeline/PipelineCRM'
 import { EtudiantsAdmin } from './components/etudiants/EtudiantsAdmin'
@@ -37,6 +39,8 @@ export default function App() {
           <Route path="/" element={<LandingEtablissement />} />
           <Route path="/e/:slug" element={<LandingEtablissement />} />
           <Route path="/connexion" element={<Connexion />} />
+          <Route path="/confidentialite" element={<Confidentialite />} />
+          <Route path="/conditions-utilisation" element={<ConditionsUtilisation />} />
           <Route path="/admin/prospects" element={<PipelineCRM />} />
           <Route path="/admin/etudiants" element={<EtudiantsAdmin />} />
           <Route path="/admin/etudiants/:id" element={<EtudiantsAdmin />} />
