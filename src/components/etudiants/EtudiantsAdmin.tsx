@@ -10,7 +10,8 @@ import { ChoixProgrammeInitial } from './ChoixProgrammeInitial'
 import { PlanifierSeancesForfait } from './PlanifierSeancesForfait'
 import { DossierEtudiantVue, initiales } from './DossierEtudiantVue'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
-import { InformationsPersonnelles } from '../shared/InformationsPersonnelles'
+import { InformationsPersonnelles, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
+import { SupprimerCompte } from '../shared/SupprimerCompte'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -162,7 +163,13 @@ export function EtudiantsAdmin() {
                   {etudiant.prenom} {etudiant.nom}
                 </span>
                 <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{etudiant.status === 'approved' ? 'Actif' : etudiant.status}</span>
-                {statutsContrats[etudiant.id] && <BadgeStatutContrat statut={statutsContrats[etudiant.id]} compact />}
+                <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {statutsContrats[etudiant.id] && <BadgeStatutContrat statut={statutsContrats[etudiant.id]} compact />}
+                  {/* Téléphone, adresse, ville, date et lieu de naissance : tant qu'un de ces
+                      champs manque, le dossier ne peut pas servir de base à un contrat ou à une
+                      facture complets — voir informationsPersonnellesCompletes. */}
+                  {!informationsPersonnellesCompletes(etudiant) && <TagDossierIncomplet />}
+                </span>
               </div>
             </button>
           ))}
@@ -170,7 +177,13 @@ export function EtudiantsAdmin() {
 
         <div style={{ minWidth: 0 }}>
           {id ? (
-            <DossierPanel studentId={id} />
+            <DossierPanel
+              studentId={id}
+              onSupprime={() => {
+                recharger()
+                navigate('/admin/etudiants')
+              }}
+            />
           ) : (
             <EtatVide
               icone="dossier"
@@ -184,7 +197,7 @@ export function EtudiantsAdmin() {
   )
 }
 
-function DossierPanel({ studentId }: { studentId: string }) {
+function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime: () => void }) {
   const { dossier, loading, erreur, recharger } = useDossierEtudiant(studentId)
 
   if (loading) return <EtatChargement lignes={3} hauteur={110} />
@@ -202,6 +215,7 @@ function DossierPanel({ studentId }: { studentId: string }) {
         <AttribuerProfesseur studentId={etudiant.id} affectationActuelle={affectationActuelle} onTermine={recharger} />
       }
       panneauInformations={<InformationsPersonnelles personne={etudiant} onChange={recharger} carte={false} />}
+      panneauSuppression={<SupprimerCompte personne={etudiant} onSupprime={onSupprime} />}
       panneauChoixInitial={
         <ChoixProgrammeInitial studentId={etudiant.id} etablissementId={etudiant.etablissement_id} onCree={recharger} />
       }
@@ -228,5 +242,29 @@ function DossierPanel({ studentId }: { studentId: string }) {
       peutModifierPlanning
       onDossierChange={recharger}
     />
+  )
+}
+
+/* Signale, dans la liste de gauche, un étudiant dont les informations personnelles (téléphone,
+   adresse, ville, date et lieu de naissance — voir informationsPersonnellesCompletes) sont
+   encore incomplètes. Même vocabulaire de couleur que BadgeStatutContrat côté « en attente » :
+   ambre, pas rouge — ce n'est pas bloquant, seulement à surveiller avant de générer un contrat
+   ou une facture. */
+function TagDossierIncomplet() {
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        fontWeight: 700,
+        color: 'var(--warning)',
+        background: 'rgba(233,207,148,.12)',
+        border: '1px solid rgba(233,207,148,.32)',
+        borderRadius: 999,
+        padding: '2px 8px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      Dossier à compléter
+    </span>
   )
 }

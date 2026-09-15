@@ -9,6 +9,14 @@ import { boutonSecondaireStyle, boutonNeutreStyle, boutonPrimaireStyle } from '.
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
+/* Les cinq champs modifiables dans ce panneau (au-delà de nom/prénom, déjà exigés à
+   l'inscription) : téléphone, adresse, ville, date et lieu de naissance. Exportée pour que la
+   liste des étudiants (EtudiantsAdmin.tsx) puisse signaler un dossier incomplet sans dupliquer
+   cette définition — un seul endroit à mettre à jour si ces champs changent. */
+export function informationsPersonnellesCompletes(personne: Profile): boolean {
+  return Boolean(personne.telephone && personne.adresse && personne.ville && personne.date_naissance && personne.lieu_naissance)
+}
+
 interface InformationsPersonnellesProps {
   personne: Profile
   onChange: () => void
