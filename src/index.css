@@ -744,17 +744,6 @@ input[type='search']::-webkit-search-cancel-button {
   mask-image: radial-gradient(125% 115% at 62% 42%, #000 62%, transparent 99%);
 }
 
-.pastille-competence {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 9px 16px;
-  border-radius: 12px;
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #ffffff;
-  box-shadow: 0 6px 16px rgba(76, 40, 150, 0.22);
-}
 
 .page-claire .btn-shine {
   box-shadow: 0 8px 22px rgba(93, 47, 181, 0.26);
@@ -873,7 +862,7 @@ body.sans-defilement {
 /* L'illustration couvre toute la moitié droite, bord à bord, au lieu de flotter dans une carte. */
 .hero-visuel {
   position: absolute;
-  inset: 0 0 0 42%;
+  inset: 0 0 0 40%;
   overflow: hidden;
 }
 .hero-visuel img {
@@ -882,7 +871,7 @@ body.sans-defilement {
   object-fit: cover;
   /* Cadrage decale vers la droite : c'est ce cote qui porte les badges Confiance /
      Opportunites / Avenir global de la maquette, que le rognage en cover coupait. */
-  object-position: 64% center;
+  object-position: 50% center;
   display: block;
 }
 /* Fond du bord gauche de l'image dans le lavande de la page : évite un bord franc au milieu de
@@ -928,28 +917,7 @@ body.sans-defilement {
   margin: 0;
 }
 
-.coche-garantie {
-  width: 16px;
-  height: 16px;
-  border-radius: 5px;
-  border: 1.5px solid rgba(109, 59, 209, 0.45);
-  color: #6d3bd1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: 900;
-  flex-shrink: 0;
-}
 
-.liste-competences {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  list-style: none;
-  margin: 2px 0 0;
-  padding: 0;
-}
 
 .hero-bandeau {
   position: relative;
@@ -1182,5 +1150,173 @@ body.sans-defilement {
   }
   .vue-secondaire-corps {
     overflow: visible;
+  }
+}
+
+/* ── Détails repris de la maquette du hero ──────────────────────────────────── */
+
+.bloc-manuscrit {
+  position: relative;
+  align-self: flex-start;
+  margin: 0;
+  padding-bottom: 10px;
+}
+.bloc-manuscrit .mention-manuscrite {
+  font-size: 27px;
+  display: block;
+}
+.trait-manuscrit {
+  position: absolute;
+  left: 4px;
+  bottom: -2px;
+  width: 172px;
+  height: 18px;
+  /* Tracé au chargement, comme s'il venait d'être écrit à la main. */
+  stroke-dasharray: 230;
+  stroke-dashoffset: 230;
+  animation: traceTrait 1.1s cubic-bezier(0.65, 0, 0.35, 1) 0.55s forwards;
+}
+@keyframes traceTrait {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Bouton principal : pilule violette, fusée à gauche, flèche dans un disque clair à droite. */
+.bouton-hero {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 13px 13px 22px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #7c4ddb, #5a2fb5);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 26px rgba(90, 47, 181, 0.32);
+  transition: transform 0.16s ease, box-shadow 0.25s ease;
+}
+.bouton-hero:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(90, 47, 181, 0.42);
+}
+.bouton-hero .fusee {
+  display: inline-flex;
+  animation: flotteFusee 2.6s ease-in-out infinite;
+}
+@keyframes flotteFusee {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  50% { transform: translate(1px, -3px) rotate(-8deg); }
+}
+.fleche-cercle {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  transition: transform 0.16s ease;
+}
+.bouton-hero:hover .fleche-cercle {
+  transform: translateX(3px);
+}
+
+.ligne-garanties {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.garantie {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--muted);
+}
+/* Coche dans un disque, comme sur la maquette (et non dans un carré arrondi). */
+.coche-garantie {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1.6px solid rgba(109, 59, 209, 0.5);
+  color: #6d3bd1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+/* Les quatre compétences empilées en escalier, à la manière de la pile de livres. */
+.pile-competences {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.pastille-competence {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 20px 8px 14px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+  min-width: 168px;
+  box-shadow: 0 5px 14px rgba(76, 40, 150, 0.26);
+  transition: transform 0.16s ease;
+}
+.pastille-competence:hover {
+  transform: translateX(5px);
+}
+
+.atout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  position: relative;
+}
+/* Fin séparateur vertical entre deux atouts, comme sur la maquette — retiré sur le premier de
+   chaque rangée, que la grille repositionne selon la largeur. */
+.atout + .atout::before {
+  content: '';
+  position: absolute;
+  left: -7px;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: var(--border-soft);
+}
+
+/* Respiration d'ensemble : l'illustration monte et descend très lentement, ce qui donne au
+   décor la légèreté de la maquette sans distraire de la lecture. */
+.hero-visuel img {
+  animation: respireVisuel 11s ease-in-out infinite;
+}
+@keyframes respireVisuel {
+  0%, 100% { transform: scale(1) translateY(0); }
+  50% { transform: scale(1.022) translateY(-6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-visuel img,
+  .bouton-hero .fusee {
+    animation: none;
+  }
+  .trait-manuscrit {
+    stroke-dashoffset: 0;
+    animation: none;
   }
 }
