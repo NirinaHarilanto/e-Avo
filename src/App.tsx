@@ -4,6 +4,7 @@ import { LandingEtablissement } from './components/landing/LandingEtablissement'
 import { Confidentialite } from './components/legal/Confidentialite'
 import { ConditionsUtilisation } from './components/legal/ConditionsUtilisation'
 import { Connexion } from './components/auth/Connexion'
+import { ReinitialiserMotDePasse } from './components/auth/ReinitialiserMotDePasse'
 import { PipelineCRM } from './components/pipeline/PipelineCRM'
 import { RendezVousAdmin } from './components/admin/RendezVousAdmin'
 import { EtudiantsAdmin } from './components/etudiants/EtudiantsAdmin'
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/" element={<LandingEtablissement />} />
           <Route path="/e/:slug" element={<LandingEtablissement />} />
           <Route path="/connexion" element={<Connexion />} />
+          <Route path="/auth/reinitialiser" element={<ReinitialiserMotDePasse />} />
           <Route path="/confidentialite" element={<Confidentialite />} />
           <Route path="/conditions-utilisation" element={<ConditionsUtilisation />} />
           <Route path="/admin/prospects" element={<PipelineCRM />} />

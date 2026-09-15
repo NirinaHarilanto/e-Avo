@@ -2,7 +2,6 @@ import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
-import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { Logo } from '../shared/Logo'
 import { NotificationsBell } from '../shared/NotificationsBell'
@@ -56,7 +55,6 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
     profile,
     loading: profileLoading,
     seDeconnecter,
-    etablissement,
     platformAdmin,
     platformAdminLoading,
   } = useProfileContext()
@@ -202,20 +200,12 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
               <NotificationsBell profileId={profile.id} />
               <button
                 onClick={async () => {
-                  // `etablissement` peut ne pas encore être chargé si le clic arrive très vite
-                  // après le rendu (fetch asynchrone séparé, non couvert par `loading`) — on
-                  // refait alors un fetch direct du slug pour ne jamais retomber sur `/`.
-                  let slug = etablissement?.slug ?? null
-                  if (!slug) {
-                    const { data } = await supabase
-                      .from('etablissements')
-                      .select('slug')
-                      .eq('id', profile.etablissement_id)
-                      .maybeSingle()
-                    slug = data?.slug ?? null
-                  }
+                  // Toute déconnexion ramène systématiquement à la page Hero (demande client
+                  // du 2026-09-15) — plus de lookup de slug d'établissement, devenu inutile
+                  // depuis que l'app ne sert plus qu'un seul établissement (`/` rend déjà la
+                  // même landing HOC que `/e/hari-online-course`).
                   await seDeconnecter()
-                  navigate(slug ? `/e/${slug}` : '/', { replace: true })
+                  navigate('/', { replace: true })
                 }}
                 style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '8px 15px', cursor: 'pointer', whiteSpace: 'nowrap' }}
               >

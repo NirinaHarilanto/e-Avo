@@ -91,6 +91,7 @@ export interface Database {
           lieu_naissance: string | null
           whatsapp: string | null
           taux_horaire: number | null
+          mot_de_passe_defini: boolean
           created_at: string
         }
         Insert: {
@@ -109,6 +110,7 @@ export interface Database {
           lieu_naissance?: string | null
           whatsapp?: string | null
           taux_horaire?: number | null
+          mot_de_passe_defini?: boolean
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>

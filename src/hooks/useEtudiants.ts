@@ -6,7 +6,7 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 
 export function useEtudiants() {
   const { valeur, loading, recharger } = useCacheRequete('etudiants', async () => {
-    const { data } = await supabase.from('profiles').select('*').eq('role', 'etudiant').order('nom')
+    const { data } = await supabase.from('profiles').select('*').eq('role', 'etudiant').neq('status', 'suspended').order('nom')
     return data ?? []
   })
 

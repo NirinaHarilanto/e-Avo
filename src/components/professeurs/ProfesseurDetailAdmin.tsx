@@ -2,6 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfesseurDetailAdmin, type EleveDuProfesseur } from '../../hooks/useProfesseurDetailAdmin'
 import { InformationsPersonnelles } from '../shared/InformationsPersonnelles'
+import { SupprimerCompte } from '../shared/SupprimerCompte'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { EnTetePage, BoutonRetour } from '../ui/EnTetePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -31,6 +32,9 @@ export function ProfesseurDetailAdmin() {
             }
             titre={`${detail.professeur.prenom} ${detail.professeur.nom}`}
             description={detail.professeur.email}
+            actions={
+              <SupprimerCompte personne={detail.professeur} onSupprime={() => navigate('/admin/professeurs')} />
+            }
           />
 
           <GrilleStats>

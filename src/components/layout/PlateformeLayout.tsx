@@ -18,7 +18,6 @@ export function PlateformeLayout({ children, actif }: { children: ReactNode; act
     profile,
     loading: contextLoading,
     seDeconnecter,
-    etablissement,
     platformAdmin,
     platformAdminLoading,
   } = useProfileContext()
@@ -122,8 +121,10 @@ export function PlateformeLayout({ children, actif }: { children: ReactNode; act
             </span>
             <button
               onClick={async () => {
+                // Toute déconnexion ramène systématiquement à la page Hero (demande client du
+                // 2026-09-15), quel que soit l'espace d'où l'on se déconnecte.
                 await seDeconnecter()
-                navigate(etablissement ? `/e/${etablissement.slug}` : '/', { replace: true })
+                navigate('/', { replace: true })
               }}
               style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '8px 15px', cursor: 'pointer' }}
             >

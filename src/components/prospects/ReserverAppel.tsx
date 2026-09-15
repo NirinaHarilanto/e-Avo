@@ -60,6 +60,7 @@ export function ReserverAppel({
   accent,
   typeInitial = 'individuel',
   onPrefererContact,
+  onConfirme,
   sansCadre = false,
 }: {
   etablissementSlug: string
@@ -67,6 +68,9 @@ export function ReserverAppel({
   accent: AccentPalette
   typeInitial?: TypeProgrammeProspect
   onPrefererContact?: () => void
+  /* Signale au parent (ModaleReservation) que la demande vient d'être enregistrée, pour qu'il
+     masque le choix de type de cours — le modifier après coup n'aurait plus aucun effet. */
+  onConfirme?: () => void
   sansCadre?: boolean
 }) {
   const [donnees, setDonnees] = useState<ReponseCreneaux | null>(null)
@@ -177,6 +181,7 @@ export function ReserverAppel({
       return
     }
     setConfirme(reponse.quand ?? null)
+    onConfirme?.()
   }
 
   if (confirme) {

@@ -100,6 +100,23 @@ export function modeleRendezVousRefuse(params: {
   </p>`)
 }
 
+export function modeleReinitialisationMotDePasse(params: { premiereConnexion: boolean; lien: string }): string {
+  const titre = params.premiereConnexion ? 'Définissez votre mot de passe' : 'Réinitialisez votre mot de passe'
+  const intro = params.premiereConnexion
+    ? "Votre compte Hari Online Club vient d'être créé. Pour vous connecter pour la première fois, choisissez votre mot de passe :"
+    : 'Vous avez demandé la réinitialisation de votre mot de passe Hari Online Club :'
+  const libelleBouton = params.premiereConnexion ? 'Définir mon mot de passe' : 'Réinitialiser mon mot de passe'
+  return coquille(`
+  <h1 style="font-size:19px;margin:0 0 14px">${titre}</h1>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 18px">${intro}</p>
+  <p style="margin:0 0 18px">
+    <a href="${echapper(params.lien)}" style="display:inline-block;background:#4A306D;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:999px">${libelleBouton}</a>
+  </p>
+  <p style="font-size:12.5px;color:#6b6580;margin:0 0 14px">
+    Ce lien est à usage unique et expire rapidement. Si vous n'êtes pas à l'origine de cette demande, ignorez cet e-mail.
+  </p>`)
+}
+
 /* Les valeurs viennent d'un formulaire public : elles se retrouvent dans du HTML envoyé par
    e-mail, donc échappées comme n'importe quelle donnée non maîtrisée. */
 function echapper(valeur: string): string {

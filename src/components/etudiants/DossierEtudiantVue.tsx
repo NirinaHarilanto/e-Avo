@@ -272,6 +272,8 @@ interface DossierEtudiantVueProps {
   panneauPlanification?: ReactNode
   /* Formulaire d'assignation/changement de vague pour le programme collectif. */
   panneauVague?: ReactNode
+  /* Bouton + pop-up de suppression du compte — admin uniquement, comme les autres panneaux. */
+  panneauSuppression?: ReactNode
   /* Autorise l'ajout d'une réévaluation de niveau depuis la fenêtre d'historique — admin
      uniquement, comme les autres panneaux d'action. */
   peutModifierNiveau?: boolean
@@ -296,6 +298,7 @@ export function DossierEtudiantVue({
   panneauForfaitEdition,
   panneauPlanification,
   panneauVague,
+  panneauSuppression,
   peutModifierNiveau,
   peutModifierPlanning,
   onDossierChange,
@@ -337,26 +340,29 @@ export function DossierEtudiantVue({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <span style={{ width: 54, height: 54, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 18, fontWeight: 800, flexShrink: 0 }}>
-          {initiales(etudiant)}
-        </span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-          <h2 style={{ fontSize: 22, color: '#fff', margin: 0 }}>
-            {etudiant.prenom} {etudiant.nom}
-          </h2>
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 7 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.32)', borderRadius: 999, padding: '4px 11px' }}>
-              {etudiant.status === 'approved' ? 'Étudiant actif' : etudiant.status}
-            </span>
-            {(periodeActuelle ?? periodes[0])?.affectation.langue && (
-              <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-violet)', background: 'rgba(199,156,255,.12)', border: '1px solid rgba(199,156,255,.3)', borderRadius: 999, padding: '4px 11px' }}>
-                {(periodeActuelle ?? periodes[0]).affectation.langue}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <span style={{ width: 54, height: 54, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 18, fontWeight: 800, flexShrink: 0 }}>
+            {initiales(etudiant)}
+          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
+            <h2 style={{ fontSize: 22, color: '#fff', margin: 0 }}>
+              {etudiant.prenom} {etudiant.nom}
+            </h2>
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 7 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.32)', borderRadius: 999, padding: '4px 11px' }}>
+                {etudiant.status === 'approved' ? 'Étudiant actif' : etudiant.status}
               </span>
-            )}
-            {etudiant.email && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{etudiant.email}</span>}
+              {(periodeActuelle ?? periodes[0])?.affectation.langue && (
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-violet)', background: 'rgba(199,156,255,.12)', border: '1px solid rgba(199,156,255,.3)', borderRadius: 999, padding: '4px 11px' }}>
+                  {(periodeActuelle ?? periodes[0]).affectation.langue}
+                </span>
+              )}
+              {etudiant.email && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{etudiant.email}</span>}
+            </div>
           </div>
         </div>
+        {panneauSuppression}
       </div>
 
       <GrilleStats min={160} compact>

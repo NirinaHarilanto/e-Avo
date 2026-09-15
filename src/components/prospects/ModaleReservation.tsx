@@ -33,6 +33,7 @@ export function ModaleReservation({
   onFermer: () => void
 }) {
   const [type, setType] = useState<TypeProgrammeProspect>(typeInitial)
+  const [confirme, setConfirme] = useState(false)
 
   return (
     <div className="voile-modale" onClick={onFermer}>
@@ -55,33 +56,35 @@ export function ModaleReservation({
           </button>
         </header>
 
-        <div className="choix-type">
-          {TYPES.map((option) => {
-            const actif = option.valeur === type
-            return (
-              <button
-                key={option.valeur}
-                type="button"
-                onClick={() => setType(option.valeur)}
-                aria-pressed={actif}
-                style={{
-                  flex: '1 1 150px',
-                  textAlign: 'left',
-                  padding: '11px 14px',
-                  borderRadius: 12,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  border: `1px solid ${actif ? 'transparent' : 'var(--border)'}`,
-                  background: actif ? accent.accentGrad : 'var(--surface-alt)',
-                  color: actif ? accent.accentInk : 'var(--ink-2)',
-                }}
-              >
-                <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700 }}>{option.libelle}</span>
-                <span style={{ display: 'block', fontSize: 11, opacity: 0.85 }}>{option.detail}</span>
-              </button>
-            )
-          })}
-        </div>
+        {!confirme && (
+          <div className="choix-type">
+            {TYPES.map((option) => {
+              const actif = option.valeur === type
+              return (
+                <button
+                  key={option.valeur}
+                  type="button"
+                  onClick={() => setType(option.valeur)}
+                  aria-pressed={actif}
+                  style={{
+                    flex: '1 1 150px',
+                    textAlign: 'left',
+                    padding: '11px 14px',
+                    borderRadius: 12,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    border: `1px solid ${actif ? 'transparent' : 'var(--border)'}`,
+                    background: actif ? accent.accentGrad : 'var(--surface-alt)',
+                    color: actif ? accent.accentInk : 'var(--ink-2)',
+                  }}
+                >
+                  <span style={{ display: 'block', fontSize: 13.5, fontWeight: 700 }}>{option.libelle}</span>
+                  <span style={{ display: 'block', fontSize: 11, opacity: 0.85 }}>{option.detail}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         <div className="corps-reservation">
           <ReserverAppel
@@ -89,6 +92,7 @@ export function ModaleReservation({
             etablissementNom={etablissementNom}
             accent={accent}
             typeInitial={type}
+            onConfirme={() => setConfirme(true)}
             sansCadre
           />
         </div>
