@@ -916,45 +916,14 @@ body.sans-defilement {
   height: 100%;
   position: relative;
   overflow: hidden;
-  /* Ne se voit jamais : les bandes en miroir (voir .hero-bande) couvrent tout ce que l'image
-     laisse libre. Présent uniquement le temps de son chargement. */
-  background: #e4e2fa;
-}
-
-/* Prolongement en miroir d'un bord de l'image, posé derrière elle pour combler l'espace que ses
-   proportions laissent libre. L'image intérieure déborde très largement du cadre : c'est ce
-   dépassement, rogné ici, qui garantit que le flou dispose partout de vrais pixels à étaler et ne
-   s'éteigne pas en transparence sur les bords. */
-.hero-bande {
-  position: absolute;
-  overflow: hidden;
-  z-index: 0;
-}
-.hero-bande--gauche {
-  left: 0;
-  top: 0;
-}
-.hero-bande--droite {
-  right: 0;
-  top: 0;
-}
-.hero-bande--haut {
-  top: 0;
-  left: 0;
-}
-.hero-bande--bas {
-  bottom: 0;
-  left: 0;
-}
-.hero-bande-image {
-  position: absolute;
-  display: block;
-  max-width: none;
+  /* Ne se voit qu'en portrait, seule forme d'écran où aucun cadrage ne peut à la fois montrer
+     toute la maquette et remplir la hauteur. Reprend la couleur des lignes extérieures de
+     l'image élargie — un décor déjà fondu en flou à cet endroit, donc sans raccord franc. */
+  background: linear-gradient(180deg, #e0dcf4 0%, #e0dcf4 40%, #ad9089 100%);
 }
 
 .hero-scene {
   position: absolute;
-  z-index: 1;
 }
 
 /* La scène a exactement les proportions du fichier source : l'image la remplit donc sans jamais

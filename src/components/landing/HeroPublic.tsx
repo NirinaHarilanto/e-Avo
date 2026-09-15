@@ -10,20 +10,20 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
    Corollaire dans LandingEtablissement.tsx : l'en-tête et le pied de page HTML sont masqués sur
    cette vue — ils feraient doublon avec la barre dessinée.
 
-   L'image fait 1600 × 900 (16/9), le format d'un écran : elle couvre donc la fenêtre entière
-   sans rien rogner dès que celle-ci est au même format. Hors de cette plage de proportions, on
-   bascule en « contenir » — aucun élément ne doit disparaître — et l'espace restant est comblé
-   par le PROLONGEMENT EN MIROIR des bords de l'image (voir Bande) : le décor se poursuit de
-   lui-même, sans raccord visible, au lieu d'un aplat ou d'une copie floutée de toute la scène. */
+   L'image source a été ÉLARGIE hors ligne (1600 × 900 → 2200 × 1600) en prolongeant son décor
+   vers l'extérieur : les derniers pixels de bokeh s'y perdent en flou, sans aucun miroir ni motif
+   rejoué (voir le commentaire de MAQUETTE). Cette marge est ce qui permet aux bords de l'image de
+   coïncider avec ceux de l'écran quelle que soit sa forme — demande client du 2026-09-15 — sans
+   jamais rogner la maquette ni la déformer : c'est la marge qu'on sacrifie au recadrage, pas le
+   contenu. Il n'y a donc plus rien à combler, et plus de bandes en miroir. */
 
-const IMAGE = { largeur: 1600, hauteur: 900 }
+const IMAGE = { largeur: 2200, hauteur: 1600 }
 
-/* Plage de proportions dans laquelle on peut couvrir l'écran sans amputer un élément.
-   En deçà (fenêtre trop haute), le rognage latéral atteindrait le logo, à 7 % du bord gauche.
-   Au-delà (fenêtre trop large), le rognage vertical mordrait sur la barre de navigation, à 2 % du
-   bord supérieur, et sur la barre de bénéfices en bas. */
-const RATIO_MIN_COUVERTURE = 1.564
-const RATIO_MAX_COUVERTURE = 1.852
+/* Position de la maquette d'origine dans l'image élargie. Tout le reste est du décor prolongé,
+   sacrifiable au recadrage. Les coordonnées des zones cliquables (ZONES) restent exprimées dans
+   le repère de la maquette d'origine — celui où elles ont été mesurées — et sont décalées d'ici
+   au moment du rendu. */
+const MAQUETTE = { gauche: 300, haut: 350, largeur: 1600, hauteur: 900 }
 
 export type VueRaccourci = 'accueil' | 'programmes' | 'tarifs' | 'professeurs' | 'avis'
 
@@ -48,56 +48,6 @@ const ZONES: { cle: string; libelle: string; boite: [number, number, number, num
   { cle: 'commencer', libelle: 'Commencer maintenant', boite: [69, 483, 308, 64], action: { type: 'reserver' } },
 ]
 
-/* Comble l'espace laissé libre en rejouant les bords de l'image, retournés. Un miroir est continu
-   par construction : le raccord au bord de la maquette est invisible, là où un dégradé laissait
-   une couture. Le flou croît avec la largeur de la bande — étroite, elle ne reprend que le
-   feuillage déjà hors focus du décor ; large, il faut effacer ce qu'elle rejouerait de la
-   maquette elle-même (le logo est à 7 % du bord gauche). */
-function Bande({
-  cote,
-  epaisseur,
-  scene,
-}: {
-  cote: 'gauche' | 'droite' | 'haut' | 'bas'
-  epaisseur: number
-  scene: { largeur: number; hauteur: number }
-}) {
-  const horizontal = cote === 'gauche' || cote === 'droite'
-  const flou = Math.min(40, Math.max(6, epaisseur * 0.12))
-
-  return (
-    <div
-      aria-hidden
-      className={`hero-bande hero-bande--${cote}`}
-      style={
-        horizontal
-          ? { width: epaisseur, height: scene.hauteur }
-          : { height: epaisseur, width: scene.largeur }
-      }
-    >
-      <picture>
-        <source srcSet="/hero-hoc.webp" type="image/webp" />
-        <img
-          src="/hero-hoc.png"
-          alt=""
-          className="hero-bande-image"
-          style={{
-            width: scene.largeur,
-            height: scene.hauteur,
-            /* Le bord retourné de l'image est collé contre celui de la maquette : la symétrie se
-               fait exactement sur la couture, ce qui la fait disparaître. */
-            [cote === 'gauche' ? 'left' : cote === 'droite' ? 'right' : 'left']: horizontal ? epaisseur : 0,
-            [cote === 'haut' ? 'top' : cote === 'bas' ? 'bottom' : 'top']: horizontal ? 0 : epaisseur,
-            transform: horizontal ? 'scaleX(-1)' : 'scaleY(-1)',
-            transformOrigin: cote === 'gauche' ? 'left center' : cote === 'droite' ? 'right center' : cote === 'haut' ? 'center top' : 'center bottom',
-            filter: `blur(${flou}px)`,
-          }}
-        />
-      </picture>
-    </div>
-  )
-}
-
 export function HeroPublic({
   nomEtablissement,
   onReserver,
@@ -118,13 +68,20 @@ export function HeroPublic({
       const { width, height } = zone!.getBoundingClientRect()
       if (!width || !height) return
 
-      const ratio = width / height
-      /* « Couvrir » remplit l'écran quitte à rogner, « contenir » montre tout quitte à laisser des
-         bandes : on prend le premier tant qu'il ne coûte aucun élément de la maquette. */
-      const couvrir = ratio >= RATIO_MIN_COUVERTURE && ratio <= RATIO_MAX_COUVERTURE
-      const echelle = couvrir
-        ? Math.max(width / IMAGE.largeur, height / IMAGE.hauteur)
-        : Math.min(width / IMAGE.largeur, height / IMAGE.hauteur)
+      /* Deux échelles de référence :
+         — `entiere` : la plus grande qui laisse la maquette d'origine entièrement visible ;
+         — `couvrante` : la plus petite qui remplit l'écran avec l'image élargie.
+         Grâce à la marge de décor, `couvrante` est la plus petite des deux sur tout écran en
+         paysage : on prend alors `entiere`, qui montre toute la maquette ET remplit l'écran. */
+      const entiere = Math.min(width / MAQUETTE.largeur, height / MAQUETTE.hauteur)
+      const couvrante = Math.max(width / IMAGE.largeur, height / IMAGE.hauteur)
+
+      /* Les deux ne peuvent plus être satisfaites qu'aux proportions extrêmes. Au-delà (écran
+         très large), on privilégie le remplissage : le rognage n'entame la maquette que de
+         quelques pixels de marge. En portrait, on privilégie au contraire la maquette entière —
+         la faire tenir en largeur y couperait tout le contenu, ce qui n'aurait aucun sens. */
+      const paysage = width >= height
+      const echelle = couvrante <= entiere ? entiere : paysage ? couvrante : entiere
 
       const largeur = IMAGE.largeur * echelle
       const hauteur = IMAGE.hauteur * echelle
@@ -142,25 +99,8 @@ export function HeroPublic({
     else if (action.type === 'vue') onNaviguer(action.vue)
   }
 
-  /* Nulles dès que l'image couvre l'écran, c'est-à-dire dans le cas courant. */
-  const bandeX = Math.max(0, Math.round(scene.gauche))
-  const bandeY = Math.max(0, Math.round(scene.haut))
-
   return (
     <div ref={zoneRef} className="hero-plein">
-      {scene.largeur > 0 && bandeX > 0 && (
-        <>
-          <Bande cote="gauche" epaisseur={bandeX} scene={scene} />
-          <Bande cote="droite" epaisseur={bandeX} scene={scene} />
-        </>
-      )}
-      {scene.largeur > 0 && bandeY > 0 && (
-        <>
-          <Bande cote="haut" epaisseur={bandeY} scene={scene} />
-          <Bande cote="bas" epaisseur={bandeY} scene={scene} />
-        </>
-      )}
-
       <div
         className="hero-scene"
         style={{ width: scene.largeur, height: scene.hauteur, left: scene.gauche, top: scene.haut }}
@@ -182,8 +122,8 @@ export function HeroPublic({
           ZONES.map((zone) => {
             const [x, y, l, h] = zone.boite
             const style: CSSProperties = {
-              left: `${(x / IMAGE.largeur) * 100}%`,
-              top: `${(y / IMAGE.hauteur) * 100}%`,
+              left: `${((MAQUETTE.gauche + x) / IMAGE.largeur) * 100}%`,
+              top: `${((MAQUETTE.haut + y) / IMAGE.hauteur) * 100}%`,
               width: `${(l / IMAGE.largeur) * 100}%`,
               height: `${(h / IMAGE.hauteur) * 100}%`,
             }
