@@ -8,6 +8,7 @@ import { boutonPrimaireStyle } from '../ui/Boutons'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { IntegrationGoogleMeet } from './IntegrationGoogleMeet'
+import { DisponibilitesAdmin } from './DisponibilitesAdmin'
 import type { Database } from '../../types/database.types'
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
@@ -114,6 +115,8 @@ export function ParametresAdmin() {
 
       <div style={{ marginTop: 20 }}>
         <IntegrationGoogleMeet />
+
+        <DisponibilitesAdmin />
       </div>
     </AdminLayout>
   )

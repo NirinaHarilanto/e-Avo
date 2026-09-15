@@ -30,7 +30,10 @@ const champStyle: React.CSSProperties = {
   padding: '12px 14px',
   fontSize: 14,
   color: 'var(--ink)',
-  background: 'rgba(0,0,0,.22)',
+  /* Fond dérivé du thème : transparent laisse apparaître la carte, blanche sur la page publique
+     claire et sombre dans les espaces connectés — un aplat noir en dur rendait le champ illisible
+     dès que la landing est passée en clair (2026-09-15). */
+  background: 'var(--surface-alt)',
   width: '100%',
   fontFamily: 'inherit',
 }
@@ -209,7 +212,7 @@ export function FormulaireProspect({ etablissementId, etablissementNom, accent, 
                   fontSize: 12.5,
                   fontWeight: actif ? 800 : 600,
                   color: actif ? accent.accentInk : 'var(--ink-2)',
-                  background: actif ? accent.accentGrad : 'rgba(0,0,0,.22)',
+                  background: actif ? accent.accentGrad : 'var(--surface-alt)',
                   border: actif ? 'none' : '1px solid var(--border)',
                   borderRadius: 999,
                   padding: '9px 15px',

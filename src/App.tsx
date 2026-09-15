@@ -5,6 +5,7 @@ import { Confidentialite } from './components/legal/Confidentialite'
 import { ConditionsUtilisation } from './components/legal/ConditionsUtilisation'
 import { Connexion } from './components/auth/Connexion'
 import { PipelineCRM } from './components/pipeline/PipelineCRM'
+import { RendezVousAdmin } from './components/admin/RendezVousAdmin'
 import { EtudiantsAdmin } from './components/etudiants/EtudiantsAdmin'
 import { CohortesAdmin } from './components/admin/CohortesAdmin'
 import { ProfesseursAdmin } from './components/professeurs/ProfesseursAdmin'
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/confidentialite" element={<Confidentialite />} />
           <Route path="/conditions-utilisation" element={<ConditionsUtilisation />} />
           <Route path="/admin/prospects" element={<PipelineCRM />} />
+          <Route path="/admin/rendez-vous" element={<RendezVousAdmin />} />
           <Route path="/admin/etudiants" element={<EtudiantsAdmin />} />
           <Route path="/admin/etudiants/:id" element={<EtudiantsAdmin />} />
           <Route path="/admin/vagues" element={<CohortesAdmin />} />

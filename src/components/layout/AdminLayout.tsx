@@ -8,6 +8,7 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
     titre: 'Pédagogie',
     items: [
       { label: 'Prospects', href: '/admin/prospects', disponible: true, icone: 'prospects', description: 'Suivi des candidats avant inscription' },
+      { label: 'Rendez-vous', href: '/admin/rendez-vous', disponible: true, icone: 'seances', description: 'Demandes d’appel diagnostic à valider' },
       { label: 'Étudiants', href: '/admin/etudiants', disponible: true, icone: 'etudiants', description: 'Dossiers, professeurs et forfaits' },
       { label: 'Vagues', href: '/admin/vagues', disponible: true, icone: 'vagues', description: 'Groupes de cours collectifs' },
       { label: 'Professeurs', href: '/admin/professeurs', disponible: true, icone: 'professeurs', description: 'Équipe enseignante et charge' },

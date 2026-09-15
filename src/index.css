@@ -643,3 +643,156 @@ input[type='search']::-webkit-search-cancel-button {
     display: none !important;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Thème clair de la page publique (direction artistique fournie par le client le
+   2026-09-15 : lavande et violet, à l'inverse du marine/or des espaces connectés).
+
+   Tout passe par une redéfinition des MÊMES variables sur un conteneur racine, jamais par une
+   surcharge sélecteur par sélecteur : les composants de la landing lisent déjà `var(--ink)`,
+   `var(--surface)` & co dans leurs styles inline, donc le sous-arbre bascule en entier sans
+   qu'aucun d'eux ait à connaître le thème. Les trois espaces connectés (admin, professeur,
+   élève) restent volontairement sur le thème sombre : ils ne descendent pas de ce conteneur.
+   ───────────────────────────────────────────────────────────────────────────── */
+.page-claire {
+  color-scheme: light;
+  --bg-page:
+    radial-gradient(900px 480px at 8% -6%, rgba(160, 120, 255, 0.20), transparent),
+    radial-gradient(760px 420px at 96% 4%, rgba(125, 90, 235, 0.16), transparent),
+    linear-gradient(170deg, #ffffff 0%, #f7f3ff 46%, #f1ebfe 100%);
+  --surface: #ffffff;
+  --surface-alt: #f7f4ff;
+  --border: rgba(109, 59, 209, 0.20);
+  --border-soft: rgba(30, 20, 60, 0.09);
+  --ink: #1d1636;
+  --ink-2: #453c63;
+  --muted: #6d6489;
+  --muted-2: #8c84a6;
+  --accent-blue: #6d3bd1;
+  --accent-blue-deep: #4f2ba3;
+  --accent-cyan: #8f6bea;
+  --accent-violet: #6d3bd1;
+  --accent-gold: #6d3bd1;
+  --accent-blue-gradient: linear-gradient(140deg, #7c4ddb, #5a2fb5);
+  --accent-gradient: linear-gradient(135deg, #8b5cf6, #6d3bd1);
+  --success: #17916c;
+  --warning: #b07a12;
+  --danger: #cc3a3a;
+  --shadow-card: 0 14px 34px rgba(60, 30, 120, 0.10), 0 2px 8px rgba(60, 30, 120, 0.06);
+  background: var(--bg-page);
+  color: var(--ink);
+}
+
+/* Les titres de la page publique suivent la maquette (sans-serif très grasse), là où les espaces
+   connectés gardent Playfair Display. */
+.page-claire h1,
+.page-claire h2,
+.page-claire h3 {
+  font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+  letter-spacing: -0.5px;
+}
+
+.page-claire .card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-card);
+}
+
+.page-claire a {
+  color: var(--accent-blue-deep);
+}
+.page-claire a:hover {
+  color: var(--accent-blue);
+}
+
+/* Le dégradé animé du nom de marque est illisible sur fond clair : sur cette page, le même
+   élément devient un simple aplat violet. */
+.page-claire .logo-glow {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: #4a306d;
+  filter: none;
+  animation: none;
+}
+
+.mention-manuscrite {
+  font-family: 'Caveat', cursive;
+  font-weight: 700;
+  line-height: 1.1;
+  color: #4f2ba3;
+}
+
+/* Titre du hero : les trois fragments de la maquette (marine, indigo, violet). */
+.titre-hero {
+  font-size: clamp(34px, 5.2vw, 58px);
+  line-height: 1.06;
+  margin: 0;
+  color: #1a1b4b;
+}
+.titre-hero .fragment-indigo { color: #4f46e5; }
+.titre-hero .fragment-violet { color: #7c3aed; }
+
+/* L'illustration est un visuel à fond opaque : ce masque la fond dans le dégradé de la page
+   plutôt que de laisser un bord franc, sans avoir à détourer l'image. */
+.illustration-hero {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 22px;
+  -webkit-mask-image: radial-gradient(125% 115% at 62% 42%, #000 62%, transparent 99%);
+  mask-image: radial-gradient(125% 115% at 62% 42%, #000 62%, transparent 99%);
+}
+
+.pastille-competence {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 16px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(76, 40, 150, 0.22);
+}
+
+.page-claire .btn-shine {
+  box-shadow: 0 8px 22px rgba(93, 47, 181, 0.26);
+}
+
+.lien-nav-public {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a4266;
+  padding: 6px 2px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.lien-nav-public:hover,
+.lien-nav-public[aria-current='page'] {
+  color: #6d3bd1;
+  border-bottom-color: #6d3bd1;
+}
+
+/* Sous 940 px, le hero passe en une colonne : l'illustration sous le texte, jamais réduite à une
+   bande illisible à côté de lui. */
+@media (max-width: 940px) {
+  .grille-hero {
+    grid-template-columns: 1fr !important;
+  }
+  .illustration-hero {
+    max-width: 560px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .page-claire .en-tete-public {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+  }
+  .page-claire .section-publique {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+  }
+}

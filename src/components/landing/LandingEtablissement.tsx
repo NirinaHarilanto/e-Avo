@@ -4,9 +4,10 @@ import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { deriveAccent, type AccentPalette } from '../../lib/accent'
 import { SLUG_ETABLISSEMENT_PRINCIPAL } from '../../lib/etablissement'
-import { HeroDecor } from '../shared/HeroDecor'
+import { HeroPublic } from './HeroPublic'
 import { Logo } from '../shared/Logo'
 import { FormulaireProspect } from '../prospects/FormulaireProspect'
+import { ReserverAppel } from '../prospects/ReserverAppel'
 import type { TypeProgrammeProspect } from '../../types/database.types'
 import { useTarifs } from '../../hooks/useTarifs'
 
@@ -38,6 +39,10 @@ const PROGRAMMES: { type: TypeProgrammeProspect; tag: string; titre: string; tex
     texte: 'En couple ou entre amis, apprenez à deux sur un même créneau : un accompagnement pensé pour vos deux objectifs, à la fois complice et exigeant.',
   },
 ]
+
+/* Violet de la charte Hari Online Club, repris du logo (#4A306D éclairci pour rester lisible en
+   aplat de bouton). */
+const VIOLET_MARQUE = '#6d3bd1'
 
 const TEMOIGNAGES = [
   { initiales: 'AL', nom: 'A. L.', texte: 'Un vrai suivi, un professeur qui connaît mes objectifs semaine après semaine.' },
@@ -104,7 +109,7 @@ function BlocTarif({
           >
             {PROGRAMME_LABEL[type]}
           </span>
-          <h3 className="brand-font" style={{ fontSize: 19, color: '#ffffff', margin: 0 }}>
+          <h3 style={{ fontSize: 19, color: 'var(--ink)', margin: 0 }}>
             {type === 'individuel' ? 'Cours particuliers' : type === 'duo' ? 'Cours en duo' : 'Cours en petit groupe'}
           </h3>
           {type === 'individuel' && (
@@ -174,6 +179,7 @@ export function LandingEtablissement() {
   const [loading, setLoading] = useState(true)
   const [introuvable, setIntrouvable] = useState(false)
   const [programmeChoisi, setProgrammeChoisi] = useState<TypeProgrammeProspect>('individuel')
+  const [contactSimple, setContactSimple] = useState(false)
   const { tarifs } = useTarifs(etablissement?.id)
 
   useEffect(() => {
@@ -217,22 +223,23 @@ export function LandingEtablissement() {
     )
   }
 
-  const accent = deriveAccent(etablissement.couleur_accent)
+  /* La page publique est passée sur la charte violette de la marque (2026-09-15), alors que
+     `etablissements.couleur_accent` reste l'or utilisé par les trois espaces connectés, dont tout
+     l'habillage sombre dépend. L'accent est donc forcé ici plutôt que changé en base : le doré,
+     très peu contrasté sur fond blanc, deviendrait illisible sur cette page. */
+  const accent = deriveAccent(VIOLET_MARQUE)
   const dossierAssets = `/etablissements/${etablissement.slug}`
-  /* Les CTA « Réserver » renvoyaient tous vers le formulaire de contact (#reserver) : un clic
-     n'y réservait donc rien tant que le visiteur n'avait pas rempli ses coordonnées, ce qui
-     passait pour un bouton cassé. Ils pointent maintenant directement vers le lien Calendly
-     paramétré en admin (Paramètres → Réservation des appels) quand il est renseigné, et ne
-     retombent sur le formulaire que pour un établissement qui n'a pas encore ce lien. Le
-     formulaire de prise de contact reste atteignable plus bas sur la page et garde son propre
-     comportement (ouvre aussi Calendly après capture du prospect). */
-  const lienReservation: { href: string; target?: string; rel?: string } = etablissement.calendly_url
-    ? { href: etablissement.calendly_url, target: '_blank', rel: 'noopener noreferrer' }
-    : { href: '#reserver' }
+  /* Tous les CTA « Réserver » descendent maintenant vers l'agenda intégré (#reserver) au lieu
+     d'ouvrir Calendly dans un onglet : le visiteur ne quitte plus le site, et ses réponses
+     arrivent en base au lieu de rester chez un prestataire externe (demande client du
+     2026-09-15). `etablissements.calendly_url` reste en base sans être lu ici — le supprimer
+     serait une migration destructive pour une colonne qui ne gêne pas. */
+  const lienReservation: { href: string; target?: string; rel?: string } = { href: '#reserver' }
 
   return (
-    <div style={{ background: 'var(--bg-page)', minHeight: '100vh' }}>
+    <div className="page-claire" style={{ minHeight: '100vh' }}>
       <header
+        className="en-tete-public"
         style={{
           position: 'sticky',
           top: 0,
@@ -242,19 +249,19 @@ export function LandingEtablissement() {
           rowGap: 10,
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '18px 40px',
+          padding: '14px 40px',
           borderBottom: '1px solid var(--border-soft)',
-          background: 'rgba(6,12,26,.86)',
-          backdropFilter: 'blur(6px)',
+          background: 'rgba(255,255,255,.88)',
+          backdropFilter: 'blur(8px)',
         }}
       >
         <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Logo taille={40} />
+          <img src="/logo-hoc.png" alt={etablissement.nom} style={{ height: 46, width: 'auto', display: 'block' }} />
           {etablissement.specialite && (
             <span
               style={{
                 paddingLeft: 14,
-                borderLeft: `1px solid ${accent.accentBorder}`,
+                borderLeft: '1px solid var(--border)',
                 fontSize: 10.5,
                 fontWeight: 600,
                 letterSpacing: 0.6,
@@ -267,74 +274,41 @@ export function LandingEtablissement() {
           )}
         </a>
 
-        <nav style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 22 }}>
-          <a href="#programmes" className="nav-link-glow" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
-            Programmes
-          </a>
-          <a href="#tarifs" className="nav-link-glow" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
-            Tarifs
-          </a>
-          <a href="#fondatrice" className="nav-link-glow" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
-            Fondatrice
-          </a>
-          <a href="#equipe" className="nav-link-glow" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
-            Équipe
-          </a>
-          <a href="#avis" className="nav-link-glow" style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>
-            Avis
-          </a>
+        {/* Libellés de la maquette, rattachés aux sections qui existaient déjà : « Cours » mène
+            aux programmes, « Professeurs » à l'équipe, « À propos » à la fondatrice. Aucune
+            section n'a disparu, seuls les intitulés suivent la nouvelle direction artistique. */}
+        <nav style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 26 }}>
+          <a href="#programmes" className="lien-nav-public">Cours</a>
+          <a href="#tarifs" className="lien-nav-public">Tarifs</a>
+          <a href="#equipe" className="lien-nav-public">Professeurs</a>
+          <a href="#fondatrice" className="lien-nav-public">À propos</a>
+          <a href="#avis" className="lien-nav-public">Avis</a>
         </nav>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <a href="/connexion" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>
-            Espace personnel
+          <a
+            href="/connexion"
+            style={{
+              fontSize: 13.5,
+              fontWeight: 700,
+              color: '#4a4266',
+              padding: '10px 20px',
+              borderRadius: 999,
+              border: '1px solid var(--border)',
+            }}
+          >
+            Se connecter
           </a>
-          <a {...lienReservation} className="btn-shine" style={{ background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}>
-            Réserver mon appel
+          <a {...lienReservation} className="btn-shine" style={{ background: 'var(--accent-blue-gradient)', color: '#fff' }}>
+            Réserver mon appel →
           </a>
         </div>
       </header>
 
-      <section style={{ position: 'relative', padding: '70px 40px 50px', overflow: 'hidden' }}>
-        <HeroDecor accent={accent.accent} />
-        <div style={{ position: 'relative', maxWidth: 760, margin: '0 auto' }}>
-          <CadreOrne accent={accent.accent} style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 22, padding: '46px 36px' }}>
-            <span
-              className="arrive-text"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 9,
-                padding: '6px 15px',
-                borderRadius: 999,
-                border: `1px solid ${accent.accentBorder}`,
-                background: accent.accentSoft,
-                fontSize: 11.5,
-                fontWeight: 700,
-                letterSpacing: 0.7,
-                textTransform: 'uppercase',
-                color: accent.accent,
-              }}
-            >
-              Appels diagnostic ouverts cette semaine
-            </span>
-            <h1 className="arrive-text brand-font" style={{ fontSize: 42, lineHeight: 1.18, color: '#ffffff', animationDelay: '.1s' }}>
-              Apprenez avec un professeur qui vous accompagne jusqu'à la réussite
-            </h1>
-            <span aria-hidden style={{ width: 60, height: 1, background: accent.accent, opacity: 0.6 }} />
-            <p className="arrive-text" style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--ink-2)', maxWidth: 560, animationDelay: '.2s' }}>
-              Quinze minutes d'appel pour situer votre niveau et votre objectif. Ensuite, un professeur attitré
-              chez {etablissement.nom} et des cours en visio à votre rythme.
-            </p>
-            <a {...lienReservation} className="btn-shine arrive" style={{ fontSize: 15, padding: '16px 28px', background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 6px 24px ${accent.accentGlow}`, animationDelay: '.3s' }}>
-              Réserver mon appel diagnostic
-            </a>
-          </CadreOrne>
-        </div>
-      </section>
+      <HeroPublic nomEtablissement={etablissement.nom} lienReservation={lienReservation} />
 
       <section id="programmes" style={{ padding: '20px 40px 70px', maxWidth: 1100, margin: '0 auto' }}>
-        <h2 style={{ textAlign: 'center', fontSize: 30, color: '#ffffff', marginBottom: 30 }}>
+        <h2 style={{ textAlign: 'center', fontSize: 30, color: 'var(--ink)', marginBottom: 30 }}>
           Trois façons d'apprendre, un seul cap : votre objectif.
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
@@ -385,7 +359,7 @@ export function LandingEtablissement() {
 
       {tarifs.length > 0 && (
         <section id="tarifs" style={{ padding: '20px 40px 70px', maxWidth: 1100, margin: '0 auto' }}>
-          <h2 style={{ textAlign: 'center', fontSize: 30, color: '#ffffff', marginBottom: 30 }}>Tarifs</h2>
+          <h2 style={{ textAlign: 'center', fontSize: 30, color: 'var(--ink)', marginBottom: 30 }}>Tarifs</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, alignItems: 'stretch' }}>
             {(['individuel', 'duo', 'collectif'] as const).map((type) => {
               const lignes = tarifs.filter((t) => t.type_programme === type)
@@ -421,7 +395,7 @@ export function LandingEtablissement() {
             <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase', color: accent.accent }}>
               Notre directrice
             </span>
-            <h2 className="brand-font" style={{ fontSize: 28, color: '#ffffff', margin: 0 }}>
+            <h2 className="brand-font" style={{ fontSize: 28, color: 'var(--ink)', margin: 0 }}>
               Une pédagogie pensée pour des résultats réels
             </h2>
             <p style={{ fontSize: 14, lineHeight: 1.75, color: 'var(--ink-2)' }}>
@@ -438,7 +412,7 @@ export function LandingEtablissement() {
         <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase', color: accent.accent }}>
           Notre équipe
         </span>
-        <h2 className="brand-font" style={{ fontSize: 28, color: '#ffffff', margin: '10px 0 24px' }}>
+        <h2 className="brand-font" style={{ fontSize: 28, color: 'var(--ink)', margin: '10px 0 24px' }}>
           Des professeurs choisis pour votre objectif
         </h2>
         <CadreOrne accent={accent.accent} style={{ padding: 10, maxWidth: 720, margin: '0 auto' }}>
@@ -469,25 +443,36 @@ export function LandingEtablissement() {
           padding: '40px 36px',
           borderRadius: 18,
           textAlign: 'center',
-          background: 'linear-gradient(135deg, rgba(15,26,50,.9), rgba(9,15,30,.95))',
-          border: `1px solid ${accent.accentBorder}`,
-          boxShadow: `0 0 40px ${accent.accentGlow}`,
+          background: 'linear-gradient(135deg, #5a2fb5 0%, #7c4ddb 55%, #9366e8 100%)',
+          border: 'none',
+          boxShadow: '0 18px 44px rgba(90, 47, 181, .28)',
         }}
       >
-        <h2 className="brand-font" style={{ fontSize: 26, color: '#ffffff', margin: '0 0 10px' }}>
-          Un appel, quinze minutes, zéro engagement.
+        {/* Accroche et promesse de l'ancien hero : elles n'avaient plus leur place au-dessus du
+            nouveau visuel, mais restent le discours de conversion de la page — conservées ici,
+            juste avant la prise de rendez-vous. */}
+        <h2 style={{ fontSize: 27, color: '#ffffff', margin: '0 0 12px' }}>
+          Apprenez avec un professeur qui vous accompagne jusqu’à la réussite
         </h2>
-        <p style={{ fontSize: 14, color: 'var(--ink-2)', maxWidth: 520, margin: '0 auto 22px' }}>
-          Le point de départ de chaque parcours chez {etablissement.nom} : on situe votre niveau, on cadre
-          votre objectif, et on vous propose le bon format de cours.
+        <p style={{ fontSize: 15, lineHeight: 1.7, color: 'rgba(255,255,255,.88)', maxWidth: 580, margin: '0 auto 10px' }}>
+          Quinze minutes d’appel pour situer votre niveau et votre objectif. Ensuite, un professeur attitré
+          chez {etablissement.nom} et des cours en visio à votre rythme.
         </p>
-        <a {...lienReservation} className="btn-shine" style={{ background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}>
+        <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,.75)', maxWidth: 520, margin: '0 auto 22px' }}>
+          Un appel, quinze minutes, zéro engagement : on situe votre niveau, on cadre votre objectif, et on
+          vous propose le bon format de cours.
+        </p>
+        <a
+          {...lienReservation}
+          className="btn-shine"
+          style={{ background: '#ffffff', color: '#5a2fb5', boxShadow: '0 8px 20px rgba(0,0,0,.18)' }}
+        >
           Réserver mon appel diagnostic
         </a>
       </section>
 
       <section id="avis" style={{ padding: '0 40px 70px', maxWidth: 1100, margin: '0 auto' }}>
-        <h2 style={{ textAlign: 'center', fontSize: 30, color: '#ffffff', marginBottom: 8 }}>
+        <h2 style={{ textAlign: 'center', fontSize: 30, color: 'var(--ink)', marginBottom: 8 }}>
           Ce qu'en disent nos élèves
         </h2>
         <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted-2)', marginBottom: 30 }}>
@@ -527,22 +512,43 @@ export function LandingEtablissement() {
         </div>
       </section>
 
-      <section id="reserver" style={{ padding: '0 40px 70px', maxWidth: 640, margin: '0 auto' }}>
-        <FormulaireProspect
-          etablissementId={etablissement.id}
-          etablissementNom={etablissement.nom}
-          accent={accent}
-          typeInitial={programmeChoisi}
-          calendlyUrl={etablissement.calendly_url}
-        />
+      {/* La prise de rendez-vous se fait désormais sur le site (agenda réel de l'établissement)
+          plutôt que chez Calendly. Le formulaire de simple mise en relation reste accessible d'un
+          clic pour qui ne trouve aucun créneau : c'est l'ancien parcours, conservé en repli. */}
+      <section id="reserver" style={{ padding: '0 40px 70px', maxWidth: 760, margin: '0 auto' }}>
+        {contactSimple ? (
+          <FormulaireProspect
+            etablissementId={etablissement.id}
+            etablissementNom={etablissement.nom}
+            accent={accent}
+            typeInitial={programmeChoisi}
+            calendlyUrl={null}
+          />
+        ) : (
+          <ReserverAppel
+            etablissementSlug={etablissement.slug}
+            etablissementNom={etablissement.nom}
+            accent={accent}
+            typeInitial={programmeChoisi}
+            onPrefererContact={() => setContactSimple(true)}
+          />
+        )}
       </section>
 
+      {/* Le pied de page reste sombre pour fermer la page, mais en violet de marque plutôt qu'en
+          marine. Les variables de texte sont redéfinies ici même : tous les éléments à
+          l'intérieur lisent déjà `var(--ink-2)` & co, et basculent donc en clair sans qu'aucun
+          d'eux ait à être repris un par un. */}
       <footer
         style={{
           padding: '48px 40px 30px',
-          background: `linear-gradient(160deg, rgba(9,13,24,1) 0%, #2a1a12 55%, #3d0f1a 100%)`,
-          borderTop: `1px solid ${accent.accentBorder}`,
-        }}
+          background: 'linear-gradient(160deg, #241645 0%, #33205c 58%, #422a72 100%)',
+          borderTop: 'none',
+          '--ink': '#ffffff',
+          '--ink-2': 'rgba(255,255,255,.86)',
+          '--muted': 'rgba(255,255,255,.66)',
+          '--muted-2': 'rgba(255,255,255,.58)',
+        } as CSSProperties}
       >
         <div
           style={{

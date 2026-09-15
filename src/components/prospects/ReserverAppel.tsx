@@ -1,0 +1,423 @@
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react'
+import type { AccentPalette } from '../../lib/accent'
+import { grouperParJour } from '../../lib/creneaux'
+import type { TypeProgrammeProspect } from '../../types/database.types'
+
+/* Prise de rendez-vous directement sur le site, en remplacement du renvoi vers Calendly : le
+   visiteur ne quitte plus la page, et ses réponses arrivent en base au lieu de rester chez un
+   prestataire externe.
+
+   Deux étapes plutôt qu'un formulaire unique : demander ses coordonnées avant même de savoir s'il
+   reste un créneau qui lui convient faisait abandonner pour rien. L'agenda est donc montré en
+   premier, les coordonnées ne sont demandées qu'une fois l'horaire choisi. */
+
+const PROGRAMMES: { valeur: TypeProgrammeProspect; libelle: string }[] = [
+  { valeur: 'individuel', libelle: 'Individuel' },
+  { valeur: 'duo', libelle: 'Duo' },
+  { valeur: 'collectif', libelle: 'Collectif' },
+]
+
+const JOURS_PAR_PAGE = 4
+
+interface ReponseCreneaux {
+  creneaux: string[]
+  dureeMinutes: number
+  fuseau: string
+}
+
+export function ReserverAppel({
+  etablissementSlug,
+  etablissementNom,
+  accent,
+  typeInitial = 'individuel',
+  onPrefererContact,
+}: {
+  etablissementSlug: string
+  etablissementNom: string
+  accent: AccentPalette
+  typeInitial?: TypeProgrammeProspect
+  onPrefererContact?: () => void
+}) {
+  const [donnees, setDonnees] = useState<ReponseCreneaux | null>(null)
+  const [chargement, setChargement] = useState(true)
+  const [erreurChargement, setErreurChargement] = useState<string | null>(null)
+  const [creneauChoisi, setCreneauChoisi] = useState<string | null>(null)
+  const [pageJours, setPageJours] = useState(0)
+
+  const [typeProgramme, setTypeProgramme] = useState<TypeProgrammeProspect>(typeInitial)
+  const [prenom, setPrenom] = useState('')
+  const [nom, setNom] = useState('')
+  const [email, setEmail] = useState('')
+  const [telephone, setTelephone] = useState('')
+  const [langueVisee, setLangueVisee] = useState('')
+  const [objectif, setObjectif] = useState('')
+  const [message, setMessage] = useState('')
+  const [consent, setConsent] = useState(false)
+  const [envoi, setEnvoi] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
+  const [confirme, setConfirme] = useState<string | null>(null)
+
+  useEffect(() => {
+    setTypeProgramme(typeInitial)
+  }, [typeInitial])
+
+  useEffect(() => {
+    let annule = false
+    setChargement(true)
+    fetch(`/api/prospects/creneaux?etablissement=${encodeURIComponent(etablissementSlug)}`)
+      .then((r) => r.json())
+      .then((reponse: ReponseCreneaux & { error?: string }) => {
+        if (annule) return
+        if (reponse.error) setErreurChargement(reponse.error)
+        else setDonnees(reponse)
+        setChargement(false)
+      })
+      .catch(() => {
+        if (annule) return
+        setErreurChargement('Les créneaux sont momentanément indisponibles.')
+        setChargement(false)
+      })
+    return () => {
+      annule = true
+    }
+  }, [etablissementSlug])
+
+  const jours = useMemo(
+    () => (donnees ? grouperParJour(donnees.creneaux, donnees.fuseau) : []),
+    [donnees],
+  )
+  const joursVisibles = jours.slice(pageJours * JOURS_PAR_PAGE, pageJours * JOURS_PAR_PAGE + JOURS_PAR_PAGE)
+  const fuseau = donnees?.fuseau ?? 'Indian/Antananarivo'
+
+  /* Les créneaux sont rendus dans le fuseau de l'établissement : un visiteur à l'étranger doit
+     lire l'heure malgache du rendez-vous, celle qui sera dans l'invitation. */
+  const heure = (iso: string) =>
+    new Intl.DateTimeFormat('fr-FR', { timeZone: fuseau, hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
+  const jourLong = (date: string) =>
+    new Intl.DateTimeFormat('fr-FR', { timeZone: fuseau, weekday: 'long', day: 'numeric', month: 'long' }).format(
+      new Date(`${date}T12:00:00Z`),
+    )
+
+  async function envoyer(e: FormEvent) {
+    e.preventDefault()
+    if (!creneauChoisi) return
+    setEnvoi(true)
+    setErreur(null)
+
+    const reponse = await fetch('/api/prospects/reserver', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        etablissementSlug,
+        creneau: creneauChoisi,
+        nom,
+        prenom,
+        email,
+        telephone,
+        langueVisee,
+        objectif,
+        typeProgramme,
+        message,
+      }),
+    })
+      .then((r) => r.json())
+      .catch(() => ({ error: 'Envoi impossible. Réessayez dans un instant.' }))
+
+    setEnvoi(false)
+    if (reponse.error) {
+      setErreur(reponse.error)
+      /* Créneau pris entre-temps : on rafraîchit la liste pour qu'il n'apparaisse plus. */
+      if (reponse.error.includes('créneau')) {
+        setCreneauChoisi(null)
+        fetch(`/api/prospects/creneaux?etablissement=${encodeURIComponent(etablissementSlug)}`)
+          .then((r) => r.json())
+          .then((maj: ReponseCreneaux) => setDonnees(maj))
+          .catch(() => null)
+      }
+      return
+    }
+    setConfirme(reponse.quand ?? null)
+  }
+
+  if (confirme) {
+    return (
+      <div className="card" style={{ padding: 32, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+        <span
+          aria-hidden
+          style={{
+            width: 46,
+            height: 46,
+            borderRadius: 999,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: accent.accentGrad,
+            color: accent.accentInk,
+            fontSize: 22,
+          }}
+        >
+          ✓
+        </span>
+        <h3 style={{ fontSize: 20, margin: 0, color: 'var(--ink)' }}>Votre demande est enregistrée</h3>
+        <p style={{ fontSize: 14, lineHeight: 1.65, color: 'var(--muted)', maxWidth: 440, margin: 0 }}>
+          {etablissementNom} confirme votre appel du <strong>{confirme}</strong> très vite. Vous recevrez alors
+          une invitation avec le lien de visioconférence à l’adresse {email}.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card" style={{ padding: 30, display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div>
+        <h3 style={{ fontSize: 22, margin: '0 0 6px', color: 'var(--ink)' }}>Réserver mon appel diagnostic</h3>
+        <p style={{ fontSize: 13.5, color: 'var(--muted)', margin: 0, lineHeight: 1.6 }}>
+          {donnees ? `${donnees.dureeMinutes} minutes en visioconférence, sans engagement.` : 'Quelques minutes en visioconférence, sans engagement.'}{' '}
+          Choisissez l’horaire qui vous arrange : l’agenda ci-dessous est à jour.
+        </p>
+      </div>
+
+      {chargement && <p style={{ fontSize: 13.5, color: 'var(--muted)' }}>Chargement des créneaux…</p>}
+      {erreurChargement && <p style={{ fontSize: 13.5, color: 'var(--danger)' }}>{erreurChargement}</p>}
+
+      {!chargement && !erreurChargement && jours.length === 0 && (
+        <div style={{ padding: 18, borderRadius: 12, background: 'var(--surface-alt)', fontSize: 13.5, color: 'var(--muted)' }}>
+          Aucun créneau n’est ouvert pour le moment.{' '}
+          {onPrefererContact && (
+            <button type="button" onClick={onPrefererContact} style={lienBouton(accent)}>
+              Laissez-nous vos coordonnées
+            </button>
+          )}
+        </div>
+      )}
+
+      {jours.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--muted-2)' }}>
+              Choisissez un créneau
+            </span>
+            <span style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setPageJours((p) => Math.max(0, p - 1))}
+                disabled={pageJours === 0}
+                style={boutonNavigation(pageJours === 0)}
+                aria-label="Jours précédents"
+              >
+                ←
+              </button>
+              <button
+                type="button"
+                onClick={() => setPageJours((p) => (p + 1) * JOURS_PAR_PAGE < jours.length ? p + 1 : p)}
+                disabled={(pageJours + 1) * JOURS_PAR_PAGE >= jours.length}
+                style={boutonNavigation((pageJours + 1) * JOURS_PAR_PAGE >= jours.length)}
+                aria-label="Jours suivants"
+              >
+                →
+              </button>
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(joursVisibles.length, 1)}, 1fr)`, gap: 10 }}>
+            {joursVisibles.map((jour) => (
+              <div key={jour.date} style={{ display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', textAlign: 'center', textTransform: 'capitalize' }}>
+                  {jourLong(jour.date)}
+                </span>
+                {jour.creneaux.map((creneau) => {
+                  const choisi = creneau === creneauChoisi
+                  return (
+                    <button
+                      key={creneau}
+                      type="button"
+                      onClick={() => setCreneauChoisi(choisi ? null : creneau)}
+                      aria-pressed={choisi}
+                      style={{
+                        padding: '9px 6px',
+                        borderRadius: 9,
+                        border: `1px solid ${choisi ? 'transparent' : accent.accentBorder}`,
+                        background: choisi ? accent.accentGrad : 'transparent',
+                        color: choisi ? accent.accentInk : accent.accent,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      {heure(creneau)}
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0 }}>
+            Horaires affichés à l’heure de {etablissementNom} ({fuseau.replace('_', ' ')}).
+          </p>
+        </div>
+      )}
+
+      {creneauChoisi && (
+        <form onSubmit={envoyer} style={{ display: 'flex', flexDirection: 'column', gap: 14, borderTop: '1px solid var(--border-soft)', paddingTop: 18 }}>
+          <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>
+            Créneau choisi : <strong style={{ color: accent.accent }}>{jourLong(creneauChoisi.slice(0, 10))} à {heure(creneauChoisi)}</strong>
+          </span>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <label style={labelStyle}>Programme souhaité</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {PROGRAMMES.map((programme) => {
+                const actif = programme.valeur === typeProgramme
+                return (
+                  <button
+                    key={programme.valeur}
+                    type="button"
+                    onClick={() => setTypeProgramme(programme.valeur)}
+                    style={{
+                      padding: '9px 16px',
+                      borderRadius: 999,
+                      border: `1px solid ${actif ? 'transparent' : 'var(--border)'}`,
+                      background: actif ? accent.accentGrad : 'var(--surface-alt)',
+                      color: actif ? accent.accentInk : 'var(--ink-2)',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {programme.libelle}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <Champ label="Prénom" obligatoire valeur={prenom} onChange={setPrenom} />
+            <Champ label="Nom" obligatoire valeur={nom} onChange={setNom} />
+            <Champ label="E-mail" obligatoire type="email" valeur={email} onChange={setEmail} placeholder="vous@exemple.fr" />
+            <Champ label="Téléphone" valeur={telephone} onChange={setTelephone} placeholder="+261 ..." />
+            <Champ label="Langue visée" valeur={langueVisee} onChange={setLangueVisee} placeholder="Anglais, espagnol…" />
+            <Champ label="Votre objectif" valeur={objectif} onChange={setObjectif} placeholder="Entretien, expatriation…" />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={labelStyle}>Un mot pour l’établissement (facultatif)</label>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={2}
+              style={{ ...champStyle, resize: 'vertical' }}
+            />
+          </div>
+
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 12.5, color: 'var(--muted)' }}>
+            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} required style={{ marginTop: 2 }} />
+            J’accepte d’être recontacté(e) au sujet de ma demande.
+          </label>
+
+          {erreur && <p style={{ fontSize: 13, color: 'var(--danger)', margin: 0 }}>{erreur}</p>}
+
+          <button
+            type="submit"
+            disabled={envoi || !consent}
+            className="btn-shine"
+            style={{
+              background: accent.accentGrad,
+              color: accent.accentInk,
+              opacity: envoi || !consent ? 0.6 : 1,
+              cursor: envoi || !consent ? 'not-allowed' : 'pointer',
+              padding: '14px 24px',
+              fontSize: 14.5,
+            }}
+          >
+            {envoi ? 'Envoi…' : 'Confirmer ma demande'}
+          </button>
+          <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0, textAlign: 'center' }}>
+            {etablissementNom} valide votre créneau, puis vous recevez l’invitation avec le lien de visioconférence.
+          </p>
+        </form>
+      )}
+
+      {!creneauChoisi && jours.length > 0 && onPrefererContact && (
+        <button type="button" onClick={onPrefererContact} style={{ ...lienBouton(accent), alignSelf: 'flex-start' }}>
+          Aucun créneau ne convient ? Laissez-nous vos coordonnées
+        </button>
+      )}
+    </div>
+  )
+}
+
+const champStyle: CSSProperties = {
+  border: '1px solid var(--border)',
+  borderRadius: 10,
+  padding: '12px 14px',
+  fontSize: 14,
+  color: 'var(--ink)',
+  background: 'var(--surface-alt)',
+  width: '100%',
+  fontFamily: 'inherit',
+}
+
+const labelStyle: CSSProperties = { fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }
+
+function lienBouton(accent: AccentPalette): CSSProperties {
+  return {
+    background: 'transparent',
+    border: 'none',
+    padding: 0,
+    fontSize: 12.5,
+    fontWeight: 700,
+    color: accent.accent,
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    textDecoration: 'underline',
+  }
+}
+
+function boutonNavigation(desactive: boolean): CSSProperties {
+  return {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-alt)',
+    color: 'var(--ink-2)',
+    cursor: desactive ? 'not-allowed' : 'pointer',
+    opacity: desactive ? 0.45 : 1,
+    fontFamily: 'inherit',
+  }
+}
+
+function Champ({
+  label,
+  valeur,
+  onChange,
+  type = 'text',
+  obligatoire,
+  placeholder,
+}: {
+  label: string
+  valeur: string
+  onChange: (v: string) => void
+  type?: string
+  obligatoire?: boolean
+  placeholder?: string
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={labelStyle}>
+        {label} {obligatoire && <span style={{ color: 'var(--danger)' }}>*</span>}
+      </label>
+      <input
+        type={type}
+        required={obligatoire}
+        value={valeur}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        style={champStyle}
+      />
+    </div>
+  )
+}
