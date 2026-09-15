@@ -22,6 +22,38 @@ interface ReponseCreneaux {
   fuseau: string
 }
 
+/* Fuseau par défaut : celui de Hari Online Club, à Madagascar. Un prospect à l'étranger peut le
+   changer pour lire les créneaux dans son propre fuseau — la liste reste volontairement courte,
+   centrée sur les pays francophones et anglophones les plus probables pour des cours d'anglais. */
+const FUSEAUX_PROSPECT: { valeur: string; libelle: string }[] = [
+  { valeur: 'Indian/Antananarivo', libelle: 'Madagascar — Antananarivo' },
+  { valeur: 'Indian/Mauritius', libelle: 'Maurice — Port-Louis' },
+  { valeur: 'Indian/Reunion', libelle: 'La Réunion' },
+  { valeur: 'Europe/Paris', libelle: 'France, Belgique, Suisse — Paris' },
+  { valeur: 'Europe/London', libelle: 'Royaume-Uni — Londres' },
+  { valeur: 'Africa/Casablanca', libelle: 'Maroc — Casablanca' },
+  { valeur: 'Africa/Tunis', libelle: 'Tunisie — Tunis' },
+  { valeur: 'Africa/Algiers', libelle: 'Algérie — Alger' },
+  { valeur: 'Africa/Abidjan', libelle: 'Côte d’Ivoire, Sénégal — Abidjan' },
+  { valeur: 'Africa/Nairobi', libelle: 'Afrique de l’Est — Nairobi' },
+  { valeur: 'America/Toronto', libelle: 'Canada — Toronto, Montréal' },
+  { valeur: 'America/New_York', libelle: 'États-Unis (Est) — New York' },
+  { valeur: 'Asia/Dubai', libelle: 'Émirats arabes unis — Dubaï' },
+]
+
+/* Décalage horaire courant lisible ("UTC+3"), pour aider le prospect à repérer son fuseau dans la
+   liste sans avoir à connaître le nom IANA. */
+function decalageLisible(fuseau: string): string {
+  try {
+    const partie = new Intl.DateTimeFormat('fr-FR', { timeZone: fuseau, timeZoneName: 'shortOffset' })
+      .formatToParts(new Date())
+      .find((p) => p.type === 'timeZoneName')?.value
+    return partie ?? ''
+  } catch {
+    return ''
+  }
+}
+
 export function ReserverAppel({
   etablissementSlug,
   etablissementNom,
@@ -42,13 +74,13 @@ export function ReserverAppel({
   const [erreurChargement, setErreurChargement] = useState<string | null>(null)
   const [creneauChoisi, setCreneauChoisi] = useState<string | null>(null)
   const [pageJours, setPageJours] = useState(0)
+  const [fuseauAffichage, setFuseauAffichage] = useState('Indian/Antananarivo')
 
   const [typeProgramme, setTypeProgramme] = useState<TypeProgrammeProspect>(typeInitial)
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
   const [email, setEmail] = useState('')
   const [telephone, setTelephone] = useState('')
-  const [langueVisee, setLangueVisee] = useState('')
   const [objectif, setObjectif] = useState('')
   const [message, setMessage] = useState('')
   const [consent, setConsent] = useState(false)
@@ -81,19 +113,27 @@ export function ReserverAppel({
     }
   }, [etablissementSlug])
 
+  /* Les créneaux sont recalculés en instants UTC côté serveur ; l'affichage se contente de les
+     reformater dans le fuseau choisi par le prospect (par défaut celui de l'établissement), sans
+     jamais toucher à l'instant réel envoyé dans la demande de réservation. */
   const jours = useMemo(
-    () => (donnees ? grouperParJour(donnees.creneaux, donnees.fuseau) : []),
-    [donnees],
+    () => (donnees ? grouperParJour(donnees.creneaux, fuseauAffichage) : []),
+    [donnees, fuseauAffichage],
   )
   const joursVisibles = jours.slice(pageJours * JOURS_PAR_PAGE, pageJours * JOURS_PAR_PAGE + JOURS_PAR_PAGE)
-  const fuseau = donnees?.fuseau ?? 'Indian/Antananarivo'
 
-  /* Les créneaux sont rendus dans le fuseau de l'établissement : un visiteur à l'étranger doit
-     lire l'heure malgache du rendez-vous, celle qui sera dans l'invitation. */
+  /* Changer de fuseau peut déplacer certains créneaux d'un jour à l'autre : on revient à la
+     première page pour ne pas laisser le prospect sur une pagination devenue incohérente. */
+  useEffect(() => {
+    setPageJours(0)
+  }, [fuseauAffichage])
+
   const heure = (iso: string) =>
-    new Intl.DateTimeFormat('fr-FR', { timeZone: fuseau, hour: '2-digit', minute: '2-digit' }).format(new Date(iso))
+    new Intl.DateTimeFormat('fr-FR', { timeZone: fuseauAffichage, hour: '2-digit', minute: '2-digit' }).format(
+      new Date(iso),
+    )
   const jourLong = (date: string) =>
-    new Intl.DateTimeFormat('fr-FR', { timeZone: fuseau, weekday: 'long', day: 'numeric', month: 'long' }).format(
+    new Intl.DateTimeFormat('fr-FR', { timeZone: fuseauAffichage, weekday: 'long', day: 'numeric', month: 'long' }).format(
       new Date(`${date}T12:00:00Z`),
     )
 
@@ -113,7 +153,8 @@ export function ReserverAppel({
         prenom,
         email,
         telephone,
-        langueVisee,
+        /* Hari Online Club n'enseigne que l'anglais : plus la peine de le demander au prospect. */
+        langueVisee: 'Anglais',
         objectif,
         typeProgramme,
         message,
@@ -199,83 +240,137 @@ export function ReserverAppel({
 
       {jours.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--muted-2)' }}>
-              Choisissez un créneau
-            </span>
-            <span style={{ display: 'flex', gap: 8 }}>
-              <button
-                type="button"
-                onClick={() => setPageJours((p) => Math.max(0, p - 1))}
-                disabled={pageJours === 0}
-                style={boutonNavigation(pageJours === 0)}
-                aria-label="Jours précédents"
-              >
-                ←
-              </button>
-              <button
-                type="button"
-                onClick={() => setPageJours((p) => (p + 1) * JOURS_PAR_PAGE < jours.length ? p + 1 : p)}
-                disabled={(pageJours + 1) * JOURS_PAR_PAGE >= jours.length}
-                style={boutonNavigation((pageJours + 1) * JOURS_PAR_PAGE >= jours.length)}
-                aria-label="Jours suivants"
-              >
-                →
-              </button>
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label style={labelStyle}>Fuseau horaire</label>
+            <select
+              value={fuseauAffichage}
+              onChange={(e) => setFuseauAffichage(e.target.value)}
+              style={champStyle}
+            >
+              {FUSEAUX_PROSPECT.map((f) => (
+                <option key={f.valeur} value={f.valeur}>
+                  {f.libelle} ({decalageLisible(f.valeur)})
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(joursVisibles.length, 1)}, 1fr)`, gap: 10 }}>
-            {joursVisibles.map((jour) => (
-              <div key={jour.date} style={{ display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', textAlign: 'center', textTransform: 'capitalize' }}>
-                  {jourLong(jour.date)}
+          {creneauChoisi && (
+            <button
+              type="button"
+              onClick={() => setCreneauChoisi(null)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 10,
+                padding: '12px 14px',
+                borderRadius: 10,
+                border: `1px solid ${accent.accentBorder}`,
+                background: 'var(--surface-alt)',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                textAlign: 'left',
+              }}
+            >
+              <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>
+                Créneau choisi :{' '}
+                <strong style={{ color: accent.accent }}>
+                  {jourLong(creneauChoisi.slice(0, 10))} à {heure(creneauChoisi)}
+                </strong>
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: accent.accent, whiteSpace: 'nowrap' }}>
+                Changer ✕
+              </span>
+            </button>
+          )}
+
+          {/* Repli en accordéon CSS (grid-template-rows 0fr/1fr) : une fois un créneau choisi, les
+              jours et heures encore libres se replient pour laisser la place au formulaire de
+              coordonnées ; un nouveau clic sur la puce ci-dessus les fait réapparaître. */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateRows: creneauChoisi ? '0fr' : '1fr',
+              transition: 'grid-template-rows 260ms ease',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ minHeight: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--muted-2)' }}>
+                  Choisissez un créneau
                 </span>
-                {jour.creneaux.map((creneau) => {
-                  const choisi = creneau === creneauChoisi
-                  return (
-                    <button
-                      key={creneau}
-                      type="button"
-                      onClick={() => setCreneauChoisi(choisi ? null : creneau)}
-                      aria-pressed={choisi}
-                      style={{
-                        padding: '9px 6px',
-                        borderRadius: 9,
-                        border: `1px solid ${choisi ? 'transparent' : accent.accentBorder}`,
-                        background: choisi ? accent.accentGrad : 'transparent',
-                        color: choisi ? accent.accentInk : accent.accent,
-                        fontSize: 13,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        fontFamily: 'inherit',
-                      }}
-                    >
-                      {heure(creneau)}
-                    </button>
-                  )
-                })}
+                <span style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setPageJours((p) => Math.max(0, p - 1))}
+                    disabled={pageJours === 0}
+                    style={boutonNavigation(pageJours === 0)}
+                    aria-label="Jours précédents"
+                  >
+                    ←
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPageJours((p) => (p + 1) * JOURS_PAR_PAGE < jours.length ? p + 1 : p)}
+                    disabled={(pageJours + 1) * JOURS_PAR_PAGE >= jours.length}
+                    style={boutonNavigation((pageJours + 1) * JOURS_PAR_PAGE >= jours.length)}
+                    aria-label="Jours suivants"
+                  >
+                    →
+                  </button>
+                </span>
               </div>
-            ))}
+
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(joursVisibles.length, 1)}, 1fr)`, gap: 10 }}>
+                {joursVisibles.map((jour) => (
+                  <div key={jour.date} style={{ display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', textAlign: 'center', textTransform: 'capitalize' }}>
+                      {jourLong(jour.date)}
+                    </span>
+                    {jour.creneaux.map((creneau) => {
+                      const choisi = creneau === creneauChoisi
+                      return (
+                        <button
+                          key={creneau}
+                          type="button"
+                          onClick={() => setCreneauChoisi(choisi ? null : creneau)}
+                          aria-pressed={choisi}
+                          style={{
+                            padding: '9px 6px',
+                            borderRadius: 9,
+                            border: `1px solid ${choisi ? 'transparent' : accent.accentBorder}`,
+                            background: choisi ? accent.accentGrad : 'transparent',
+                            color: choisi ? accent.accentInk : accent.accent,
+                            fontSize: 13,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            fontFamily: 'inherit',
+                          }}
+                        >
+                          {heure(creneau)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+              <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0 }}>
+                Horaires affichés dans le fuseau sélectionné : {FUSEAUX_PROSPECT.find((f) => f.valeur === fuseauAffichage)?.libelle ?? fuseauAffichage}.
+              </p>
+            </div>
           </div>
-          <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0 }}>
-            Horaires affichés à l’heure de {etablissementNom} ({fuseau.replace('_', ' ')}).
-          </p>
         </div>
       )}
 
       {creneauChoisi && (
         <form onSubmit={envoyer} style={{ display: 'flex', flexDirection: 'column', gap: 14, borderTop: '1px solid var(--border-soft)', paddingTop: 18 }}>
-          <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>
-            Créneau choisi : <strong style={{ color: accent.accent }}>{jourLong(creneauChoisi.slice(0, 10))} à {heure(creneauChoisi)}</strong>
-          </span>
-
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
             <Champ label="Prénom" obligatoire valeur={prenom} onChange={setPrenom} />
             <Champ label="Nom" obligatoire valeur={nom} onChange={setNom} />
             <Champ label="E-mail" obligatoire type="email" valeur={email} onChange={setEmail} placeholder="vous@exemple.fr" />
             <Champ label="Téléphone" valeur={telephone} onChange={setTelephone} placeholder="+261 ..." />
-            <Champ label="Langue visée" valeur={langueVisee} onChange={setLangueVisee} placeholder="Anglais, espagnol…" />
             <Champ label="Votre objectif" valeur={objectif} onChange={setObjectif} placeholder="Entretien, expatriation…" />
           </div>
 
