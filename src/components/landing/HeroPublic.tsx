@@ -1,11 +1,10 @@
-import type { CSSProperties } from 'react'
 import { Icone, type NomIcone } from '../ui/Icones'
 
-/* Hero de la page publique, repris de la maquette fournie par le client le 2026-09-15.
-   L'illustration est le seul élément image : tout le reste (titre, boutons, pastilles, barre
-   d'atouts) est reconstruit en HTML pour rester net à toutes les tailles, sélectionnable,
-   traduisible et accessible — la maquette d'origine était une image unique où même le texte
-   était dessiné. */
+/* Vue d'accueil, tenant dans un seul écran : aucune barre de défilement, l'illustration couvre
+   toute la moitié droite jusqu'aux bords, comme sur la maquette fournie par le client. Le texte
+   de la maquette n'est pas repris en image mais reconstruit en HTML — sans quoi il serait
+   impossible d'en changer un mot (« Réserve ton appel gratuitement » remplace « Commencer
+   maintenant ») ni de le rendre lisible par un moteur de recherche. */
 
 const COMPETENCES: { libelle: string; fond: string }[] = [
   { libelle: 'Speaking', fond: 'linear-gradient(135deg, #8b5cf6, #6d3bd1)' },
@@ -23,181 +22,106 @@ const ATOUTS: { icone: NomIcone; titre: string; detail: string }[] = [
 
 const GARANTIES = ['100 % en ligne', 'Professeurs certifiés', 'Accès 24/7']
 
+export const TEMOIGNAGES = [
+  { initiales: 'AL', nom: 'A. L.', texte: 'Un vrai suivi, un professeur qui connaît mes objectifs semaine après semaine.' },
+  { initiales: 'MK', nom: 'M. K.', texte: 'Les cours en petit groupe m’ont redonné confiance pour parler sans hésiter.' },
+  { initiales: 'SB', nom: 'S. B.', texte: 'L’appel diagnostic a tout de suite posé un cap clair pour mes cours.' },
+]
+
 export function HeroPublic({
   nomEtablissement,
-  lienReservation,
+  onReserver,
 }: {
   nomEtablissement: string
-  lienReservation: { href: string; target?: string; rel?: string }
+  onReserver: () => void
 }) {
   return (
-    <section style={{ position: 'relative', padding: '46px 40px 0', overflow: 'hidden' }}>
-      <div
-        style={{
-          maxWidth: 1240,
-          margin: '0 auto',
-          display: 'grid',
-          gridTemplateColumns: 'minmax(300px, 1fr) minmax(320px, 1.05fr)',
-          gap: 40,
-          alignItems: 'center',
-        }}
-        className="grille-hero"
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
-          <span
-            className="arrive-text"
-            style={{
-              alignSelf: 'flex-start',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '6px 14px',
-              borderRadius: 999,
-              background: 'rgba(109,59,209,.10)',
-              border: '1px solid rgba(109,59,209,.24)',
-              fontSize: 11.5,
-              fontWeight: 700,
-              letterSpacing: 0.6,
-              textTransform: 'uppercase',
-              color: '#5a2fb5',
-            }}
-          >
-            Appels diagnostic ouverts cette semaine
-          </span>
+    <div className="vue-hero">
+      {/* L'illustration est posée en fond de la moitié droite plutôt que dans une carte : c'est
+          ce qui la fait « couvrir » l'écran comme sur la maquette. Le dégradé par-dessus fond son
+          bord gauche dans le lavande de la page, sans détourage. */}
+      <div className="hero-visuel" aria-hidden>
+        <picture>
+          <source srcSet="/hero-illustration.webp" type="image/webp" />
+          <img src="/hero-illustration.jpg" alt="" fetchPriority="high" />
+        </picture>
+        <span className="hero-voile" />
+      </div>
 
-          <p className="mention-manuscrite arrive-text" style={{ fontSize: 30, margin: 0 }}>
-            Your English,
-            <br />
-            Your Future
-          </p>
+      <div className="hero-contenu">
+        <span className="hero-badge arrive-text">Appels diagnostic ouverts cette semaine</span>
 
-          <h1 className="titre-hero arrive-text">
-            Apprenez l’anglais
-            <br />
-            <span className="fragment-indigo">à votre </span>
-            <span className="fragment-violet">rythme</span>
-          </h1>
+        <p className="mention-manuscrite arrive-text" style={{ fontSize: 26, margin: 0 }}>
+          Your English,
+          <br />
+          Your Future
+        </p>
 
-          <p className="arrive-text" style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--ink-2)', maxWidth: 460, margin: 0 }}>
-            Des cours interactifs, des professeurs passionnés et une expérience d’apprentissage unique.
-            Rejoignez {nomEtablissement} dès aujourd’hui !
-          </p>
+        <h1 className="titre-hero arrive-text">
+          Apprenez l’anglais
+          <br />
+          <span className="fragment-indigo">à votre </span>
+          <span className="fragment-violet">rythme</span>
+        </h1>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-            <a
-              {...lienReservation}
-              className="btn-shine arrive"
-              style={{
-                fontSize: 15,
-                padding: '15px 28px',
-                background: 'var(--accent-blue-gradient)',
-                color: '#fff',
-              }}
+        <p className="arrive-text hero-accroche">
+          Des cours interactifs, des professeurs passionnés et une expérience d’apprentissage unique.
+          Rejoignez {nomEtablissement} dès aujourd’hui !
+        </p>
+
+        <button type="button" onClick={onReserver} className="btn-shine arrive" style={{ alignSelf: 'flex-start', fontSize: 15, padding: '15px 28px', background: 'var(--accent-blue-gradient)', color: '#fff', border: 'none' }}>
+          Réserve ton appel gratuitement →
+        </button>
+
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          {GARANTIES.map((garantie) => (
+            <span key={garantie} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
+              <span aria-hidden className="coche-garantie">✓</span>
+              {garantie}
+            </span>
+          ))}
+        </div>
+
+        <ul className="liste-competences">
+          {COMPETENCES.map((competence, index) => (
+            <li
+              key={competence.libelle}
+              className="pastille-competence arrive"
+              style={{ background: competence.fond, animationDelay: `${0.3 + index * 0.07}s` }}
             >
-              Commencer maintenant →
-            </a>
-          </div>
+              {competence.libelle}
+            </li>
+          ))}
+        </ul>
+      </div>
 
-          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-            {GARANTIES.map((garantie) => (
-              <span key={garantie} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--muted)' }}>
-                <span
-                  aria-hidden
-                  style={{
-                    width: 17,
-                    height: 17,
-                    borderRadius: 5,
-                    border: '1.5px solid rgba(109,59,209,.45)',
-                    color: '#6d3bd1',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 11,
-                    fontWeight: 900,
-                    flexShrink: 0,
-                  }}
-                >
-                  ✓
-                </span>
-                {garantie}
+      <div className="hero-bandeau">
+        <div className="hero-atouts">
+          {ATOUTS.map((atout) => (
+            <div key={atout.titre} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <span aria-hidden className="puce-atout">
+                <Icone nom={atout.icone} taille={16} />
               </span>
-            ))}
-          </div>
-
-          <ul style={{ display: 'flex', flexWrap: 'wrap', gap: 10, listStyle: 'none', margin: '4px 0 0', padding: 0 }}>
-            {COMPETENCES.map((competence, index) => (
-              <li
-                key={competence.libelle}
-                className="pastille-competence arrive"
-                style={{ background: competence.fond, animationDelay: `${0.3 + index * 0.07}s` }}
-              >
-                {competence.libelle}
-              </li>
-            ))}
-          </ul>
+              <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>{atout.titre}</span>
+                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{atout.detail}</span>
+              </span>
+            </div>
+          ))}
         </div>
 
-        <div style={{ position: 'relative', minWidth: 0 }}>
-          <picture>
-            <source srcSet="/hero-illustration.webp" type="image/webp" />
-            <img
-              src="/hero-illustration.jpg"
-              alt={`Deux élèves de ${nomEtablissement} en cours d’anglais en visioconférence`}
-              className="illustration-hero arrive"
-              width={1445}
-              height={944}
-              /* Visuel principal de la page : chargé en priorité, jamais différé. */
-              fetchPriority="high"
-            />
-          </picture>
+        {/* Avis conservés sur l'écran d'accueil, en version condensée : ils rassurent au moment
+            du choix, et n'ont plus de section à eux depuis le passage en vue unique. */}
+        <div className="hero-avis">
+          {TEMOIGNAGES.map((temoignage) => (
+            <div key={temoignage.nom} style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
+              <span aria-hidden style={{ fontSize: 10, letterSpacing: 1.5, color: '#6d3bd1' }}>★★★★★</span>
+              <span className="avis-texte">« {temoignage.texte} »</span>
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--muted-2)' }}>{temoignage.nom}</span>
+            </div>
+          ))}
         </div>
       </div>
-
-      <div
-        style={{
-          maxWidth: 1140,
-          margin: '30px auto 0',
-          background: 'var(--surface)',
-          border: '1px solid var(--border-soft)',
-          borderRadius: 20,
-          boxShadow: 'var(--shadow-card)',
-          padding: '18px 26px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-          gap: 18,
-        }}
-      >
-        {ATOUTS.map((atout) => (
-          <div key={atout.titre} style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-            <span
-              aria-hidden
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 999,
-                flexShrink: 0,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(109,59,209,.10)',
-                color: '#6d3bd1',
-              }}
-            >
-              <Icone nom={atout.icone} taille={18} />
-            </span>
-            <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-              <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{atout.titre}</span>
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{atout.detail}</span>
-            </span>
-          </div>
-        ))}
-      </div>
-    </section>
+    </div>
   )
-}
-
-/* Exporté pour que la page puisse réutiliser exactement le même style de bouton ailleurs. */
-export const styleBoutonViolet: CSSProperties = {
-  background: 'var(--accent-blue-gradient)',
-  color: '#ffffff',
 }

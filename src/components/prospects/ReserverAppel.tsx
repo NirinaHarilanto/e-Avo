@@ -9,13 +9,10 @@ import type { TypeProgrammeProspect } from '../../types/database.types'
 
    Deux étapes plutôt qu'un formulaire unique : demander ses coordonnées avant même de savoir s'il
    reste un créneau qui lui convient faisait abandonner pour rien. L'agenda est donc montré en
-   premier, les coordonnées ne sont demandées qu'une fois l'horaire choisi. */
+   premier, les coordonnées ne sont demandées qu'une fois l'horaire choisi.
 
-const PROGRAMMES: { valeur: TypeProgrammeProspect; libelle: string }[] = [
-  { valeur: 'individuel', libelle: 'Individuel' },
-  { valeur: 'duo', libelle: 'Duo' },
-  { valeur: 'collectif', libelle: 'Collectif' },
-]
+   `sansCadre` sert quand le composant vit dans la fenêtre de réservation : celle-ci porte déjà la
+   carte, le titre et le choix du type de cours, qu'il ne faut pas afficher deux fois. */
 
 const JOURS_PAR_PAGE = 4
 
@@ -31,12 +28,14 @@ export function ReserverAppel({
   accent,
   typeInitial = 'individuel',
   onPrefererContact,
+  sansCadre = false,
 }: {
   etablissementSlug: string
   etablissementNom: string
   accent: AccentPalette
   typeInitial?: TypeProgrammeProspect
   onPrefererContact?: () => void
+  sansCadre?: boolean
 }) {
   const [donnees, setDonnees] = useState<ReponseCreneaux | null>(null)
   const [chargement, setChargement] = useState(true)
@@ -141,7 +140,7 @@ export function ReserverAppel({
 
   if (confirme) {
     return (
-      <div className="card" style={{ padding: 32, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+      <div className={sansCadre ? '' : 'card'} style={{ padding: sansCadre ? '8px 0' : 32, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
         <span
           aria-hidden
           style={{
@@ -168,14 +167,21 @@ export function ReserverAppel({
   }
 
   return (
-    <div className="card" style={{ padding: 30, display: 'flex', flexDirection: 'column', gap: 18 }}>
-      <div>
-        <h3 style={{ fontSize: 22, margin: '0 0 6px', color: 'var(--ink)' }}>Réserver mon appel diagnostic</h3>
-        <p style={{ fontSize: 13.5, color: 'var(--muted)', margin: 0, lineHeight: 1.6 }}>
-          {donnees ? `${donnees.dureeMinutes} minutes en visioconférence, sans engagement.` : 'Quelques minutes en visioconférence, sans engagement.'}{' '}
-          Choisissez l’horaire qui vous arrange : l’agenda ci-dessous est à jour.
+    <div className={sansCadre ? '' : 'card'} style={{ padding: sansCadre ? 0 : 30, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {!sansCadre && (
+        <div>
+          <h3 style={{ fontSize: 22, margin: '0 0 6px', color: 'var(--ink)' }}>Réserver mon appel diagnostic</h3>
+          <p style={{ fontSize: 13.5, color: 'var(--muted)', margin: 0, lineHeight: 1.6 }}>
+            {donnees ? `${donnees.dureeMinutes} minutes en visioconférence, sans engagement.` : 'Quelques minutes en visioconférence, sans engagement.'}{' '}
+            Choisissez l’horaire qui vous arrange : l’agenda ci-dessous est à jour.
+          </p>
+        </div>
+      )}
+      {sansCadre && donnees && (
+        <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: 0 }}>
+          {donnees.dureeMinutes} minutes en visioconférence. Choisissez l’horaire qui vous arrange : l’agenda est à jour.
         </p>
-      </div>
+      )}
 
       {chargement && <p style={{ fontSize: 13.5, color: 'var(--muted)' }}>Chargement des créneaux…</p>}
       {erreurChargement && <p style={{ fontSize: 13.5, color: 'var(--danger)' }}>{erreurChargement}</p>}
@@ -263,35 +269,6 @@ export function ReserverAppel({
           <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>
             Créneau choisi : <strong style={{ color: accent.accent }}>{jourLong(creneauChoisi.slice(0, 10))} à {heure(creneauChoisi)}</strong>
           </span>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            <label style={labelStyle}>Programme souhaité</label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {PROGRAMMES.map((programme) => {
-                const actif = programme.valeur === typeProgramme
-                return (
-                  <button
-                    key={programme.valeur}
-                    type="button"
-                    onClick={() => setTypeProgramme(programme.valeur)}
-                    style={{
-                      padding: '9px 16px',
-                      borderRadius: 999,
-                      border: `1px solid ${actif ? 'transparent' : 'var(--border)'}`,
-                      background: actif ? accent.accentGrad : 'var(--surface-alt)',
-                      color: actif ? accent.accentInk : 'var(--ink-2)',
-                      fontSize: 13,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    {programme.libelle}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
             <Champ label="Prénom" obligatoire valeur={prenom} onChange={setPrenom} />

@@ -1,185 +1,42 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
-import type { Database } from '../../types/database.types'
-import { deriveAccent, type AccentPalette } from '../../lib/accent'
+import type { Database, TypeProgrammeProspect } from '../../types/database.types'
+import { deriveAccent } from '../../lib/accent'
 import { SLUG_ETABLISSEMENT_PRINCIPAL } from '../../lib/etablissement'
-import { HeroPublic } from './HeroPublic'
-import { Logo } from '../shared/Logo'
-import { FormulaireProspect } from '../prospects/FormulaireProspect'
-import { ReserverAppel } from '../prospects/ReserverAppel'
-import type { TypeProgrammeProspect } from '../../types/database.types'
 import { useTarifs } from '../../hooks/useTarifs'
-
-const PROGRAMME_LABEL: Record<TypeProgrammeProspect, string> = {
-  individuel: 'Individuel',
-  duo: 'Duo',
-  collectif: 'Collectif',
-}
+import { HeroPublic } from './HeroPublic'
+import { VueProfesseurs, VueProgrammes, VueTarifs } from './VuesPubliques'
+import { ModaleReservation } from '../prospects/ModaleReservation'
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
 
-const PROGRAMMES: { type: TypeProgrammeProspect; tag: string; titre: string; texte: string }[] = [
-  {
-    type: 'individuel',
-    tag: 'Individuel',
-    titre: 'Cours particuliers',
-    texte: 'Sur mesure : vous choisissez votre rythme et le sujet de chaque séance, avec un professeur rien que pour vous, calé sur votre objectif réel.',
-  },
-  {
-    type: 'collectif',
-    tag: 'Collectif',
-    titre: 'Cours en petit groupe',
-    texte: 'Par vague, sur un planning établi par l’établissement, avec des groupes de niveaux différents pour progresser ensemble au bon rythme.',
-  },
-  {
-    type: 'duo',
-    tag: 'Duo',
-    titre: 'Cours en duo',
-    texte: 'En couple ou entre amis, apprenez à deux sur un même créneau : un accompagnement pensé pour vos deux objectifs, à la fois complice et exigeant.',
-  },
-]
-
 /* Violet de la charte Hari Online Club, repris du logo (#4A306D éclairci pour rester lisible en
-   aplat de bouton). */
+   aplat de bouton). La page publique force cet accent plutôt que `etablissements.couleur_accent`,
+   resté à l'or dont dépend tout l'habillage sombre des espaces connectés — le doré, très peu
+   contrasté sur fond blanc, serait illisible ici. */
 const VIOLET_MARQUE = '#6d3bd1'
 
-const TEMOIGNAGES = [
-  { initiales: 'AL', nom: 'A. L.', texte: 'Un vrai suivi, un professeur qui connaît mes objectifs semaine après semaine.' },
-  { initiales: 'MK', nom: 'M. K.', texte: 'Les cours en petit groupe m’ont redonné confiance pour parler sans hésiter.' },
-  { initiales: 'SB', nom: 'S. B.', texte: 'L’appel diagnostic a tout de suite posé un cap clair pour mes cours.' },
+type Vue = 'accueil' | 'programmes' | 'tarifs' | 'professeurs'
+
+const ENTREES: { vue: Vue; libelle: string }[] = [
+  { vue: 'accueil', libelle: 'Accueil' },
+  { vue: 'programmes', libelle: 'Programme' },
+  { vue: 'tarifs', libelle: 'Tarifs' },
+  { vue: 'professeurs', libelle: 'Professeurs' },
 ]
 
-/* Cadre orné (double liseré + 4 coins en L) piloté par currentColor — voir .cadre-orne dans
-   index.css. Composant plutôt que balisage répété : utilisé au hero et aux sections
-   fondatrice/équipe. */
-function CadreOrne({ accent, children, style }: { accent: string; children: ReactNode; style?: CSSProperties }) {
-  return (
-    <div className="cadre-orne" style={{ color: accent, borderRadius: 4, padding: 28, ...style }}>
-      <span className="coin" style={{ top: -9, left: -9, borderWidth: '2px 0 0 2px' }} />
-      <span className="coin" style={{ top: -9, right: -9, borderWidth: '2px 2px 0 0' }} />
-      <span className="coin" style={{ bottom: -9, left: -9, borderWidth: '0 0 2px 2px' }} />
-      <span className="coin" style={{ bottom: -9, right: -9, borderWidth: '0 2px 2px 0' }} />
-      <div style={{ position: 'relative', color: 'var(--ink)' }}>{children}</div>
-    </div>
-  )
-}
-
-const LIMITE_TARIFS_VISIBLES = 4
-
-/* Un bloc = un programme (individuel/duo/collectif). Hauteur commune assurée par la grille
-   parente (alignItems: 'stretch') + `height: '100%'` ici ; le CTA est poussé en bas via
-   `marginTop: 'auto'` pour rester aligné entre les 3 blocs même quand un programme a plus de
-   lignes tarifaires qu'un autre — au-delà de `LIMITE_TARIFS_VISIBLES`, le surplus est replié
-   derrière un bouton "Voir tous les tarifs". */
-function BlocTarif({
-  type,
-  lignes,
-  accent,
-  onReserver,
-  lienReservation,
-}: {
-  type: TypeProgrammeProspect
-  lignes: Database['public']['Tables']['tarifs']['Row'][]
-  accent: AccentPalette
-  onReserver: () => void
-  lienReservation: { href: string; target?: string; rel?: string }
-}) {
-  const [etendu, setEtendu] = useState(false)
-  const lignesVisibles = etendu ? lignes : lignes.slice(0, LIMITE_TARIFS_VISIBLES)
-  const masquees = lignes.length - lignesVisibles.length
-
-  return (
-    <CadreOrne accent={accent.accent} style={{ padding: 0, height: '100%' }}>
-      <div className="arrive" style={{ padding: '26px 22px', display: 'flex', flexDirection: 'column', gap: 14, height: '100%' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span
-            style={{
-              alignSelf: 'flex-start',
-              fontSize: 10.5,
-              fontWeight: 700,
-              letterSpacing: 0.6,
-              textTransform: 'uppercase',
-              color: accent.accent,
-              padding: '4px 10px',
-              borderRadius: 999,
-              border: `1px solid ${accent.accentBorder}`,
-              background: accent.accentSoft,
-            }}
-          >
-            {PROGRAMME_LABEL[type]}
-          </span>
-          <h3 style={{ fontSize: 19, color: 'var(--ink)', margin: 0 }}>
-            {type === 'individuel' ? 'Cours particuliers' : type === 'duo' ? 'Cours en duo' : 'Cours en petit groupe'}
-          </h3>
-          {type === 'individuel' && (
-            <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--muted)', margin: 0 }}>
-              Anglais général, focus oral, compréhension ou grammaire — ou anglais des affaires
-              (meetings, présentations, négociation). Contenu 100 % personnalisable sur demande.
-            </p>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {lignesVisibles.map((ligne, index) => (
-            <div
-              key={ligne.id}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-                padding: '10px 10px',
-                borderRadius: 8,
-                background: index % 2 === 0 ? accent.accentSoft : 'transparent',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink-2)' }}>{ligne.titre}</span>
-                <span className="brand-font" style={{ fontSize: 15, color: accent.accent, whiteSpace: 'nowrap' }}>
-                  {ligne.prix.toLocaleString('fr-FR')} {ligne.unite}
-                </span>
-              </div>
-              {ligne.description && (
-                <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{ligne.description}</span>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {lignes.length > LIMITE_TARIFS_VISIBLES && (
-          <button
-            type="button"
-            onClick={() => setEtendu((v) => !v)}
-            style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: accent.accent, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
-          >
-            {etendu ? 'Réduire ↑' : `Voir tous les tarifs (+${masquees}) ↓`}
-          </button>
-        )}
-
-        <a
-          {...lienReservation}
-          onClick={onReserver}
-          className="btn-shine"
-          style={{ alignSelf: 'flex-start', marginTop: 'auto', fontSize: 12.5, padding: '10px 18px', background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}
-        >
-          Réserver →
-        </a>
-      </div>
-    </CadreOrne>
-  )
-}
-
+/* Page publique en vue unique : la barre de navigation remplace le contenu affiché au lieu de
+   faire défiler la page (demande client du 2026-09-15). Chaque vue tient dans la hauteur de
+   l'écran ; seul le corps d'une vue dense peut défiler dans son propre cadre, jamais la page. */
 export function LandingEtablissement() {
-  /* Sur `/` (page d'accueil) il n'y a pas de paramètre d'URL : on sert l'établissement
-     principal. La route `/e/:slug` reste servie par le même composant pour l'admin
-     plateforme. */
   const { slug: slugUrl } = useParams<{ slug: string }>()
   const slug = slugUrl ?? SLUG_ETABLISSEMENT_PRINCIPAL
   const [etablissement, setEtablissement] = useState<Etablissement | null>(null)
   const [loading, setLoading] = useState(true)
   const [introuvable, setIntrouvable] = useState(false)
-  const [programmeChoisi, setProgrammeChoisi] = useState<TypeProgrammeProspect>('individuel')
-  const [contactSimple, setContactSimple] = useState(false)
+  const [vue, setVue] = useState<Vue>('accueil')
+  const [reservation, setReservation] = useState<TypeProgrammeProspect | null>(null)
   const { tarifs } = useTarifs(etablissement?.id)
 
   useEffect(() => {
@@ -192,11 +49,8 @@ export function LandingEtablissement() {
       .maybeSingle()
       .then(({ data, error }) => {
         if (annule) return
-        if (error || !data) {
-          setIntrouvable(true)
-        } else {
-          setEtablissement(data)
-        }
+        if (error || !data) setIntrouvable(true)
+        else setEtablissement(data)
         setLoading(false)
       })
     return () => {
@@ -204,9 +58,17 @@ export function LandingEtablissement() {
     }
   }, [slug])
 
+  /* La page publique est la seule de l'application à interdire le défilement du document : la
+     classe est posée sur <body> le temps de l'afficher, et retirée en quittant pour ne pas
+     bloquer les espaces connectés. */
+  useEffect(() => {
+    document.body.classList.add('sans-defilement')
+    return () => document.body.classList.remove('sans-defilement')
+  }, [])
+
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+      <div className="page-claire" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
         Chargement…
       </div>
     )
@@ -214,406 +76,90 @@ export function LandingEtablissement() {
 
   if (introuvable || !etablissement) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, color: 'var(--ink)' }}>
+      <div className="page-claire" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
         <p style={{ color: 'var(--danger)' }}>Établissement introuvable.</p>
         <a href="/" className="btn-shine" style={{ background: 'var(--accent-blue-gradient)', color: '#fff' }}>
-          Retour à l'accueil
+          Retour à l’accueil
         </a>
       </div>
     )
   }
 
-  /* La page publique est passée sur la charte violette de la marque (2026-09-15), alors que
-     `etablissements.couleur_accent` reste l'or utilisé par les trois espaces connectés, dont tout
-     l'habillage sombre dépend. L'accent est donc forcé ici plutôt que changé en base : le doré,
-     très peu contrasté sur fond blanc, deviendrait illisible sur cette page. */
   const accent = deriveAccent(VIOLET_MARQUE)
   const dossierAssets = `/etablissements/${etablissement.slug}`
-  /* Tous les CTA « Réserver » descendent maintenant vers l'agenda intégré (#reserver) au lieu
-     d'ouvrir Calendly dans un onglet : le visiteur ne quitte plus le site, et ses réponses
-     arrivent en base au lieu de rester chez un prestataire externe (demande client du
-     2026-09-15). `etablissements.calendly_url` reste en base sans être lu ici — le supprimer
-     serait une migration destructive pour une colonne qui ne gêne pas. */
-  const lienReservation: { href: string; target?: string; rel?: string } = { href: '#reserver' }
+
+  function ouvrirReservation(type: TypeProgrammeProspect = 'individuel') {
+    setReservation(type)
+  }
 
   return (
-    <div className="page-claire" style={{ minHeight: '100vh' }}>
-      <header
-        className="en-tete-public"
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 5,
-          display: 'flex',
-          flexWrap: 'wrap',
-          rowGap: 10,
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '14px 40px',
-          borderBottom: '1px solid var(--border-soft)',
-          background: 'rgba(255,255,255,.88)',
-          backdropFilter: 'blur(8px)',
-        }}
-      >
-        <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <img src="/logo-hoc.png" alt={etablissement.nom} style={{ height: 46, width: 'auto', display: 'block' }} />
-          {etablissement.specialite && (
-            <span
-              style={{
-                paddingLeft: 14,
-                borderLeft: '1px solid var(--border)',
-                fontSize: 10.5,
-                fontWeight: 600,
-                letterSpacing: 0.6,
-                color: 'var(--muted-2)',
-                textTransform: 'uppercase',
-              }}
-            >
-              {etablissement.specialite}
-            </span>
-          )}
-        </a>
+    <div className="page-claire page-unique">
+      <header className="en-tete-public">
+        <button type="button" onClick={() => setVue('accueil')} className="bloc-logo" aria-label={`Accueil ${etablissement.nom}`}>
+          <img src="/logo-hoc.png" alt={etablissement.nom} style={{ height: 42, width: 'auto', display: 'block' }} />
+          {etablissement.specialite && <span className="baseline-logo">{etablissement.specialite}</span>}
+        </button>
 
-        {/* Libellés de la maquette, rattachés aux sections qui existaient déjà : « Cours » mène
-            aux programmes, « Professeurs » à l'équipe, « À propos » à la fondatrice. Aucune
-            section n'a disparu, seuls les intitulés suivent la nouvelle direction artistique. */}
-        <nav style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 26 }}>
-          <a href="#programmes" className="lien-nav-public">Cours</a>
-          <a href="#tarifs" className="lien-nav-public">Tarifs</a>
-          <a href="#equipe" className="lien-nav-public">Professeurs</a>
-          <a href="#fondatrice" className="lien-nav-public">À propos</a>
-          <a href="#avis" className="lien-nav-public">Avis</a>
+        <nav style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 24 }}>
+          {ENTREES.map((entree) => (
+            <button
+              key={entree.vue}
+              type="button"
+              onClick={() => setVue(entree.vue)}
+              className="lien-nav-public"
+              aria-current={vue === entree.vue ? 'page' : undefined}
+              style={{ background: 'transparent', border: 'none', borderBottomWidth: 2, borderBottomStyle: 'solid', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              {entree.libelle}
+            </button>
+          ))}
         </nav>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <a
-            href="/connexion"
-            style={{
-              fontSize: 13.5,
-              fontWeight: 700,
-              color: '#4a4266',
-              padding: '10px 20px',
-              borderRadius: 999,
-              border: '1px solid var(--border)',
-            }}
-          >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <a href="/connexion" className="bouton-contour">
             Se connecter
           </a>
-          <a {...lienReservation} className="btn-shine" style={{ background: 'var(--accent-blue-gradient)', color: '#fff' }}>
+          <button type="button" onClick={() => ouvrirReservation()} className="btn-shine" style={{ background: 'var(--accent-blue-gradient)', color: '#fff', border: 'none' }}>
             Réserver mon appel →
-          </a>
+          </button>
         </div>
       </header>
 
-      <HeroPublic nomEtablissement={etablissement.nom} lienReservation={lienReservation} />
-
-      <section id="programmes" style={{ padding: '20px 40px 70px', maxWidth: 1100, margin: '0 auto' }}>
-        <h2 style={{ textAlign: 'center', fontSize: 30, color: 'var(--ink)', marginBottom: 30 }}>
-          Trois façons d'apprendre, un seul cap : votre objectif.
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
-          {PROGRAMMES.map((programme, index) => (
-            <div
-              key={programme.titre}
-              className="card card-lift card-programme arrive"
-              style={{
-                padding: 24,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 12,
-                animationDelay: `${index * 0.1}s`,
-                '--card-accent-soft': accent.accentSoft,
-                '--card-accent-border': accent.accentBorder,
-                '--card-accent-glow': accent.accentGlow,
-              } as CSSProperties}
-            >
-              <span
-                style={{
-                  alignSelf: 'flex-start',
-                  fontSize: 10.5,
-                  fontWeight: 700,
-                  letterSpacing: 0.6,
-                  textTransform: 'uppercase',
-                  color: accent.accent,
-                  padding: '4px 10px',
-                  borderRadius: 999,
-                  border: `1px solid ${accent.accentBorder}`,
-                  background: accent.accentSoft,
-                }}
-              >
-                {programme.tag}
-              </span>
-              <h3 style={{ fontSize: 18, color: 'var(--ink)' }}>{programme.titre}</h3>
-              <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--muted)' }}>{programme.texte}</p>
-              <a
-                {...lienReservation}
-                onClick={() => setProgrammeChoisi(programme.type)}
-                style={{ fontSize: 12.5, fontWeight: 700, color: accent.accent, marginTop: 4 }}
-              >
-                {programme.type === 'collectif' ? 'Réserver mon test →' : 'Réserver mon appel →'}
-              </a>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {tarifs.length > 0 && (
-        <section id="tarifs" style={{ padding: '20px 40px 70px', maxWidth: 1100, margin: '0 auto' }}>
-          <h2 style={{ textAlign: 'center', fontSize: 30, color: 'var(--ink)', marginBottom: 30 }}>Tarifs</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, alignItems: 'stretch' }}>
-            {(['individuel', 'duo', 'collectif'] as const).map((type) => {
-              const lignes = tarifs.filter((t) => t.type_programme === type)
-              if (lignes.length === 0) return null
-              return (
-                <BlocTarif
-                  key={type}
-                  type={type}
-                  lignes={lignes}
-                  accent={accent}
-                  onReserver={() => setProgrammeChoisi(type)}
-                  lienReservation={lienReservation}
-                />
-              )
-            })}
-          </div>
-        </section>
-      )}
-
-      <section id="fondatrice" style={{ padding: '10px 40px 70px', maxWidth: 1000, margin: '0 auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 320px) 1fr', gap: 40, alignItems: 'center' }}>
-          <CadreOrne accent={accent.accent} style={{ padding: 10 }}>
-            <img
-              src={`${dossierAssets}/Directrice.jpg`}
-              alt={`Directrice de ${etablissement.nom}`}
-              style={{ width: '100%', aspectRatio: '4 / 5', objectFit: 'cover', objectPosition: 'top', display: 'block', borderRadius: 2 }}
-              onError={(e) => {
-                ;(e.currentTarget as HTMLImageElement).style.visibility = 'hidden'
-              }}
-            />
-          </CadreOrne>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase', color: accent.accent }}>
-              Notre directrice
-            </span>
-            <h2 className="brand-font" style={{ fontSize: 28, color: 'var(--ink)', margin: 0 }}>
-              Une pédagogie pensée pour des résultats réels
-            </h2>
-            <p style={{ fontSize: 14, lineHeight: 1.75, color: 'var(--ink-2)' }}>
-              Persuadée qu'aucune application ne remplace le regard d'un professeur qui croit en vous, notre
-              directrice a fondé {etablissement.nom} pour redonner sa juste place à la relation humaine dans
-              l'apprentissage des langues. Son exigence : un accompagnement sur-mesure, taillé pour votre
-              objectif, votre rythme et votre vie. Chaque élève qui progresse ici en est la preuve vivante.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section id="equipe" style={{ padding: '10px 40px 70px', maxWidth: 1000, margin: '0 auto', textAlign: 'center' }}>
-        <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase', color: accent.accent }}>
-          Notre équipe
-        </span>
-        <h2 className="brand-font" style={{ fontSize: 28, color: 'var(--ink)', margin: '10px 0 24px' }}>
-          Des professeurs choisis pour votre objectif
-        </h2>
-        <CadreOrne accent={accent.accent} style={{ padding: 10, maxWidth: 720, margin: '0 auto' }}>
-          <img
-            src={`${dossierAssets}/equipe.jpg`}
-            alt={`L'équipe de ${etablissement.nom}`}
-            style={{ width: '100%', objectFit: 'cover', display: 'block', borderRadius: 2 }}
-            onError={(e) => {
-              ;(e.currentTarget as HTMLImageElement).style.visibility = 'hidden'
-            }}
-          />
-        </CadreOrne>
-        <p style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--muted)', maxWidth: 560, margin: '22px auto 0' }}>
-          Une équipe soudée, choisie pour sa pédagogie autant que pour sa passion des langues — la même
-          exigence bienveillante à chaque cours, quel que soit le professeur qui vous accompagne.
-        </p>
-        <a href="#reserver" className="btn-shine" style={{ marginTop: 26, display: 'inline-flex', background: accent.accentGrad, color: accent.accentInk, boxShadow: `0 4px 14px ${accent.accentGlow}` }}>
-          Découvrir l'équipe
-        </a>
-      </section>
-
-      <section
-        style={{
-          margin: '0 40px 70px',
-          maxWidth: 1020,
-          marginLeft: 'auto',
-          marginRight: 'auto',
-          padding: '40px 36px',
-          borderRadius: 18,
-          textAlign: 'center',
-          background: 'linear-gradient(135deg, #5a2fb5 0%, #7c4ddb 55%, #9366e8 100%)',
-          border: 'none',
-          boxShadow: '0 18px 44px rgba(90, 47, 181, .28)',
-        }}
-      >
-        {/* Accroche et promesse de l'ancien hero : elles n'avaient plus leur place au-dessus du
-            nouveau visuel, mais restent le discours de conversion de la page — conservées ici,
-            juste avant la prise de rendez-vous. */}
-        <h2 style={{ fontSize: 27, color: '#ffffff', margin: '0 0 12px' }}>
-          Apprenez avec un professeur qui vous accompagne jusqu’à la réussite
-        </h2>
-        <p style={{ fontSize: 15, lineHeight: 1.7, color: 'rgba(255,255,255,.88)', maxWidth: 580, margin: '0 auto 10px' }}>
-          Quinze minutes d’appel pour situer votre niveau et votre objectif. Ensuite, un professeur attitré
-          chez {etablissement.nom} et des cours en visio à votre rythme.
-        </p>
-        <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,.75)', maxWidth: 520, margin: '0 auto 22px' }}>
-          Un appel, quinze minutes, zéro engagement : on situe votre niveau, on cadre votre objectif, et on
-          vous propose le bon format de cours.
-        </p>
-        <a
-          {...lienReservation}
-          className="btn-shine"
-          style={{ background: '#ffffff', color: '#5a2fb5', boxShadow: '0 8px 20px rgba(0,0,0,.18)' }}
-        >
-          Réserver mon appel diagnostic
-        </a>
-      </section>
-
-      <section id="avis" style={{ padding: '0 40px 70px', maxWidth: 1100, margin: '0 auto' }}>
-        <h2 style={{ textAlign: 'center', fontSize: 30, color: 'var(--ink)', marginBottom: 8 }}>
-          Ce qu'en disent nos élèves
-        </h2>
-        <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--muted-2)', marginBottom: 30 }}>
-          Exemples d'avis — à remplacer par de vrais témoignages avant mise en ligne.
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
-          {TEMOIGNAGES.map((temoignage, index) => (
-            <div key={temoignage.nom} className="card card-lift arrive" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 12, animationDelay: `${index * 0.1}s` }}>
-              <span aria-hidden style={{ fontSize: 13, letterSpacing: 2, color: accent.accent }}>
-                ★★★★★
-              </span>
-              <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink-2)', fontStyle: 'italic' }}>
-                « {temoignage.texte} »
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
-                <span
-                  className="brand-font"
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 999,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    background: accent.accentGrad,
-                    color: accent.accentInk,
-                  }}
-                >
-                  {temoignage.initiales}
-                </span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)' }}>{temoignage.nom}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* La prise de rendez-vous se fait désormais sur le site (agenda réel de l'établissement)
-          plutôt que chez Calendly. Le formulaire de simple mise en relation reste accessible d'un
-          clic pour qui ne trouve aucun créneau : c'est l'ancien parcours, conservé en repli. */}
-      <section id="reserver" style={{ padding: '0 40px 70px', maxWidth: 760, margin: '0 auto' }}>
-        {contactSimple ? (
-          <FormulaireProspect
-            etablissementId={etablissement.id}
-            etablissementNom={etablissement.nom}
+      <main className="corps-unique">
+        {vue === 'accueil' && <HeroPublic nomEtablissement={etablissement.nom} onReserver={() => ouvrirReservation()} />}
+        {vue === 'programmes' && <VueProgrammes accent={accent} onReserver={ouvrirReservation} />}
+        {vue === 'tarifs' && <VueTarifs tarifs={tarifs} accent={accent} onReserver={ouvrirReservation} />}
+        {vue === 'professeurs' && (
+          <VueProfesseurs
+            nomEtablissement={etablissement.nom}
+            dossierAssets={dossierAssets}
             accent={accent}
-            typeInitial={programmeChoisi}
-            calendlyUrl={null}
-          />
-        ) : (
-          <ReserverAppel
-            etablissementSlug={etablissement.slug}
-            etablissementNom={etablissement.nom}
-            accent={accent}
-            typeInitial={programmeChoisi}
-            onPrefererContact={() => setContactSimple(true)}
+            onReserver={() => ouvrirReservation()}
           />
         )}
-      </section>
+      </main>
 
-      {/* Le pied de page reste sombre pour fermer la page, mais en violet de marque plutôt qu'en
-          marine. Les variables de texte sont redéfinies ici même : tous les éléments à
-          l'intérieur lisent déjà `var(--ink-2)` & co, et basculent donc en clair sans qu'aucun
-          d'eux ait à être repris un par un. */}
-      <footer
-        style={{
-          padding: '48px 40px 30px',
-          background: 'linear-gradient(160deg, #241645 0%, #33205c 58%, #422a72 100%)',
-          borderTop: 'none',
-          '--ink': '#ffffff',
-          '--ink-2': 'rgba(255,255,255,.86)',
-          '--muted': 'rgba(255,255,255,.66)',
-          '--muted-2': 'rgba(255,255,255,.58)',
-        } as CSSProperties}
-      >
-        <div
-          style={{
-            maxWidth: 1100,
-            margin: '0 auto',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: 32,
-            paddingBottom: 30,
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
-            <Logo taille={34} />
-            {etablissement.specialite && (
-              <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>{etablissement.specialite}</span>
-            )}
-            <span aria-hidden style={{ display: 'flex', gap: 10, marginTop: 6, fontSize: 15, color: accent.accent }}>
-              <span>●</span>
-              <span>●</span>
-              <span>●</span>
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--muted-2)' }}>
-              Navigation
-            </span>
-            <a href="#programmes" style={{ fontSize: 13, color: 'var(--ink-2)' }}>Programmes</a>
-            <a href="#fondatrice" style={{ fontSize: 13, color: 'var(--ink-2)' }}>Fondatrice</a>
-            <a href="#equipe" style={{ fontSize: 13, color: 'var(--ink-2)' }}>Équipe</a>
-            <a href="#avis" style={{ fontSize: 13, color: 'var(--ink-2)' }}>Avis</a>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--muted-2)' }}>
-              Espaces
-            </span>
-            <a href="/connexion" style={{ fontSize: 13, color: 'var(--ink-2)' }}>Espace personnel</a>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--muted-2)' }}>
-              Réserver
-            </span>
-            <a {...lienReservation} className="btn-shine" style={{ alignSelf: 'flex-start', background: accent.accentGrad, color: accent.accentInk, fontSize: 12.5 }}>
-              Appel diagnostic
-            </a>
-          </div>
-        </div>
-
-        <div style={{ maxWidth: 1100, margin: '0 auto', paddingTop: 20, borderTop: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 14 }}>
-          <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>© 2026 {etablissement.nom}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-            <a href="/confidentialite" style={{ fontSize: 12, color: 'var(--muted-2)' }}>
-              Confidentialité
-            </a>
-            <a href="/conditions-utilisation" style={{ fontSize: 12, color: 'var(--muted-2)' }}>
-              Conditions d'utilisation
-            </a>
-            <a href="/plateforme/etablissements" style={{ fontSize: 12, color: 'var(--muted-2)' }}>
-              Admin plateforme
-            </a>
-          </div>
-        </div>
+      {/* Bande légale réduite au strict nécessaire : sans elle, les liens de confidentialité et de
+          conditions d'utilisation exigés par Google pour l'accès Calendar n'existeraient plus
+          nulle part sur le site public, la page n'ayant plus de pied de page défilant. */}
+      <footer className="pied-unique">
+        <span>© 2026 {etablissement.nom}</span>
+        <span style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <a href="/confidentialite">Confidentialité</a>
+          <a href="/conditions-utilisation">Conditions d’utilisation</a>
+          <a href="/plateforme/etablissements">Admin plateforme</a>
+        </span>
       </footer>
+
+      {reservation && (
+        <ModaleReservation
+          etablissementSlug={etablissement.slug}
+          etablissementNom={etablissement.nom}
+          accent={accent}
+          typeInitial={reservation}
+          onFermer={() => setReservation(null)}
+        />
+      )}
     </div>
   )
 }
