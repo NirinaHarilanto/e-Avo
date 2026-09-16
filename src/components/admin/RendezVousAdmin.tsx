@@ -1,7 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useRendezVous, type RendezVousAvecProspect } from '../../hooks/useRendezVous'
+import { useEvenementsAdmin, type EvenementAdminAvecParticipants } from '../../hooks/useEvenementsAdmin'
+import { useEtudiants } from '../../hooks/useEtudiants'
+import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { supabase } from '../../lib/supabaseClient'
 import type { StatutRendezVous } from '../../types/database.types'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
@@ -11,10 +14,12 @@ import { GrilleStats, Stat } from '../ui/Stat'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonPrimaireStyle } from '../ui/Boutons'
+import { champStyle } from '../ui/Champ'
 import { Section } from '../ui/Section'
 import { Onglets } from '../ui/Onglets'
 import { Modale } from '../ui/Modale'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
+import { Icone } from '../ui/Icones'
 
 type VueRendezVous = 'agenda' | 'liste'
 
@@ -32,58 +37,116 @@ const COULEUR_STATUT: Record<StatutRendezVous, string> = {
   annule: 'var(--muted)',
 }
 
-/* Teinte de la pastille dans la grille horaire — même vocabulaire que le calendrier professeur
-   (voir lib/agenda.ts) : or pour ce qui attend une décision, bleu pour ce qui est confirmé (donc
-   déjà dans l'agenda Google avec son lien Meet), neutre et grisé pour ce qui est clos sans suite. */
-function versEvenement(rdv: RendezVousAvecProspect): EvenementAgenda {
+/* Les identifiants des deux tables (rendez_vous et evenements_admin, voir useEvenementsAdmin.ts)
+   sont chacun des UUID indépendants : rien n'empêche qu'ils coïncident un jour par hasard. Un
+   préfixe sur l'id de l'EvenementAgenda lève toute ambiguïté au moment de rouvrir la bonne fiche
+   au clic, plutôt que de chercher le même id dans les deux tableaux. */
+const PREFIXE_PROSPECT = 'rdv:'
+const PREFIXE_EVENEMENT = 'evt:'
+
+/* Couleur = catégorie de participants, pas statut — demande client du 2026-09-16 : « jaune pour
+   les prospects, bleu pour les étudiants, vert pour les professeurs, violet pour mixte étudiants
+   et professeurs ». Le statut (à valider / annulé) reste lisible via `attenue` et `marqueur`,
+   déjà pris en charge par AgendaHebdo, sans avoir besoin d'une cinquième teinte. */
+function versEvenementProspect(rdv: RendezVousAvecProspect): EvenementAgenda {
   const prospect = rdv.prospects
   const nomProspect = prospect ? `${prospect.prenom} ${prospect.nom}` : 'Prospect supprimé'
   return {
-    id: rdv.id,
+    id: PREFIXE_PROSPECT + rdv.id,
     debut: rdv.debut,
     dureeMinutes: rdv.duree_minutes,
     titre: nomProspect,
     sousTitre: `Appel diagnostic${prospect?.langue_visee ? ` · ${prospect.langue_visee}` : ''}`,
-    ton: rdv.statut === 'confirme' ? 'bleu' : rdv.statut === 'en_attente' ? 'or' : 'neutre',
+    ton: 'or',
     attenue: rdv.statut === 'refuse' || rdv.statut === 'annule',
     marqueur: rdv.statut === 'en_attente' ? 'à valider' : undefined,
   }
 }
 
+function versEvenementAdmin(evenement: EvenementAdminAvecParticipants): EvenementAgenda {
+  const aDesEtudiants = evenement.etudiants.length > 0
+  const aDesProfesseurs = evenement.professeurs.length > 0
+  const participants = [...evenement.etudiants, ...evenement.professeurs].map((p) => `${p.prenom} ${p.nom}`).join(', ')
+  return {
+    id: PREFIXE_EVENEMENT + evenement.id,
+    debut: evenement.debut,
+    dureeMinutes: evenement.duree_minutes,
+    titre: evenement.titre,
+    sousTitre: participants || undefined,
+    ton: aDesEtudiants && aDesProfesseurs ? 'violet' : aDesProfesseurs ? 'teal' : 'bleu',
+    attenue: evenement.annule,
+  }
+}
+
+function typeEvenementAdmin(evenement: EvenementAdminAvecParticipants): string {
+  const aDesEtudiants = evenement.etudiants.length > 0
+  const aDesProfesseurs = evenement.professeurs.length > 0
+  if (aDesEtudiants && aDesProfesseurs) return 'Mixte — étudiants et professeurs'
+  if (aDesProfesseurs) return 'Professeurs'
+  return 'Étudiants'
+}
+
+function versDatetimeLocal(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 export function RendezVousAdmin() {
-  const { profile } = useProfileContext()
+  const { profile, session } = useProfileContext()
   const { rendezVous, loading, erreur, recharger } = useRendezVous()
+  const { evenements: evenementsAdmin, loading: chargementEvenements, recharger: rechargerEvenements } = useEvenementsAdmin()
   const [vue, setVue] = useState<VueRendezVous>('agenda')
   const [onglet, setOnglet] = useState('À valider')
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
-  /* Retenu par identifiant plutôt que par valeur : après une décision, `recharger()` remplace
-     l'objet et la fiche ouverte doit refléter le nouveau statut, pas celui capturé au clic. */
-  const [rdvOuvertId, setRdvOuvertId] = useState<string | null>(null)
+  /* Retenu par identifiant préfixé plutôt que par valeur : après une décision, `recharger()`
+     remplace l'objet et la fiche ouverte doit refléter le nouveau statut, pas celui capturé au
+     clic. */
+  const [elementOuvertId, setElementOuvertId] = useState<string | null>(null)
+  const [creationOuverte, setCreationOuverte] = useState<Date | null>(null)
 
   const enAttente = rendezVous.filter((r) => r.statut === 'en_attente')
   const confirmes = rendezVous.filter((r) => r.statut === 'confirme')
   const traites = rendezVous.filter((r) => r.statut === 'refuse' || r.statut === 'annule')
   const liste = onglet === 'À valider' ? enAttente : onglet === 'Confirmés' ? confirmes : traites
 
-  const evenements = useMemo(() => rendezVous.map(versEvenement), [rendezVous])
-  const rdvOuvert = rendezVous.find((r) => r.id === rdvOuvertId) ?? null
+  const evenementsAgenda = useMemo(
+    () => [...rendezVous.map(versEvenementProspect), ...evenementsAdmin.map(versEvenementAdmin)],
+    [rendezVous, evenementsAdmin],
+  )
+  const rdvOuvert = elementOuvertId?.startsWith(PREFIXE_PROSPECT)
+    ? rendezVous.find((r) => r.id === elementOuvertId!.slice(PREFIXE_PROSPECT.length))
+    : undefined
+  const evenementOuvert = elementOuvertId?.startsWith(PREFIXE_EVENEMENT)
+    ? evenementsAdmin.find((e) => e.id === elementOuvertId!.slice(PREFIXE_EVENEMENT.length))
+    : undefined
+
+  function rechargerTout() {
+    recharger()
+    rechargerEvenements()
+  }
 
   return (
     <AdminLayout actif="Rendez-vous">
       <EnTetePage
         compact
-        titre="Demandes d’appel diagnostic"
-        description="Les créneaux réservés depuis la page d’accueil arrivent ici. Validez-les pour créer l’événement d’agenda et le lien de visioconférence."
+        titre="Rendez-vous"
+        description="Les demandes d’appel diagnostic prises depuis la page d’accueil arrivent ici pour validation, et vous pouvez aussi y créer vous-même un rendez-vous avec un ou plusieurs étudiants et professeurs — cliquez un créneau libre de l’agenda, ou le bouton ci-contre."
         actions={
-          <Onglets
-            etiquette="Mode d’affichage"
-            actif={vue}
-            onChange={setVue}
-            onglets={[
-              { value: 'agenda', label: 'Agenda' },
-              { value: 'liste', label: 'Liste' },
-            ]}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <Onglets
+              etiquette="Mode d’affichage"
+              actif={vue}
+              onChange={setVue}
+              onglets={[
+                { value: 'agenda', label: 'Agenda' },
+                { value: 'liste', label: 'Liste' },
+              ]}
+            />
+            <button onClick={() => setCreationOuverte(new Date())} className="btn-shine" style={boutonPrimaireStyle}>
+              <Icone nom="plus" taille={15} />
+              Créer un rendez-vous
+            </button>
+          </div>
         }
       />
 
@@ -100,8 +163,14 @@ export function RendezVousAdmin() {
             envoie l’invitation au prospect. <strong>Refuser</strong> libère le créneau pour quelqu’un d’autre.
           </>,
           <>
-            L’<strong>agenda</strong> montre votre semaine heure par heure, comme Outlook : cliquez un rendez-vous
-            pour l’ouvrir et décider. La <strong>liste</strong> reste utile pour trier par statut.
+            Vous pouvez aussi <strong>créer vous-même un rendez-vous</strong> avec un ou plusieurs étudiants et
+            professeurs déjà inscrits : cliquez un créneau libre de l’agenda, ou le bouton{' '}
+            <strong>Créer un rendez-vous</strong>.
+          </>,
+          <>
+            Dans l’<strong>agenda</strong>, la couleur indique qui est concerné : <strong>jaune</strong> un prospect,{' '}
+            <strong>bleu</strong> des étudiants, <strong>vert</strong> des professeurs, <strong>violet</strong> les
+            deux à la fois. Cliquez un événement pour l’ouvrir.
           </>,
           <>
             Les créneaux proposés au public se règlent dans <strong>Paramètres → Disponibilités</strong> : jours,
@@ -118,20 +187,22 @@ export function RendezVousAdmin() {
 
       {erreur && <MessageErreur>{erreur}</MessageErreur>}
 
-      {loading && <EtatChargement lignes={3} hauteur={92} />}
+      {(loading || chargementEvenements) && <EtatChargement lignes={3} hauteur={92} />}
 
-      {!loading && vue === 'agenda' && (
+      {!loading && !chargementEvenements && vue === 'agenda' && (
         <AgendaHebdo
-          evenements={evenements}
+          evenements={evenementsAgenda}
           semaineDebut={semaineDebut}
           onSemaineChange={setSemaineDebut}
-          onSelectionner={(evenement) => setRdvOuvertId(evenement.id)}
-          videMessage="Aucune demande de rendez-vous cette semaine. Utilisez les flèches pour changer de semaine."
+          onSelectionner={(evenement) => setElementOuvertId(evenement.id)}
+          onCreneauLibre={(debut) => setCreationOuverte(debut)}
+          videMessage="Aucun rendez-vous cette semaine. Utilisez les flèches pour changer de semaine, ou cliquez un créneau pour en créer un."
           legende={
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11.5, color: 'var(--muted)' }}>
-              <PastilleLegende couleur="var(--accent-gold)" libelle="À valider" />
-              <PastilleLegende couleur="var(--accent-blue)" libelle="Confirmé" />
-              <PastilleLegende couleur="var(--muted-2)" libelle="Refusé / Annulé" />
+              <PastilleLegende couleur="var(--accent-gold)" libelle="Prospect" />
+              <PastilleLegende couleur="var(--accent-blue)" libelle="Étudiant(s)" />
+              <PastilleLegende couleur="var(--accent-teal)" libelle="Professeur(s)" />
+              <PastilleLegende couleur="var(--accent-violet)" libelle="Mixte" />
             </div>
           }
         />
@@ -175,11 +246,29 @@ export function RendezVousAdmin() {
       {rdvOuvert && (
         <Modale
           titre={new Date(rdvOuvert.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
-          onFermer={() => setRdvOuvertId(null)}
+          onFermer={() => setElementOuvertId(null)}
           largeurMax={520}
         >
           <CarteRendezVous rdv={rdvOuvert} profile={profile} onChange={recharger} />
         </Modale>
+      )}
+
+      {evenementOuvert && (
+        <Modale titre={evenementOuvert.titre} onFermer={() => setElementOuvertId(null)} largeurMax={480}>
+          <CarteEvenementAdmin evenement={evenementOuvert} session={session} onChange={rechargerTout} />
+        </Modale>
+      )}
+
+      {creationOuverte && session && (
+        <FormulaireCreerEvenement
+          debutInitial={creationOuverte}
+          session={session}
+          onFermer={() => setCreationOuverte(null)}
+          onCree={() => {
+            setCreationOuverte(null)
+            rechargerTout()
+          }}
+        />
       )}
     </AdminLayout>
   )
@@ -194,7 +283,247 @@ function PastilleLegende({ couleur, libelle }: { couleur: string; libelle: strin
   )
 }
 
-/* Fiche d'une demande : détail du prospect et, si elle est encore en attente, les actions de
+/* Fiche d'un événement créé par l'admin (voir api/admin/creer-evenement.ts) : indique explicitement
+   son type — demande client du 2026-09-16, « il faut indiquer si c'est un rendez-vous Prospect,
+   étudiant, professeurs ou mixte » (le cas Prospect vit dans CarteRendezVous, cette fiche-ci ne
+   couvre que les trois autres). */
+function CarteEvenementAdmin({
+  evenement,
+  session,
+  onChange,
+}: {
+  evenement: EvenementAdminAvecParticipants
+  session: { access_token: string } | null
+  onChange: () => void
+}) {
+  const [enCours, setEnCours] = useState(false)
+  const [echec, setEchec] = useState<string | null>(null)
+  const quand = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'full', timeStyle: 'short' }).format(new Date(evenement.debut))
+
+  async function annuler() {
+    if (!session) return
+    setEnCours(true)
+    setEchec(null)
+    const reponse = await fetch('/api/admin/annuler-evenement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ evenementId: evenement.id }),
+    })
+      .then((r) => r.json())
+      .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
+    setEnCours(false)
+    if (reponse.error) {
+      setEchec(reponse.error)
+      return
+    }
+    onChange()
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <span
+        style={{
+          alignSelf: 'flex-start',
+          fontSize: 11,
+          fontWeight: 800,
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          color: 'var(--accent-violet)',
+          background: 'rgba(199,156,255,.14)',
+          border: '1px solid rgba(199,156,255,.32)',
+          borderRadius: 999,
+          padding: '4px 11px',
+        }}
+      >
+        {typeEvenementAdmin(evenement)}
+      </span>
+      <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>{quand} · {evenement.duree_minutes} min</span>
+
+      {evenement.etudiants.length > 0 && (
+        <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+          Étudiants : {evenement.etudiants.map((e) => `${e.prenom} ${e.nom}`).join(', ')}
+        </span>
+      )}
+      {evenement.professeurs.length > 0 && (
+        <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+          Professeurs : {evenement.professeurs.map((p) => `${p.prenom} ${p.nom}`).join(', ')}
+        </span>
+      )}
+      {evenement.notes && (
+        <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
+          {evenement.notes}
+        </p>
+      )}
+      {evenement.lien_meet && (
+        <a href={evenement.lien_meet} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, fontWeight: 700 }}>
+          Lien de visioconférence
+        </a>
+      )}
+      {evenement.annule && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)' }}>Événement annulé.</span>}
+
+      {echec && <MessageErreur>{echec}</MessageErreur>}
+
+      {!evenement.annule && (
+        <button
+          type="button"
+          onClick={annuler}
+          disabled={enCours}
+          style={{ ...boutonSecondaire, alignSelf: 'flex-start', color: 'var(--danger)', borderColor: 'var(--danger)', cursor: 'pointer', opacity: enCours ? 0.6 : 1 }}
+        >
+          {enCours ? 'Annulation…' : 'Annuler le rendez-vous'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+/* Création d'un rendez-vous par l'admin depuis l'agenda (créneau libre ou bouton "Créer un
+   rendez-vous") — demande client du 2026-09-16. `debutInitial` préremplit la date/heure sans la
+   verrouiller : un créneau cliqué reste modifiable, pour rattraper une estimation au pixel près
+   dans la grille. */
+function FormulaireCreerEvenement({
+  debutInitial,
+  session,
+  onFermer,
+  onCree,
+}: {
+  debutInitial: Date
+  session: { access_token: string }
+  onFermer: () => void
+  onCree: () => void
+}) {
+  const { etudiants } = useEtudiants()
+  const { professeurs } = useProfesseurs()
+  const [titre, setTitre] = useState('')
+  const [debut, setDebut] = useState(versDatetimeLocal(debutInitial))
+  const [dureeMinutes, setDureeMinutes] = useState(60)
+  const [studentIds, setStudentIds] = useState<string[]>([])
+  const [teacherIds, setTeacherIds] = useState<string[]>([])
+  const [notes, setNotes] = useState('')
+  const [enCours, setEnCours] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  function basculer(liste: string[], id: string, setListe: (v: string[]) => void) {
+    setListe(liste.includes(id) ? liste.filter((v) => v !== id) : [...liste, id])
+  }
+
+  async function creer(e: FormEvent) {
+    e.preventDefault()
+    if (!titre.trim() || !debut || (studentIds.length === 0 && teacherIds.length === 0)) {
+      setErreur('Le titre, la date et au moins un participant sont obligatoires.')
+      return
+    }
+    setEnCours(true)
+    setErreur(null)
+    const reponse = await fetch('/api/admin/creer-evenement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        titre: titre.trim(),
+        debut: new Date(debut).toISOString(),
+        dureeMinutes,
+        studentIds,
+        teacherIds,
+        notes: notes.trim() || undefined,
+      }),
+    })
+      .then((r) => r.json())
+      .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
+    setEnCours(false)
+    if (reponse.error) {
+      setErreur(reponse.error)
+      return
+    }
+    onCree()
+  }
+
+  return (
+    <Modale titre="Créer un rendez-vous" onFermer={onFermer} largeurMax={480}>
+      <form onSubmit={creer} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <input required placeholder="Titre (ex. Point de mi-parcours)" value={titre} onChange={(e) => setTitre(e.target.value)} style={champStyle} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <input required type="datetime-local" value={debut} onChange={(e) => setDebut(e.target.value)} style={{ ...champStyle, flex: 1 }} />
+          <input
+            required
+            type="number"
+            min={5}
+            max={480}
+            value={dureeMinutes}
+            onChange={(e) => setDureeMinutes(Number(e.target.value))}
+            style={{ ...champStyle, width: 90 }}
+            title="Durée en minutes"
+          />
+        </div>
+
+        <SelecteurParticipants titre="Étudiants" personnes={etudiants} selectionnes={studentIds} onBasculer={(id) => basculer(studentIds, id, setStudentIds)} />
+        <SelecteurParticipants titre="Professeurs" personnes={professeurs} selectionnes={teacherIds} onBasculer={(id) => basculer(teacherIds, id, setTeacherIds)} />
+
+        <textarea
+          placeholder="Notes (facultatif)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
+        />
+
+        {erreur && <p style={{ color: 'var(--danger)', fontSize: 12.5 }}>{erreur}</p>}
+        <button type="submit" disabled={enCours} className="btn-shine" style={{ ...boutonPrimaireStyle, opacity: enCours ? 0.7 : 1 }}>
+          {enCours ? 'Création…' : 'Créer le rendez-vous'}
+        </button>
+      </form>
+    </Modale>
+  )
+}
+
+function SelecteurParticipants({
+  titre,
+  personnes,
+  selectionnes,
+  onBasculer,
+}: {
+  titre: string
+  personnes: { id: string; nom: string | null; prenom: string | null }[]
+  selectionnes: string[]
+  onBasculer: (id: string) => void
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>{titre}</label>
+      {personnes.length === 0 ? (
+        <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>Aucun {titre.toLowerCase()} inscrit.</span>
+      ) : (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 140, overflowY: 'auto' }}>
+          {personnes.map((personne) => {
+            const actif = selectionnes.includes(personne.id)
+            return (
+              <button
+                key={personne.id}
+                type="button"
+                onClick={() => onBasculer(personne.id)}
+                aria-pressed={actif}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  padding: '6px 12px',
+                  borderRadius: 999,
+                  border: `1px solid ${actif ? 'var(--accent-blue)' : 'var(--border)'}`,
+                  background: actif ? 'rgba(94,179,255,.16)' : 'transparent',
+                  color: actif ? 'var(--accent-blue)' : 'var(--ink-2)',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {personne.prenom} {personne.nom}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* Fiche d'une demande de prospect : détail et, si elle est encore en attente, les actions de
    décision. Reprise à l'identique dans la liste (avec le cadre de Section posé par l'appelant) et
    dans la modale ouverte depuis l'agenda — un seul endroit où vivent la logique de décision et
    son affichage. */

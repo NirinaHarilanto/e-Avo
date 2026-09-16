@@ -899,6 +899,40 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['rendez_vous']['Insert']>
         Relationships: []
       }
+      evenements_admin: {
+        Row: {
+          id: string
+          etablissement_id: string
+          titre: string
+          debut: string
+          duree_minutes: number
+          student_ids: string[]
+          teacher_ids: string[]
+          notes: string | null
+          google_event_id: string | null
+          lien_meet: string | null
+          annule: boolean
+          cree_par: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          titre: string
+          debut: string
+          duree_minutes: number
+          student_ids?: string[]
+          teacher_ids?: string[]
+          notes?: string | null
+          google_event_id?: string | null
+          lien_meet?: string | null
+          annule?: boolean
+          cree_par?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['evenements_admin']['Insert']>
+        Relationships: []
+      }
     }
     Views: {
       google_integration_statut: {
