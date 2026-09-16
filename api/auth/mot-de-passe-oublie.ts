@@ -45,7 +45,26 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Adresse e-mail non reconnue.' }, { status: 404 })
     }
 
-    const origine = new URL(request.url).origin
+    /* Origine FIGÉE plutôt que déduite de `request.url` — bug signalé par le client le 2026-09-16 :
+       un utilisateur venu de www.harionlineclub.app recevait un lien qui le renvoyait sur le Hero
+       au lieu de la page de réinitialisation. En cause : Supabase Auth ne redirige vers
+       `redirectTo` que si cette URL figure dans sa liste blanche (Authentication → URL
+       Configuration → Redirect URLs) ; hors liste, il retombe SILENCIEUSEMENT sur la Site URL
+       configurée (sans le moindre message d'erreur), qui pointe sur la racine du domaine Vercel
+       par défaut — d'où l'atterrissage sur le Hero. L'application répond sur plusieurs domaines
+       (harionlineclub.app, www.harionlineclub.app, e-avo.vercel.app) : `request.url` reflète celui
+       par lequel la REQUÊTE API est arrivée, qui n'est pas forcément dans la liste blanche même
+       quand le domaine lui-même sert bien l'application. Un seul domaine canonique, garanti dans
+       la liste blanche, supprime cette dépendance au domaine d'origine.
+
+       harionlineclub.app (SANS www) est le domaine dans la liste blanche — vérifié empiriquement,
+       www.harionlineclub.app n'y est PAS et retombe sur le Hero. Le domaine réellement servi est
+       www.harionlineclub.app (harionlineclub.app fait une redirection 308 permanente vers lui) :
+       partir de l'apex fonctionne quand même, un navigateur reportant le fragment `#access_token=…`
+       d'une redirection HTTP vers la suivante quand celle-ci n'en spécifie pas elle-même —
+       Supabase redirige donc vers harionlineclub.app/auth/reinitialiser#…, puis Vercel vers
+       www.harionlineclub.app/auth/reinitialiser en conservant ce même fragment. */
+    const origine = 'https://harionlineclub.app'
     const { data: lienData, error: erreurLien } = await serviceClient.auth.admin.generateLink({
       type: 'recovery',
       email,
