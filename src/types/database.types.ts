@@ -906,8 +906,8 @@ export interface Database {
           titre: string
           debut: string
           duree_minutes: number
-          student_ids: string[]
-          teacher_ids: string[]
+          participants_obligatoires: string[]
+          participants_optionnels: string[]
           notes: string | null
           google_event_id: string | null
           lien_meet: string | null
@@ -921,8 +921,8 @@ export interface Database {
           titre: string
           debut: string
           duree_minutes: number
-          student_ids?: string[]
-          teacher_ids?: string[]
+          participants_obligatoires?: string[]
+          participants_optionnels?: string[]
           notes?: string | null
           google_event_id?: string | null
           lien_meet?: string | null

@@ -20,6 +20,7 @@ import { Onglets } from '../ui/Onglets'
 import { Modale } from '../ui/Modale'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
 import { Icone } from '../ui/Icones'
+import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 
 type VueRendezVous = 'agenda' | 'liste'
 
@@ -63,24 +64,33 @@ function versEvenementProspect(rdv: RendezVousAvecProspect): EvenementAgenda {
   }
 }
 
+/* La couleur ne dépend pas de la distinction obligatoire/optionnel (une seconde dimension,
+   propre à Outlook, qui n'a rien à voir avec la catégorie de participants) — seulement du rôle
+   de l'ensemble des personnes conviées, obligatoires et optionnelles confondues. */
+function tousLesParticipants(evenement: EvenementAdminAvecParticipants) {
+  return [...evenement.obligatoires, ...evenement.optionnels]
+}
+
 function versEvenementAdmin(evenement: EvenementAdminAvecParticipants): EvenementAgenda {
-  const aDesEtudiants = evenement.etudiants.length > 0
-  const aDesProfesseurs = evenement.professeurs.length > 0
-  const participants = [...evenement.etudiants, ...evenement.professeurs].map((p) => `${p.prenom} ${p.nom}`).join(', ')
+  const participants = tousLesParticipants(evenement)
+  const aDesEtudiants = participants.some((p) => p.role === 'etudiant')
+  const aDesProfesseurs = participants.some((p) => p.role === 'professeur')
+  const noms = participants.map((p) => `${p.prenom} ${p.nom}`).join(', ')
   return {
     id: PREFIXE_EVENEMENT + evenement.id,
     debut: evenement.debut,
     dureeMinutes: evenement.duree_minutes,
     titre: evenement.titre,
-    sousTitre: participants || undefined,
+    sousTitre: noms || undefined,
     ton: aDesEtudiants && aDesProfesseurs ? 'violet' : aDesProfesseurs ? 'teal' : 'bleu',
     attenue: evenement.annule,
   }
 }
 
 function typeEvenementAdmin(evenement: EvenementAdminAvecParticipants): string {
-  const aDesEtudiants = evenement.etudiants.length > 0
-  const aDesProfesseurs = evenement.professeurs.length > 0
+  const participants = tousLesParticipants(evenement)
+  const aDesEtudiants = participants.some((p) => p.role === 'etudiant')
+  const aDesProfesseurs = participants.some((p) => p.role === 'professeur')
   if (aDesEtudiants && aDesProfesseurs) return 'Mixte — étudiants et professeurs'
   if (aDesProfesseurs) return 'Professeurs'
   return 'Étudiants'
@@ -339,14 +349,14 @@ function CarteEvenementAdmin({
       </span>
       <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>{quand} · {evenement.duree_minutes} min</span>
 
-      {evenement.etudiants.length > 0 && (
+      {evenement.obligatoires.length > 0 && (
         <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-          Étudiants : {evenement.etudiants.map((e) => `${e.prenom} ${e.nom}`).join(', ')}
+          Obligatoire : {evenement.obligatoires.map((p) => `${p.prenom} ${p.nom}`).join(', ')}
         </span>
       )}
-      {evenement.professeurs.length > 0 && (
+      {evenement.optionnels.length > 0 && (
         <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-          Professeurs : {evenement.professeurs.map((p) => `${p.prenom} ${p.nom}`).join(', ')}
+          Optionnel : {evenement.optionnels.map((p) => `${p.prenom} ${p.nom}`).join(', ')}
         </span>
       )}
       {evenement.notes && (
@@ -397,19 +407,27 @@ function FormulaireCreerEvenement({
   const [titre, setTitre] = useState('')
   const [debut, setDebut] = useState(versDatetimeLocal(debutInitial))
   const [dureeMinutes, setDureeMinutes] = useState(60)
-  const [studentIds, setStudentIds] = useState<string[]>([])
-  const [teacherIds, setTeacherIds] = useState<string[]>([])
+  const [obligatoiresIds, setObligatoiresIds] = useState<string[]>([])
+  const [optionnelsIds, setOptionnelsIds] = useState<string[]>([])
   const [notes, setNotes] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
-  function basculer(liste: string[], id: string, setListe: (v: string[]) => void) {
-    setListe(liste.includes(id) ? liste.filter((v) => v !== id) : [...liste, id])
-  }
+  /* Un seul vivier, étudiants et professeurs mélangés — demande client du 2026-09-16 :
+     « toutes les personnes de l'application devraient être retrouvables dans ces zones de
+     recherche ». L'étiquette de rôle affichée dans les suggestions (voir SelecteurPersonnes)
+     permet de les distinguer sans les séparer en deux listes. */
+  const toutLeMonde = useMemo(
+    () => [
+      ...etudiants.map((e) => ({ ...e, role: 'Étudiant' })),
+      ...professeurs.map((p) => ({ ...p, role: 'Professeur' })),
+    ],
+    [etudiants, professeurs],
+  )
 
   async function creer(e: FormEvent) {
     e.preventDefault()
-    if (!titre.trim() || !debut || (studentIds.length === 0 && teacherIds.length === 0)) {
+    if (!titre.trim() || !debut || (obligatoiresIds.length === 0 && optionnelsIds.length === 0)) {
       setErreur('Le titre, la date et au moins un participant sont obligatoires.')
       return
     }
@@ -422,8 +440,8 @@ function FormulaireCreerEvenement({
         titre: titre.trim(),
         debut: new Date(debut).toISOString(),
         dureeMinutes,
-        studentIds,
-        teacherIds,
+        obligatoiresIds,
+        optionnelsIds,
         notes: notes.trim() || undefined,
       }),
     })
@@ -455,8 +473,25 @@ function FormulaireCreerEvenement({
           />
         </div>
 
-        <SelecteurParticipants titre="Étudiants" personnes={etudiants} selectionnes={studentIds} onBasculer={(id) => basculer(studentIds, id, setStudentIds)} />
-        <SelecteurParticipants titre="Professeurs" personnes={professeurs} selectionnes={teacherIds} onBasculer={(id) => basculer(teacherIds, id, setTeacherIds)} />
+        {/* Deux zones de recherche façon Outlook — demande client du 2026-09-16 : « on devrait
+            avoir le même principe que Outlook lors de la réservation d'un point ». Une même
+            personne ne peut pas se retrouver dans les deux à la fois (`exclure`). */}
+        <SelecteurPersonnes
+          etiquette="Participants obligatoires"
+          placeholder="Rechercher un nom…"
+          candidats={toutLeMonde}
+          selectionnes={obligatoiresIds}
+          onChange={setObligatoiresIds}
+          exclure={optionnelsIds}
+        />
+        <SelecteurPersonnes
+          etiquette="Participants optionnels"
+          placeholder="Rechercher un nom…"
+          candidats={toutLeMonde}
+          selectionnes={optionnelsIds}
+          onChange={setOptionnelsIds}
+          exclure={obligatoiresIds}
+        />
 
         <textarea
           placeholder="Notes (facultatif)"
@@ -472,54 +507,6 @@ function FormulaireCreerEvenement({
         </button>
       </form>
     </Modale>
-  )
-}
-
-function SelecteurParticipants({
-  titre,
-  personnes,
-  selectionnes,
-  onBasculer,
-}: {
-  titre: string
-  personnes: { id: string; nom: string | null; prenom: string | null }[]
-  selectionnes: string[]
-  onBasculer: (id: string) => void
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>{titre}</label>
-      {personnes.length === 0 ? (
-        <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>Aucun {titre.toLowerCase()} inscrit.</span>
-      ) : (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 140, overflowY: 'auto' }}>
-          {personnes.map((personne) => {
-            const actif = selectionnes.includes(personne.id)
-            return (
-              <button
-                key={personne.id}
-                type="button"
-                onClick={() => onBasculer(personne.id)}
-                aria-pressed={actif}
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  padding: '6px 12px',
-                  borderRadius: 999,
-                  border: `1px solid ${actif ? 'var(--accent-blue)' : 'var(--border)'}`,
-                  background: actif ? 'rgba(94,179,255,.16)' : 'transparent',
-                  color: actif ? 'var(--accent-blue)' : 'var(--ink-2)',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              >
-                {personne.prenom} {personne.nom}
-              </button>
-            )
-          })}
-        </div>
-      )}
-    </div>
   )
 }
 

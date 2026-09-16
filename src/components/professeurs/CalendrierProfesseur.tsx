@@ -15,6 +15,7 @@ import { Icone } from '../ui/Icones'
 import { Onglets } from '../ui/Onglets'
 import { Modale } from '../ui/Modale'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
+import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { AvertissementDureeMeet } from '../shared/AvertissementDureeMeet'
 import { CompteRenduSeance } from './CompteRenduSeance'
@@ -241,10 +242,6 @@ function FormulairePlanification({
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
-  function basculer(id: string) {
-    setStudentIds((courant) => (courant.includes(id) ? courant.filter((v) => v !== id) : [...courant, id]))
-  }
-
   async function creer() {
     if (!session || studentIds.length === 0 || !debut) return
     setEnCours(true)
@@ -275,33 +272,16 @@ function FormulairePlanification({
       {etudiantsActifs.length === 0 ? (
         <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>Aucun élève ne vous est actuellement attribué.</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Élève(s)</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {etudiantsActifs.map((etudiant) => {
-              const actif = studentIds.includes(etudiant.id)
-              return (
-                <button
-                  key={etudiant.id}
-                  type="button"
-                  onClick={() => basculer(etudiant.id)}
-                  style={{
-                    fontSize: 12.5,
-                    fontWeight: actif ? 800 : 600,
-                    color: actif ? '#fff' : 'var(--ink-2)',
-                    background: actif ? 'var(--accent-blue-gradient)' : 'rgba(0,0,0,.22)',
-                    border: actif ? 'none' : '1px solid var(--border)',
-                    borderRadius: 999,
-                    padding: '9px 15px',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {etudiant.prenom} {etudiant.nom}
-                </button>
-              )
-            })}
-          </div>
-        </div>
+        // Recherche façon Outlook, même principe que la création de rendez-vous côté admin
+        // (demande client du 2026-09-16, voir SelecteurPersonnes.tsx) : on tape un nom, on
+        // choisit dans les suggestions, la personne devient une pastille amovible.
+        <SelecteurPersonnes
+          etiquette="Élève(s)"
+          placeholder="Rechercher un élève…"
+          candidats={etudiantsActifs}
+          selectionnes={studentIds}
+          onChange={setStudentIds}
+        />
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 14 }}>
