@@ -42,9 +42,9 @@ const ZONES: { cle: string; libelle: string; boite: [number, number, number, num
      ce que l'établissement est, raconté par ses élèves. */
   { cle: 'apropos', libelle: 'À propos', boite: [780, 31, 82, 32], action: { type: 'vue', vue: 'avis' } },
   { cle: 'connexion', libelle: 'Se connecter', boite: [1187, 27, 136, 37], action: { type: 'connexion' } },
-  /* S'inscrire et Commencer maintenant ouvrent la même modale : dans ce parcours, s'inscrire
-     commence par réserver l'appel diagnostic. */
-  { cle: 'inscription', libelle: 'S’inscrire', boite: [1337, 27, 155, 37], action: { type: 'reserver' } },
+  /* Le bouton « S'inscrire » a été retiré de la maquette (demande client du 2026-09-16, voir
+     outils/hero/construire.py) : « Commencer maintenant » reste le seul appel à l'action, et
+     ouvre la réservation de l'appel diagnostic. */
   { cle: 'commencer', libelle: 'Commencer maintenant', boite: [69, 483, 308, 64], action: { type: 'reserver' } },
 ]
 
