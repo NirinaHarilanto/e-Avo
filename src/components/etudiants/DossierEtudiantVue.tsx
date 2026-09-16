@@ -438,7 +438,7 @@ export function DossierEtudiantVue({
       {/* Les quatre blocs (parcours, informations, professeur, forfait) tenaient auparavant dans
           une grille à deux colonnes ; ils vivent maintenant dans une seule carte à onglets. */}
       <div className="card" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
-        <Onglets etiquette="Sections du dossier" actif={ongletActif} onChange={setOngletDemande} onglets={onglets} />
+        <Onglets etiquette="Sections du dossier" actif={ongletActif} onChange={setOngletDemande} onglets={onglets} compact />
 
         {ongletActif === 'parcours' && (
           <div>

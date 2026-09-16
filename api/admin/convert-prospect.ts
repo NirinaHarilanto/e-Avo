@@ -54,7 +54,18 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: inviteError?.message ?? "Échec de la création du compte." }, { status: 500 })
     }
 
-    await serviceClient.from('profiles').update({ prospect_id: prospect.id }).eq('id', invited.user.id)
+    // Reprend les informations personnelles déjà connues du prospect — demande client du
+    // 2026-09-16, « il faut récupérer toutes les informations du prospect et les mettre dans
+    // les informations personnelles de l'étudiant ». `handle_new_user` (migration 0002) ne
+    // connaît que nom/prénom/e-mail : le téléphone, seul autre champ personnel que porte
+    // `prospects`, doit donc être copié ici après coup plutôt qu'à la création du compte. Les
+    // autres informations de prospects (langue visée, objectif) n'ont pas d'équivalent sur
+    // profiles — elles restent lisibles via `prospect_id`, déjà exploité par le dossier étudiant
+    // pour retrouver le compte rendu de l'appel diagnostic.
+    await serviceClient
+      .from('profiles')
+      .update({ prospect_id: prospect.id, telephone: prospect.telephone })
+      .eq('id', invited.user.id)
     await serviceClient.from('prospects').update({ statut: 'etudiant' }).eq('id', prospect.id)
 
     return Response.json({ profileId: invited.user.id })
