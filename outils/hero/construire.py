@@ -206,24 +206,40 @@ def greffer_feuillage(canevas):
     return canevas
 
 
+
+# Qualité de l'export WebP réellement chargé par le site (voir HeroPublic.tsx, `<source
+# type="image/webp">` toujours choisi en premier par le navigateur). Passé de « sans perte » à
+# une compression avec perte à qualité 95 — demande client du 2026-09-16 : « le chargement doit
+# être très rapide, 1 à 2 secondes maximum ». L'écart mesuré à cette qualité (voir l'assertion
+# plus bas) est de l'ordre de 1/255 en moyenne, imperceptible à l'œil, pour une division du poids
+# par quatre à cinq. Le PNG reste généré en pleine fidélité : c'est le fichier de référence
+# (utilisé pour les comparaisons ci-dessous) et le repli des tout derniers navigateurs sans
+# support WebP — un cas marginal en 2026, qui ne justifie pas de retarder tout le monde.
+QUALITE_WEBP = 95
+ECART_MOYEN_MAX = 3.0  # sur 255 ; marge large au-dessus de l'écart mesuré (~1,15) à cette qualité
+
+
 def main():
     maquette = Image.open(SOURCE_MAQUETTE).convert('RGB')
     sans_bouton = effacer_bouton(maquette)
     canevas = greffer_feuillage(elargir(sans_bouton))
 
     canevas.save(f'{SORTIE}.png')
-    canevas.save(f'{SORTIE}.webp', 'WEBP', lossless=True, quality=100, method=6)
+    canevas.save(f'{SORTIE}.webp', 'WEBP', quality=QUALITE_WEBP, method=6)
 
     relu = Image.open(f'{SORTIE}.webp').convert('RGB')
-    assert ImageChops.difference(canevas, relu).getbbox() is None, 'le WebP doit être strictement identique au PNG'
+    diff = ImageChops.difference(canevas, relu)
+    ecart_moyen = sum(diff.convert('L').getdata()) / (canevas.width * canevas.height)
+    assert ecart_moyen <= ECART_MOYEN_MAX, f'écart WebP/PNG trop élevé : {ecart_moyen:.2f}/255 (max {ECART_MOYEN_MAX})'
 
     # Hors des zones volontairement retouchées (bouton effacé, fondus de bord), la maquette doit
-    # arriver intacte au centre du canevas.
+    # arriver intacte au centre du canevas — vérifié sur le PNG, la référence en pleine fidélité.
     centre = canevas.crop((EXT_X, EXT_Y + FONDU_HAUT, EXT_X + maquette.width, EXT_Y + maquette.height - FONDU_BAS))
     attendu = sans_bouton.crop((0, FONDU_HAUT, maquette.width, maquette.height - FONDU_BAS))
     intacte = ImageChops.difference(centre, attendu).getbbox()
-    print(f'{canevas.width} x {canevas.height} — WebP identique au PNG : oui')
-    print(f'maquette intacte au centre (hors feuillage greffé) : {"oui" if intacte is None else f"retouchée sur {intacte}"}')
+    print(f'{canevas.width} x {canevas.height}')
+    print(f'écart moyen WebP (q{QUALITE_WEBP}) / PNG : {ecart_moyen:.2f}/255')
+    print(f'maquette intacte au centre (hors feuillage greffé, sur le PNG) : {"oui" if intacte is None else f"retouchée sur {intacte}"}')
 
 
 if __name__ == '__main__':

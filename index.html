@@ -12,9 +12,18 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&family=Caveat:wght@600;700&display=swap"
     />
-    <!-- Préconnexion à VITE_SUPABASE_URL à ajouter ici une fois le projet Supabase du
-         client renseigné (même raisonnement que chez Dentalis : ouvrir la connexion TLS
-         pendant le téléchargement du JS plutôt qu'après). -->
+    <!-- Ouvre la connexion TLS vers Supabase pendant le téléchargement du JS plutôt qu'après :
+         chaque page, Hero comprise, interroge Supabase dès son premier rendu (session, profil). -->
+    <link rel="preconnect" href="https://qnzjegdgdmhcwqpvtvvi.supabase.co" crossorigin />
+    <!-- Démarre le téléchargement de l'image de fond du Hero EN PARALLÈLE du JS, au lieu
+         d'attendre que React ait fini de charger, s'exécuter et rendre le composant qui la
+         référence — demande client du 2026-09-16, « le chargement doit être très rapide, 1 à 2
+         secondes maximum ». Sans ce préchargement, l'image (~700 Ko) ne commençait à se
+         télécharger qu'une fois tout le bundle JS téléchargé ET exécuté, les deux téléchargements
+         s'enchaînant au lieu de se chevaucher. Présent sur toutes les pages (ce fichier est le
+         même pour toute l'application) : un coût négligeable sur les autres pages une fois
+         l'image en cache, pour un gain net sur celle qui compte le plus, la vitrine publique. -->
+    <link rel="preload" as="image" href="/hero-hoc.webp" fetchpriority="high" type="image/webp" />
     <title>Hari Online Club</title>
     <meta
       name="description"
