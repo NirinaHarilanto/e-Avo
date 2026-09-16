@@ -56,11 +56,22 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const premiereConnexion = !profil.mot_de_passe_defini
-    await envoyerEmail({
+    const envoi = await envoyerEmail({
       destinataire: email,
       sujet: premiereConnexion ? 'Définissez votre mot de passe Hari Online Club' : 'Réinitialisation de votre mot de passe',
       html: modeleReinitialisationMotDePasse({ premiereConnexion, lien: lienData.properties.action_link }),
     })
+
+    /* Le résultat de l'envoi était ignoré : l'écran annonçait « e-mail envoyé » même quand Resend
+       avait refusé le message, et l'utilisateur attendait indéfiniment un lien qui n'existait pas.
+       C'est le premier défaut signalé par le client le 2026-09-16. */
+    if (!envoi.envoye) {
+      console.error('[mot-de-passe-oublie] envoi refusé :', envoi.erreur)
+      return Response.json(
+        { error: "Le lien n'a pas pu être envoyé. Réessayez dans un instant ou contactez contact@harionlineclub.app." },
+        { status: 502 },
+      )
+    }
 
     return Response.json({ ok: true })
   } catch {

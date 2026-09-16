@@ -21,19 +21,33 @@ import { Icone } from './Icones'
    Sous 900 px la grille bascule en vue « jour » : sept colonnes sur un téléphone ne seraient ni
    lisibles ni cliquables. */
 
-const HAUTEUR_HEURE = 52
+const HAUTEUR_HEURE = 58
 const LARGEUR_GOUTTIERE = 54
 const PAS_MINUTES = 15
 
+/* Une demande d'appel dure 15 minutes : à l'échelle de la grille, sa pastille ferait 12 px de
+   haut et son libellé serait tronqué au point d'être illisible. On lui impose donc une hauteur
+   plancher — elle déborde alors légèrement sur le créneau suivant, ce qui est sans conséquence
+   puisque les chevauchements sont de toute façon répartis en colonnes. */
+const HAUTEUR_MIN_EVENEMENT = 38
+/* En dessous de cette hauteur, la pastille n'a la place que d'une seule ligne : le sous-titre
+   est retiré plutôt qu'affiché coupé. */
+const HAUTEUR_SOUS_TITRE = 52
+
 const JOURS_COURTS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
-const TONS: Record<string, { fond: string; bordure: string; texte: string }> = {
-  bleu: { fond: 'rgba(94,179,255,.16)', bordure: 'var(--accent-blue)', texte: 'var(--accent-cyan)' },
-  or: { fond: 'rgba(233,207,148,.15)', bordure: 'var(--accent-gold)', texte: 'var(--accent-gold)' },
-  teal: { fond: 'rgba(111,227,192,.14)', bordure: 'var(--accent-teal)', texte: 'var(--accent-teal)' },
-  violet: { fond: 'rgba(199,156,255,.14)', bordure: 'var(--accent-violet)', texte: 'var(--accent-violet)' },
-  danger: { fond: 'rgba(255,138,112,.13)', bordure: 'var(--danger)', texte: 'var(--danger)' },
-  neutre: { fond: 'rgba(255,255,255,.05)', bordure: 'var(--muted-2)', texte: 'var(--ink-2)' },
+/* Les pastilles étaient à peine teintées (opacité 0.13 à 0.16) : sur la grille sombre, un cours
+   se distinguait mal du fond, et une semaine chargée se lisait comme un aplat. Les fonds sont
+   donc nettement plus denses, en dégradé pour garder du relief, et chaque ton porte sa propre
+   ombre colorée — demande client du 2026-09-16 : « il faudrait que les évènements soient assez
+   visibles ». */
+const TONS: Record<string, { fond: string; bordure: string; texte: string; ombre: string }> = {
+  bleu: { fond: 'linear-gradient(135deg, rgba(94,179,255,.42), rgba(47,111,214,.34))', bordure: 'var(--accent-blue)', texte: '#eaf5ff', ombre: 'rgba(47,111,214,.45)' },
+  or: { fond: 'linear-gradient(135deg, rgba(233,207,148,.40), rgba(199,156,79,.32))', bordure: 'var(--accent-gold)', texte: '#fff6e2', ombre: 'rgba(199,156,79,.42)' },
+  teal: { fond: 'linear-gradient(135deg, rgba(111,227,192,.40), rgba(45,166,134,.32))', bordure: 'var(--accent-teal)', texte: '#e6fff7', ombre: 'rgba(45,166,134,.42)' },
+  violet: { fond: 'linear-gradient(135deg, rgba(199,156,255,.42), rgba(141,96,243,.34))', bordure: 'var(--accent-violet)', texte: '#f5edff', ombre: 'rgba(141,96,243,.45)' },
+  danger: { fond: 'linear-gradient(135deg, rgba(255,138,112,.40), rgba(214,80,55,.32))', bordure: 'var(--danger)', texte: '#ffeee9', ombre: 'rgba(214,80,55,.42)' },
+  neutre: { fond: 'linear-gradient(135deg, rgba(255,255,255,.20), rgba(255,255,255,.12))', bordure: 'var(--muted)', texte: 'var(--ink)', ombre: 'rgba(0,0,0,.35)' },
 }
 
 interface AgendaHebdoProps {
@@ -250,6 +264,10 @@ export function AgendaHebdo({
                   {places.map((place) => {
                     const ton = TONS[place.ton ?? 'bleu'] ?? TONS.bleu
                     const largeur = 100 / place.colonnes
+                    const hauteur = Math.max(
+                      HAUTEUR_MIN_EVENEMENT,
+                      (place.finMinutes - place.debutMinutes) * (HAUTEUR_HEURE / 60) - 2,
+                    )
                     return (
                       <button
                         key={place.id}
@@ -263,33 +281,35 @@ export function AgendaHebdo({
                         style={{
                           position: 'absolute',
                           top: (place.debutMinutes - plage.debut * 60) * (HAUTEUR_HEURE / 60),
-                          height: (place.finMinutes - place.debutMinutes) * (HAUTEUR_HEURE / 60) - 2,
+                          height: hauteur,
                           left: `calc(${place.colonne * largeur}% + 3px)`,
                           width: `calc(${largeur}% - 6px)`,
                           textAlign: 'left',
-                          padding: '4px 7px',
-                          borderRadius: 7,
+                          padding: '4px 8px',
+                          borderRadius: 8,
                           border: `1px solid ${ton.bordure}`,
-                          borderLeft: `3px solid ${ton.bordure}`,
+                          borderLeft: `4px solid ${ton.bordure}`,
                           background: ton.fond,
+                          boxShadow: `0 2px 10px ${ton.ombre}`,
                           color: 'var(--ink)',
                           cursor: onSelectionner ? 'pointer' : 'default',
-                          opacity: place.attenue ? 0.5 : 1,
+                          // Une séance annulée reste lisible : elle s'efface, sans disparaître.
+                          opacity: place.attenue ? 0.62 : 1,
                           overflow: 'hidden',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: 1,
                         }}
                       >
-                        <span style={{ fontSize: 10.5, fontWeight: 800, color: ton.texte, fontVariantNumeric: 'tabular-nums' }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: ton.texte, fontVariantNumeric: 'tabular-nums' }}>
                           {new Date(place.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                           {place.marqueur ? ` · ${place.marqueur}` : ''}
                         </span>
-                        <span style={{ fontSize: 11.5, fontWeight: 700, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <span style={{ fontSize: 12, fontWeight: 750, lineHeight: 1.25, color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {place.titre}
                         </span>
-                        {place.sousTitre && (
-                          <span style={{ fontSize: 10.5, color: 'var(--muted)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {place.sousTitre && hauteur >= HAUTEUR_SOUS_TITRE && (
+                          <span style={{ fontSize: 10.5, color: 'rgba(255,255,255,.82)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {place.sousTitre}
                           </span>
                         )}
