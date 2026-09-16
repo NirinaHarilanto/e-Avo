@@ -245,7 +245,16 @@ export function deduireSource(cle: string, label: string): SourceVariable | unde
   if (/(date|fait)[a-z ]*(signature|jour)|signature[a-z ]*date/.test(texte)) return 'date_du_jour'
   if (mots.includes('annee') && !mots.includes('scolaire')) return 'annee'
 
-  if (MOTS_ETABLISSEMENT.some((m) => mots.includes(m))) {
+  /* « Prestataire » est ambigu : dans un contrat étudiant, c'est l'établissement qui rend le
+     service — mais dans le modèle professeur (« Convention de prestation de services »), c'est
+     le PROFESSEUR lui-même qui est « le Prestataire », en tant qu'indépendant. Un champ comme
+     {{nom_prestataire}}, étiqueté « Nom complet du professeur », se voyait donc rempli avec le
+     nom de l'établissement au lieu de celui du professeur — bug signalé par le client le
+     2026-09-16. Dès que le libellé nomme explicitement la personne concernée (professeur,
+     étudiant, élève…), cette désignation l'emporte sur le mot « prestataire »/« société »/etc.,
+     qui n'est alors qu'une façon de la nommer, pas l'établissement. */
+  const nommeLaPersonne = MOTS_PERSONNE.some((m) => mots.includes(m))
+  if (MOTS_ETABLISSEMENT.some((m) => mots.includes(m)) && !nommeLaPersonne) {
     if (mots.includes('specialite')) return 'etablissement_specialite'
     if (mots.includes('nom') || mots.includes('denomination')) return 'etablissement_nom'
     return undefined
@@ -283,7 +292,7 @@ export function deduireSource(cle: string, label: string): SourceVariable | unde
 
   // Une donnée personnelle n'est reprise que si le libellé désigne bien la partie au contrat,
   // ou si la clé est le champ nu (`{{nom}}`, `{{adresse}}`), qui ne peut désigner qu'elle.
-  return MOTS_PERSONNE.some((m) => mots.includes(m)) || CLES_NUES.includes(normaliser(cle)) ? champ : undefined
+  return nommeLaPersonne || CLES_NUES.includes(normaliser(cle)) ? champ : undefined
 }
 
 /* Valeurs courantes des clauses qu'aucune fiche/dossier ne peut renseigner : proposées

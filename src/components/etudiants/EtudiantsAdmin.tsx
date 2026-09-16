@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AdminLayout } from '../layout/AdminLayout'
+import { supabase } from '../../lib/supabaseClient'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { AttribuerProfesseur } from './AttribuerProfesseur'
@@ -223,15 +224,33 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
         forfait ? <CreerForfait studentId={etudiant.id} etablissementId={etudiant.etablissement_id} forfaitExistant={forfait} onCree={recharger} /> : undefined
       }
       panneauPlanification={
-        forfait && periodeActuelle?.professeur ? (
-          <PlanifierSeancesForfait
-            studentIds={[etudiant.id]}
-            teacherId={periodeActuelle.professeur.id}
-            dureeParDefaut={60}
-            dateFinParDefaut={forfait.echeance}
-            onCree={recharger}
-          />
-        ) : undefined
+        forfait && periodeActuelle?.professeur
+          ? (fermer) => (
+              <PlanifierSeancesForfait
+                studentIds={[etudiant.id]}
+                teacherId={periodeActuelle.professeur!.id}
+                dureeParDefaut={60}
+                dateFinParDefaut={forfait.echeance}
+                heuresForfait={forfait.total_heures}
+                onCree={async (dateFinRetenue) => {
+                  // Referme le formulaire pour révéler aussitôt le planning qu'il vient de créer
+                  // (demande client du 2026-09-16) — même geste que côté professeur
+                  // (PlanningPrevisionnelProfesseur.tsx), qui referme déjà son propre générateur.
+                  fermer()
+                  // Reporte l'échéance calculée (ou corrigée à la main) sur le forfait lui-même :
+                  // sans cette écriture, seul le formulaire de planification la connaîtrait, et
+                  // le reste de l'application (résumé du dossier, variable de contrat
+                  // date_echeance_programme) continuerait d'afficher l'ancienne valeur, voire
+                  // aucune — demande client du 2026-09-16, « l'échéance doit être définie
+                  // automatiquement dans TOUTE l'application ».
+                  if (dateFinRetenue && dateFinRetenue !== forfait.echeance) {
+                    await supabase.from('packages').update({ echeance: dateFinRetenue }).eq('id', forfait.id)
+                  }
+                  recharger()
+                }}
+              />
+            )
+          : undefined
       }
       panneauVague={
         dossier.cohorte ? (

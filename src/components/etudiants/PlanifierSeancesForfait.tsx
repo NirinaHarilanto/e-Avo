@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { champStyle } from '../ui/Champ'
 import { AvertissementDureeMeet } from '../shared/AvertissementDureeMeet'
@@ -25,10 +25,17 @@ interface PlanifierSeancesForfaitProps {
   teacherId?: string
   dureeParDefaut?: number
   dateFinParDefaut?: string | null
+  /* Volume total du forfait, en heures — sert à calculer automatiquement l'échéance (voir
+     `dateFinCalculee` ci-dessous). Omis côté professeur, qui n'a pas accès au forfait de l'élève
+     depuis cet écran : l'échéance y reste alors à saisir à la main, comportement inchangé. */
+  heuresForfait?: number | null
   /* Route cible — la version professeur restreint la planification à ses propres élèves. */
   endpoint?: string
   titre?: string
-  onCree: () => void
+  /* Reçoit la date d'échéance effectivement retenue (calculée ou corrigée à la main) : c'est à
+     l'appelant, qui seul connaît l'identifiant du forfait, de la reporter sur `packages.echeance`
+     si besoin (voir EtudiantsAdmin.tsx) — ce composant ne connaît que la planification. */
+  onCree: (dateFinRetenue: string) => void
 }
 
 /* Génère les dates concrètes (jour de la semaine + heure, répétées entre deux dates) côté
@@ -41,6 +48,7 @@ export function PlanifierSeancesForfait({
   teacherId,
   dureeParDefaut,
   dateFinParDefaut,
+  heuresForfait,
   endpoint = '/api/admin/planifier-seances-prevision',
   titre = 'Planning prévisionnel',
   onCree,
@@ -49,6 +57,12 @@ export function PlanifierSeancesForfait({
   const [creneaux, setCreneaux] = useState<Creneau[]>([{ jour: 1, heure: '18:00' }])
   const [dateDebut, setDateDebut] = useState(() => new Date().toISOString().slice(0, 10))
   const [dateFin, setDateFin] = useState(dateFinParDefaut ?? '')
+  /* Tant que l'admin n'a pas lui-même retouché le champ, l'échéance reste asservie au calcul
+     automatique (voir l'effet plus bas) — demande client du 2026-09-16 : « pré-remplir
+     l'information [...] modifiable manuellement après remplissage ». Une échéance déjà connue
+     à l'ouverture (`dateFinParDefaut`, ex. un forfait déjà planifié qu'on rouvre) compte comme
+     une valeur déjà décidée : le calcul ne vient pas l'écraser. */
+  const [dateFinTouchee, setDateFinTouchee] = useState(!!dateFinParDefaut)
   const [dureeMinutes, setDureeMinutes] = useState(dureeParDefaut ?? 60)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -86,8 +100,41 @@ export function PlanifierSeancesForfait({
 
   const debutsPrevus = calculerDebuts()
 
+  /* Échéance déduite du forfait, de la fréquence (créneaux hebdomadaires) et de la date de
+     début — demande client du 2026-09-16 : « l'échéance du forfait doit être défini
+     automatiquement [...] en se basant sur le forfait pris par l'étudiant, la fréquence des
+     cours et la date de début ». Simule les séances au fil des jours (même logique que
+     `calculerDebuts`, mais SANS date de fin connue à l'avance) jusqu'à ce que le volume
+     d'heures du forfait soit atteint, et retient la date de la dernière séance nécessaire —
+     plus précis qu'une simple division en semaines, qui arrondirait mal dès que les créneaux
+     ne sont pas répartis à intervalle régulier. */
+  function dateFinCalculee(): string | null {
+    if (!heuresForfait || !dateDebut || creneaux.length === 0) return null
+    const jours = new Set(creneaux.map((c) => c.jour))
+    let heuresAccumulees = 0
+    let derniereDate: string | null = null
+    const curseur = new Date(`${dateDebut}T00:00`)
+    // Garde-fou : au-delà de 3 ans, quelque chose ne tourne pas rond (créneau à 0 min, forfait
+    // aberrant…) plutôt qu'une boucle qui tourne indéfiniment.
+    for (let jour = 0; jour < 366 * 3 && heuresAccumulees < heuresForfait; jour++) {
+      if (jours.has(curseur.getDay())) {
+        heuresAccumulees += dureeMinutes / 60
+        derniereDate = curseur.toISOString().slice(0, 10)
+      }
+      curseur.setDate(curseur.getDate() + 1)
+    }
+    return heuresAccumulees >= heuresForfait ? derniereDate : null
+  }
+
+  useEffect(() => {
+    if (dateFinTouchee) return
+    const calculee = dateFinCalculee()
+    if (calculee) setDateFin(calculee)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFinTouchee, heuresForfait, dateDebut, dureeMinutes, JSON.stringify(creneaux)])
+
   async function creer() {
-    if (!session || debutsPrevus.length === 0 || studentIds.length === 0) return
+    if (!session || debutsPrevus.length === 0 || studentIds.length === 0 || !dateFin) return
     setEnCours(true)
     setErreur(null)
     setResultat(null)
@@ -103,7 +150,7 @@ export function PlanifierSeancesForfait({
       return
     }
     setResultat(debutsPrevus.length)
-    onCree()
+    onCree(dateFin)
   }
 
   return (
@@ -153,7 +200,18 @@ export function PlanifierSeancesForfait({
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Au (échéance du forfait)</label>
-          <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} style={champStyle} />
+          <input
+            type="date"
+            value={dateFin}
+            onChange={(e) => {
+              setDateFin(e.target.value)
+              setDateFinTouchee(true)
+            }}
+            style={champStyle}
+          />
+          {!dateFinTouchee && heuresForfait && (
+            <span style={{ fontSize: 10.5, color: 'var(--muted-2)' }}>Calculée à partir du forfait ({heuresForfait} h) — modifiable</span>
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Durée (min)</label>

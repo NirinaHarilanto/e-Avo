@@ -268,8 +268,14 @@ interface DossierEtudiantVueProps {
   panneauChoixInitial?: ReactNode
   /* Formulaire d'édition du forfait existant, replié derrière le bouton « Modifier ». */
   panneauForfaitEdition?: ReactNode
-  /* Formulaire de planning prévisionnel (individuel/duo), replié derrière un bouton dédié. */
-  panneauPlanification?: ReactNode
+  /* Formulaire de planning prévisionnel (individuel/duo), replié derrière un bouton dédié.
+     Fonction plutôt que nœud direct : elle reçoit `fermer`, à appeler par l'appelant une fois la
+     création réussie, pour que ce composant puisse replier le formulaire et révéler aussitôt le
+     résumé en lecture seule (lignes 531+) — demande client du 2026-09-16, « il faut afficher le
+     planning prévisionnel créé mais plus les paramètres de planification, instantanément ».
+     Avant ce prop, `onCree` ne rechargeait que les données ; rien ne refermait le formulaire, qui
+     restait affiché indéfiniment par-dessus le planning qu'il venait de créer. */
+  panneauPlanification?: (fermer: () => void) => ReactNode
   /* Formulaire d'assignation/changement de vague pour le programme collectif. */
   panneauVague?: ReactNode
   /* Bouton + pop-up de suppression du compte — admin uniquement, comme les autres panneaux. */
@@ -597,7 +603,7 @@ export function DossierEtudiantVue({
                   </div>
                 </div>
                 {editionForfaitOuverte && panneauForfaitEdition}
-                {planificationOuverte && panneauPlanification}
+                {planificationOuverte && panneauPlanification?.(() => setPlanificationOuverte(false))}
               </>
             )}
           </div>

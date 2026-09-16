@@ -95,6 +95,17 @@ describe('deduireSource', () => {
   it("rattache les champs d'établissement à l'établissement", () => {
     expect(deduireSource('nom_etablissement', "Nom de l'établissement")).toBe('etablissement_nom')
   })
+
+  it('rattache un « prestataire » explicitement nommé professeur/étudiant à la personne, pas à l’établissement', () => {
+    // Bug signalé par le client le 2026-09-16 : {{nom_prestataire}} du modèle professeur
+    // ("Nom complet du professeur") se remplissait avec le nom de l'établissement, "prestataire"
+    // étant traité comme un synonyme d'établissement sans regarder que le libellé nomme
+    // explicitement le professeur.
+    expect(deduireSource('nom_prestataire', 'Nom complet du professeur')).toBe('nom_complet')
+    expect(deduireSource('adresse_prestataire', 'Adresse du professeur')).toBe('adresse')
+    // Sans mention de la personne, "prestataire" désigne toujours l'établissement — inchangé.
+    expect(deduireSource('nom_prestataire', 'Nom du prestataire')).toBe('etablissement_nom')
+  })
 })
 
 describe('preparerVariables', () => {

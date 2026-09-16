@@ -380,8 +380,16 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
             {rappelEnvoye ? 'Rappel envoyé ✓' : 'Envoyer un rappel'}
           </button>
         )}
-        <button onClick={onImprimer} style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
-          Imprimer
+        {/* Demande client du 2026-09-16 : un bouton pour voir l'entièreté du contrat à l'état
+            instantané (signé ou non). C'est la même fenêtre qu'ouvrait déjà « Imprimer » — elle
+            propose toujours l'impression une fois ouverte — mais l'étiquette d'origine ne disait
+            pas qu'on pouvait aussi simplement le relire à l'écran. */}
+        <button
+          onClick={onImprimer}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}
+        >
+          <Icone nom="oeil" taille={14} />
+          Voir le contrat
         </button>
         <button onClick={supprimer} disabled={enCours} style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
           Supprimer

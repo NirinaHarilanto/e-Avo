@@ -11,27 +11,86 @@ interface ContratImprimableProps {
   onFermer: () => void
 }
 
+const LABELS_STATUT: Record<Contract['statut'], string> = { brouillon: 'Brouillon', envoye: 'Envoyé', signe: 'Signé', resilie: 'Résilié' }
+const COULEURS_STATUT: Record<Contract['statut'], string> = {
+  brouillon: '#6b7280',
+  envoye: '#b07a12',
+  signe: '#1c6b41',
+  resilie: '#8a2f0a',
+}
+
+/* État de signature d'une partie, affiché EN PLUS de la ligne blanche à signer plutôt qu'à sa
+   place : ce document sert aussi bien à relire un brouillon avant envoi qu'à archiver un contrat
+   déjà signé numériquement dans l'application (voir ContratsAdmin.tsx, « Signer pour
+   l'établissement ») — la ligne de signature garde donc son sens pour une signature papier,
+   tandis que ce badge donne l'état réel, à l'écran, sans avoir à deviner. */
+function BadgeSignature({ signeLe }: { signeLe: string | null }) {
+  return (
+    <span
+      style={{
+        display: 'inline-block',
+        marginTop: 6,
+        fontSize: 11,
+        fontWeight: 700,
+        color: signeLe ? '#1c6b41' : '#8a6d0a',
+        background: signeLe ? '#dff5e8' : '#faf0c2',
+        border: `1px solid ${signeLe ? '#8fd6ac' : '#e3cf6d'}`,
+        borderRadius: 999,
+        padding: '3px 10px',
+      }}
+    >
+      {signeLe ? `Signé le ${new Date(signeLe).toLocaleDateString('fr-FR')}` : 'En attente de signature'}
+    </span>
+  )
+}
+
+/* Vue complète et instantanée d'un contrat — demande client du 2026-09-16 : « voir l'entièreté du
+   contrat à l'état instantané (si c'est signé ou pas encore) ». Reprise telle quelle du bouton
+   « Imprimer » déjà existant (qui ouvrait déjà cette même fenêtre, avec « Fermer » ET
+   « Imprimer » comme actions) : ce n'est donc pas un nouveau composant, seulement une meilleure
+   étiquette sur la ligne de contrat (voir ContratsAdmin.tsx, « Voir le contrat ») et l'ajout du
+   statut de signature de chaque partie, jusqu'ici visible seulement dans la liste, jamais dans le
+   document lui-même. */
 export function ContratImprimable({ contrat, destinataire, onFermer }: ContratImprimableProps) {
   const etablissement = useEtablissement(contrat.etablissement_id)
 
   return (
     <OverlayImpression onFermer={onFermer}>
-      <h1 style={{ fontSize: 20, margin: 0 }}>{etablissement?.nom ?? "Établissement"}</h1>
-      <h2 style={{ fontSize: 17, margin: '16px 0 4px' }}>{contrat.titre}</h2>
-      <p style={{ fontSize: 12, color: '#555', margin: 0 }}>
-        {destinataire ? `${destinataire.prenom} ${destinataire.nom}` : ''} — émis le {new Date(contrat.created_at).toLocaleDateString('fr-FR')}
-      </p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: 20, margin: 0 }}>{etablissement?.nom ?? "Établissement"}</h1>
+          <h2 style={{ fontSize: 17, margin: '16px 0 4px' }}>{contrat.titre}</h2>
+          <p style={{ fontSize: 12, color: '#555', margin: 0 }}>
+            {destinataire ? `${destinataire.prenom} ${destinataire.nom}` : ''} — émis le {new Date(contrat.created_at).toLocaleDateString('fr-FR')}
+          </p>
+        </div>
+        <span
+          style={{
+            flexShrink: 0,
+            fontSize: 11.5,
+            fontWeight: 700,
+            color: '#fff',
+            background: COULEURS_STATUT[contrat.statut],
+            borderRadius: 999,
+            padding: '5px 12px',
+          }}
+        >
+          {LABELS_STATUT[contrat.statut]}
+        </span>
+      </div>
 
       <div style={{ marginTop: 24, fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{contrat.corps_genere}</div>
 
       <div style={{ marginTop: 48, display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
         <div>
-          <p>Fait pour {etablissement?.nom},</p>
-          <p style={{ marginTop: 40 }}>Signature</p>
+          <p style={{ margin: 0 }}>Fait pour {etablissement?.nom},</p>
+          <p style={{ marginTop: 40, marginBottom: 0 }}>Signature</p>
+          <BadgeSignature signeLe={contrat.signe_etablissement_at} />
         </div>
         <div>
-          <p>Fait pour {destinataire ? `${destinataire.prenom} ${destinataire.nom}` : 'le destinataire'},</p>
-          <p style={{ marginTop: 40 }}>Signature</p>
+          <p style={{ margin: 0 }}>Fait pour {destinataire ? `${destinataire.prenom} ${destinataire.nom}` : 'le destinataire'},</p>
+          <p style={{ marginTop: 40, marginBottom: 0 }}>Signature</p>
+          <BadgeSignature signeLe={contrat.signe_destinataire_at} />
         </div>
       </div>
     </OverlayImpression>
