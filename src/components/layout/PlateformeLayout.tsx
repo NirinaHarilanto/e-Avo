@@ -121,10 +121,17 @@ export function PlateformeLayout({ children, actif }: { children: ReactNode; act
             </span>
             <button
               onClick={async () => {
-                // Toute déconnexion ramène systématiquement à la page Hero (demande client du
-                // 2026-09-15), quel que soit l'espace d'où l'on se déconnecte.
-                await seDeconnecter()
+                // Navigue AVANT d'attendre seDeconnecter() — et non après (bug signalé par le client
+                // le 2026-09-16, « à chaque déconnexion il faut le renvoyer à la page Hero, cette
+                // partie n'est toujours pas prise en compte ») : `seDeconnecter()` déclenche de façon
+                // asynchrone `onAuthStateChange`, qui vide `session` PENDANT que ce composant est
+                // encore monté. Son effet de garde (plus haut) voit alors passer session à `null`
+                // avant que ce gestionnaire n'ait fini d'attendre, et navigue lui-même vers
+                // `/connexion` — cette seconde navigation, plus tardive, écrasait alors le retour au
+                // Hero. Naviguer d'abord démonte ce composant immédiatement : son effet de garde ne
+                // peut plus se déclencher, quel que soit le moment où `session` se vide réellement.
                 navigate('/', { replace: true })
+                await seDeconnecter()
               }}
               style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '8px 15px', cursor: 'pointer' }}
             >

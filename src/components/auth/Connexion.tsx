@@ -3,13 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
 import { Logo } from '../shared/Logo'
 import { ChampMotDePasse } from '../shared/ChampMotDePasse'
+import { Icone } from '../ui/Icones'
 
 type Etape = 'email' | 'inconnu' | 'sans_mot_de_passe' | 'lien_envoye' | 'mot_de_passe'
 
 const EMAIL_VALIDE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function Connexion() {
-  const { session, profile, loading, seConnecter } = useProfileContext()
+  const { session, profile, loading, platformAdmin, platformAdminLoading, seConnecter } = useProfileContext()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const next = searchParams.get('next')
@@ -21,18 +22,33 @@ export function Connexion() {
   const [envoi, setEnvoi] = useState(false)
 
   useEffect(() => {
-    if (loading || !session) return
+    // `platformAdminLoading` fait partie de la garde, sinon course perdue d'avance : le profil
+    // arrive avant le statut d'admin plateforme (deux requêtes distinctes), et cette redirection
+    // tranchait alors sur le seul `profile.role` — un admin plateforme dont le rôle vaut
+    // 'admin_etablissement' partait directement vers /admin/prospects une fraction de seconde
+    // avant que son statut n'arrive, sans jamais voir l'écran de choix des 3 espaces.
+    if (loading || platformAdminLoading || !session) return
     // `next` permet à un point d'entrée transverse aux rôles (ex. /plateforme/*) de retrouver
     // sa destination après connexion — sans lui, la redirection ci-dessous ne connaît que les
-    // 3 espaces liés à profiles.role et n'y renverrait jamais un admin plateforme.
+    // espaces liés à profiles.role et n'y renverrait jamais un admin plateforme.
     if (next) {
       navigate(next, { replace: true })
+      return
+    }
+    /* Un admin plateforme cumule les 3 espaces (voir ChoixEspace, migration 0022/0023) : on le
+       fait TOUJOURS atterrir sur /mon-espace, qui affiche cet écran de choix — demande client du
+       2026-09-16, « après chaque connexion réussie, il faut lui demander s'il veut se connecter
+       en mode étudiant, professeur ou admin ». Sans ce cas, `profile.role` (une valeur unique,
+       ici 'admin_etablissement') l'aurait envoyé tout droit vers /admin/prospects, sans jamais
+       lui proposer le choix. */
+    if (platformAdmin) {
+      navigate('/mon-espace', { replace: true })
     } else if (profile?.role === 'admin_etablissement') {
       navigate('/admin/prospects', { replace: true })
     } else if (profile) {
       navigate('/mon-espace', { replace: true })
     }
-  }, [session, profile, loading, next, navigate])
+  }, [session, profile, loading, platformAdmin, platformAdminLoading, next, navigate])
 
   async function verifierEmail(e: FormEvent) {
     e.preventDefault()
@@ -107,6 +123,19 @@ export function Connexion() {
         <Logo />
       </a>
       <div className="card" style={{ width: '100%', maxWidth: 380, padding: 30, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Demande client du 2026-09-16 : un moyen de revenir à la page Hero sans passer par le
+            bouton retour du navigateur — visible à toutes les étapes, pas seulement la première,
+            pour qu'une erreur (adresse inconnue, lien expiré) n'enferme jamais l'utilisateur. */}
+        <a
+          href="/"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)', textDecoration: 'none', alignSelf: 'flex-start' }}
+        >
+          <span aria-hidden style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}>
+            <Icone nom="chevron" taille={13} />
+          </span>
+          Retour à l’accueil
+        </a>
+
         {etape === 'email' && (
           <form onSubmit={verifierEmail} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <h1 style={{ fontSize: 22, color: 'var(--ink)' }}>Se connecter</h1>

@@ -15,7 +15,7 @@ const EMAIL_VALIDE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
  * composant ne s'affiche — la présence de `session` ici EST la preuve que le lien est valide.
  */
 export function ReinitialiserMotDePasse() {
-  const { session, profile, loading } = useProfileContext()
+  const { session, profile, loading, platformAdmin, platformAdminLoading } = useProfileContext()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const next = searchParams.get('next')
@@ -71,8 +71,9 @@ export function ReinitialiserMotDePasse() {
 
     setEnvoi(false)
     // L'utilisateur est déjà authentifié par le lien : le renvoyer vers /connexion lui ferait
-    // ressaisir le mot de passe qu'il vient de choisir. On l'emmène directement dans son espace.
-    navigate(next ?? destinationSelonRole(profile?.role), { replace: true })
+    // ressaisir le mot de passe qu'il vient de choisir. On l'emmène directement dans son espace —
+    // ou, pour un admin plateforme, vers l'écran de choix des 3 espaces (voir ChoixEspace).
+    navigate(next ?? destinationSelonRole(profile?.role, !!platformAdmin), { replace: true })
   }
 
   return (
@@ -81,7 +82,7 @@ export function ReinitialiserMotDePasse() {
         <Logo />
       </a>
       <div className="card" style={{ width: '100%', maxWidth: 380, padding: 30, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {loading ? (
+        {loading || platformAdminLoading ? (
           <p style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>Vérification du lien…</p>
         ) : !session ? (
           <LienMort />
@@ -219,6 +220,7 @@ function messageErreurMotDePasse(erreur: { code?: string; message?: string }): s
   return `Le mot de passe n’a pas pu être enregistré${erreur.message ? ` (${erreur.message})` : ''}.`
 }
 
-function destinationSelonRole(role: string | undefined): string {
+function destinationSelonRole(role: string | undefined, estPlatformAdmin: boolean): string {
+  if (estPlatformAdmin) return '/mon-espace'
   return role === 'admin_etablissement' ? '/admin/prospects' : '/mon-espace'
 }

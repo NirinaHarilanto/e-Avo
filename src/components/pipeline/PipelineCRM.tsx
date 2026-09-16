@@ -1,14 +1,17 @@
-import { useEffect, useState, type DragEvent } from 'react'
+import { useEffect, useState, type DragEvent, type FormEvent } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
-import type { ProspectStatut } from '../../types/database.types'
+import type { ProspectStatut, TypeProgrammeProspect } from '../../types/database.types'
 import { COLONNES_PIPELINE, useProspectsPipeline, type ProspectAvecDiagnostic } from '../../hooks/useProspectsPipeline'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { Modale } from '../ui/Modale'
+import { boutonPrimaireStyle } from '../ui/Boutons'
+import { champStyle } from '../ui/Champ'
+import { Icone } from '../ui/Icones'
 
 const COULEUR_COLONNE: Record<string, string> = {
   prospect: '#8b96b8',
@@ -22,6 +25,7 @@ export function PipelineCRM() {
   const { prospects, loading, erreur, recharger } = useProspectsPipeline()
   const [calendlyUrl, setCalendlyUrl] = useState<string | null>(null)
   const [colonneSurvolee, setColonneSurvolee] = useState<ProspectStatut | null>(null)
+  const [formulaireOuvert, setFormulaireOuvert] = useState(false)
 
   useEffect(() => {
     if (!profile) return
@@ -64,7 +68,7 @@ export function PipelineCRM() {
 
     // Un diagnostic_calls doit exister pour qu'on puisse plus tard y noter niveau/rythme —
     // s'il n'y en a pas encore (prospect arrivé ici par glisser-déposer, ou déjà auto-confirmé
-    // depuis la landing via Calendly), on en crée un minimal à la volée.
+    // depuis la landing via une réservation en ligne), on en crée un minimal à la volée.
     if (nouveauStatut === 'diagnostic_fait' && !prospect.diagnostic && profile) {
       await supabase.from('diagnostic_calls').insert({
         etablissement_id: prospect.etablissement_id,
@@ -82,8 +86,19 @@ export function PipelineCRM() {
     e.preventDefault()
     setColonneSurvolee(null)
     const prospectId = e.dataTransfer.getData('text/plain')
-    const prospect = prospects.find((p) => p.id === prospectId)
-    if (prospect) changerStatut(prospect, statutCible)
+    /* La mutation d'état (et donc le rechargement qui déplace immédiatement la carte vers une
+       autre colonne) est reportée après la fin du cycle natif de glisser-déposer du navigateur —
+       demande client du 2026-09-16, « ça bloque et fait planter l'application ». `drop` survient
+       AVANT `dragend` : muter l'état React ici démontait le nœud DOM d'origine (déplacé vers une
+       autre colonne au prochain rendu) alors que le navigateur tenait encore une référence active
+       dessus pour terminer son propre geste de glisser-déposer, ce qui plantait l'interaction. Un
+       délai de 0 ms suffit à laisser `dragend` se terminer d'abord — il s'exécute forcément avant,
+       puisqu'il fait partie de la même file d'événements synchrones que `drop`, alors qu'un
+       `setTimeout` est toujours placé après dans la file. */
+    setTimeout(() => {
+      const prospect = prospects.find((p) => p.id === prospectId)
+      if (prospect) changerStatut(prospect, statutCible)
+    }, 0)
   }
 
   return (
@@ -93,9 +108,15 @@ export function PipelineCRM() {
         titre="Prospects"
         description="Le parcours d’un candidat, de sa demande initiale jusqu’à sa conversion en étudiant. Chaque colonne est une étape : faites glisser une carte vers la colonne suivante pour faire avancer le dossier."
         actions={
-          <button onClick={() => recharger()} className="btn-shine" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)', color: 'var(--ink-2)' }}>
-            Actualiser
-          </button>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button onClick={() => setFormulaireOuvert(true)} className="btn-shine" style={boutonPrimaireStyle}>
+              <Icone nom="plus" taille={15} />
+              Ajouter un prospect
+            </button>
+            <button onClick={() => recharger()} className="btn-shine" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)', color: 'var(--ink-2)' }}>
+              Actualiser
+            </button>
+          </div>
         }
       />
 
@@ -105,7 +126,8 @@ export function PipelineCRM() {
         etapes={[
           <>
             Les nouveaux dossiers arrivent seuls dans la première colonne : ils viennent du formulaire de contact de
-            votre page vitrine publique.
+            votre page vitrine publique, ou de <strong>Ajouter un prospect</strong> si vous les saisissez vous-même
+            (un candidat pas encore passé par un appel diagnostic ou de positionnement).
           </>,
           <>
             <strong>Glissez une carte</strong> d’une colonne à l’autre pour changer son statut, ou utilisez les boutons
@@ -113,7 +135,8 @@ export function PipelineCRM() {
           </>,
           <>
             Dépliez une carte pour planifier l’appel diagnostic, puis y noter le <strong>niveau évalué</strong> et le
-            rythme convenu : ces informations suivront l’élève dans son dossier.
+            rythme convenu : ces informations suivront l’élève dans son dossier. Un rendez-vous réservé en ligne par
+            le prospect lui-même affiche sa date, son lien de visioconférence et son statut de validation.
           </>,
           <>
             En déposant une carte dans <strong>Étudiant</strong>, une invitation par e-mail est envoyée automatiquement
@@ -217,6 +240,17 @@ export function PipelineCRM() {
           })}
         </div>
       )}
+
+      {formulaireOuvert && profile && (
+        <FormulaireNouveauProspect
+          etablissementId={profile.etablissement_id}
+          onFermer={() => setFormulaireOuvert(false)}
+          onCree={() => {
+            setFormulaireOuvert(false)
+            recharger()
+          }}
+        />
+      )}
     </AdminLayout>
   )
 }
@@ -227,6 +261,96 @@ const LABEL_PROGRAMME: Record<string, string> = {
   collectif: 'Collectif',
 }
 
+/* Saisie manuelle d'un prospect qui n'est jamais passé par le formulaire public — démarché
+   directement, recommandé par un élève, etc. (demande client du 2026-09-16). Insertion directe
+   depuis le client : la policy `prospects_admin_all` (migration 0005) autorise déjà tout admin de
+   l'établissement à écrire dans `prospects`, pas besoin d'un endpoint dédié. Le dossier entre
+   toujours dans la première colonne (« pas encore passé un appel diagnostic ou de
+   positionnement »), exactement comme un prospect arrivé par la landing. */
+function FormulaireNouveauProspect({
+  etablissementId,
+  onFermer,
+  onCree,
+}: {
+  etablissementId: string
+  onFermer: () => void
+  onCree: () => void
+}) {
+  const [nom, setNom] = useState('')
+  const [prenom, setPrenom] = useState('')
+  const [email, setEmail] = useState('')
+  const [telephone, setTelephone] = useState('')
+  const [langueVisee, setLangueVisee] = useState('')
+  const [objectif, setObjectif] = useState('')
+  const [typeProgramme, setTypeProgramme] = useState<TypeProgrammeProspect>('individuel')
+  const [enCours, setEnCours] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  async function creer(e: FormEvent) {
+    e.preventDefault()
+    if (!nom.trim() || !prenom.trim() || !email.trim()) {
+      setErreur('Nom, prénom et e-mail sont obligatoires.')
+      return
+    }
+    setEnCours(true)
+    setErreur(null)
+    const { error } = await supabase.from('prospects').insert({
+      etablissement_id: etablissementId,
+      statut: 'prospect',
+      nom: nom.trim(),
+      prenom: prenom.trim(),
+      email: email.trim().toLowerCase(),
+      telephone: telephone.trim() || null,
+      langue_visee: langueVisee.trim() || null,
+      objectif: objectif.trim() || null,
+      type_programme: typeProgramme,
+    })
+    setEnCours(false)
+    if (error) {
+      setErreur(error.message)
+      return
+    }
+    onCree()
+  }
+
+  return (
+    <Modale titre="Ajouter un prospect" onFermer={onFermer} largeurMax={460}>
+      <form onSubmit={creer} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <p style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--muted)', margin: 0 }}>
+          Pour un candidat pas encore passé par un appel diagnostic ou de positionnement — démarché directement,
+          recommandé, ou rencontré hors ligne. Le dossier entre dans la colonne « Nouveaux prospects ».
+        </p>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <input required placeholder="Prénom" value={prenom} onChange={(e) => setPrenom(e.target.value)} style={{ ...champStyle, flex: 1 }} />
+          <input required placeholder="Nom" value={nom} onChange={(e) => setNom(e.target.value)} style={{ ...champStyle, flex: 1 }} />
+        </div>
+        <input required type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} style={champStyle} />
+        <input placeholder="Téléphone (facultatif)" value={telephone} onChange={(e) => setTelephone(e.target.value)} style={champStyle} />
+        <input placeholder="Langue visée (facultatif)" value={langueVisee} onChange={(e) => setLangueVisee(e.target.value)} style={champStyle} />
+        <textarea
+          placeholder="Objectif (facultatif)"
+          value={objectif}
+          onChange={(e) => setObjectif(e.target.value)}
+          rows={2}
+          style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
+        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Programme visé</label>
+          <select value={typeProgramme} onChange={(e) => setTypeProgramme(e.target.value as TypeProgrammeProspect)} style={champStyle}>
+            <option value="individuel">Individuel</option>
+            <option value="duo">Duo</option>
+            <option value="collectif">Collectif</option>
+          </select>
+        </div>
+        {erreur && <p style={{ color: 'var(--danger)', fontSize: 12.5 }}>{erreur}</p>}
+        <button type="submit" disabled={enCours} className="btn-shine" style={{ ...boutonPrimaireStyle, opacity: enCours ? 0.7 : 1 }}>
+          {enCours ? 'Création…' : 'Créer le dossier'}
+        </button>
+      </form>
+    </Modale>
+  )
+}
+
 interface CarteProspectProps {
   prospect: ProspectAvecDiagnostic
   calendlyUrl: string | null
@@ -235,16 +359,18 @@ interface CarteProspectProps {
 }
 
 function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: CarteProspectProps) {
-  const { profile } = useProfileContext()
+  const { profile, session } = useProfileContext()
   const estPositionnement = prospect.type_programme === 'collectif'
   const [ouvert, setOuvert] = useState(false)
   const [dateAppel, setDateAppel] = useState('')
-  const [niveauEvalue, setNiveauEvalue] = useState('')
-  const [rythmeConvenu, setRythmeConvenu] = useState('')
+  const [niveauEvalue, setNiveauEvalue] = useState(prospect.diagnostic?.niveau_evalue ?? '')
+  const [rythmeConvenu, setRythmeConvenu] = useState(prospect.diagnostic?.rythme_convenu ?? '')
+  const [notes, setNotes] = useState(prospect.diagnostic?.notes ?? '')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [enGlissement, setEnGlissement] = useState(false)
   const [detailOuvert, setDetailOuvert] = useState(false)
+  const [validationEnCours, setValidationEnCours] = useState(false)
 
   async function planifierAppel() {
     if (!profile || !dateAppel) return
@@ -304,7 +430,7 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
 
     const { error: updateDiagError } = await supabase
       .from('diagnostic_calls')
-      .update({ niveau_evalue: niveauEvalue || null, rythme_convenu: rythmeConvenu || null })
+      .update({ niveau_evalue: niveauEvalue || null, rythme_convenu: rythmeConvenu || null, notes: notes || null })
       .eq('id', diagnosticId)
     if (updateDiagError) {
       setErreur(updateDiagError.message)
@@ -321,6 +447,67 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
       return
     }
     setOuvert(false)
+    onChange()
+  }
+
+  /* Enregistre niveau / rythme / notes SANS changer de colonne — contrairement à
+     `marquerRealise()`, qui fait les deux à la fois au moment de la transition. Une fois dans
+     « Diagnostic réalisé », ces trois champs doivent rester modifiables (demande client du
+     2026-09-16 : « son niveau modifiable et les résultats de l'appel », avec une zone libre à
+     l'écriture pour les notes de l'admin). */
+  async function enregistrerDiagnostic() {
+    if (!profile) return
+    setEnCours(true)
+    setErreur(null)
+
+    let diagnosticId = prospect.diagnostic?.id ?? null
+    if (!diagnosticId) {
+      const { data: inserted, error: insertError } = await supabase
+        .from('diagnostic_calls')
+        .insert({
+          etablissement_id: prospect.etablissement_id,
+          prospect_id: prospect.id,
+          mene_par: profile.id,
+          date_appel: new Date().toISOString(),
+        })
+        .select('id')
+        .single()
+      if (insertError || !inserted) {
+        setErreur(insertError?.message ?? "Impossible d'enregistrer le diagnostic.")
+        setEnCours(false)
+        return
+      }
+      diagnosticId = inserted.id
+    }
+
+    const { error } = await supabase
+      .from('diagnostic_calls')
+      .update({ niveau_evalue: niveauEvalue || null, rythme_convenu: rythmeConvenu || null, notes: notes || null })
+      .eq('id', diagnosticId)
+    setEnCours(false)
+    if (error) {
+      setErreur(error.message)
+      return
+    }
+    onChange()
+  }
+
+  async function validerRendezVous() {
+    if (!session || !prospect.rendezVous) return
+    setValidationEnCours(true)
+    setErreur(null)
+    const reponse = await fetch('/api/admin/valider-rendez-vous', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ rendezVousId: prospect.rendezVous.id, decision: 'confirmer' }),
+    })
+      .then((r) => r.json())
+      .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
+    setValidationEnCours(false)
+    if (reponse.error) {
+      setErreur(reponse.error)
+      return
+    }
     onChange()
   }
 
@@ -384,7 +571,20 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
       {detailOuvert && (
         <Modale titre={`${prospect.prenom} ${prospect.nom}`} onFermer={() => setDetailOuvert(false)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
+            {/* Informations personnelles — demandées explicitement par le client le 2026-09-16
+                pour les fiches « Appel diagnostic planifié » et « Diagnostic réalisé », affichées
+                ici pour toutes les étapes puisqu'elles ne coûtent rien à montrer plus tôt. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
+              <a href={`mailto:${prospect.email}`} style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
+                {prospect.email}
+              </a>
+              {prospect.telephone && (
+                <a href={`tel:${prospect.telephone}`} style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
+                  {prospect.telephone}
+                </a>
+              )}
+            </div>
 
             {prospect.objectif && (
               <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
@@ -392,16 +592,13 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
               </p>
             )}
 
-            {prospect.statut === 'diagnostic_planifie' &&
-              (prospect.diagnostic ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, borderRadius: 10, border: '1px solid rgba(233,207,148,.28)', background: 'rgba(233,207,148,.1)', padding: '10px 12px' }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>
-                    {new Date(prospect.diagnostic.date_appel).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
-                  </span>
-                </div>
-              ) : (
-                <span style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>Réservé via Calendly</span>
-              ))}
+            {prospect.statut === 'diagnostic_planifie' && (
+              <PostItRendezVous
+                prospect={prospect}
+                validationEnCours={validationEnCours}
+                onValider={validerRendezVous}
+              />
+            )}
 
             {prospect.statut === 'diagnostic_fait' && prospect.diagnostic?.niveau_evalue && (
               <span style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
@@ -478,6 +675,13 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
                   onChange={(e) => setRythmeConvenu(e.target.value)}
                   style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
                 />
+                <textarea
+                  placeholder="Résultats de l'appel, remarques… (facultatif)"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)', fontFamily: 'inherit', resize: 'vertical' }}
+                />
                 <button onClick={marquerRealise} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
                   Confirmer
                 </button>
@@ -485,13 +689,119 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
             )}
 
             {prospect.statut === 'diagnostic_fait' && (
-              <button onClick={convertirEnEtudiant} disabled={enCours} className="btn-shine" style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-blue-gradient)', color: '#fff', opacity: enCours ? 0.7 : 1 }}>
-                Convertir en étudiant
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
+                  Niveau et résultats de l’appel
+                </span>
+                <input
+                  placeholder="Niveau évalué (ex. B1)"
+                  value={niveauEvalue}
+                  onChange={(e) => setNiveauEvalue(e.target.value)}
+                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+                />
+                <input
+                  placeholder="Rythme convenu (ex. 2h / semaine)"
+                  value={rythmeConvenu}
+                  onChange={(e) => setRythmeConvenu(e.target.value)}
+                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+                />
+                {/* Zone libre à l'écriture pour l'admin (demande client du 2026-09-16) : ce que le
+                    prospect a dit pendant l'appel, ses freins, tout ce qui ne rentre pas dans les
+                    deux champs ci-dessus. Persistée dans `diagnostic_calls.notes`, déjà prévue par
+                    le schéma mais jamais exposée jusqu'ici. */}
+                <textarea
+                  placeholder="Résultats de l'appel, remarques…"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
+                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)', fontFamily: 'inherit', resize: 'vertical' }}
+                />
+                <button onClick={enregistrerDiagnostic} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
+                  {enCours ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+                <button onClick={convertirEnEtudiant} disabled={enCours} className="btn-shine" style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-blue-gradient)', color: '#fff', opacity: enCours ? 0.7 : 1 }}>
+                  Convertir en étudiant
+                </button>
+              </div>
             )}
           </div>
         </Modale>
       )}
     </>
+  )
+}
+
+/* Note « post-it » du rendez-vous réservé en ligne par le prospect lui-même (voir
+   api/prospects/reserver.ts) — jaune tant que l'admin ne l'a pas validé, vert une fois validé,
+   avec le lien Meet dès qu'il existe et un bouton de validation directement ici (demande client
+   du 2026-09-16). Un prospect qui n'a jamais réservé en ligne (dossier saisi à la main, ou appel
+   planifié directement par l'admin) n'a pas de `rendezVous` : rien ne s'affiche, le badge
+   diagnostic_calls existant (voir CarteProspect) prend le relais. */
+function PostItRendezVous({
+  prospect,
+  validationEnCours,
+  onValider,
+}: {
+  prospect: ProspectAvecDiagnostic
+  validationEnCours: boolean
+  onValider: () => void
+}) {
+  if (!prospect.rendezVous) return null
+  const rdv = prospect.rendezVous
+  const valide = rdv.statut === 'confirme'
+  const quand = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'full', timeStyle: 'short' }).format(new Date(rdv.debut))
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        borderRadius: 10,
+        padding: '12px 14px',
+        background: valide ? '#dff5e8' : '#faf0c2',
+        border: `1px solid ${valide ? '#8fd6ac' : '#e3cf6d'}`,
+        boxShadow: '0 4px 14px rgba(0,0,0,.18)',
+      }}
+    >
+      <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: valide ? '#1c6b41' : '#8a6d0a' }}>
+        {valide ? 'Rendez-vous validé' : 'À valider par l’admin'}
+      </span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: '#241d05' }}>{quand}</span>
+      <span style={{ fontSize: 11.5, color: '#4a3f10' }}>{rdv.duree_minutes} min</span>
+      {rdv.lien_meet && (
+        <a
+          href={rdv.lien_meet}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontSize: 12, fontWeight: 700, color: valide ? '#1c6b41' : '#8a6d0a' }}
+        >
+          Lien de visioconférence →
+        </a>
+      )}
+      {rdv.statut === 'refuse' && <span style={{ fontSize: 11.5, color: '#8a2f0a' }}>Rendez-vous refusé.</span>}
+      {rdv.statut === 'annule' && <span style={{ fontSize: 11.5, color: '#6a5f10' }}>Rendez-vous annulé.</span>}
+      {rdv.statut === 'en_attente' && (
+        <button
+          type="button"
+          onClick={onValider}
+          disabled={validationEnCours}
+          style={{
+            alignSelf: 'flex-start',
+            fontSize: 12,
+            fontWeight: 700,
+            color: '#1b1510',
+            background: 'linear-gradient(150deg, #f0d472, #d9b93f)',
+            border: 'none',
+            borderRadius: 999,
+            padding: '7px 16px',
+            cursor: 'pointer',
+            opacity: validationEnCours ? 0.7 : 1,
+          }}
+        >
+          {validationEnCours ? 'Validation…' : 'Valider le rendez-vous'}
+        </button>
+      )}
+    </div>
   )
 }
