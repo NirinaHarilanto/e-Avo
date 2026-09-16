@@ -1073,6 +1073,15 @@ body.sans-defilement {
    principe que `.page-claire` : redéfinir les variables --ink/--muted & co sur le conteneur
    racine de la vue, pour que tous les styles inline qui les lisent déjà basculent de teinte sans
    rien connaître du thème. */
+/* L'image de fond du Hero sert désormais aussi de socle aux quatre vues secondaires — demande
+   client du 2026-09-16 : « la page Hero doit servir de base pour les autres sections de la barre
+   de navigation ». Posée en DERNIÈRE couche (donc la plus profonde : en CSS, la première couche
+   listée dans `background` est celle du dessus), avec les mêmes radiaux et le même dégradé
+   qu'avant par-dessus, rendus nettement plus opaques (0.90 à 0.97, contre 0.26 à 0.32) pour rester
+   la couche qui domine visuellement. L'image n'est donc plus qu'une présence en filigrane — assez
+   discrète pour qu'aucune carte de verre ni aucun texte n'y perde en lisibilité, assez visible
+   pour qu'on reconnaisse le même décor que sur l'accueil. Le fichier est déjà en cache dès qu'on
+   quitte le Hero pour une de ces vues : aucun coût de chargement supplémentaire. */
 .vue-sombre {
   --ink: #f3edff;
   --ink-2: #ddccff;
@@ -1081,10 +1090,11 @@ body.sans-defilement {
   position: relative;
   isolation: isolate;
   background:
-    radial-gradient(700px 420px at 14% 8%, rgba(186, 140, 255, 0.32), transparent 62%),
-    radial-gradient(620px 380px at 92% 12%, rgba(150, 100, 240, 0.26), transparent 60%),
-    radial-gradient(900px 520px at 50% 105%, rgba(100, 50, 180, 0.32), transparent 70%),
-    linear-gradient(165deg, #2c1657 0%, #200f49 45%, #150a30 100%);
+    radial-gradient(700px 420px at 14% 8%, rgba(186, 140, 255, 0.4), transparent 62%),
+    radial-gradient(620px 380px at 92% 12%, rgba(150, 100, 240, 0.32), transparent 60%),
+    radial-gradient(900px 520px at 50% 105%, rgba(100, 50, 180, 0.4), transparent 70%),
+    linear-gradient(165deg, rgba(44, 22, 87, 0.93) 0%, rgba(32, 15, 73, 0.95) 45%, rgba(21, 10, 48, 0.97) 100%),
+    url('/hero-hoc.webp') center 30% / cover no-repeat;
 }
 .vue-sombre .entete-vue,
 .vue-sombre .vue-secondaire-corps {
