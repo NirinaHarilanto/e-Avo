@@ -29,6 +29,7 @@ const etudiant: Profile = {
   date_naissance: null,
   lieu_naissance: null,
   taux_horaire: null,
+  signature_path: null,
   mot_de_passe_defini: true,
   created_at: '2026-01-01T00:00:00Z',
 }

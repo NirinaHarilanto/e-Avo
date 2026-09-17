@@ -22,13 +22,14 @@ interface ProfileContextValue {
   seConnecter: (email: string, motDePasse: string) => ReturnType<ReturnType<typeof useAuth>['seConnecter']>
   sInscrire: (infos: InscriptionInfos) => ReturnType<ReturnType<typeof useAuth>['sInscrire']>
   seDeconnecter: () => ReturnType<ReturnType<typeof useAuth>['seDeconnecter']>
+  rafraichirProfil: () => Promise<void>
 }
 
 const ProfileContext = createContext<ProfileContextValue | null>(null)
 
 export function ProfileProvider({ children }: { children: ReactNode }) {
   const { session, loading: authLoading, seConnecter, sInscrire, seDeconnecter } = useAuth()
-  const { profile, loading: profileLoading } = useProfile(session, authLoading)
+  const { profile, loading: profileLoading, rafraichir: rafraichirProfil } = useProfile(session, authLoading)
   const loading = authLoading || profileLoading
 
   /* Récupérés ici plutôt que dans EspaceLayout/PlateformeLayout/EspacePersonnel : ce Provider
@@ -50,6 +51,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     seConnecter,
     sInscrire,
     seDeconnecter,
+    rafraichirProfil,
   }
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>

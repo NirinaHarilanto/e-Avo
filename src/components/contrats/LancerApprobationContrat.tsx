@@ -129,9 +129,11 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
 
     /* Le contrat est déjà visible dans l'espace du destinataire une fois au statut « envoyé » :
        si la notification échoue, l'approbation reste valide et la ligne du contrat propose
-       « Envoyer un rappel ». On n'y bloque donc pas le lancement. */
+       « Envoyer un rappel ». On n'y bloque donc pas le lancement — ni sur l'échec (déjà le cas),
+       ni sur la durée de l'appel : le insert ci-dessus a déjà réussi, il n'y a plus de raison de
+       faire attendre l'admin pour un envoi de notification, sans intérêt pour lui à cet instant. */
     if (session) {
-      await fetch('/api/admin/notifier', {
+      fetch('/api/admin/notifier', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({

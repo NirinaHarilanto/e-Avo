@@ -141,7 +141,12 @@ export function MesContrats() {
       })}
 
       {contratAImprimer && (
-        <ContratImprimable contrat={contratAImprimer.contrat} destinataire={contratAImprimer.destinataire} onFermer={() => setContratAImprimer(null)} />
+        <ContratImprimable
+          contrat={contratAImprimer.contrat}
+          destinataire={contratAImprimer.destinataire}
+          signataireEtablissement={contratAImprimer.signataireEtablissement}
+          onFermer={() => setContratAImprimer(null)}
+        />
       )}
     </div>
   )

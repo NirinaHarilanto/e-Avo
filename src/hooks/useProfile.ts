@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
@@ -53,5 +53,15 @@ export function useProfile(session: Session | null, authLoading: boolean) {
     }
   }, [utilisateurId, authLoading])
 
-  return { profile, loading }
+  /* Exposé pour qu'un composant qui vient d'auto-éditer le profil connecté (coordonnées,
+     signature…) puisse rafraîchir l'affichage sans attendre une déconnexion : ProfileProvider
+     enveloppe tout le routeur et ne remonte jamais entre deux pages (voir son commentaire), donc
+     sans ce recharger explicite, la donnée resterait périmée jusqu'à la prochaine connexion. */
+  const rafraichir = useCallback(async () => {
+    if (!utilisateurId) return
+    const { data } = await supabase.from('profiles').select('*').eq('id', utilisateurId).single()
+    setProfile(data)
+  }, [utilisateurId])
+
+  return { profile, loading, rafraichir }
 }

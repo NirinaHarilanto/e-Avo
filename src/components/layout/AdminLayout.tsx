@@ -25,6 +25,7 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
       { label: 'Contrats', href: '/admin/contrats', disponible: true, icone: 'contrats', description: 'Modèles et contrats signés' },
       { label: 'Tarifs', href: '/admin/tarifs', disponible: true, icone: 'tarifs', description: 'Grille affichée sur la vitrine' },
       { label: 'Paramètres', href: '/admin/parametres', disponible: true, icone: 'parametres', description: 'Réglages de l’établissement' },
+      { label: 'Mon profil', href: '/admin/mon-profil', disponible: true, icone: 'parametres', description: 'Vos coordonnées et votre signature' },
     ],
   },
 ]

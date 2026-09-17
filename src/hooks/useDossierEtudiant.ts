@@ -43,14 +43,19 @@ export interface DossierEtudiant {
 
 export function useDossierEtudiant(studentId: string | undefined) {
   const { valeur, loading, erreur, recharger } = useCacheRequete(studentId && `dossier-etudiant-${studentId}`, async (): Promise<DossierEtudiant> => {
-    const { data: etudiant, error: etudiantError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', studentId as string)
-      .single()
-    if (etudiantError || !etudiant) throw new Error(etudiantError?.message ?? 'Étudiant introuvable.')
-
-    const [{ data: affectations }, { data: enrollments }, { data: packages }, { data: resume }, { data: inscriptionCohorte }] = await Promise.all([
+    // Vague 1 : ces 6 requêtes ne dépendent QUE de `studentId`, déjà connu avant même d'appeler
+    // cette fonction — aucune n'a besoin du contenu d'une autre pour partir. `etudiant` était
+    // auparavant fetché seul, en séquentiel, avant tout le reste, sans raison : ça ajoutait un
+    // aller-retour réseau complet à chaque ouverture d'un dossier.
+    const [
+      { data: etudiant, error: etudiantError },
+      { data: affectations },
+      { data: enrollments },
+      { data: packages },
+      { data: resume },
+      { data: inscriptionCohorte },
+    ] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', studentId as string).single(),
       // Tri secondaire sur created_at : `date_debut` est une date, deux affectations du même
       // jour y sont à égalité et l'ordre serait alors arbitraire.
       supabase
@@ -64,26 +69,27 @@ export function useDossierEtudiant(studentId: string | undefined) {
       supabase.from('student_hours_summary').select('*').eq('student_id', studentId as string).maybeSingle(),
       supabase.from('cohort_enrollments').select('cohort_id').eq('student_id', studentId as string).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ])
-    const cohorte = inscriptionCohorte
-      ? (await supabase.from('cohorts').select('*').eq('id', inscriptionCohorte.cohort_id).maybeSingle()).data
-      : null
+    if (etudiantError || !etudiant) throw new Error(etudiantError?.message ?? 'Étudiant introuvable.')
 
     const sessionIds = [...new Set((enrollments ?? []).map((e) => e.session_id))]
-    const [{ data: sessions }, { data: videos }] =
-      sessionIds.length > 0
-        ? await Promise.all([
-            supabase.from('sessions').select('*').in('id', sessionIds),
-            supabase.from('video_sessions').select('*').in('session_id', sessionIds),
-          ])
-        : [{ data: [] as Session[] }, { data: [] as VideoSession[] }]
+    const teacherIds = [...new Set((affectations ?? []).map((a) => a.teacher_id))]
+
+    // Vague 2 : chacune de ces 5 requêtes dépend d'un résultat de la vague 1 (inscriptionCohorte,
+    // sessionIds, teacherIds ou etudiant.prospect_id), mais JAMAIS du résultat d'une autre requête
+    // de cette même vague — elles peuvent donc toutes partir ensemble plutôt qu'en cascade.
+    const [{ data: cohorte }, { data: sessions }, { data: videos }, { data: professeurs }, { data: diagnostic }] = await Promise.all([
+      inscriptionCohorte
+        ? supabase.from('cohorts').select('*').eq('id', inscriptionCohorte.cohort_id).maybeSingle()
+        : Promise.resolve({ data: null as Cohort | null }),
+      sessionIds.length > 0 ? supabase.from('sessions').select('*').in('id', sessionIds) : Promise.resolve({ data: [] as Session[] }),
+      sessionIds.length > 0 ? supabase.from('video_sessions').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as VideoSession[] }),
+      teacherIds.length > 0 ? supabase.from('profiles').select('*').in('id', teacherIds) : Promise.resolve({ data: [] as Profile[] }),
+      etudiant.prospect_id
+        ? supabase.from('diagnostic_calls').select('*').eq('prospect_id', etudiant.prospect_id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+        : Promise.resolve({ data: null as DiagnosticCall | null }),
+    ])
     const sessionParId = new Map((sessions ?? []).map((s) => [s.id, s]))
     const videoParSession = new Map((videos ?? []).map((v) => [v.session_id, v]))
-
-    const teacherIds = [...new Set((affectations ?? []).map((a) => a.teacher_id))]
-    const { data: professeurs } =
-      teacherIds.length > 0
-        ? await supabase.from('profiles').select('*').in('id', teacherIds)
-        : { data: [] as Profile[] }
     const professeurParId = new Map((professeurs ?? []).map((p) => [p.id, p]))
 
     const seancesToutes: SeanceDuParcours[] = (enrollments ?? [])
@@ -102,18 +108,6 @@ export function useDossierEtudiant(studentId: string | undefined) {
         .filter((s) => s.enrollment.teacher_assignment_id === affectation.id)
         .sort((a, b) => a.session.debut.localeCompare(b.session.debut)),
     }))
-
-    let diagnostic: DiagnosticCall | null = null
-    if (etudiant.prospect_id) {
-      const { data } = await supabase
-        .from('diagnostic_calls')
-        .select('*')
-        .eq('prospect_id', etudiant.prospect_id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      diagnostic = data
-    }
 
     const maintenant = new Date().toISOString()
     const prochaineSeance =

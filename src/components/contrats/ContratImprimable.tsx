@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { useEtablissement } from '../../hooks/useEtablissement'
+import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { OverlayImpression } from '../facturation/OverlayImpression'
 
@@ -8,6 +10,9 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 interface ContratImprimableProps {
   contrat: Contract
   destinataire: Profile | null
+  // Profil ayant signé pour l'établissement (contrat.signe_etablissement_par) — optionnel :
+  // les deux appelants actuels (ContratsAdmin.tsx, MesContrats.tsx) le passent via useContrats().
+  signataireEtablissement?: Profile | null
   onFermer: () => void
 }
 
@@ -44,6 +49,50 @@ function BadgeSignature({ signeLe }: { signeLe: string | null }) {
   )
 }
 
+/* Image de signature (déposée dans "Mon profil", migration 0047) si le profil signataire en a
+   une, sinon repli texte "Vu et approuvé par {prénom} {nom}" — demande client du 2026-09-17.
+   URL signée récupérée en local (useEffect), PAS via useCacheRequete : ce cache partagé n'a pas
+   de TTL (voir son commentaire) alors qu'une URL signée en a un ; comme ce composant est une
+   modale démontée à la fermeture, refaire la demande à chaque montage est déjà correct et
+   suffisant, sans avoir à gérer d'expiration. */
+function SignatureAffichee({ profil, signeLe }: { profil: Profile | null; signeLe: string | null }) {
+  const [urlSignee, setUrlSignee] = useState<string | null>(null)
+
+  useEffect(() => {
+    setUrlSignee(null)
+    if (!profil?.signature_path) return
+    let annule = false
+    supabase
+      .storage
+      .from('signatures')
+      .createSignedUrl(profil.signature_path, 300)
+      .then(({ data }) => {
+        if (!annule) setUrlSignee(data?.signedUrl ?? null)
+      })
+    return () => {
+      annule = true
+    }
+  }, [profil?.signature_path])
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {signeLe &&
+        (urlSignee ? (
+          <img
+            src={urlSignee}
+            alt={`Signature de ${profil?.prenom ?? ''} ${profil?.nom ?? ''}`.trim()}
+            style={{ maxHeight: 46, maxWidth: 200, alignSelf: 'flex-start' }}
+          />
+        ) : (
+          <span style={{ fontSize: 12, fontStyle: 'italic', color: '#333' }}>
+            Vu et approuvé par {profil ? `${profil.prenom ?? ''} ${profil.nom ?? ''}`.trim() : 'la partie signataire'}
+          </span>
+        ))}
+      <BadgeSignature signeLe={signeLe} />
+    </div>
+  )
+}
+
 /* Vue complète et instantanée d'un contrat — demande client du 2026-09-16 : « voir l'entièreté du
    contrat à l'état instantané (si c'est signé ou pas encore) ». Reprise telle quelle du bouton
    « Imprimer » déjà existant (qui ouvrait déjà cette même fenêtre, avec « Fermer » ET
@@ -51,7 +100,7 @@ function BadgeSignature({ signeLe }: { signeLe: string | null }) {
    étiquette sur la ligne de contrat (voir ContratsAdmin.tsx, « Voir le contrat ») et l'ajout du
    statut de signature de chaque partie, jusqu'ici visible seulement dans la liste, jamais dans le
    document lui-même. */
-export function ContratImprimable({ contrat, destinataire, onFermer }: ContratImprimableProps) {
+export function ContratImprimable({ contrat, destinataire, signataireEtablissement, onFermer }: ContratImprimableProps) {
   const etablissement = useEtablissement(contrat.etablissement_id)
 
   return (
@@ -85,12 +134,12 @@ export function ContratImprimable({ contrat, destinataire, onFermer }: ContratIm
         <div>
           <p style={{ margin: 0 }}>Fait pour {etablissement?.nom},</p>
           <p style={{ marginTop: 40, marginBottom: 0 }}>Signature</p>
-          <BadgeSignature signeLe={contrat.signe_etablissement_at} />
+          <SignatureAffichee profil={signataireEtablissement ?? null} signeLe={contrat.signe_etablissement_at} />
         </div>
         <div>
           <p style={{ margin: 0 }}>Fait pour {destinataire ? `${destinataire.prenom} ${destinataire.nom}` : 'le destinataire'},</p>
           <p style={{ marginTop: 40, marginBottom: 0 }}>Signature</p>
-          <BadgeSignature signeLe={contrat.signe_destinataire_at} />
+          <SignatureAffichee profil={destinataire} signeLe={contrat.signe_destinataire_at} />
         </div>
       </div>
     </OverlayImpression>

@@ -91,6 +91,7 @@ export interface Database {
           lieu_naissance: string | null
           whatsapp: string | null
           taux_horaire: number | null
+          signature_path: string | null
           mot_de_passe_defini: boolean
           created_at: string
         }
@@ -110,6 +111,7 @@ export interface Database {
           lieu_naissance?: string | null
           whatsapp?: string | null
           taux_horaire?: number | null
+          signature_path?: string | null
           mot_de_passe_defini?: boolean
           created_at?: string
         }
@@ -969,7 +971,11 @@ export interface Database {
           p_langue?: string | null
           p_motif?: string | null
         }
-        Returns: string
+        Returns: {
+          nouvelle_affectation_id: string
+          seances_individuelles_transferees: number
+          seances_collectives_desinscrites: number
+        }[]
       }
       current_etablissement_id: {
         Args: Record<string, never>

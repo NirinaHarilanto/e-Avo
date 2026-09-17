@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import type { Database } from '../../types/database.types'
+import { MessageSucces } from '../ui/Etats'
 
 type TeacherAssignment = Database['public']['Tables']['teacher_assignments']['Row']
 
@@ -19,16 +20,19 @@ export function AttribuerProfesseur({ studentId, affectationActuelle, onTermine 
   const [motif, setMotif] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
   async function attribuer() {
     if (!teacherId) return
     setEnCours(true)
     setErreur(null)
 
-    /* Une seule transaction côté base (migration 0039) : clôture de l'affectation en cours et
-       ouverture de la nouvelle. L'ancienne version enchaînait un update puis un insert depuis
-       le navigateur — un échec du second laissait l'élève sans aucun professeur actif. */
-    const { error } = await supabase.rpc('attribuer_professeur', {
+    /* Une seule transaction côté base (migration 0039, étendue en 0046) : clôture de
+       l'affectation en cours, ouverture de la nouvelle, et transfert des séances prévisionnelles
+       (individuelles transférées au nouveau prof, collectives désinscrites). L'ancienne version
+       enchaînait un update puis un insert depuis le navigateur — un échec du second laissait
+       l'élève sans aucun professeur actif. */
+    const { data, error } = await supabase.rpc('attribuer_professeur', {
       p_student_id: studentId,
       p_teacher_id: teacherId,
       p_langue: langue || null,
@@ -39,6 +43,21 @@ export function AttribuerProfesseur({ studentId, affectationActuelle, onTermine 
       setErreur(error.message)
       return
     }
+    const resultat = data?.[0]
+    setMessage(
+      resultat && (resultat.seances_individuelles_transferees > 0 || resultat.seances_collectives_desinscrites > 0)
+        ? [
+            resultat.seances_individuelles_transferees > 0
+              ? `${resultat.seances_individuelles_transferees} séance(s) individuelle(s) transférée(s) au nouveau professeur.`
+              : null,
+            resultat.seances_collectives_desinscrites > 0
+              ? `${resultat.seances_collectives_desinscrites} séance(s) collective(s) libérée(s) — à réinscrire manuellement si besoin.`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' ')
+        : null,
+    )
     setOuvert(false)
     setTeacherId('')
     setLangue('')
@@ -48,13 +67,19 @@ export function AttribuerProfesseur({ studentId, affectationActuelle, onTermine 
 
   if (!ouvert) {
     return (
-      <button
-        onClick={() => setOuvert(true)}
-        className="btn-shine"
-        style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-blue-gradient)', color: '#fff' }}
-      >
-        {affectationActuelle ? 'Changer de professeur' : 'Attribuer un professeur'}
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <button
+          onClick={() => {
+            setMessage(null)
+            setOuvert(true)
+          }}
+          className="btn-shine"
+          style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-blue-gradient)', color: '#fff' }}
+        >
+          {affectationActuelle ? 'Changer de professeur' : 'Attribuer un professeur'}
+        </button>
+        {message && <MessageSucces>{message}</MessageSucces>}
+      </div>
     )
   }
 

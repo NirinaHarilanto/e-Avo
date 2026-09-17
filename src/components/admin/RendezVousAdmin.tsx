@@ -130,11 +130,6 @@ export function RendezVousAdmin() {
     ? evenementsAdmin.find((e) => e.id === elementOuvertId!.slice(PREFIXE_EVENEMENT.length))
     : undefined
 
-  function rechargerTout() {
-    recharger()
-    rechargerEvenements()
-  }
-
   return (
     <AdminLayout actif="Rendez-vous">
       <EnTetePage
@@ -265,7 +260,7 @@ export function RendezVousAdmin() {
 
       {evenementOuvert && (
         <Modale titre={evenementOuvert.titre} onFermer={() => setElementOuvertId(null)} largeurMax={480}>
-          <CarteEvenementAdmin evenement={evenementOuvert} session={session} onChange={rechargerTout} />
+          <CarteEvenementAdmin evenement={evenementOuvert} session={session} onChange={rechargerEvenements} />
         </Modale>
       )}
 
@@ -276,7 +271,7 @@ export function RendezVousAdmin() {
           onFermer={() => setCreationOuverte(null)}
           onCree={() => {
             setCreationOuverte(null)
-            rechargerTout()
+            rechargerEvenements()
           }}
         />
       )}

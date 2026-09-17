@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { waitUntil } from '@vercel/functions'
 import { AdminAuthError, requireAdmin } from '../_lib/adminAuth.js'
 import { creerEvenementMeet, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
 
@@ -88,32 +89,40 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: erreurInsert?.message ?? "L'événement n'a pas pu être créé." }, { status: 500 })
     }
 
-    // Lien Meet : au mieux, comme pour rendez_vous — jamais bloquant.
+    // Lien Meet : au mieux, comme pour rendez_vous — jamais bloquant pour la création elle-même
+    // (déjà le cas), et depuis cette optimisation, jamais bloquant non plus pour la RÉPONSE HTTP.
+    // L'appel réseau à Google Calendar ajoutait 1 à 3 s perçus par l'admin avant que le formulaire
+    // ne se ferme ; `waitUntil` le termine en tâche de fond après la réponse — le lien apparaît
+    // sur l'événement dès que `rechargerEvenements()` est rappelé (RendezVousAdmin.tsx), ou à la
+    // prochaine actualisation. En cas d'échec, l'événement existe avec `lien_meet` à `null` et
+    // l'admin peut régénérer le lien depuis sa fiche, exactement comme avant.
     const integration = await integrationDeLEtablissement(serviceClient, etablissementId)
-    let lienMeet: string | null = null
     if (integration) {
-      try {
-        const emailsInvites = tousLesIds.map((id) => parId.get(id)?.email).filter((email): email is string => !!email)
-        const { eventId, lienMeet: lien } = await creerEvenementMeet(integration, {
-          titre,
-          description: corps.notes?.trim() || undefined,
-          debut: new Date(corps.debut).toISOString(),
-          dureeMinutes,
-          emailsInvites,
-        })
-        lienMeet = lien
-        await serviceClient.from('evenements_admin').update({ google_event_id: eventId, lien_meet: lien }).eq('id', evenement.id)
-        await noterErreurGoogle(serviceClient, etablissementId, null)
-      } catch (erreurGoogle) {
-        await noterErreurGoogle(
-          serviceClient,
-          etablissementId,
-          erreurGoogle instanceof Error ? erreurGoogle.message : 'Échec de création du lien Meet.',
-        )
-      }
+      waitUntil(
+        (async () => {
+          try {
+            const emailsInvites = tousLesIds.map((id) => parId.get(id)?.email).filter((email): email is string => !!email)
+            const { eventId, lienMeet } = await creerEvenementMeet(integration, {
+              titre,
+              description: corps.notes?.trim() || undefined,
+              debut: new Date(corps.debut).toISOString(),
+              dureeMinutes,
+              emailsInvites,
+            })
+            await serviceClient.from('evenements_admin').update({ google_event_id: eventId, lien_meet: lienMeet }).eq('id', evenement.id)
+            await noterErreurGoogle(serviceClient, etablissementId, null)
+          } catch (erreurGoogle) {
+            await noterErreurGoogle(
+              serviceClient,
+              etablissementId,
+              erreurGoogle instanceof Error ? erreurGoogle.message : 'Échec de création du lien Meet.',
+            )
+          }
+        })(),
+      )
     }
 
-    return Response.json({ id: evenement.id, lienMeet })
+    return Response.json({ id: evenement.id, lienMeet: null })
   } catch (erreur) {
     if (erreur instanceof AdminAuthError) {
       return Response.json({ error: erreur.message }, { status: erreur.status })

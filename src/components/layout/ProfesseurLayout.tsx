@@ -16,6 +16,7 @@ const PROFESSEUR_NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Mes factures', href: '/professeur/factures', disponible: true, icone: 'facturation', description: 'Vos rémunérations facturées' },
       { label: 'Mes contrats', href: '/professeur/contrats', disponible: true, icone: 'contrats', description: 'Contrats à lire et à signer' },
+      { label: 'Mon profil', href: '/professeur/mon-profil', disponible: true, icone: 'parametres', description: 'Vos coordonnées et votre signature' },
     ],
   },
 ]

@@ -20,12 +20,16 @@ export function EtudiantsProfesseur() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { profile } = useProfileContext()
-  const { etudiantsActifs, loading } = useCalendrierProfesseur(profile?.id)
+  const { etudiantsActifs, etudiantsAnciens, loading } = useCalendrierProfesseur(profile?.id)
   const [recherche, setRecherche] = useState('')
 
   const filtres = useMemo(
     () => etudiantsActifs.filter((e) => `${e.prenom ?? ''} ${e.nom ?? ''}`.toLowerCase().includes(recherche.toLowerCase())),
     [etudiantsActifs, recherche],
+  )
+  const anciensFiltres = useMemo(
+    () => etudiantsAnciens.filter((e) => `${e.profil.prenom ?? ''} ${e.profil.nom ?? ''}`.toLowerCase().includes(recherche.toLowerCase())),
+    [etudiantsAnciens, recherche],
   )
 
   return (
@@ -46,8 +50,8 @@ export function EtudiantsProfesseur() {
             chacune, utile pour préparer votre prochain cours.
           </>,
           <>
-            Seuls les élèves <strong>actuellement attribués</strong> apparaissent. Un élève qui change de professeur
-            disparaît de cette liste, mais son historique avec vous reste conservé dans son dossier.
+            Un élève qui change de professeur passe dans la section <strong>« Anciens élèves »</strong>, avec la date du
+            transfert ; son historique avec vous reste consultable dans son dossier.
           </>,
         ]}
       />
@@ -98,6 +102,45 @@ export function EtudiantsProfesseur() {
               </span>
             </button>
           ))}
+
+          {anciensFiltres.length > 0 && (
+            <>
+              <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.8, padding: '10px 4px 2px' }}>
+                Anciens élèves
+              </span>
+              {anciensFiltres.map(({ profil, transfereLe }) => (
+                <button
+                  key={profil.id}
+                  onClick={() => navigate(`/professeur/etudiants/${profil.id}`)}
+                  aria-current={profil.id === id ? 'true' : undefined}
+                  className="carte-ligne"
+                  style={{
+                    textAlign: 'left',
+                    borderRadius: 14,
+                    border: profil.id === id ? '1px solid rgba(94,179,255,.5)' : '1px solid var(--border)',
+                    background: 'var(--surface)',
+                    padding: '13px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    cursor: 'pointer',
+                    color: 'inherit',
+                    opacity: 0.6,
+                  }}
+                >
+                  <span style={{ width: 38, height: 38, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
+                    {initiales(profil)}
+                  </span>
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>
+                      {profil.prenom} {profil.nom}
+                    </span>
+                    <span style={{ fontSize: 10.5, color: 'var(--muted-2)' }}>Transféré le {new Date(transfereLe).toLocaleDateString('fr-FR')}</span>
+                  </span>
+                </button>
+              ))}
+            </>
+          )}
         </aside>
 
         <div style={{ minWidth: 0 }}>
