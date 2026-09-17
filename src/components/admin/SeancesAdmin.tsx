@@ -247,6 +247,9 @@ export function SeancesAdmin() {
       {seanceOuverte && (
         <EditerSeancePlanifieeModale
           session={seanceOuverte.session}
+          etudiants={seanceOuverte.inscriptions.map((i) => i.etudiant).filter((e): e is NonNullable<typeof e> => !!e)}
+          professeur={seanceOuverte.professeur}
+          video={seanceOuverte.video}
           onFermer={() => setSeanceOuverteId(null)}
           onEnregistre={() => {
             setSeanceOuverteId(null)
@@ -342,6 +345,9 @@ function LigneSeance({ seance, onChange }: { seance: SeanceAdmin; maintenant: st
         <div onClick={(e) => e.stopPropagation()}>
           <EditerSeancePlanifieeModale
             session={seance.session}
+            etudiants={seance.inscriptions.map((i) => i.etudiant).filter((e): e is NonNullable<typeof e> => !!e)}
+            professeur={seance.professeur}
+            video={seance.video}
             onFermer={() => setEditionOuverte(false)}
             onEnregistre={() => {
               setEditionOuverte(false)

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useProfileContext } from '../../context/ProfileContext'
 import type { Database } from '../../types/database.types'
 import type { SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
@@ -28,6 +29,7 @@ interface PlanningPrevisionnelProfesseurProps {
    changement est une PROPOSITION soumise à validation de l'administration (migration 0038),
    règle inchangée ici. */
 export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, onChange }: PlanningPrevisionnelProfesseurProps) {
+  const { profile } = useProfileContext()
   const [eleveId, setEleveId] = useState<string | null>(null)
   const [generateurOuvert, setGenerateurOuvert] = useState(false)
   const [seanceEnEdition, setSeanceEnEdition] = useState<string | null>(null)
@@ -155,6 +157,9 @@ export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, onCha
       {seanceOuverte && (
         <EditerSeancePlanifieeModale
           session={seanceOuverte.session}
+          etudiants={seanceOuverte.inscriptions.map((i) => i.etudiant).filter((e): e is NonNullable<typeof e> => !!e)}
+          professeur={profile}
+          video={seanceOuverte.video}
           onFermer={() => setSeanceEnEdition(null)}
           onEnregistre={() => {
             setSeanceEnEdition(null)

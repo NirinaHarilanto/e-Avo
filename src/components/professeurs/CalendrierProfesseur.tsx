@@ -469,6 +469,9 @@ function CarteSeance({
       {editionHoraireOuverte && (
         <EditerSeancePlanifieeModale
           session={seance.session}
+          etudiants={seance.inscriptions.map((i) => i.etudiant).filter((e): e is NonNullable<typeof e> => !!e)}
+          professeur={profile}
+          video={seance.video}
           onFermer={() => setEditionHoraireOuverte(false)}
           onEnregistre={() => {
             setEditionHoraireOuverte(false)

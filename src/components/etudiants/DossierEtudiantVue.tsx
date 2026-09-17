@@ -623,6 +623,9 @@ export function DossierEtudiantVue({
       {seanceEnEdition && (
         <EditerSeancePlanifieeModale
           session={seanceEnEdition.session}
+          etudiants={[etudiant]}
+          professeur={periodes.find((p) => p.seances.some((s) => s.session.id === seanceEnEdition.session.id))?.professeur}
+          video={seanceEnEdition.video}
           onFermer={() => setSeanceEnEdition(null)}
           onEnregistre={() => {
             setSeanceEnEdition(null)

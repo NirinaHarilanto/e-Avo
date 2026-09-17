@@ -1,17 +1,27 @@
 import { useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import type { Database } from '../../types/database.types'
+import { getJoinUrl, estLienReel } from '../../lib/visio'
 import { Modale } from '../ui/Modale'
 import { Champ, champStyle } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 
 type Session = Database['public']['Tables']['sessions']['Row']
+type Profile = Database['public']['Tables']['profiles']['Row']
+type VideoSession = Database['public']['Tables']['video_sessions']['Row']
 
 interface EditerSeancePlanifieeModaleProps {
   session: Session
   onFermer: () => void
   onEnregistre: () => void
+  /* Récapitulatif affiché en tête de modale — tout est optionnel : chaque appelant transmet ce
+     qu'il a déjà sous la main (aucune requête supplémentaire), le bloc n'affiche que ce qui est
+     fourni. Demande client du 2026-09-17 : voir l'élève, le professeur et le lien Meet sans
+     quitter la fenêtre de modification. */
+  etudiants?: Pick<Profile, 'id' | 'prenom' | 'nom'>[]
+  professeur?: Pick<Profile, 'prenom' | 'nom'> | null
+  video?: VideoSession | null
 }
 
 function versDatetimeLocal(iso: string): string {
@@ -28,15 +38,17 @@ function versDatetimeLocal(iso: string): string {
    la propose (voir api/professeur/proposer-changement-seance.ts). Réutilisée depuis le planning
    prévisionnel du dossier étudiant (admin) et le calendrier professeur (CalendrierProfesseur.tsx)
    — mêmes règles des deux côtés, un seul endroit à maintenir. */
-export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre }: EditerSeancePlanifieeModaleProps) {
+export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre, etudiants, professeur, video }: EditerSeancePlanifieeModaleProps) {
   const { profile, session: authSession } = useProfileContext()
   const estAdmin = profile?.role === 'admin_etablissement'
   const changementEnAttente = session.changement_statut === 'en_attente'
+  const peutSupprimer = session.statut === 'planifiee'
 
   const [debut, setDebut] = useState(versDatetimeLocal(session.debut))
   const [dureeMinutes, setDureeMinutes] = useState(session.duree_minutes)
   const [justificatif, setJustificatif] = useState('')
   const [enCours, setEnCours] = useState(false)
+  const [suppressionEnCours, setSuppressionEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
   // Comparaison par instant, pas par égalité de chaîne : PostgREST rend `debut` au format
@@ -63,6 +75,29 @@ export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre }:
     onEnregistre()
   }
 
+  async function supprimer() {
+    if (!authSession) return
+    setSuppressionEnCours(true)
+    setErreur(null)
+    // Même API que le bouton "Annuler la séance" déjà présent sur la carte du calendrier
+    // professeur (CalendrierProfesseur.tsx) : elle autorise déjà l'admin comme le professeur
+    // propriétaire (requireTeacherOrAdmin), et gère aussi le nettoyage Google Calendar/visio.
+    // Suppression immédiate, sans validation admin (décision client du 2026-09-17) : contrairement
+    // au changement d'horaire, il n'y a pas de nouvelle valeur à faire approuver.
+    const reponse = await fetch('/api/professeur/annuler-seance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.access_token}` },
+      body: JSON.stringify({ sessionId: session.id }),
+    })
+    setSuppressionEnCours(false)
+    if (!reponse.ok) {
+      const corps = await reponse.json().catch(() => null)
+      setErreur(corps?.error ?? "La suppression a échoué.")
+      return
+    }
+    onEnregistre()
+  }
+
   async function repondreAValidation(approuver: boolean) {
     if (!authSession) return
     setEnCours(true)
@@ -84,6 +119,46 @@ export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre }:
   return (
     <Modale titre="Modifier la séance" onFermer={onFermer} largeurMax={440}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {(etudiants?.length || professeur || video) && (
+          <div
+            style={{
+              borderRadius: 12,
+              border: '1px solid var(--border-soft, var(--border))',
+              background: 'rgba(255,255,255,.03)',
+              padding: '12px 15px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 5,
+              fontSize: 12.5,
+              color: 'var(--ink-2)',
+            }}
+          >
+            {etudiants && etudiants.length > 0 && (
+              <span>
+                <strong style={{ color: 'var(--ink)' }}>{etudiants.length > 1 ? 'Élèves' : 'Élève'} :</strong>{' '}
+                {etudiants.map((e) => `${e.prenom ?? ''} ${e.nom ?? ''}`).join(', ')}
+              </span>
+            )}
+            {professeur && (
+              <span>
+                <strong style={{ color: 'var(--ink)' }}>Professeur :</strong> {professeur.prenom} {professeur.nom}
+              </span>
+            )}
+            {video && (
+              <span>
+                <strong style={{ color: 'var(--ink)' }}>Lien Google Meet :</strong>{' '}
+                {estLienReel(video) ? (
+                  <a href={getJoinUrl(video)} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-blue)' }}>
+                    {getJoinUrl(video)}
+                  </a>
+                ) : (
+                  <span style={{ color: 'var(--muted-2)' }}>Pas encore généré</span>
+                )}
+              </span>
+            )}
+          </div>
+        )}
+
         {changementEnAttente ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ borderRadius: 12, border: '1px solid rgba(255,190,110,.3)', background: 'rgba(255,190,110,.08)', padding: '12px 15px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -151,6 +226,23 @@ export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre }:
         )}
 
         {erreur && <MessageErreur>{erreur}</MessageErreur>}
+
+        {peutSupprimer && (
+          <button
+            type="button"
+            onClick={supprimer}
+            disabled={suppressionEnCours}
+            style={{
+              ...boutonNeutreStyle,
+              justifyContent: 'center',
+              color: 'var(--danger)',
+              borderColor: 'var(--danger)',
+              opacity: suppressionEnCours ? 0.6 : 1,
+            }}
+          >
+            {suppressionEnCours ? 'Suppression…' : 'Supprimer la séance'}
+          </button>
+        )}
 
         {!changementEnAttente && (
           <div style={{ display: 'flex', gap: 8 }}>
