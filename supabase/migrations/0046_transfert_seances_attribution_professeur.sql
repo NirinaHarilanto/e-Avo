@@ -23,7 +23,14 @@
 -- automatiquement sous la bonne période sans aucun changement côté lecture. C'est d'ailleurs plus
 -- correct que de les laisser sous l'ancienne période : une séance à venir n'a jamais eu lieu sous
 -- l'ancien professeur, la période close (date_fin = aujourd'hui) ne doit contenir que du passé.
-create or replace function public.attribuer_professeur(
+-- `create or replace` ne peut pas changer le type de retour d'une fonction existante (elle
+-- rendait un simple `uuid` jusqu'ici) : Postgres refuse avec l'erreur 42P13. Il faut donc la
+-- supprimer d'abord — sans risque de fenêtre sans fonction pour un appelant concurrent, cette
+-- migration s'exécute dans une transaction (voir run-migrations.cjs) qui recrée la fonction
+-- juste après dans le même commit.
+drop function if exists public.attribuer_professeur(uuid, uuid, text, text);
+
+create function public.attribuer_professeur(
   p_student_id uuid,
   p_teacher_id uuid,
   p_langue text default null,
