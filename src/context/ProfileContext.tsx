@@ -13,6 +13,12 @@ type PlatformAdmin = Database['public']['Tables']['platform_admins']['Row']
 interface ProfileContextValue {
   session: Session | null
   profile: Profile | null
+  /* Identifiant du dossier étudiant réellement à afficher — demande client du 2026-09-21 (DUO) :
+     un profil « secondaire » (profile.duo_partenaire_id renseigné) n'a pas son propre dossier
+     pédagogique/financier, celui-ci vit sous le profil « principal ». Vaut profile.id pour tout
+     le monde d'autre (y compris un DUO principal). À utiliser partout où l'espace étudiant lit
+     SES PROPRES données (dossier, agenda, paiements) — jamais pour éditer son propre login. */
+  idEtudiantEffectif: string | null
   loading: boolean
   /* Établissement du profil connecté et statut d'admin plateforme, résolus une seule fois ici
      plutôt que dans chaque layout — voir le commentaire sur leur récupération plus bas. */
@@ -44,6 +50,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const value: ProfileContextValue = {
     session,
     profile,
+    idEtudiantEffectif: profile ? (profile.duo_partenaire_id ?? profile.id) : null,
     loading,
     etablissement,
     platformAdmin,

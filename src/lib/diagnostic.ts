@@ -144,6 +144,26 @@ export function estRempli(reponses: ReponsesDiagnostic): boolean {
   )
 }
 
+/* `diagnostic_calls.niveau_evalue`/`rythme_convenu` (les deux champs "en tête" affichés partout
+   dans l'app — carte prospect, dossier étudiant) redisaient ce que portait déjà le
+   questionnaire : demande client du 2026-09-21, « corrige les redondances ». Plutôt que deux
+   sources à tenir d'accord, ces deux valeurs sont désormais CALCULÉES depuis les réponses du
+   questionnaire au moment de l'enregistrement — un seul endroit où les saisir. */
+export function niveauDepuisReponses(reponses: ReponsesDiagnostic): string | null {
+  const valeur = reponses.niveau_estime
+  return typeof valeur === 'string' && valeur.trim().length > 0 ? valeur.trim() : null
+}
+
+export function rythmeDepuisReponses(reponses: ReponsesDiagnostic): string | null {
+  const heures = reponses.heures_par_semaine
+  const duree = reponses.duree_session
+  const parties = [
+    typeof heures === 'string' && heures ? `${heures} / semaine` : null,
+    typeof duree === 'string' && duree ? `séances de ${duree}` : null,
+  ].filter((p): p is string => !!p)
+  return parties.length > 0 ? parties.join(', ') : null
+}
+
 /** Rend une réponse lisible d'un coup d'œil, cases cochées comprises. */
 export function formaterReponse(reponses: ReponsesDiagnostic, question: QuestionDiagnostic): string | null {
   const valeur = reponses[question.cle]

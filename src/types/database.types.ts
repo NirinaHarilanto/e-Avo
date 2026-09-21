@@ -92,6 +92,11 @@ export interface Database {
           taux_horaire: number | null
           signature_path: string | null
           mot_de_passe_defini: boolean
+          /* DUO (0054) : renseigné uniquement sur le profil « secondaire » (converti en second),
+             pointe vers le profil « principal » qui porte réellement packages/sessions/
+             paiements/contrats. Voir src/lib/duo.ts. */
+          duo_partenaire_id: string | null
+          duo_nom_groupe: string | null
           created_at: string
         }
         Insert: {
@@ -112,6 +117,8 @@ export interface Database {
           taux_horaire?: number | null
           signature_path?: string | null
           mot_de_passe_defini?: boolean
+          duo_partenaire_id?: string | null
+          duo_nom_groupe?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>
@@ -130,6 +137,11 @@ export interface Database {
           objectif: string | null
           disponibilites: string | null
           type_programme: TypeProgrammeProspect | null
+          /* Tarif choisi par le prospect (0054), repris automatiquement en packages à la
+             conversion pour individuel/duo. */
+          tarif_choisi_id: string | null
+          duo_partenaire_id: string | null
+          duo_nom_groupe: string | null
           created_at: string
         }
         Insert: {
@@ -144,6 +156,9 @@ export interface Database {
           objectif?: string | null
           disponibilites?: string | null
           type_programme?: TypeProgrammeProspect | null
+          tarif_choisi_id?: string | null
+          duo_partenaire_id?: string | null
+          duo_nom_groupe?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['prospects']['Insert']>

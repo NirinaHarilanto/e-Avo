@@ -17,8 +17,8 @@ import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
    sans aucune action — un élève consulte son emploi du temps, il ne le modifie pas. Les séances
    viennent du dossier déjà chargé (useDossierEtudiant), aucune requête supplémentaire. */
 export function AgendaEtudiant() {
-  const { profile } = useProfileContext()
-  const { dossier, loading, erreur } = useDossierEtudiant(profile?.id)
+  const { idEtudiantEffectif } = useProfileContext()
+  const { dossier, loading, erreur } = useDossierEtudiant(idEtudiantEffectif ?? undefined)
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
   const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
 

@@ -1,6 +1,7 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { creerCompteSansEmail } from '../_lib/creerCompte.js'
 import { trouverProfilHomonyme, messageHomonyme } from '../_lib/nomDuplique.js'
+import { nomGroupeDuo } from '../../src/lib/duo.js'
 
 export const config = { runtime: 'edge' }
 
@@ -67,6 +68,59 @@ export default async function handler(request: Request): Promise<Response> {
       .update({ prospect_id: prospect.id, telephone: prospect.telephone })
       .eq('id', invited.user.id)
     await serviceClient.from('prospects').update({ statut: 'etudiant' }).eq('id', prospect.id)
+
+    // Forfait choisi par le prospect (0054) — demande client du 2026-09-21 : repris
+    // automatiquement en `packages` à la conversion, pour ne pas ressaisir ce qui a déjà été
+    // décidé à l'appel diagnostic. Le collectif n'a pas de forfait (l'élève est identifié par
+    // sa vague via cohort_enrollments, voir 0027) : le tarif choisi y reste informatif.
+    if (prospect.tarif_choisi_id && (prospect.type_programme === 'individuel' || prospect.type_programme === 'duo')) {
+      const { data: tarif } = await serviceClient
+        .from('tarifs')
+        .select('heures, prix')
+        .eq('id', prospect.tarif_choisi_id)
+        .maybeSingle()
+      // Un tarif sans volume d'heures fixe (heures = null, ex. « sur devis ») ne décrit pas un
+      // forfait exploitable tel quel — mieux vaut laisser l'admin le créer à la main plutôt que
+      // de générer un forfait de 0 h.
+      if (tarif && tarif.heures != null) {
+        await serviceClient.from('packages').insert({
+          etablissement_id: etablissementId,
+          student_id: invited.user.id,
+          type_programme: prospect.type_programme,
+          total_heures: tarif.heures,
+          montant: tarif.prix,
+        })
+      }
+    }
+
+    // DUO (0054) — demande client du 2026-09-21 : les deux personnes du binôme partagent le
+    // même espace étudiant. Si le partenaire a DÉJÀ été converti (son profil existe), celui
+    // qu'on convertit maintenant devient le « secondaire » : il obtient son propre compte/login,
+    // mais son dossier pédagogique et financier reste celui du partenaire (voir les policies
+    // RLS étendues dans la migration). Si le partenaire n'est pas encore converti, rien à lier
+    // pour l'instant — ce sera fait en sens inverse quand lui-même sera converti à son tour.
+    if (prospect.duo_partenaire_id) {
+      const { data: prospectPartenaire } = await serviceClient
+        .from('prospects')
+        .select('id, prenom')
+        .eq('id', prospect.duo_partenaire_id)
+        .maybeSingle()
+      if (prospectPartenaire) {
+        const { data: profilPrincipal } = await serviceClient
+          .from('profiles')
+          .select('id, prenom, duo_nom_groupe')
+          .eq('prospect_id', prospectPartenaire.id)
+          .maybeSingle()
+        if (profilPrincipal) {
+          const nomGroupe = nomGroupeDuo(prospect.duo_nom_groupe, profilPrincipal.prenom ?? prospectPartenaire.prenom, prospect.prenom)
+          await serviceClient
+            .from('profiles')
+            .update({ duo_partenaire_id: profilPrincipal.id, duo_nom_groupe: nomGroupe })
+            .eq('id', invited.user.id)
+          await serviceClient.from('profiles').update({ duo_nom_groupe: nomGroupe }).eq('id', profilPrincipal.id)
+        }
+      }
+    }
 
     // Rattachement automatique à la vague du parcours collectif — demande client du 2026-09-21 :
     // un candidat converti depuis une session de test oral doit retrouver sa vague sans que

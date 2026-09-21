@@ -39,6 +39,11 @@ export interface DossierEtudiant {
   cohorte: Cohort | null
   heuresConsommees: number
   prochaineSeance: SeanceDuParcours | null
+  /* DUO (0054) : la personne dont le profil pointe VERS ce dossier (duo_partenaire_id = ce
+     studentId), s'il y en a une — ce studentId est alors le « principal » du binôme. `null` si
+     cet étudiant n'est pas en duo, ou s'il en est lui-même la « secondaire » (dans ce cas c'est
+     son PROPRE profil qui porte duo_partenaire_id, pas ce champ-ci). */
+  duoPartenaire: Profile | null
 }
 
 export function useDossierEtudiant(studentId: string | undefined) {
@@ -54,6 +59,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
       { data: packages },
       { data: resume },
       { data: inscriptionCohorte },
+      { data: duoPartenaire },
     ] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', studentId as string).single(),
       // Tri secondaire sur created_at : `date_debut` est une date, deux affectations du même
@@ -68,6 +74,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
       supabase.from('packages').select('*').eq('student_id', studentId as string).order('created_at', { ascending: false }),
       supabase.from('student_hours_summary').select('*').eq('student_id', studentId as string).maybeSingle(),
       supabase.from('cohort_enrollments').select('cohort_id').eq('student_id', studentId as string).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('profiles').select('*').eq('duo_partenaire_id', studentId as string).maybeSingle(),
     ])
     if (etudiantError || !etudiant) throw new Error(etudiantError?.message ?? 'Étudiant introuvable.')
 
@@ -124,6 +131,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
       cohorte: cohorte ?? null,
       heuresConsommees: resume?.heures_consommees ?? 0,
       prochaineSeance,
+      duoPartenaire: duoPartenaire ?? null,
     }
   })
 

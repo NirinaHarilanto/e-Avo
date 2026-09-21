@@ -10,6 +10,7 @@ import { boutonSecondaireStyle } from '../ui/Boutons'
 import type { Database } from '../../types/database.types'
 
 type Invoice = Database['public']['Tables']['invoices']['Row']
+type Profile = Database['public']['Tables']['profiles']['Row']
 
 interface ListeFacturesProps {
   /* Colonne de rattachement : `student_id` dans l'espace élève, `teacher_id` dans l'espace
@@ -20,18 +21,29 @@ interface ListeFacturesProps {
 }
 
 export function ListeFactures({ colonne, titreVide, descriptionVide }: ListeFacturesProps) {
-  const { profile } = useProfileContext()
+  const { profile, idEtudiantEffectif } = useProfileContext()
+  // DUO (0054) : côté élève, la facturation vit sous le principal du binôme — `teacher_id`
+  // n'est jamais concerné, aucun professeur n'a de duo_partenaire_id.
+  const idCible = colonne === 'student_id' ? idEtudiantEffectif : profile?.id
   const [factures, setFactures] = useState<Invoice[]>([])
+  /* Le vrai destinataire des factures : `idCible`, pas forcément `profile` (une secondaire DUO
+     imprime des factures émises au nom de la principale — voir le module de renommage plus
+     bas). Chargé une fois, réutilisé pour toutes les factures de la liste. */
+  const [profilCible, setProfilCible] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [factureAImprimer, setFactureAImprimer] = useState<Invoice | null>(null)
 
   const charger = useCallback(async () => {
-    if (!profile) return
+    if (!idCible) return
     setLoading(true)
-    const { data } = await supabase.from('invoices').select('*').eq(colonne, profile.id).order('date_emission', { ascending: false })
+    const [{ data }, { data: profilData }] = await Promise.all([
+      supabase.from('invoices').select('*').eq(colonne, idCible).order('date_emission', { ascending: false }),
+      idCible === profile?.id ? Promise.resolve({ data: profile }) : supabase.from('profiles').select('*').eq('id', idCible).maybeSingle(),
+    ])
     setFactures(data ?? [])
+    setProfilCible(profilData ?? null)
     setLoading(false)
-  }, [profile, colonne])
+  }, [idCible, colonne, profile])
 
   useEffect(() => {
     charger()
@@ -75,7 +87,7 @@ export function ListeFactures({ colonne, titreVide, descriptionVide }: ListeFact
         ))}
       </div>
 
-      {factureAImprimer && <FactureImprimable facture={factureAImprimer} destinataire={profile} onFermer={() => setFactureAImprimer(null)} />}
+      {factureAImprimer && <FactureImprimable facture={factureAImprimer} destinataire={profilCible} onFermer={() => setFactureAImprimer(null)} />}
     </div>
   )
 }

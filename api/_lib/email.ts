@@ -124,6 +124,28 @@ export function modeleRendezVousAnnule(params: { prenom: string; etablissement: 
   </p>`)
 }
 
+export function modeleRelanceProspect(params: { prenom: string; etablissement: string }): string {
+  return coquille(`
+  <h1 style="font-size:19px;margin:0 0 14px">On vous attend chez ${echapper(params.etablissement)} !</h1>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 14px">Bonjour ${echapper(params.prenom)},</p>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 14px">
+    Suite à votre appel diagnostic, il ne reste que deux petites choses à trancher pour démarrer vos cours d'anglais :
+  </p>
+  <ul style="font-size:14px;line-height:1.75;margin:0 0 14px;padding-left:20px">
+    <li><strong>Le forfait</strong> qui vous convient le mieux, selon vos objectifs et votre budget.</li>
+    <li><strong>Le rythme</strong> de vos séances (nombre d'heures par semaine, durée des sessions).</li>
+  </ul>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 14px">
+    Un petit rappel de ce que ${echapper(params.etablissement)} vous apporte : des cours en visioconférence avec un
+    professeur attitré, un accompagnement individualisé à votre niveau réel, des créneaux flexibles autour de votre
+    emploi du temps, et un suivi de votre progression à chaque séance.
+  </p>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 14px">
+    Répondez simplement à cet e-mail ou contactez-nous pour finaliser votre inscription — nous sommes là pour vous
+    aider à choisir.
+  </p>`)
+}
+
 export function modeleReinitialisationMotDePasse(params: { premiereConnexion: boolean; lien: string }): string {
   const titre = params.premiereConnexion ? 'Définissez votre mot de passe' : 'Réinitialisez votre mot de passe'
   const intro = params.premiereConnexion

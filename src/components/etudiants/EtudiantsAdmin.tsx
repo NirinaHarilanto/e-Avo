@@ -28,9 +28,23 @@ import { BadgeStatutContrat } from '../shared/BadgeStatutContrat'
 export function EtudiantsAdmin() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { etudiants, loading, recharger } = useEtudiants()
+  const { etudiants: tousLesEtudiants, loading, recharger } = useEtudiants()
   const [recherche, setRecherche] = useState('')
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
+
+  // DUO (0054) : la secondaire d'un binôme a son propre compte (son propre login), mais pas de
+  // dossier à elle — le sien est celui de la principale. Demande client du 2026-09-21 : « les
+  // deux personnes formant le DUO seront représentées par un seul bloc ». On la retire donc de
+  // la liste plutôt que d'afficher deux entrées qui ouvriraient le même dossier ; la principale
+  // porte le tag qui la nomme (voir TagProgramme ci-dessous).
+  const secondaireParPrincipal = useMemo(() => {
+    const table = new Map<string, (typeof tousLesEtudiants)[number]>()
+    for (const e of tousLesEtudiants) {
+      if (e.duo_partenaire_id) table.set(e.duo_partenaire_id, e)
+    }
+    return table
+  }, [tousLesEtudiants])
+  const etudiants = useMemo(() => tousLesEtudiants.filter((e) => !e.duo_partenaire_id), [tousLesEtudiants])
 
   const filtres = useMemo(
     () =>
@@ -167,7 +181,16 @@ export function EtudiantsAdmin() {
                 </span>
                 <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{etudiant.status === 'approved' ? 'Actif' : etudiant.status}</span>
                 <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                  {programmes[etudiant.id] && <TagProgramme programme={programmes[etudiant.id]} />}
+                  {secondaireParPrincipal.has(etudiant.id) ? (
+                    <TagProgramme
+                      programme={{
+                        libelle: `Duo · avec ${secondaireParPrincipal.get(etudiant.id)!.prenom}`,
+                        ton: 'or',
+                      }}
+                    />
+                  ) : (
+                    programmes[etudiant.id] && <TagProgramme programme={programmes[etudiant.id]} />
+                  )}
                   {statutsContrats[etudiant.id] && <BadgeStatutContrat statut={statutsContrats[etudiant.id]} compact />}
                   {/* Téléphone, adresse, ville, date et lieu de naissance : tant qu'un de ces
                       champs manque, le dossier ne peut pas servir de base à un contrat ou à une
@@ -218,7 +241,26 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
       panneauProfesseur={
         <AttribuerProfesseur studentId={etudiant.id} affectationActuelle={affectationActuelle} onTermine={recharger} />
       }
-      panneauInformations={<InformationsPersonnelles personne={etudiant} onChange={recharger} carte={false} />}
+      panneauInformations={
+        dossier.duoPartenaire ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+            <div>
+              <span style={{ display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
+                {etudiant.prenom} {etudiant.nom} (principal·e du binôme)
+              </span>
+              <InformationsPersonnelles personne={etudiant} onChange={recharger} carte={false} />
+            </div>
+            <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 18 }}>
+              <span style={{ display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
+                {dossier.duoPartenaire.prenom} {dossier.duoPartenaire.nom} (second·e membre du duo)
+              </span>
+              <InformationsPersonnelles personne={dossier.duoPartenaire} onChange={recharger} carte={false} />
+            </div>
+          </div>
+        ) : (
+          <InformationsPersonnelles personne={etudiant} onChange={recharger} carte={false} />
+        )
+      }
       panneauSuppression={<SupprimerCompte personne={etudiant} onSupprime={onSupprime} />}
       panneauChoixInitial={
         <ChoixProgrammeInitial studentId={etudiant.id} etablissementId={etudiant.etablissement_id} onCree={recharger} />

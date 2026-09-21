@@ -3,9 +3,10 @@ import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
-import { estRempli, type ReponsesDiagnostic } from '../../lib/diagnostic'
+import { estRempli, niveauDepuisReponses, rythmeDepuisReponses, type ReponsesDiagnostic } from '../../lib/diagnostic'
 import { FormulaireDiagnosticCall } from '../prospects/FormulaireDiagnosticCall'
 import { PlanifierAppelDiagnosticModale } from '../admin/PlanifierAppelDiagnosticModale'
+import { useTarifs } from '../../hooks/useTarifs'
 import type { ProspectStatut, TypeProgrammeProspect } from '../../types/database.types'
 import { COLONNES_PIPELINE, useProspectsPipeline, type ProspectAvecDiagnostic } from '../../hooks/useProspectsPipeline'
 import { EnTetePage } from '../ui/EnTetePage'
@@ -26,7 +27,7 @@ const COULEUR_COLONNE: Record<string, string> = {
 
 export function PipelineCRM() {
   const { profile, session } = useProfileContext()
-  const { prospects, loading, erreur, recharger } = useProspectsPipeline()
+  const { prospects, totalConvertis, loading, erreur, recharger } = useProspectsPipeline()
   const [colonneSurvolee, setColonneSurvolee] = useState<ProspectStatut | null>(null)
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
 
@@ -165,9 +166,12 @@ export function PipelineCRM() {
             <Stat
               compact
               libelle="Taux de conversion"
-              valeur={`${Math.round((prospects.filter((p) => p.statut === 'etudiant').length / prospects.length) * 100)} %`}
+              /* Un prospect converti quitte aussitôt ce tableau (demande client du 2026-09-21) :
+                 le taux se calcule donc contre le total historique (`totalConvertis`, compté à
+                 part côté serveur), pas contre les seuls dossiers encore affichés ici. */
+              valeur={`${Math.round((totalConvertis / (prospects.length + totalConvertis || 1)) * 100)} %`}
               ton="teal"
-              aide={`${prospects.filter((p) => p.statut === 'etudiant').length} dossier(s) devenu(s) étudiant`}
+              aide={`${totalConvertis} dossier(s) devenu(s) étudiant`}
             />
           </GrilleStats>
         </div>
@@ -355,8 +359,6 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
   const estPositionnement = prospect.type_programme === 'collectif'
   const [ouvert, setOuvert] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
-  const [niveauEvalue, setNiveauEvalue] = useState(prospect.diagnostic?.niveau_evalue ?? '')
-  const [rythmeConvenu, setRythmeConvenu] = useState(prospect.diagnostic?.rythme_convenu ?? '')
   const [notes, setNotes] = useState(prospect.diagnostic?.notes ?? '')
   const [reponses, setReponses] = useState<ReponsesDiagnostic>(prospect.diagnostic?.reponses ?? {})
   const [questionnaireOuvert, setQuestionnaireOuvert] = useState(false)
@@ -365,6 +367,13 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
   const [enGlissement, setEnGlissement] = useState(false)
   const [detailOuvert, setDetailOuvert] = useState(false)
   const [validationEnCours, setValidationEnCours] = useState(false)
+  const [relanceEnCours, setRelanceEnCours] = useState(false)
+  const [relanceEnvoyee, setRelanceEnvoyee] = useState(false)
+
+  // Forfait choisi par le prospect (0054) : liste filtrée sur son programme, individuel/collectif
+  // exclu du duo et réciproquement — pas de sens de proposer un forfait duo à un individuel.
+  const { tarifs } = useTarifs(prospect.etablissement_id)
+  const tarifsDuProgramme = tarifs.filter((t) => t.type_programme === (prospect.type_programme ?? 'individuel'))
 
   async function marquerRealise() {
     setEnCours(true)
@@ -396,7 +405,12 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
 
     const { error: updateDiagError } = await supabase
       .from('diagnostic_calls')
-      .update({ niveau_evalue: niveauEvalue || null, rythme_convenu: rythmeConvenu || null, notes: notes || null, reponses })
+      .update({
+        niveau_evalue: niveauDepuisReponses(reponses),
+        rythme_convenu: rythmeDepuisReponses(reponses),
+        notes: notes || null,
+        reponses,
+      })
       .eq('id', diagnosticId)
     if (updateDiagError) {
       setErreur(updateDiagError.message)
@@ -448,7 +462,12 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
 
     const { error } = await supabase
       .from('diagnostic_calls')
-      .update({ niveau_evalue: niveauEvalue || null, rythme_convenu: rythmeConvenu || null, notes: notes || null, reponses })
+      .update({
+        niveau_evalue: niveauDepuisReponses(reponses),
+        rythme_convenu: rythmeDepuisReponses(reponses),
+        notes: notes || null,
+        reponses,
+      })
       .eq('id', diagnosticId)
     setEnCours(false)
     if (error) {
@@ -456,6 +475,35 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
       return
     }
     onChange()
+  }
+
+  async function choisirTarif(tarifId: string) {
+    setErreur(null)
+    const { error } = await supabase.from('prospects').update({ tarif_choisi_id: tarifId || null }).eq('id', prospect.id)
+    if (error) {
+      setErreur(error.message)
+      return
+    }
+    onChange()
+  }
+
+  async function relancerProspect() {
+    if (!session) return
+    setRelanceEnCours(true)
+    setErreur(null)
+    const reponse = await fetch('/api/admin/relancer-prospect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ prospectId: prospect.id }),
+    })
+      .then((r) => r.json())
+      .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
+    setRelanceEnCours(false)
+    if (reponse.error) {
+      setErreur(reponse.error)
+      return
+    }
+    setRelanceEnvoyee(true)
   }
 
   async function validerRendezVous() {
@@ -515,23 +563,32 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
           </div>
         </div>
 
-        {prospect.type_programme && (
-          <span
-            style={{
-              alignSelf: 'flex-start',
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: 0.4,
-              textTransform: 'uppercase',
-              color: 'var(--muted-2)',
-              border: '1px solid var(--border)',
-              borderRadius: 999,
-              padding: '2px 9px',
-            }}
-          >
-            {LABEL_PROGRAMME[prospect.type_programme]}
-          </span>
-        )}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {prospect.type_programme && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+                color: 'var(--muted-2)',
+                border: '1px solid var(--border)',
+                borderRadius: 999,
+                padding: '2px 9px',
+              }}
+            >
+              {LABEL_PROGRAMME[prospect.type_programme]}
+            </span>
+          )}
+          {/* Binôme DUO (0054) : les deux dossiers restent deux cartes distinctes dans ce
+              tableau (chacune avance dans le pipeline à son propre rythme), ce repère évite
+              juste de les traiter comme deux prospects sans rapport. */}
+          {prospect.duoPartenaireNom && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', border: '1px solid rgba(233,207,148,.32)', borderRadius: 999, padding: '2px 9px' }}>
+              Duo avec {prospect.duoPartenaireNom}
+            </span>
+          )}
+        </div>
       </div>
 
       {detailOuvert && (
@@ -605,18 +662,6 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
             )}
             {prospect.statut === 'diagnostic_planifie' && ouvert && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <input
-                  placeholder="Niveau évalué (ex. B1)"
-                  value={niveauEvalue}
-                  onChange={(e) => setNiveauEvalue(e.target.value)}
-                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-                />
-                <input
-                  placeholder="Rythme convenu (ex. 2h / semaine)"
-                  value={rythmeConvenu}
-                  onChange={(e) => setRythmeConvenu(e.target.value)}
-                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-                />
                 <textarea
                   placeholder="Résultats de l'appel, remarques… (facultatif)"
                   value={notes}
@@ -630,6 +675,11 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
                   reponses={reponses}
                   onChange={setReponses}
                 />
+                {/* Niveau et rythme ne se ressaisissent plus ici : ils viennent du questionnaire
+                    ci-dessus (section « Niveau d'anglais actuel » → Niveau estimé, et « Rythme
+                    souhaité ») — demande client du 2026-09-21, « corrige les redondances ». */}
+                <ApercuNiveauRythme reponses={reponses} />
+                <SelecteurTarifChoisi tarifs={tarifsDuProgramme} valeur={prospect.tarif_choisi_id} onChoisir={choisirTarif} />
                 <button onClick={marquerRealise} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
                   Confirmer
                 </button>
@@ -641,22 +691,9 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
                   Niveau et résultats de l’appel
                 </span>
-                <input
-                  placeholder="Niveau évalué (ex. B1)"
-                  value={niveauEvalue}
-                  onChange={(e) => setNiveauEvalue(e.target.value)}
-                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-                />
-                <input
-                  placeholder="Rythme convenu (ex. 2h / semaine)"
-                  value={rythmeConvenu}
-                  onChange={(e) => setRythmeConvenu(e.target.value)}
-                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-                />
                 {/* Zone libre à l'écriture pour l'admin (demande client du 2026-09-16) : ce que le
-                    prospect a dit pendant l'appel, ses freins, tout ce qui ne rentre pas dans les
-                    deux champs ci-dessus. Persistée dans `diagnostic_calls.notes`, déjà prévue par
-                    le schéma mais jamais exposée jusqu'ici. */}
+                    prospect a dit pendant l'appel, ses freins, tout ce qui ne rentre pas dans le
+                    questionnaire structuré. Persistée dans `diagnostic_calls.notes`. */}
                 <textarea
                   placeholder="Résultats de l'appel, remarques…"
                   value={notes}
@@ -670,8 +707,18 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
                   reponses={reponses}
                   onChange={setReponses}
                 />
+                <ApercuNiveauRythme reponses={reponses} />
+                <SelecteurTarifChoisi tarifs={tarifsDuProgramme} valeur={prospect.tarif_choisi_id} onChoisir={choisirTarif} />
                 <button onClick={enregistrerDiagnostic} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
                   {enCours ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+                <button
+                  onClick={relancerProspect}
+                  disabled={relanceEnCours || relanceEnvoyee}
+                  className="btn-shine btn-secondary"
+                  style={{ fontSize: 12.5, padding: 9, opacity: relanceEnCours ? 0.7 : 1, color: relanceEnvoyee ? 'var(--accent-teal)' : undefined }}
+                >
+                  {relanceEnvoyee ? 'Relance envoyée ✓' : relanceEnCours ? 'Envoi…' : 'Relancer le prospect'}
                 </button>
                 <button onClick={convertirEnEtudiant} disabled={enCours} className="btn-shine" style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-blue-gradient)', color: '#fff', opacity: enCours ? 0.7 : 1 }}>
                   Convertir en étudiant
@@ -721,6 +768,51 @@ function BilanTestPositionnement({
           )}
         </>
       )}
+    </div>
+  )
+}
+
+/* Aperçu en lecture seule de ce que `niveauDepuisReponses`/`rythmeDepuisReponses` enregistreront
+   — l'admin voit tout de suite si ces deux informations manquent encore dans le questionnaire,
+   sans avoir à le dérouler pour vérifier. */
+function ApercuNiveauRythme({ reponses }: { reponses: ReponsesDiagnostic }) {
+  const niveau = niveauDepuisReponses(reponses)
+  const rythme = rythmeDepuisReponses(reponses)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11.5, color: 'var(--muted)', padding: '2px 2px' }}>
+      <span>Niveau qui sera enregistré : <strong style={{ color: niveau ? 'var(--ink-2)' : 'var(--muted-2)' }}>{niveau ?? '— à renseigner dans le questionnaire'}</strong></span>
+      <span>Rythme qui sera enregistré : <strong style={{ color: rythme ? 'var(--ink-2)' : 'var(--muted-2)' }}>{rythme ?? '— à renseigner dans le questionnaire'}</strong></span>
+    </div>
+  )
+}
+
+/* Forfait choisi par le prospect parmi la grille tarifaire de son programme (0054) — repris
+   automatiquement en `packages` à la conversion (api/admin/convert-prospect.ts). */
+function SelecteurTarifChoisi({
+  tarifs,
+  valeur,
+  onChoisir,
+}: {
+  tarifs: { id: string; titre: string; prix: number; unite: string; heures: number | null }[]
+  valeur: string | null
+  onChoisir: (tarifId: string) => void
+}) {
+  if (tarifs.length === 0) return null
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Forfait choisi</label>
+      <select
+        value={valeur ?? ''}
+        onChange={(e) => onChoisir(e.target.value)}
+        style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+      >
+        <option value="">Non renseigné</option>
+        {tarifs.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.titre} — {t.prix.toLocaleString('fr-FR')} {t.unite}
+          </option>
+        ))}
+      </select>
     </div>
   )
 }

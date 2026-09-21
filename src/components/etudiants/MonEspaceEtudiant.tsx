@@ -4,12 +4,15 @@ import { DossierEtudiantVue } from './DossierEtudiantVue'
 import { EtudiantLayout } from '../layout/EtudiantLayout'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
-import { EtatChargement, MessageErreur } from '../ui/Etats'
+import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
 
 export function MonEspaceEtudiant() {
-  const { profile } = useProfileContext()
-  const { dossier, loading, erreur } = useDossierEtudiant(profile?.id)
+  const { profile, idEtudiantEffectif } = useProfileContext()
+  const { dossier, loading, erreur } = useDossierEtudiant(idEtudiantEffectif ?? undefined)
+  /* DUO (0054) : le dossier affiché est celui du binôme, pas forcément le profil qu'on vient de
+     créer soi-même — un mot d'explication évite toute confusion à la première connexion. */
+  const estSecondaireDuo = !!profile?.duo_partenaire_id
 
   return (
     <EtudiantLayout actif="Mon dossier">
@@ -39,6 +42,15 @@ export function MonEspaceEtudiant() {
           </>,
         ]}
       />
+
+      {estSecondaireDuo && dossier && (
+        <div style={{ marginBottom: 14 }}>
+          <MessageInfo>
+            Vous partagez cet espace en duo avec {dossier.etudiant.prenom} {dossier.etudiant.nom} : vos deux comptes
+            donnent accès au même dossier.
+          </MessageInfo>
+        </div>
+      )}
 
       {loading && <EtatChargement lignes={3} hauteur={110} />}
       {erreur && <MessageErreur>{erreur}</MessageErreur>}

@@ -20,6 +20,9 @@ export interface ProspectAvecDiagnostic extends Prospect {
   /* Candidature au test oral d'une vague, pour les prospects venus par le parcours collectif
      (0051) : note au questionnaire écrit, niveau estimé et bilan généré automatiquement. */
   testPositionnement: TestPositionnement | null
+  /* Nom complet du partenaire DUO (0054), résolu depuis duo_partenaire_id — évite à chaque carte
+     d'aller chercher elle-même le prospect lié pour un simple affichage. */
+  duoPartenaireNom: string | null
 }
 
 export const COLONNES_PIPELINE: { statut: ProspectStatut; titre: string }[] = [
@@ -36,11 +39,19 @@ export function useProspectsPipeline() {
       { data: diagnosticsData, error: diagnosticsError },
       { data: rendezVousData, error: rendezVousError },
       { data: testsData },
+      { count: totalConvertis },
     ] = await Promise.all([
-      supabase.from('prospects').select('*').order('created_at', { ascending: false }),
+      // Un prospect converti quitte définitivement ce tableau — demande client du 2026-09-21 :
+      // il vit désormais dans l'espace Étudiants, avec les informations recueillies pendant la
+      // phase prospect (téléphone copié, diagnostic visible dans son dossier via prospect_id).
+      // Le garder ici ne ferait que dupliquer un dossier déjà ouvert ailleurs.
+      supabase.from('prospects').select('*').neq('statut', 'etudiant').order('created_at', { ascending: false }),
       supabase.from('diagnostic_calls').select('*').order('created_at', { ascending: false }),
       supabase.from('rendez_vous').select('*').order('debut', { ascending: false }),
       supabase.from('test_positionnement_inscriptions').select('*').order('created_at', { ascending: false }),
+      // Comptage séparé : le taux de conversion doit rester juste même si les dossiers déjà
+      // convertis ne sont plus renvoyés par la requête ci-dessus.
+      supabase.from('prospects').select('id', { count: 'exact', head: true }).eq('statut', 'etudiant'),
     ])
     if (prospectsError || diagnosticsError || rendezVousError) {
       throw new Error((prospectsError ?? diagnosticsError ?? rendezVousError)?.message ?? 'Erreur de chargement.')
@@ -66,13 +77,20 @@ export function useProspectsPipeline() {
       }
     }
 
-    return (prospectsData ?? []).map((prospect): ProspectAvecDiagnostic => ({
+    // Le partenaire d'un binôme DUO reste, tant qu'il n'est pas converti, dans ce même tableau
+    // `prospectsData` : pas besoin d'une requête séparée pour résoudre son nom.
+    const nomParProspect = new Map((prospectsData ?? []).map((p) => [p.id, `${p.prenom} ${p.nom}`]))
+
+    const prospects = (prospectsData ?? []).map((prospect): ProspectAvecDiagnostic => ({
       ...prospect,
       diagnostic: diagnosticParProspect.get(prospect.id) ?? null,
       rendezVous: rendezVousParProspect.get(prospect.id) ?? null,
       testPositionnement: testParProspect.get(prospect.id) ?? null,
+      duoPartenaireNom: prospect.duo_partenaire_id ? (nomParProspect.get(prospect.duo_partenaire_id) ?? null) : null,
     }))
+
+    return { prospects, totalConvertis: totalConvertis ?? 0 }
   })
 
-  return { prospects: valeur ?? [], loading, erreur, recharger }
+  return { prospects: valeur?.prospects ?? [], totalConvertis: valeur?.totalConvertis ?? 0, loading, erreur, recharger }
 }

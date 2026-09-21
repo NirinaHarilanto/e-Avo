@@ -9,6 +9,14 @@ export const config = { runtime: 'edge' }
 
 type TypeProgramme = TypeProgrammeProspect
 
+interface CorpsDuo {
+  prenom?: string
+  nom?: string
+  email?: string
+  telephone?: string
+  nomGroupe?: string
+}
+
 interface CorpsReservation {
   etablissementSlug?: string
   creneau?: string
@@ -20,6 +28,9 @@ interface CorpsReservation {
   objectif?: string
   typeProgramme?: TypeProgramme
   message?: string
+  /* Présent uniquement pour typeProgramme === 'duo' — demande client du 2026-09-21 : les deux
+     personnes du binôme réservent ensemble, un seul appel diagnostic pour les deux. */
+  duo?: CorpsDuo
 }
 
 const EMAIL_VALIDE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -60,6 +71,19 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Créneau invalide.' }, { status: 400 })
     }
 
+    const estDuo = corps.typeProgramme === 'duo'
+    const nom2 = corps.duo?.nom?.trim()
+    const prenom2 = corps.duo?.prenom?.trim()
+    const email2 = corps.duo?.email?.trim().toLowerCase()
+    if (estDuo) {
+      if (!nom2 || !prenom2 || !email2) {
+        return Response.json({ error: 'Le nom, le prénom et l’e-mail de la deuxième personne sont obligatoires pour un duo.' }, { status: 400 })
+      }
+      if (!EMAIL_VALIDE.test(email2)) {
+        return Response.json({ error: 'Adresse e-mail de la deuxième personne invalide.' }, { status: 400 })
+      }
+    }
+
     const serviceClient = createClient<Database>(url, serviceKey)
 
     const { data: etablissement } = await serviceClient
@@ -92,12 +116,41 @@ export default async function handler(request: Request): Promise<Response> {
         objectif: corps.objectif?.trim() || null,
         type_programme: corps.typeProgramme ?? 'individuel',
         statut: 'diagnostic_planifie',
+        duo_nom_groupe: estDuo ? corps.duo?.nomGroupe?.trim() || null : null,
       })
       .select('id')
       .single()
 
     if (erreurProspect || !prospect) {
       return Response.json({ error: "Votre demande n'a pas pu être enregistrée." }, { status: 500 })
+    }
+
+    // Second dossier du binôme, lié symétriquement au premier — demande client du 2026-09-21.
+    // Un échec ici ne doit pas laisser le premier prospect orphelin d'un rendez-vous : on
+    // continue avec ce qu'on a plutôt que d'annuler toute la réservation pour un second dossier
+    // qui pourra être recréé/relié à la main par l'admin si besoin.
+    let prospect2Id: string | null = null
+    if (estDuo && nom2 && prenom2 && email2) {
+      const { data: prospect2 } = await serviceClient
+        .from('prospects')
+        .insert({
+          etablissement_id: etablissement.id,
+          nom: nom2,
+          prenom: prenom2,
+          email: email2,
+          telephone: corps.duo?.telephone?.trim() || null,
+          langue_visee: corps.langueVisee?.trim() || null,
+          type_programme: 'duo',
+          statut: 'diagnostic_planifie',
+          duo_partenaire_id: prospect.id,
+          duo_nom_groupe: corps.duo?.nomGroupe?.trim() || null,
+        })
+        .select('id')
+        .single()
+      if (prospect2) {
+        prospect2Id = prospect2.id
+        await serviceClient.from('prospects').update({ duo_partenaire_id: prospect2.id }).eq('id', prospect.id)
+      }
     }
 
     const { data: rendezVous, error: erreurRdv } = await serviceClient
@@ -132,6 +185,8 @@ export default async function handler(request: Request): Promise<Response> {
       timeStyle: 'short',
     }).format(new Date(demande))
 
+    const nomDemandeur = prospect2Id ? `${prenom} ${nom} et ${prenom2} ${nom2}` : `${prenom} ${nom}`
+
     /* Notification interne à tous les admins : c'est elle qui rend l'établissement réactif, sans
        dépendre d'un e-mail qui peut se perdre ou attendre. */
     const admins = await adminsDeLEtablissement(serviceClient, etablissement.id)
@@ -142,19 +197,27 @@ export default async function handler(request: Request): Promise<Response> {
           destinataireProfileId: destinataire,
           type: 'rendez_vous_demande',
           titre: 'Nouvelle demande d’appel diagnostic',
-          message: `${prenom} ${nom} demande un appel le ${quand}.`,
+          message: `${nomDemandeur} demande${prospect2Id ? 'nt' : ''} un appel le ${quand}.`,
           lien: '/admin/rendez-vous',
         }),
       ),
     )
 
-    /* Accusé de réception au prospect. Sans clé Resend configurée, l'envoi est simplement ignoré
-       et la réservation reste valide — l'e-mail est un confort, pas une étape du flux. */
+    /* Accusé de réception aux deux personnes en duo, ou au seul prospect sinon. Sans clé Resend
+       configurée, l'envoi est simplement ignoré et la réservation reste valide — l'e-mail est un
+       confort, pas une étape du flux. */
     await envoyerEmail({
       destinataire: email,
       sujet: `Votre demande d’appel avec ${etablissement.nom}`,
       html: modeleDemandeRecue({ prenom, etablissement: etablissement.nom, quand }),
     })
+    if (prospect2Id && email2 && prenom2) {
+      await envoyerEmail({
+        destinataire: email2,
+        sujet: `Votre demande d’appel avec ${etablissement.nom}`,
+        html: modeleDemandeRecue({ prenom: prenom2, etablissement: etablissement.nom, quand }),
+      })
+    }
 
     return Response.json({ ok: true, rendezVousId: rendezVous.id, quand })
   } catch {

@@ -31,6 +31,8 @@ const etudiant: Profile = {
   taux_horaire: null,
   signature_path: null,
   mot_de_passe_defini: true,
+  duo_partenaire_id: null,
+  duo_nom_groupe: null,
   created_at: '2026-01-01T00:00:00Z',
 }
 

@@ -98,6 +98,13 @@ export function ReserverAppel({
   const [telephone, setTelephone] = useState('')
   const [objectif, setObjectif] = useState('')
   const [message, setMessage] = useState('')
+  /* DUO : les deux personnes réservent ensemble — demande client du 2026-09-21. Nom de groupe
+     facultatif, à défaut « Prénom1/Prénom2 » (calculé côté serveur, voir lib/duo.ts). */
+  const [prenom2, setPrenom2] = useState('')
+  const [nom2, setNom2] = useState('')
+  const [email2, setEmail2] = useState('')
+  const [telephone2, setTelephone2] = useState('')
+  const [nomGroupe, setNomGroupe] = useState('')
   const [consent, setConsent] = useState(false)
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -173,6 +180,9 @@ export function ReserverAppel({
         objectif,
         typeProgramme,
         message,
+        ...(typeProgramme === 'duo'
+          ? { duo: { prenom: prenom2, nom: nom2, email: email2, telephone: telephone2, nomGroupe: nomGroupe.trim() || undefined } }
+          : {}),
       }),
     })
       .then((r) => r.json())
@@ -383,12 +393,30 @@ export function ReserverAppel({
       {creneauChoisi && (
         <form onSubmit={envoyer} style={{ display: 'flex', flexDirection: 'column', gap: 14, borderTop: '1px solid var(--border-soft)', paddingTop: 18 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-            <Champ label="Prénom" obligatoire valeur={prenom} onChange={setPrenom} />
-            <Champ label="Nom" obligatoire valeur={nom} onChange={setNom} />
+            <Champ label={typeProgramme === 'duo' ? 'Prénom (personne 1)' : 'Prénom'} obligatoire valeur={prenom} onChange={setPrenom} />
+            <Champ label={typeProgramme === 'duo' ? 'Nom (personne 1)' : 'Nom'} obligatoire valeur={nom} onChange={setNom} />
             <Champ label="E-mail" obligatoire type="email" valeur={email} onChange={setEmail} placeholder="vous@exemple.fr" />
             <Champ label="Téléphone" valeur={telephone} onChange={setTelephone} placeholder="+261 ..." />
             <Champ label="Votre objectif" valeur={objectif} onChange={setObjectif} placeholder="Entretien, expatriation…" />
           </div>
+
+          {typeProgramme === 'duo' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>La deuxième personne du binôme</span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                <Champ label="Prénom (personne 2)" obligatoire valeur={prenom2} onChange={setPrenom2} />
+                <Champ label="Nom (personne 2)" obligatoire valeur={nom2} onChange={setNom2} />
+                <Champ label="E-mail (personne 2)" obligatoire type="email" valeur={email2} onChange={setEmail2} placeholder="elle-ou-lui@exemple.fr" />
+                <Champ label="Téléphone (personne 2)" valeur={telephone2} onChange={setTelephone2} placeholder="+261 ..." />
+              </div>
+              <Champ
+                label="Nom du binôme (facultatif)"
+                valeur={nomGroupe}
+                onChange={setNomGroupe}
+                placeholder={prenom && prenom2 ? `${prenom}/${prenom2}` : 'Ex. Les Rakoto'}
+              />
+            </div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <label style={labelStyle}>Un mot pour l’établissement (facultatif)</label>
