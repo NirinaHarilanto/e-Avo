@@ -397,6 +397,9 @@ export interface Database {
           duree_minutes: number
           capacite_max: number | null
           lien_visio: string | null
+          /* Événement Google Calendar correspondant, pour déplacer/supprimer le lien Meet
+             quand le créneau est modifié ou retiré (0053). */
+          google_event_id: string | null
           actif: boolean
           created_by_profile_id: string
           created_at: string
@@ -409,6 +412,7 @@ export interface Database {
           duree_minutes?: number
           capacite_max?: number | null
           lien_visio?: string | null
+          google_event_id?: string | null
           actif?: boolean
           created_by_profile_id: string
           created_at?: string

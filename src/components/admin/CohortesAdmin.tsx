@@ -29,10 +29,10 @@ export function CohortesAdmin() {
   const [onglet, setOnglet] = useState<'vagues' | 'quiz'>('vagues')
 
   return (
-    <AdminLayout actif="Vagues">
+    <AdminLayout actif="Cours collectifs">
       <EnTetePage
         compact
-        titre="Vagues (cours collectifs)"
+        titre="Cours collectifs"
         description="Une vague est un groupe d’élèves qui suivent le même programme sur une même période. C’est l’alternative au forfait individuel ou en duo."
         actions={
           onglet === 'vagues' && (
@@ -105,7 +105,13 @@ export function CohortesAdmin() {
           <>
             Le bouton <strong>Voir les inscrits</strong> déplie la liste des élèves rattachés, et donne accès aux{' '}
             <strong>sessions de test oral</strong> que vous ouvrez pour cette vague : c’est ce que les candidats au
-            collectif réservent depuis la page publique.
+            collectif réservent depuis la page publique. Une session peut être <strong>modifiée</strong> après coup ;
+            son lien Google Meet se génère tout seul.
+          </>,
+          <>
+            <strong>Cliquez sur une session</strong> pour dérouler la liste des candidats qui s’y sont inscrits, avec
+            leur note au questionnaire. Une fois le test oral passé, le bouton{' '}
+            <strong>Convertir en étudiant</strong> crée son compte et le rattache automatiquement à cette vague.
           </>,
         ]}
       />
@@ -377,7 +383,7 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
             ))
           )}
           </div>
-          <CreneauxTestVague cohorteId={cohorte.id} etablissementId={cohorte.etablissement_id} />
+          <CreneauxTestVague cohorteId={cohorte.id} />
         </div>
       )}
     </div>

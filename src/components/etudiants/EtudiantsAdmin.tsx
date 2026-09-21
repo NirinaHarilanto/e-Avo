@@ -22,6 +22,7 @@ import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
+import { useTypesProgrammeEtudiants } from '../../hooks/useTypesProgrammeEtudiants'
 import { BadgeStatutContrat } from '../shared/BadgeStatutContrat'
 
 export function EtudiantsAdmin() {
@@ -41,6 +42,7 @@ export function EtudiantsAdmin() {
 
   const actifs = etudiants.filter((e) => e.status === 'approved').length
   const statutsContrats = useStatutsContratsSignature(useMemo(() => etudiants.map((e) => e.id), [etudiants]))
+  const programmes = useTypesProgrammeEtudiants(useMemo(() => etudiants.map((e) => e.id), [etudiants]))
   const sansContratSigne = etudiants.filter((e) => statutsContrats[e.id] && statutsContrats[e.id] !== 'signe').length
 
   return (
@@ -165,6 +167,7 @@ export function EtudiantsAdmin() {
                 </span>
                 <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{etudiant.status === 'approved' ? 'Actif' : etudiant.status}</span>
                 <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {programmes[etudiant.id] && <TagProgramme programme={programmes[etudiant.id]} />}
                   {statutsContrats[etudiant.id] && <BadgeStatutContrat statut={statutsContrats[etudiant.id]} compact />}
                   {/* Téléphone, adresse, ville, date et lieu de naissance : tant qu'un de ces
                       champs manque, le dossier ne peut pas servir de base à un contrat ou à une
@@ -261,6 +264,23 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
       peutModifierPlanning
       onDossierChange={recharger}
     />
+  )
+}
+
+const FOND_TON: Record<'teal' | 'bleu' | 'or', { color: string; bg: string; border: string }> = {
+  teal: { color: 'var(--accent-teal)', bg: 'rgba(111,227,192,.14)', border: 'rgba(111,227,192,.3)' },
+  bleu: { color: 'var(--accent-blue)', bg: 'rgba(94,179,255,.14)', border: 'rgba(94,179,255,.3)' },
+  or: { color: 'var(--accent-gold, #e9cf94)', bg: 'rgba(233,207,148,.14)', border: 'rgba(233,207,148,.32)' },
+}
+
+/* Petit tag discret indiquant si l'étudiant suit des cours particuliers (individuel/duo) ou un
+   cours collectif, et dans ce cas laquelle vague — demande client du 2026-09-21. */
+function TagProgramme({ programme }: { programme: { libelle: string; ton: 'teal' | 'bleu' | 'or' } }) {
+  const style = FOND_TON[programme.ton]
+  return (
+    <span style={{ fontSize: 10, fontWeight: 700, color: style.color, background: style.bg, border: `1px solid ${style.border}`, borderRadius: 999, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+      {programme.libelle}
+    </span>
   )
 }
 

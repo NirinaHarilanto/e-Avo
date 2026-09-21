@@ -68,6 +68,34 @@ export default async function handler(request: Request): Promise<Response> {
       .eq('id', invited.user.id)
     await serviceClient.from('prospects').update({ statut: 'etudiant' }).eq('id', prospect.id)
 
+    // Rattachement automatique à la vague du parcours collectif — demande client du 2026-09-21 :
+    // un candidat converti depuis une session de test oral doit retrouver sa vague sans que
+    // l'admin ait à la ré-assigner à la main. Dérivé de l'inscription la plus récente plutôt que
+    // d'un paramètre transmis par l'appelant : couvre indifféremment la conversion depuis la
+    // page Prospects et depuis la nouvelle page Cours collectifs, sans dupliquer cette logique.
+    const { data: inscription } = await serviceClient
+      .from('test_positionnement_inscriptions')
+      .select('creneau_id')
+      .eq('prospect_id', prospect.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (inscription) {
+      const { data: creneau } = await serviceClient
+        .from('creneaux_test_positionnement')
+        .select('cohort_id')
+        .eq('id', inscription.creneau_id)
+        .maybeSingle()
+      if (creneau) {
+        await serviceClient
+          .from('cohort_enrollments')
+          .upsert(
+            { etablissement_id: etablissementId, cohort_id: creneau.cohort_id, student_id: invited.user.id },
+            { onConflict: 'cohort_id,student_id' },
+          )
+      }
+    }
+
     return Response.json({ profileId: invited.user.id })
   } catch (error) {
     if (error instanceof AdminAuthError) {
