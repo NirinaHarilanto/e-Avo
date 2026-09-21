@@ -35,7 +35,7 @@ const boutonPanneauStyle: React.CSSProperties = {
 /* Fusionne l'ancien résumé compact (une ligne dans le parcours) et l'ancienne carte « Appel
    diagnostic » détaillée (rythme convenu, notes) : un seul affichage, dans l'onglet Parcours
    pédagogique, plutôt que la même information répétée à deux endroits du dossier. */
-function BlocDiagnostic({ diagnostic }: { diagnostic: NonNullable<DossierEtudiant['diagnostic']> }) {
+function BlocDiagnostic({ diagnostic, tarifChoisi }: { diagnostic: NonNullable<DossierEtudiant['diagnostic']>; tarifChoisi?: DossierEtudiant['tarifChoisi'] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 14, border: '1px solid rgba(255,255,255,.08)', background: 'rgba(255,255,255,.03)', padding: '15px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
@@ -45,6 +45,15 @@ function BlocDiagnostic({ diagnostic }: { diagnostic: NonNullable<DossierEtudian
         <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{new Date(diagnostic.date_appel).toLocaleDateString('fr-FR')}</span>
       </div>
       {diagnostic.rythme_convenu && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Rythme convenu : {diagnostic.rythme_convenu}</span>}
+      {/* Programme collectif uniquement (0054) : pour individuel/duo, ce choix a déjà donné lieu
+          à un vrai forfait facturable (onglet Programme) — ici, la vague ne portant pas de
+          montant, c'est le seul endroit du dossier où ce choix reste visible. */}
+      {tarifChoisi && (
+        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+          Forfait choisi à l'inscription (indicatif, à reporter sur les paiements manuels) : {tarifChoisi.titre} ·{' '}
+          {tarifChoisi.prix.toLocaleString('fr-FR')} Ar{tarifChoisi.unite}
+        </span>
+      )}
       {diagnostic.notes && (
         <div style={{ background: 'rgba(0,0,0,.24)', borderRadius: 12, padding: '11px 13px' }}>
           <TexteRepliable texte={`« ${diagnostic.notes} »`} style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)' }} />
@@ -314,7 +323,7 @@ export function DossierEtudiantVue({
   peutModifierPlanning,
   onDossierChange,
 }: DossierEtudiantVueProps) {
-  const { etudiant, periodes, periodeActuelle, diagnostic, packages, cohorte, heuresConsommees, prochaineSeance } = dossier
+  const { etudiant, periodes, periodeActuelle, diagnostic, packages, cohorte, heuresConsommees, prochaineSeance, tarifChoisi } = dossier
   const forfait = packages[0] ?? null
   const [editionForfaitOuverte, setEditionForfaitOuverte] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
@@ -460,7 +469,7 @@ export function DossierEtudiantVue({
                 les séances du professeur concerné.
               </p>
             )}
-            {periodes.length === 0 && diagnostic && <BlocDiagnostic diagnostic={diagnostic} />}
+            {periodes.length === 0 && diagnostic && <BlocDiagnostic diagnostic={diagnostic} tarifChoisi={cohorte ? tarifChoisi : null} />}
             {periodes.length === 0 && !diagnostic && (
               <EtatVide
                 icone="seances"
@@ -478,7 +487,7 @@ export function DossierEtudiantVue({
                     onModifierSeance={peutModifierPlanning ? setSeanceEnEdition : undefined}
                   />
                 ))}
-                {diagnostic && <BlocDiagnostic diagnostic={diagnostic} />}
+                {diagnostic && <BlocDiagnostic diagnostic={diagnostic} tarifChoisi={cohorte ? tarifChoisi : null} />}
               </div>
             )}
           </div>

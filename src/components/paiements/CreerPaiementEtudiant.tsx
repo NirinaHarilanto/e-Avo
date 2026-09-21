@@ -30,6 +30,7 @@ export function CreerPaiementEtudiant({ etablissementId, onCree, onAnnuler }: Cr
 
   useEffect(() => {
     setPackageId('')
+    setMontant('')
     if (!studentId) {
       setForfaits([])
       return
@@ -39,7 +40,21 @@ export function CreerPaiementEtudiant({ etablissementId, onCree, onAnnuler }: Cr
       .select('*')
       .eq('student_id', studentId)
       .order('created_at', { ascending: false })
-      .then(({ data }) => setForfaits(data ?? []))
+      .then(async ({ data }) => {
+        setForfaits(data ?? [])
+        // Programme collectif (0054) : pas de forfait, donc rien à présélectionner ci-dessus —
+        // le tarif choisi par le prospect à l'appel diagnostic reste la seule référence de
+        // montant. On le reprend ici en suggestion pour éviter à l'admin d'aller le rechercher
+        // dans le dossier avant de saisir un paiement à la main ; il reste modifiable.
+        if (!data || data.length === 0) {
+          const { data: profil } = await supabase.from('profiles').select('prospect_id').eq('id', studentId).maybeSingle()
+          if (!profil?.prospect_id) return
+          const { data: prospect } = await supabase.from('prospects').select('tarif_choisi_id').eq('id', profil.prospect_id).maybeSingle()
+          if (!prospect?.tarif_choisi_id) return
+          const { data: tarif } = await supabase.from('tarifs').select('prix').eq('id', prospect.tarif_choisi_id).maybeSingle()
+          if (tarif) setMontant(String(tarif.prix))
+        }
+      })
   }, [studentId])
 
   async function creer(e: FormEvent) {

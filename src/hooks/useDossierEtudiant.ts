@@ -10,6 +10,7 @@ type DiagnosticCall = Database['public']['Tables']['diagnostic_calls']['Row']
 type Package = Database['public']['Tables']['packages']['Row']
 type VideoSession = Database['public']['Tables']['video_sessions']['Row']
 type Cohort = Database['public']['Tables']['cohorts']['Row']
+type Tarif = Database['public']['Tables']['tarifs']['Row']
 
 export interface SeanceDuParcours {
   enrollment: SessionEnrollment
@@ -44,6 +45,13 @@ export interface DossierEtudiant {
      cet étudiant n'est pas en duo, ou s'il en est lui-même la « secondaire » (dans ce cas c'est
      son PROPRE profil qui porte duo_partenaire_id, pas ce champ-ci). */
   duoPartenaire: Profile | null
+  /* Forfait choisi par le prospect à l'appel diagnostic (0054), tel que repris de `prospects.
+     tarif_choisi_id`. Pour individuel/duo, ce choix a déjà donné lieu à un vrai `package` à la
+     conversion (voir `packages` ci-dessus) — ce champ ne concerne donc utilement que le
+     collectif, où le tarif reste purement indicatif (l'élève est facturé à la main, la vague ne
+     porte pas de montant). `null` si le prospect d'origine n'avait rien choisi, ou si l'étudiant
+     n'est pas issu du pipeline prospect. */
+  tarifChoisi: Tarif | null
 }
 
 export function useDossierEtudiant(studentId: string | undefined) {
@@ -84,7 +92,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
     // Vague 2 : chacune de ces 5 requêtes dépend d'un résultat de la vague 1 (inscriptionCohorte,
     // sessionIds, teacherIds ou etudiant.prospect_id), mais JAMAIS du résultat d'une autre requête
     // de cette même vague — elles peuvent donc toutes partir ensemble plutôt qu'en cascade.
-    const [{ data: cohorte }, { data: sessions }, { data: videos }, { data: professeurs }, { data: diagnostic }] = await Promise.all([
+    const [{ data: cohorte }, { data: sessions }, { data: videos }, { data: professeurs }, { data: diagnostic }, { data: prospectTarifRef }] = await Promise.all([
       inscriptionCohorte
         ? supabase.from('cohorts').select('*').eq('id', inscriptionCohorte.cohort_id).maybeSingle()
         : Promise.resolve({ data: null as Cohort | null }),
@@ -94,7 +102,16 @@ export function useDossierEtudiant(studentId: string | undefined) {
       etudiant.prospect_id
         ? supabase.from('diagnostic_calls').select('*').eq('prospect_id', etudiant.prospect_id).order('created_at', { ascending: false }).limit(1).maybeSingle()
         : Promise.resolve({ data: null as DiagnosticCall | null }),
+      etudiant.prospect_id
+        ? supabase.from('prospects').select('tarif_choisi_id').eq('id', etudiant.prospect_id).maybeSingle()
+        : Promise.resolve({ data: null as { tarif_choisi_id: string | null } | null }),
     ])
+    // Second aller-retour, seulement si le prospect d'origine avait choisi un tarif (0054) —
+    // `profiles.prospect_id` n'a pas de contrainte FK (0002), donc pas d'embed PostgREST
+    // profiles -> prospects -> tarifs possible en un seul select comme ailleurs dans ce hook.
+    const { data: tarifChoisi } = prospectTarifRef?.tarif_choisi_id
+      ? await supabase.from('tarifs').select('*').eq('id', prospectTarifRef.tarif_choisi_id).maybeSingle()
+      : { data: null as Tarif | null }
     const sessionParId = new Map((sessions ?? []).map((s) => [s.id, s]))
     const videoParSession = new Map((videos ?? []).map((v) => [v.session_id, v]))
     const professeurParId = new Map((professeurs ?? []).map((p) => [p.id, p]))
@@ -132,6 +149,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
       heuresConsommees: resume?.heures_consommees ?? 0,
       prochaineSeance,
       duoPartenaire: duoPartenaire ?? null,
+      tarifChoisi: tarifChoisi ?? null,
     }
   })
 
