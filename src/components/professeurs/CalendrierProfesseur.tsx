@@ -264,9 +264,14 @@ function FormulairePlanification({
     onCree()
   }
 
+  /* Pop-up plutôt que carte inline — demande client du 2026-09-21 : un clic sur un créneau de
+     l'agenda doit toujours ouvrir une fenêtre avec les informations du créneau et ses boutons de
+     validation/annulation. En carte inline, le formulaire s'affichait au-dessus de la grille et
+     passait hors écran dès que le professeur avait fait défiler l'agenda : le clic semblait
+     sans effet. */
   return (
-    <div className="card" style={{ padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <h3 style={{ fontSize: 16, color: 'var(--ink)' }}>Nouvelle séance</h3>
+    <Modale titre="Nouvelle séance" onFermer={onAnnuler} largeurMax={480}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {etudiantsActifs.length === 0 ? (
         <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>Aucun élève ne vous est actuellement attribué.</p>
@@ -311,7 +316,8 @@ function FormulairePlanification({
           {enCours ? 'Création…' : 'Planifier'}
         </button>
       </div>
-    </div>
+      </div>
+    </Modale>
   )
 }
 

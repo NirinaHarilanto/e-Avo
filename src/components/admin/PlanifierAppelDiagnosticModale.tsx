@@ -10,7 +10,7 @@ import { Modale } from '../ui/Modale'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
 import { EtatChargement, MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
-import { champStyle } from '../ui/Champ'
+import { Champ, LigneInfo, champStyle } from '../ui/Champ'
 import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
 
 interface ProspectAPlanifier {
@@ -158,7 +158,7 @@ export function PlanifierAppelDiagnosticModale({
         {message && <MessageSucces>{message}</MessageSucces>}
         {erreur && <MessageErreur>{erreur}</MessageErreur>}
 
-        {rdvDuProspect && !annulationOuverte && (
+        {rdvDuProspect && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface-alt)' }}>
             <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1 }}>
               Rendez-vous actuel : <strong>{formaterDansFuseauEtablissement(rdvDuProspect.debut)}</strong>
@@ -166,17 +166,6 @@ export function PlanifierAppelDiagnosticModale({
             </span>
             <button onClick={() => setAnnulationOuverte(true)} style={boutonDangerStyle}>
               Annuler ce rendez-vous
-            </button>
-          </div>
-        )}
-        {annulationOuverte && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,138,112,.35)', background: 'rgba(255,138,112,.08)' }}>
-            <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1 }}>Confirmer l’annulation de ce rendez-vous ?</span>
-            <button onClick={() => setAnnulationOuverte(false)} style={boutonNeutreStyle}>
-              Non
-            </button>
-            <button onClick={annuler} disabled={enCours} style={boutonDangerStyle}>
-              {enCours ? 'Annulation…' : 'Oui, annuler'}
             </button>
           </div>
         )}
@@ -203,34 +192,88 @@ export function PlanifierAppelDiagnosticModale({
           />
         )}
 
-        {creneauChoisi && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '12px 14px', borderRadius: 10, border: '1px solid var(--accent-blue)', background: 'rgba(94,179,255,.08)' }}>
-            <span style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
-              {rdvDuProspect ? 'Déplacer vers' : 'Réserver'} le{' '}
-              <strong>{creneauChoisi.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}</strong>
-            </span>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--muted)' }}>
-              Durée
+      </div>
+
+      {/* Pop-up de confirmation du créneau cliqué — demande client du 2026-09-21 : « quand je
+          clique sur un créneau dans l'agenda, il n'y a toujours pas de pop-up avec les
+          informations du créneau choisi et les boutons de validation ou d'annulation ». C'était
+          auparavant un bandeau rendu SOUS la grille : l'agenda faisant toute la hauteur de la
+          fenêtre, il tombait hors de l'écran et le clic semblait sans effet. */}
+      {creneauChoisi && (
+        <Modale
+          titre={rdvDuProspect ? 'Déplacer le rendez-vous' : 'Réserver ce créneau'}
+          onFermer={() => setCreneauChoisi(null)}
+          largeurMax={430}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '11px 13px', borderRadius: 10, border: '1px solid var(--accent-blue)', background: 'rgba(94,179,255,.08)' }}>
+              <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--accent-blue)' }}>
+                Créneau choisi
+              </span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>
+                {formaterDansFuseauEtablissement(creneauChoisi.toISOString())}
+              </span>
+            </div>
+
+            <LigneInfo label="Prospect" valeur={`${prospect.prenom} ${prospect.nom}`} />
+            {rdvDuProspect && (
+              <LigneInfo label="Rendez-vous actuel" valeur={formaterDansFuseauEtablissement(rdvDuProspect.debut)} />
+            )}
+
+            <Champ label="Durée (minutes)">
               <input
                 type="number"
                 min={5}
                 max={240}
                 value={duree}
                 onChange={(e) => setDuree(Number(e.target.value))}
-                style={{ ...champStyle, width: 70, padding: '6px 8px' }}
+                style={champStyle}
               />
-              min
-            </label>
-            <span style={{ flexGrow: 1 }} />
-            <button onClick={() => setCreneauChoisi(null)} style={boutonNeutreStyle}>
-              Annuler
-            </button>
-            <button onClick={confirmerCreneau} disabled={enCours} className="btn-shine" style={{ ...boutonPrimaireStyle, opacity: enCours ? 0.7 : 1 }}>
-              {enCours ? 'Enregistrement…' : rdvDuProspect ? 'Confirmer le déplacement' : 'Confirmer la réservation'}
-            </button>
+            </Champ>
+
+            {erreur && <MessageErreur>{erreur}</MessageErreur>}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setCreneauChoisi(null)} style={{ ...boutonNeutreStyle, flexGrow: 1 }}>
+                Annuler
+              </button>
+              <button
+                onClick={confirmerCreneau}
+                disabled={enCours}
+                className="btn-shine"
+                style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: enCours ? 0.7 : 1 }}
+              >
+                {enCours ? 'Enregistrement…' : rdvDuProspect ? 'Confirmer le déplacement' : 'Confirmer la réservation'}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </Modale>
+      )}
+
+      {/* Même traitement pour l'annulation : pop-up plutôt qu'un bandeau, pour que la
+          confirmation soit toujours sous les yeux quelle que soit la position du défilement. */}
+      {annulationOuverte && rdvDuProspect && (
+        <Modale titre="Annuler ce rendez-vous" onFermer={() => setAnnulationOuverte(false)} largeurMax={420}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <LigneInfo label="Prospect" valeur={`${prospect.prenom} ${prospect.nom}`} />
+            <LigneInfo label="Rendez-vous" valeur={formaterDansFuseauEtablissement(rdvDuProspect.debut)} />
+            <p style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--muted)', margin: 0 }}>
+              Le créneau sera libéré et le prospect prévenu par e-mail.
+            </p>
+
+            {erreur && <MessageErreur>{erreur}</MessageErreur>}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setAnnulationOuverte(false)} style={{ ...boutonNeutreStyle, flexGrow: 1 }}>
+                Non, garder
+              </button>
+              <button onClick={annuler} disabled={enCours} style={{ ...boutonDangerStyle, flexGrow: 1, opacity: enCours ? 0.7 : 1 }}>
+                {enCours ? 'Annulation…' : 'Oui, annuler'}
+              </button>
+            </div>
+          </div>
+        </Modale>
+      )}
 
       <PopupEvenementAdmin
         elementOuvertId={autreElementOuvertId}
