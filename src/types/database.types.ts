@@ -657,7 +657,8 @@ export interface Database {
         Row: {
           id: string
           etablissement_id: string
-          student_id: string
+          student_id: string | null
+          prospect_id: string | null
           package_id: string | null
           montant: number
           devise: string
@@ -679,7 +680,8 @@ export interface Database {
         Insert: {
           id?: string
           etablissement_id: string
-          student_id: string
+          student_id?: string | null
+          prospect_id?: string | null
           package_id?: string | null
           montant: number
           devise?: string

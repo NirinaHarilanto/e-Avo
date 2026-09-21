@@ -73,6 +73,7 @@ export default async function handler(request: Request): Promise<Response> {
     // automatiquement en `packages` à la conversion, pour ne pas ressaisir ce qui a déjà été
     // décidé à l'appel diagnostic. Le collectif n'a pas de forfait (l'élève est identifié par
     // sa vague via cohort_enrollments, voir 0027) : le tarif choisi y reste informatif.
+    let forfaitId: string | null = null
     if (prospect.tarif_choisi_id && (prospect.type_programme === 'individuel' || prospect.type_programme === 'duo')) {
       const { data: tarif } = await serviceClient
         .from('tarifs')
@@ -83,15 +84,31 @@ export default async function handler(request: Request): Promise<Response> {
       // forfait exploitable tel quel — mieux vaut laisser l'admin le créer à la main plutôt que
       // de générer un forfait de 0 h.
       if (tarif && tarif.heures != null) {
-        await serviceClient.from('packages').insert({
-          etablissement_id: etablissementId,
-          student_id: invited.user.id,
-          type_programme: prospect.type_programme,
-          total_heures: tarif.heures,
-          montant: tarif.prix,
-        })
+        const { data: forfaitCree } = await serviceClient
+          .from('packages')
+          .insert({
+            etablissement_id: etablissementId,
+            student_id: invited.user.id,
+            type_programme: prospect.type_programme,
+            total_heures: tarif.heures,
+            montant: tarif.prix,
+          })
+          .select('id')
+          .maybeSingle()
+        if (forfaitCree) forfaitId = forfaitCree.id
       }
     }
+
+    // Paiement du forfait encaissé AVANT la conversion (0056) : la ligne existe déjà, rattachée
+    // au prospect. On la reprend telle quelle plutôt que d'en créer une seconde — acomptes déjà
+    // versés, reste dû et facture éventuelle restent donc attachés au même mouvement financier,
+    // qui devient simplement celui de l'étudiant. Poser `student_id` déclenche au passage le
+    // reçu automatique si le forfait était déjà soldé (voir le trigger revu en 0056).
+    await serviceClient
+      .from('student_payments')
+      .update({ student_id: invited.user.id, ...(forfaitId ? { package_id: forfaitId } : {}) })
+      .eq('prospect_id', prospect.id)
+      .is('student_id', null)
 
     // DUO (0054) — demande client du 2026-09-21 : les deux personnes du binôme partagent le
     // même espace étudiant. Si le partenaire a DÉJÀ été converti (son profil existe), celui

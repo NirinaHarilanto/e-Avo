@@ -71,6 +71,51 @@ function BlocDiagnostic({ diagnostic, tarifChoisi }: { diagnostic: NonNullable<D
   )
 }
 
+/* Historique des forfaits successifs — demande client du 2026-09-21 : « un étudiant peut prendre
+   plusieurs forfaits au cours de son apprentissage ». `packages` est déjà trié du plus récent au
+   plus ancien par useDossierEtudiant, et sa première ligne est le forfait courant détaillé
+   juste au-dessus : on ne répète donc que les précédents. Rien ne s'affiche pour un élève qui
+   n'en a souscrit qu'un seul. */
+function HistoriqueForfaits({ packages }: { packages: DossierEtudiant['packages'] }) {
+  const precedents = packages.slice(1)
+  if (precedents.length === 0) return null
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        Forfaits précédents · {precedents.length}
+      </span>
+      <div style={{ display: 'flex', flexDirection: 'column', borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' }}>
+        <ListeRepliable visibles={3} nom="forfaits précédents">
+          {precedents.map((p) => (
+            <div
+              key={p.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                flexWrap: 'wrap',
+                padding: '9px 13px',
+                borderBottom: '1px solid var(--border-soft)',
+              }}
+            >
+              <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1 }}>
+                {p.type_programme === 'duo' ? 'Duo' : 'Individuel'} · {p.total_heures} h
+              </span>
+              <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                {p.montant !== null ? `${p.montant.toLocaleString('fr-FR')} Ar` : '—'}
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
+                souscrit le {new Date(p.created_at).toLocaleDateString('fr-FR')}
+              </span>
+            </div>
+          ))}
+        </ListeRepliable>
+      </div>
+    </div>
+  )
+}
+
 function EtapeAvancement({ fait, label }: { fait: boolean; label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -270,7 +315,7 @@ function BlocPeriode({
   )
 }
 
-type OngletDossier = 'parcours' | 'informations' | 'professeur' | 'programme'
+type OngletDossier = 'parcours' | 'informations' | 'professeur' | 'programme' | 'planning'
 
 interface DossierEtudiantVueProps {
   dossier: DossierEtudiant
@@ -354,7 +399,12 @@ export function DossierEtudiantVue({
     { value: 'parcours', label: 'Parcours pédagogique' },
     ...(panneauInformations ? [{ value: 'informations' as const, label: 'Informations personnelles' }] : []),
     ...(professeurActuel || panneauProfesseur ? [{ value: 'professeur' as const, label: 'Professeur' }] : []),
-    ...(forfait || cohorte || panneauChoixInitial ? [{ value: 'programme' as const, label: cohorte ? 'Programme' : 'Forfait & Planning' }] : []),
+    ...(forfait || cohorte || panneauChoixInitial ? [{ value: 'programme' as const, label: cohorte ? 'Programme' : 'Forfait' }] : []),
+    /* Forfait et Planning étaient regroupés sous un seul onglet « Forfait & Planning » :
+       séparés depuis le 2026-09-21 (demande client), le forfait portant désormais aussi
+       l'historique des forfaits successifs. Le collectif n'a pas de planning par forfait
+       (l'élève suit le calendrier de sa vague), donc pas d'onglet Planning dans ce cas. */
+    ...(!cohorte && forfait ? [{ value: 'planning' as const, label: 'Planning' }] : []),
   ]
   const ongletActif = onglets.some((o) => o.value === ongletDemande) ? ongletDemande : onglets[0].value
 
@@ -529,54 +579,11 @@ export function DossierEtudiantVue({
 
             {!cohorte && forfait && (
               <>
-                {(panneauPlanification || panneauForfaitEdition) && (
+                {panneauForfaitEdition && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                    {panneauPlanification && (
-                      <button onClick={() => setPlanificationOuverte((v) => !v)} style={boutonPanneauStyle}>
-                        {planificationOuverte ? 'Annuler' : seancesPlanifiees.length > 0 ? 'Modifier' : 'Planifier les séances'}
-                      </button>
-                    )}
-                    {panneauForfaitEdition && (
-                      <button onClick={() => setEditionForfaitOuverte((v) => !v)} style={boutonPanneauStyle}>
-                        {editionForfaitOuverte ? 'Annuler' : 'Modifier'}
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Lecture seule tant que l'admin n'a pas cliqué « Modifier » : le planning déjà
-                    généré (voir PlanifierSeancesForfait) se voit d'un coup d'œil plutôt que de
-                    rouvrir aveuglément un formulaire vierge qui écraserait le contexte déjà en
-                    place. */}
-                {seancesPlanifiees.length > 0 && !planificationOuverte && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                      Planning prévisionnel · {seancesPlanifiees.length} séance{seancesPlanifiees.length > 1 ? 's' : ''}
-                    </span>
-                    <div style={{ opacity: 0.78, display: 'flex', flexDirection: 'column', gap: 2, borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' }}>
-                      <ListeRepliable visibles={4} nom="séances planifiées">
-                        {seancesPlanifiees.map((s) => (
-                          <div
-                            key={s.enrollment.id}
-                            onClick={peutModifierPlanning ? () => setSeanceEnEdition(s) : undefined}
-                            className={peutModifierPlanning ? 'row-hl' : undefined}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 14,
-                              padding: '9px 13px',
-                              borderBottom: '1px solid var(--border-soft)',
-                              cursor: peutModifierPlanning ? 'pointer' : 'default',
-                            }}
-                          >
-                            <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1 }}>
-                              {new Date(s.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
-                            </span>
-                            <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{s.session.duree_minutes} min</span>
-                          </div>
-                        ))}
-                      </ListeRepliable>
-                    </div>
+                    <button onClick={() => setEditionForfaitOuverte((v) => !v)} style={boutonPanneauStyle}>
+                      {editionForfaitOuverte ? 'Annuler' : 'Modifier'}
+                    </button>
                   </div>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -612,9 +619,68 @@ export function DossierEtudiantVue({
                   </div>
                 </div>
                 {editionForfaitOuverte && panneauForfaitEdition}
-                {planificationOuverte && panneauPlanification?.(() => setPlanificationOuverte(false))}
+                <HistoriqueForfaits packages={packages} />
               </>
             )}
+          </div>
+        )}
+
+        {ongletActif === 'planning' && forfait && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {panneauPlanification && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={() => setPlanificationOuverte((v) => !v)} style={boutonPanneauStyle}>
+                  {planificationOuverte ? 'Annuler' : seancesPlanifiees.length > 0 ? 'Modifier' : 'Planifier les séances'}
+                </button>
+              </div>
+            )}
+
+            {/* Lecture seule tant que l'admin n'a pas cliqué « Modifier » : le planning déjà
+                généré (voir PlanifierSeancesForfait) se voit d'un coup d'œil plutôt que de
+                rouvrir aveuglément un formulaire vierge qui écraserait le contexte déjà en
+                place. */}
+            {seancesPlanifiees.length > 0 && !planificationOuverte && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Planning prévisionnel · {seancesPlanifiees.length} séance{seancesPlanifiees.length > 1 ? 's' : ''}
+                </span>
+                <div style={{ opacity: 0.78, display: 'flex', flexDirection: 'column', gap: 2, borderRadius: 12, border: '1px solid var(--border-soft)', overflow: 'hidden' }}>
+                  <ListeRepliable visibles={4} nom="séances planifiées">
+                    {seancesPlanifiees.map((s) => (
+                      <div
+                        key={s.enrollment.id}
+                        onClick={peutModifierPlanning ? () => setSeanceEnEdition(s) : undefined}
+                        className={peutModifierPlanning ? 'row-hl' : undefined}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 14,
+                          padding: '9px 13px',
+                          borderBottom: '1px solid var(--border-soft)',
+                          cursor: peutModifierPlanning ? 'pointer' : 'default',
+                        }}
+                      >
+                        <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1 }}>
+                          {new Date(s.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+                        </span>
+                        <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{s.session.duree_minutes} min</span>
+                      </div>
+                    ))}
+                  </ListeRepliable>
+                </div>
+              </div>
+            )}
+
+            {seancesPlanifiees.length === 0 && !planificationOuverte && (
+              <EtatVide
+                compact
+                icone="seances"
+                titre="Aucune séance planifiée"
+                description="Générez le planning prévisionnel du forfait pour que l’élève et son professeur voient leurs prochaines échéances."
+              />
+            )}
+
+            {planificationOuverte && panneauPlanification?.(() => setPlanificationOuverte(false))}
           </div>
         )}
       </div>

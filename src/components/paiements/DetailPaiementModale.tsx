@@ -26,6 +26,23 @@ export type CiblePaiement =
   | { type: 'etudiant'; paiement: StudentPayment; personne: Profile | null; forfait: Package | null; professeur: Profile | null }
   | { type: 'professeur'; paiement: TeacherPayment; personne: Profile | null }
   | { type: 'forfait'; forfait: Package; personne: Profile | null; professeur: Profile | null }
+  /* Forfait réglé AVANT la conversion en étudiant (0056) : la ligne est rattachée au prospect,
+     `student_id` reste nul jusqu'à la conversion qui la reprend telle quelle. Rien d'autre ne
+     change — acomptes, reste dû, reçu et facture sont ceux de n'importe quel paiement. */
+  | { type: 'prospect'; prospect: ProspectAPayer; tarif: TarifChoisi | null; paiement: StudentPayment | null }
+
+export interface ProspectAPayer {
+  id: string
+  etablissement_id: string
+  prenom: string
+  nom: string
+}
+
+export interface TarifChoisi {
+  titre: string
+  prix: number
+  heures: number | null
+}
 
 const LABEL_PROGRAMME: Record<Package['type_programme'], string> = {
   individuel: 'Individuel',
@@ -60,7 +77,12 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
 
   const estProfesseur = cible.type === 'professeur'
   const colonneCible = estProfesseur ? 'teacher_payment_id' : 'student_payment_id'
-  const nomPersonne = cible.personne ? `${cible.personne.prenom} ${cible.personne.nom}` : 'Personne inconnue'
+  const nomPersonne =
+    cible.type === 'prospect'
+      ? `${cible.prospect.prenom} ${cible.prospect.nom}`
+      : cible.personne
+        ? `${cible.personne.prenom} ${cible.personne.nom}`
+        : 'Personne inconnue'
 
   const charger = useCallback(async () => {
     if (!paiement) {
@@ -113,15 +135,19 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
   }
 
   async function creerLignePaiement(montant: number, dateEcheance: string) {
-    if (!profile || cible.type !== 'forfait') return
+    if (!profile || (cible.type !== 'forfait' && cible.type !== 'prospect')) return
     setEnCours(true)
     setErreur(null)
+    /* Prospect : ni `student_id` ni `package_id` n'existent encore — ils seront posés par
+       api/admin/convert-prospect.ts au moment de la conversion, sur cette même ligne. */
+    const rattachement =
+      cible.type === 'forfait'
+        ? { etablissement_id: cible.forfait.etablissement_id, student_id: cible.forfait.student_id, package_id: cible.forfait.id }
+        : { etablissement_id: cible.prospect.etablissement_id, prospect_id: cible.prospect.id }
     const { data, error } = await supabase
       .from('student_payments')
       .insert({
-        etablissement_id: cible.forfait.etablissement_id,
-        student_id: cible.forfait.student_id,
-        package_id: cible.forfait.id,
+        ...rattachement,
         montant,
         date_echeance: dateEcheance || null,
         created_by_profile_id: profile.id,
@@ -219,8 +245,33 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {erreur && <MessageErreur>{erreur}</MessageErreur>}
 
-        {!paiement && cible.type === 'forfait' ? (
-          <CreationLignePaiement forfait={cible.forfait} professeur={cible.professeur} enCours={enCours} onCreer={creerLignePaiement} />
+        {!paiement && (cible.type === 'forfait' || cible.type === 'prospect') ? (
+          <CreationLignePaiement
+            introduction={
+              cible.type === 'forfait'
+                ? 'Ce forfait est souscrit et un professeur est attribué, mais aucun paiement n’a encore été enregistré. Créez la ligne pour pouvoir y saisir des acomptes et générer une facture.'
+                : 'Enregistrez ici le règlement du forfait choisi par ce prospect. Le paiement le suivra tel quel dans son dossier d’étudiant après la conversion : acomptes, reçu et facture restent rattachés à cette même ligne.'
+            }
+            lignes={
+              cible.type === 'forfait'
+                ? [
+                    { label: 'Forfait', valeur: `${LABEL_PROGRAMME[cible.forfait.type_programme]} · ${cible.forfait.total_heures} h` },
+                    { label: 'Professeur', valeur: cible.professeur ? `${cible.professeur.prenom} ${cible.professeur.nom}` : 'Non attribué' },
+                  ]
+                : [
+                    {
+                      label: 'Forfait choisi',
+                      valeur: cible.tarif
+                        ? `${cible.tarif.titre}${cible.tarif.heures != null ? ` · ${cible.tarif.heures} h` : ''}`
+                        : 'Aucun forfait choisi',
+                    },
+                  ]
+            }
+            montantInitial={cible.type === 'forfait' ? cible.forfait.montant : (cible.tarif?.prix ?? null)}
+            echeanceInitiale={cible.type === 'forfait' ? cible.forfait.echeance : null}
+            enCours={enCours}
+            onCreer={creerLignePaiement}
+          />
         ) : (
           ligne &&
           paiement && (
@@ -301,30 +352,35 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
 
 /* Première étape pour un forfait encore jamais facturé : la ligne de paiement est proposée
    avec le montant et l'échéance déjà convenus sur le forfait, à confirmer ou corriger. */
+/* Création de la ligne de paiement, partagée par le forfait d'un étudiant et le forfait choisi
+   par un prospect (0056) : seuls le texte d'introduction et les lignes de rappel changent, le
+   reste (montant, échéance, écriture) est identique. */
 function CreationLignePaiement({
-  forfait,
-  professeur,
+  introduction,
+  lignes,
+  montantInitial,
+  echeanceInitiale,
   enCours,
   onCreer,
 }: {
-  forfait: Package
-  professeur: Profile | null
+  introduction: string
+  lignes: { label: string; valeur: string }[]
+  montantInitial: number | null
+  echeanceInitiale: string | null
   enCours: boolean
   onCreer: (montant: number, dateEcheance: string) => void
 }) {
-  const [montant, setMontant] = useState(forfait.montant != null ? String(forfait.montant) : '')
-  const [echeance, setEcheance] = useState(forfait.echeance ?? '')
+  const [montant, setMontant] = useState(montantInitial != null ? String(montantInitial) : '')
+  const [echeance, setEcheance] = useState(echeanceInitiale ?? '')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <p style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--muted)', margin: 0 }}>
-        Ce forfait est souscrit et un professeur est attribué, mais aucun paiement n’a encore été enregistré.
-        Créez la ligne pour pouvoir y saisir des acomptes et générer une facture.
-      </p>
-      <LigneInfo label="Forfait" valeur={`${LABEL_PROGRAMME[forfait.type_programme]} · ${forfait.total_heures} h`} />
-      <LigneInfo label="Professeur" valeur={professeur ? `${professeur.prenom} ${professeur.nom}` : 'Non attribué'} />
+      <p style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--muted)', margin: 0 }}>{introduction}</p>
+      {lignes.map((l) => (
+        <LigneInfo key={l.label} label={l.label} valeur={l.valeur} />
+      ))}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Champ label="Montant dû (Ar)" obligatoire aide={forfait.montant == null ? 'Aucun montant n’est enregistré sur ce forfait.' : undefined}>
+        <Champ label="Montant dû (Ar)" obligatoire aide={montantInitial == null ? 'Aucun montant connu : saisissez-le.' : undefined}>
           <input type="number" min={0} step="0.01" value={montant} onChange={(e) => setMontant(e.target.value)} style={champStyle} />
         </Champ>
         <Champ label="Échéance">

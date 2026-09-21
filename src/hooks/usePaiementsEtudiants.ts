@@ -27,10 +27,14 @@ export interface ForfaitAPayer {
 export function usePaiementsEtudiants() {
   const { valeur, loading, erreur, recharger } = useCacheRequete('paiements-etudiants', async () => {
     const [{ data, error }, { data: forfaits }, { data: affectations }] = await Promise.all([
+      /* `student_id is not null` : depuis 0056, une ligne peut être rattachée à un prospect pas
+         encore converti. Elle a sa place dans la fiche du prospect, pas dans la page Paiements
+         des étudiants — elle y entrera d'elle-même à la conversion, qui lui pose son student_id. */
       supabase
         .from('student_payments')
         .select('*')
         .is('supprime_le', null)
+        .not('student_id', 'is', null)
         .order('date_echeance', { ascending: true, nullsFirst: false }),
       supabase.from('packages').select('*').order('created_at', { ascending: false }),
       /* L'affectation courante se reconnaît à `date_fin is null`, jamais à un rang de tri —
@@ -43,7 +47,7 @@ export function usePaiementsEtudiants() {
 
     const profileIds = [
       ...new Set([
-        ...(data ?? []).map((p) => p.student_id),
+        ...(data ?? []).map((p) => p.student_id).filter((id): id is string => !!id),
         ...(forfaits ?? []).map((f) => f.student_id),
         ...(affectations ?? []).map((a) => a.teacher_id),
       ]),
@@ -61,9 +65,9 @@ export function usePaiementsEtudiants() {
 
     const paiements = (data ?? []).map((paiement): PaiementEtudiant => ({
       paiement,
-      etudiant: profilParId.get(paiement.student_id) ?? null,
+      etudiant: paiement.student_id ? (profilParId.get(paiement.student_id) ?? null) : null,
       forfait: paiement.package_id ? (forfaitParId.get(paiement.package_id) ?? null) : null,
-      professeur: professeurDe(paiement.student_id),
+      professeur: paiement.student_id ? professeurDe(paiement.student_id) : null,
     }))
 
     const forfaitsDejaFactures = new Set((data ?? []).map((p) => p.package_id).filter((id): id is string => !!id))

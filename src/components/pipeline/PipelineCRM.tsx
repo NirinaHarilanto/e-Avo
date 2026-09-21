@@ -6,6 +6,9 @@ import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { estRempli, niveauDepuisReponses, rythmeDepuisReponses, type ReponsesDiagnostic } from '../../lib/diagnostic'
 import { FormulaireDiagnosticCall } from '../prospects/FormulaireDiagnosticCall'
 import { PlanifierAppelDiagnosticModale } from '../admin/PlanifierAppelDiagnosticModale'
+import { DetailPaiementModale } from '../paiements/DetailPaiementModale'
+import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
+import { formaterMontant, resteAPayer, statutReglement } from '../../lib/paiements'
 import { useTarifs } from '../../hooks/useTarifs'
 import type { ProspectStatut, TypeProgrammeProspect } from '../../types/database.types'
 import { COLONNES_PIPELINE, useProspectsPipeline, type ProspectAvecDiagnostic } from '../../hooks/useProspectsPipeline'
@@ -359,7 +362,6 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
   const estPositionnement = prospect.type_programme === 'collectif'
   const [ouvert, setOuvert] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
-  const [notes, setNotes] = useState(prospect.diagnostic?.notes ?? '')
   const [reponses, setReponses] = useState<ReponsesDiagnostic>(prospect.diagnostic?.reponses ?? {})
   const [questionnaireOuvert, setQuestionnaireOuvert] = useState(false)
   const [enCours, setEnCours] = useState(false)
@@ -369,11 +371,17 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
   const [validationEnCours, setValidationEnCours] = useState(false)
   const [relanceEnCours, setRelanceEnCours] = useState(false)
   const [relanceEnvoyee, setRelanceEnvoyee] = useState(false)
+  const [paiementOuvert, setPaiementOuvert] = useState(false)
 
   // Forfait choisi par le prospect (0054) : liste filtrée sur son programme, individuel/collectif
   // exclu du duo et réciproquement — pas de sens de proposer un forfait duo à un individuel.
   const { tarifs } = useTarifs(prospect.etablissement_id)
   const tarifsDuProgramme = tarifs.filter((t) => t.type_programme === (prospect.type_programme ?? 'individuel'))
+  const tarifChoisi = tarifs.find((t) => t.id === prospect.tarif_choisi_id) ?? null
+  /* Un simple acompte suffit à débloquer la conversion : le client parle d'« enregistrer le
+     paiement », pas d'exiger le solde complet — un forfait se règle souvent en plusieurs fois
+     (voir paiement_versements, 0049). Le reste dû reste visible dans le dossier de l'étudiant. */
+  const paiementEnregistre = !!prospect.paiement
 
   async function marquerRealise() {
     setEnCours(true)
@@ -403,12 +411,15 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
       diagnosticId = inserted.id
     }
 
+    /* `notes` n'est plus écrite ici : la zone de saisie libre a été retirée de la fiche
+       (demande client du 2026-09-21, la trame structurée la remplace). La colonne existe
+       toujours et garde ce qui y avait été saisi auparavant — la réécrire depuis un champ
+       disparu l'aurait effacée. */
     const { error: updateDiagError } = await supabase
       .from('diagnostic_calls')
       .update({
         niveau_evalue: niveauDepuisReponses(reponses),
         rythme_convenu: rythmeDepuisReponses(reponses),
-        notes: notes || null,
         reponses,
       })
       .eq('id', diagnosticId)
@@ -465,7 +476,6 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
       .update({
         niveau_evalue: niveauDepuisReponses(reponses),
         rythme_convenu: rythmeDepuisReponses(reponses),
-        notes: notes || null,
         reponses,
       })
       .eq('id', diagnosticId)
@@ -651,6 +661,28 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
                 Planifier un appel diagnostic
               </button>
             )}
+            {/* Exactement la fenêtre de la section Facturation (acomptes, reste dû, reçu,
+                génération de facture) — demande client du 2026-09-21 : « tout doit être lié ».
+                La ligne créée ici est rattachée au prospect, puis reprise telle quelle par la
+                conversion (voir api/admin/convert-prospect.ts). */}
+            {paiementOuvert && (
+              <DetailPaiementModale
+                cible={{
+                  type: 'prospect',
+                  prospect: {
+                    id: prospect.id,
+                    etablissement_id: prospect.etablissement_id,
+                    prenom: prospect.prenom,
+                    nom: prospect.nom,
+                  },
+                  tarif: tarifChoisi ? { titre: tarifChoisi.titre, prix: tarifChoisi.prix, heures: tarifChoisi.heures } : null,
+                  paiement: prospect.paiement,
+                }}
+                onFermer={() => setPaiementOuvert(false)}
+                onChange={onChange}
+              />
+            )}
+
             {planificationOuverte && session && (
               <PlanifierAppelDiagnosticModale
                 prospect={prospect}
@@ -697,19 +729,6 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
 
             {prospect.statut === 'diagnostic_fait' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
-                  Niveau et résultats de l’appel
-                </span>
-                {/* Zone libre à l'écriture pour l'admin (demande client du 2026-09-16) : ce que le
-                    prospect a dit pendant l'appel, ses freins, tout ce qui ne rentre pas dans le
-                    questionnaire structuré. Persistée dans `diagnostic_calls.notes`. */}
-                <textarea
-                  placeholder="Résultats de l'appel, remarques…"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)', fontFamily: 'inherit', resize: 'vertical' }}
-                />
                 <BlocQuestionnaire
                   ouvert={questionnaireOuvert}
                   onBasculer={() => setQuestionnaireOuvert((v) => !v)}
@@ -718,6 +737,11 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
                 />
                 <ApercuNiveauRythme reponses={reponses} />
                 <SelecteurTarifChoisi tarifs={tarifsDuProgramme} valeur={prospect.tarif_choisi_id} onChoisir={choisirTarif} />
+                <BlocPaiementForfait
+                  paiement={prospect.paiement}
+                  tarifChoisi={tarifChoisi}
+                  onOuvrir={() => setPaiementOuvert(true)}
+                />
                 <button onClick={enregistrerDiagnostic} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
                   {enCours ? 'Enregistrement…' : 'Enregistrer'}
                 </button>
@@ -729,7 +753,32 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
                 >
                   {relanceEnvoyee ? 'Relance envoyée ✓' : relanceEnCours ? 'Envoi…' : 'Relancer le prospect'}
                 </button>
-                <button onClick={convertirEnEtudiant} disabled={enCours} className="btn-shine" style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-blue-gradient)', color: '#fff', opacity: enCours ? 0.7 : 1 }}>
+                {/* Conversion verrouillée tant que le forfait n'est pas encaissé — demande
+                    client du 2026-09-21. Le motif est écrit juste au-dessus du bouton plutôt que
+                    dans une infobulle : un bouton grisé sans explication est le premier réflexe
+                    de support évité. */}
+                {!paiementEnregistre && (
+                  <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)', margin: 0, padding: '8px 10px', borderRadius: 8, border: '1px dashed var(--border)', background: 'rgba(0,0,0,.18)' }}>
+                    Enregistrez d’abord le paiement du forfait ci-dessus : la conversion en étudiant se
+                    débloquera aussitôt. Le paiement suivra automatiquement dans le dossier de l’étudiant.
+                  </p>
+                )}
+                <button
+                  onClick={convertirEnEtudiant}
+                  disabled={enCours || !paiementEnregistre}
+                  title={paiementEnregistre ? undefined : 'Enregistrez le paiement du forfait pour débloquer la conversion.'}
+                  className={paiementEnregistre ? 'btn-shine' : undefined}
+                  style={{
+                    width: '100%',
+                    fontSize: 12.5,
+                    padding: 10,
+                    background: paiementEnregistre ? 'var(--accent-blue-gradient)' : 'var(--surface-alt)',
+                    color: paiementEnregistre ? '#fff' : 'var(--muted-2)',
+                    border: paiementEnregistre ? 'none' : '1px solid var(--border)',
+                    cursor: paiementEnregistre ? 'pointer' : 'not-allowed',
+                    opacity: enCours ? 0.7 : 1,
+                  }}
+                >
                   Convertir en étudiant
                 </button>
               </div>
@@ -738,6 +787,69 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
         </Modale>
       )}
     </>
+  )
+}
+
+/* Paiement du forfait choisi, à l'étape « Diagnostic réalisé » — demande client du 2026-09-21.
+   Remplace l'ancienne zone de notes libres, et se place juste sous le forfait choisi pour que la
+   décision (quel forfait) et son encaissement se lisent d'un seul tenant. C'est ce bloc qui
+   conditionne la conversion en étudiant. */
+function BlocPaiementForfait({
+  paiement,
+  tarifChoisi,
+  onOuvrir,
+}: {
+  paiement: ProspectAvecDiagnostic['paiement']
+  tarifChoisi: { titre: string; prix: number } | null
+  onOuvrir: () => void
+}) {
+  const ligne = paiement
+    ? { montant: paiement.montant, montant_regle: paiement.montant_regle, statut: paiement.statut }
+    : null
+  const reste = ligne ? resteAPayer(ligne) : 0
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 10 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        Paiement du forfait choisi
+      </span>
+
+      {!tarifChoisi && !paiement && (
+        <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)', margin: 0 }}>
+          Choisissez d’abord un forfait ci-dessus : son montant servira de base au paiement.
+        </p>
+      )}
+
+      {ligne ? (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <BadgeStatutPaiement statut={statutReglement(ligne)} />
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+              {formaterMontant(paiement!.montant_regle)} réglé sur {formaterMontant(paiement!.montant)}
+              {reste > 0 ? ` · reste ${formaterMontant(reste)}` : ''}
+            </span>
+          </div>
+          <button onClick={onOuvrir} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9 }}>
+            {reste > 0 ? 'Ajouter un acompte' : 'Voir le paiement'}
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={onOuvrir}
+          disabled={!tarifChoisi}
+          className={tarifChoisi ? 'btn-shine btn-secondary' : undefined}
+          style={{
+            fontSize: 12.5,
+            padding: 9,
+            ...(tarifChoisi
+              ? {}
+              : { background: 'var(--surface-alt)', color: 'var(--muted-2)', border: '1px solid var(--border)', borderRadius: 999, cursor: 'not-allowed' }),
+          }}
+        >
+          Enregistrer le paiement du forfait
+        </button>
+      )}
+    </div>
   )
 }
 

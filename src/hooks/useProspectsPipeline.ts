@@ -6,6 +6,7 @@ type Prospect = Database['public']['Tables']['prospects']['Row']
 type DiagnosticCall = Database['public']['Tables']['diagnostic_calls']['Row']
 type RendezVous = Database['public']['Tables']['rendez_vous']['Row']
 type TestPositionnement = Database['public']['Tables']['test_positionnement_inscriptions']['Row']
+type StudentPayment = Database['public']['Tables']['student_payments']['Row']
 
 export interface ProspectAvecDiagnostic extends Prospect {
   diagnostic: DiagnosticCall | null
@@ -23,6 +24,9 @@ export interface ProspectAvecDiagnostic extends Prospect {
   /* Nom complet du partenaire DUO (0054), résolu depuis duo_partenaire_id — évite à chaque carte
      d'aller chercher elle-même le prospect lié pour un simple affichage. */
   duoPartenaireNom: string | null
+  /* Paiement du forfait choisi encaissé avant la conversion (0056). `null` tant que l'admin n'a
+     rien enregistré — c'est précisément ce qui bloque le bouton « Convertir en étudiant ». */
+  paiement: StudentPayment | null
 }
 
 export const COLONNES_PIPELINE: { statut: ProspectStatut; titre: string }[] = [
@@ -40,6 +44,7 @@ export function useProspectsPipeline() {
       { data: rendezVousData, error: rendezVousError },
       { data: testsData },
       { count: totalConvertis },
+      { data: paiementsData },
     ] = await Promise.all([
       // Un prospect converti quitte définitivement ce tableau — demande client du 2026-09-21 :
       // il vit désormais dans l'espace Étudiants, avec les informations recueillies pendant la
@@ -52,6 +57,14 @@ export function useProspectsPipeline() {
       // Comptage séparé : le taux de conversion doit rester juste même si les dossiers déjà
       // convertis ne sont plus renvoyés par la requête ci-dessus.
       supabase.from('prospects').select('id', { count: 'exact', head: true }).eq('statut', 'etudiant'),
+      // Paiements de forfait encaissés à l'étape prospect (0056). `supprime_le is null` : une
+      // ligne supprimée en douceur ne doit pas continuer à débloquer la conversion.
+      supabase
+        .from('student_payments')
+        .select('*')
+        .not('prospect_id', 'is', null)
+        .is('supprime_le', null)
+        .order('created_at', { ascending: false }),
     ])
     if (prospectsError || diagnosticsError || rendezVousError) {
       throw new Error((prospectsError ?? diagnosticsError ?? rendezVousError)?.message ?? 'Erreur de chargement.')
@@ -81,12 +94,20 @@ export function useProspectsPipeline() {
     // `prospectsData` : pas besoin d'une requête séparée pour résoudre son nom.
     const nomParProspect = new Map((prospectsData ?? []).map((p) => [p.id, `${p.prenom} ${p.nom}`]))
 
+    const paiementParProspect = new Map<string, StudentPayment>()
+    for (const paiement of paiementsData ?? []) {
+      if (paiement.prospect_id && !paiementParProspect.has(paiement.prospect_id)) {
+        paiementParProspect.set(paiement.prospect_id, paiement)
+      }
+    }
+
     const prospects = (prospectsData ?? []).map((prospect): ProspectAvecDiagnostic => ({
       ...prospect,
       diagnostic: diagnosticParProspect.get(prospect.id) ?? null,
       rendezVous: rendezVousParProspect.get(prospect.id) ?? null,
       testPositionnement: testParProspect.get(prospect.id) ?? null,
       duoPartenaireNom: prospect.duo_partenaire_id ? (nomParProspect.get(prospect.duo_partenaire_id) ?? null) : null,
+      paiement: paiementParProspect.get(prospect.id) ?? null,
     }))
 
     return { prospects, totalConvertis: totalConvertis ?? 0 }
