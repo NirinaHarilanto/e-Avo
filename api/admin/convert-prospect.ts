@@ -75,11 +75,23 @@ export default async function handler(request: Request): Promise<Response> {
     // sa vague via cohort_enrollments, voir 0027) : le tarif choisi y reste informatif.
     let forfaitId: string | null = null
     if (prospect.tarif_choisi_id && (prospect.type_programme === 'individuel' || prospect.type_programme === 'duo')) {
-      const { data: tarif } = await serviceClient
-        .from('tarifs')
-        .select('heures, prix')
-        .eq('id', prospect.tarif_choisi_id)
-        .maybeSingle()
+      /* Heure d'essai (0057) : on ne crée PAS le forfait complet. L'élève démarre sur un forfait
+         d'une heure, au tarif horaire de son programme, qui mémorise le forfait visé. Le
+         complément ne naîtra qu'à la décision (api/admin/decider-essai.ts) — de cette façon la
+         facture émise pour l'essai reste juste quoi qu'il arrive ensuite. */
+      const { data: tarif } = prospect.essai_demande
+        ? await serviceClient
+            .from('tarifs')
+            .select('heures, prix')
+            .eq('etablissement_id', etablissementId)
+            .eq('type_programme', prospect.type_programme)
+            .eq('heures', 1)
+            .maybeSingle()
+        : await serviceClient
+            .from('tarifs')
+            .select('heures, prix')
+            .eq('id', prospect.tarif_choisi_id)
+            .maybeSingle()
       // Un tarif sans volume d'heures fixe (heures = null, ex. « sur devis ») ne décrit pas un
       // forfait exploitable tel quel — mieux vaut laisser l'admin le créer à la main plutôt que
       // de générer un forfait de 0 h.
@@ -92,6 +104,7 @@ export default async function handler(request: Request): Promise<Response> {
             type_programme: prospect.type_programme,
             total_heures: tarif.heures,
             montant: tarif.prix,
+            ...(prospect.essai_demande ? { essai: true, tarif_vise_id: prospect.tarif_choisi_id } : {}),
           })
           .select('id')
           .maybeSingle()

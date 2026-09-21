@@ -378,6 +378,13 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
   const { tarifs } = useTarifs(prospect.etablissement_id)
   const tarifsDuProgramme = tarifs.filter((t) => t.type_programme === (prospect.type_programme ?? 'individuel'))
   const tarifChoisi = tarifs.find((t) => t.id === prospect.tarif_choisi_id) ?? null
+  /* Heure d'essai (0057) : l'élève commence par 1 h au tarif horaire, puis décide. C'est donc ce
+     tarif-là qu'il faut encaisser avant la conversion, pas le prix du forfait visé. Le tarif
+     horaire est celui de SON programme avec `heures = 1` — sans lui, l'essai n'est pas
+     proposable (rien ne permettrait de le facturer). */
+  const tarifUneHeure = tarifsDuProgramme.find((t) => t.heures === 1) ?? null
+  const essai = prospect.essai_demande
+  const tarifAEncaisser = essai ? tarifUneHeure : tarifChoisi
   /* Un simple acompte suffit à débloquer la conversion : le client parle d'« enregistrer le
      paiement », pas d'exiger le solde complet — un forfait se règle souvent en plusieurs fois
      (voir paiement_versements, 0049). Le reste dû reste visible dans le dossier de l'étudiant. */
@@ -490,6 +497,16 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
   async function choisirTarif(tarifId: string) {
     setErreur(null)
     const { error } = await supabase.from('prospects').update({ tarif_choisi_id: tarifId || null }).eq('id', prospect.id)
+    if (error) {
+      setErreur(error.message)
+      return
+    }
+    onChange()
+  }
+
+  async function basculerEssai(valeur: boolean) {
+    setErreur(null)
+    const { error } = await supabase.from('prospects').update({ essai_demande: valeur }).eq('id', prospect.id)
     if (error) {
       setErreur(error.message)
       return
@@ -675,7 +692,9 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
                     prenom: prospect.prenom,
                     nom: prospect.nom,
                   },
-                  tarif: tarifChoisi ? { titre: tarifChoisi.titre, prix: tarifChoisi.prix, heures: tarifChoisi.heures } : null,
+                  tarif: tarifAEncaisser
+                    ? { titre: tarifAEncaisser.titre, prix: tarifAEncaisser.prix, heures: tarifAEncaisser.heures }
+                    : null,
                   paiement: prospect.paiement,
                 }}
                 onFermer={() => setPaiementOuvert(false)}
@@ -737,9 +756,19 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
                 />
                 <ApercuNiveauRythme reponses={reponses} />
                 <SelecteurTarifChoisi tarifs={tarifsDuProgramme} valeur={prospect.tarif_choisi_id} onChoisir={choisirTarif} />
+                <ChoixHeureEssai
+                  essai={essai}
+                  tarifChoisi={tarifChoisi}
+                  tarifUneHeure={tarifUneHeure}
+                  /* Verrouillé dès qu'un paiement existe : son montant a été calculé d'après ce
+                     choix, basculer après coup rendrait la ligne fausse. */
+                  verrouille={!!prospect.paiement}
+                  onBasculer={basculerEssai}
+                />
                 <BlocPaiementForfait
                   paiement={prospect.paiement}
-                  tarifChoisi={tarifChoisi}
+                  tarifAEncaisser={tarifAEncaisser}
+                  essai={essai}
                   onOuvrir={() => setPaiementOuvert(true)}
                 />
                 <button onClick={enregistrerDiagnostic} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
@@ -794,13 +823,77 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
    Remplace l'ancienne zone de notes libres, et se place juste sous le forfait choisi pour que la
    décision (quel forfait) et son encaissement se lisent d'un seul tenant. C'est ce bloc qui
    conditionne la conversion en étudiant. */
+/* Heure d'essai avant engagement (0057) — arbitrage client : l'essai dure toujours une heure.
+   Coché, c'est le tarif horaire qui est encaissé avant la conversion ; le forfait visé n'est
+   facturé (pour son complément) qu'une fois l'essai transformé, depuis le dossier de l'élève. */
+function ChoixHeureEssai({
+  essai,
+  tarifChoisi,
+  tarifUneHeure,
+  verrouille,
+  onBasculer,
+}: {
+  essai: boolean
+  tarifChoisi: { titre: string } | null
+  tarifUneHeure: { titre: string; prix: number } | null
+  verrouille: boolean
+  onBasculer: (valeur: boolean) => void
+}) {
+  const indisponible = !tarifUneHeure && !essai
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <label
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 8,
+          fontSize: 12.5,
+          color: indisponible || verrouille ? 'var(--muted-2)' : 'var(--ink-2)',
+          cursor: indisponible || verrouille ? 'not-allowed' : 'pointer',
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={essai}
+          disabled={indisponible || verrouille}
+          onChange={(e) => onBasculer(e.target.checked)}
+          style={{ marginTop: 2 }}
+        />
+        Commencer par une heure d’essai
+      </label>
+      {indisponible && (
+        <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
+          Aucun tarif d’une heure n’existe pour ce programme : créez-en un dans Tarifs pour pouvoir
+          proposer un essai.
+        </span>
+      )}
+      {essai && tarifUneHeure && (
+        <span style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--muted)' }}>
+          Seule l’heure d’essai est encaissée maintenant ({tarifUneHeure.prix.toLocaleString('fr-FR')} Ar).
+          {tarifChoisi
+            ? ` Si l’élève poursuit, le complément du forfait ${tarifChoisi.titre} lui sera facturé depuis son dossier ; s’il s’arrête, il n’aura payé que cette heure.`
+            : ' Choisissez un forfait ci-dessus pour que le complément puisse être calculé.'}
+        </span>
+      )}
+      {verrouille && (
+        <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
+          Choix figé : un paiement a déjà été enregistré sur cette base.
+        </span>
+      )}
+    </div>
+  )
+}
+
 function BlocPaiementForfait({
   paiement,
-  tarifChoisi,
+  tarifAEncaisser,
+  essai,
   onOuvrir,
 }: {
   paiement: ProspectAvecDiagnostic['paiement']
-  tarifChoisi: { titre: string; prix: number } | null
+  tarifAEncaisser: { titre: string; prix: number } | null
+  essai: boolean
   onOuvrir: () => void
 }) {
   const ligne = paiement
@@ -811,12 +904,14 @@ function BlocPaiementForfait({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 10 }}>
       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        Paiement du forfait choisi
+        {essai ? 'Paiement de l’heure d’essai' : 'Paiement du forfait choisi'}
       </span>
 
-      {!tarifChoisi && !paiement && (
+      {!tarifAEncaisser && !paiement && (
         <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)', margin: 0 }}>
-          Choisissez d’abord un forfait ci-dessus : son montant servira de base au paiement.
+          {essai
+            ? 'Aucun tarif d’une heure n’est disponible : impossible de chiffrer l’essai.'
+            : 'Choisissez d’abord un forfait ci-dessus : son montant servira de base au paiement.'}
         </p>
       )}
 
@@ -836,17 +931,17 @@ function BlocPaiementForfait({
       ) : (
         <button
           onClick={onOuvrir}
-          disabled={!tarifChoisi}
-          className={tarifChoisi ? 'btn-shine btn-secondary' : undefined}
+          disabled={!tarifAEncaisser}
+          className={tarifAEncaisser ? 'btn-shine btn-secondary' : undefined}
           style={{
             fontSize: 12.5,
             padding: 9,
-            ...(tarifChoisi
+            ...(tarifAEncaisser
               ? {}
               : { background: 'var(--surface-alt)', color: 'var(--muted-2)', border: '1px solid var(--border)', borderRadius: 999, cursor: 'not-allowed' }),
           }}
         >
-          Enregistrer le paiement du forfait
+          {essai ? 'Enregistrer le paiement de l’essai' : 'Enregistrer le paiement du forfait'}
         </button>
       )}
     </div>

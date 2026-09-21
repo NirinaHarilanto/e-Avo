@@ -101,6 +101,11 @@ function HistoriqueForfaits({ packages }: { packages: DossierEtudiant['packages'
             >
               <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1 }}>
                 {p.type_programme === 'duo' ? 'Duo' : 'Individuel'} · {p.total_heures} h
+                {p.essai && (
+                  <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(233,207,148,.14)', border: '1px solid rgba(233,207,148,.32)', borderRadius: 999, padding: '2px 7px' }}>
+                    Essai {p.essai_resultat === 'poursuivi' ? '· poursuivi' : p.essai_resultat === 'arrete' ? '· arrêté' : ''}
+                  </span>
+                )}
               </span>
               <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                 {p.montant !== null ? `${p.montant.toLocaleString('fr-FR')} Ar` : '—'}
@@ -337,6 +342,8 @@ interface DossierEtudiantVueProps {
   panneauPlanification?: (fermer: () => void) => ReactNode
   /* Formulaire d'assignation/changement de vague pour le programme collectif. */
   panneauVague?: ReactNode
+  /* Décision à prendre après l'heure d'essai (0057) — admin uniquement, absent en lecture seule. */
+  panneauDecisionEssai?: ReactNode
   /* Bouton + pop-up de suppression du compte — admin uniquement, comme les autres panneaux. */
   panneauSuppression?: ReactNode
   /* Autorise l'ajout d'une réévaluation de niveau depuis la fenêtre d'historique — admin
@@ -363,6 +370,7 @@ export function DossierEtudiantVue({
   panneauForfaitEdition,
   panneauPlanification,
   panneauVague,
+  panneauDecisionEssai,
   panneauSuppression,
   peutModifierNiveau,
   peutModifierPlanning,
@@ -619,6 +627,7 @@ export function DossierEtudiantVue({
                   </div>
                 </div>
                 {editionForfaitOuverte && panneauForfaitEdition}
+                {panneauDecisionEssai}
                 <HistoriqueForfaits packages={packages} />
               </>
             )}

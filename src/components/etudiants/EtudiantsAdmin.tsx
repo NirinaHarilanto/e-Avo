@@ -8,6 +8,7 @@ import { AttribuerProfesseur } from './AttribuerProfesseur'
 import { CreerForfait } from './CreerForfait'
 import { AssignerVague } from './AssignerVague'
 import { ChoixProgrammeInitial } from './ChoixProgrammeInitial'
+import { DecisionHeureEssai } from './DecisionHeureEssai'
 import { PlanifierSeancesForfait } from './PlanifierSeancesForfait'
 import { DossierEtudiantVue, initiales } from './DossierEtudiantVue'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
@@ -296,6 +297,13 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
               />
             )
           : undefined
+      }
+      panneauDecisionEssai={
+        /* Ne concerne que le forfait courant : un essai déjà tranché appartient à l'historique
+           des forfaits, il n'a plus de décision à recevoir (0057). */
+        forfait?.essai && !forfait.essai_resultat ? (
+          <DecisionHeureEssai essai={forfait} heuresConsommees={dossier.heuresConsommees} onDecide={recharger} />
+        ) : undefined
       }
       panneauVague={
         dossier.cohorte ? (

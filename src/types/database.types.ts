@@ -140,6 +140,8 @@ export interface Database {
           /* Tarif choisi par le prospect (0054), repris automatiquement en packages à la
              conversion pour individuel/duo. */
           tarif_choisi_id: string | null
+          /* Le prospect commence par une heure d'essai avant de s'engager (0057). */
+          essai_demande: boolean
           duo_partenaire_id: string | null
           duo_nom_groupe: string | null
           created_at: string
@@ -157,6 +159,7 @@ export interface Database {
           disponibilites?: string | null
           type_programme?: TypeProgrammeProspect | null
           tarif_choisi_id?: string | null
+          essai_demande?: boolean
           duo_partenaire_id?: string | null
           duo_nom_groupe?: string | null
           created_at?: string
@@ -335,6 +338,10 @@ export interface Database {
           total_heures: number
           montant: number | null
           echeance: string | null
+          essai: boolean
+          tarif_vise_id: string | null
+          essai_resultat: 'poursuivi' | 'arrete' | null
+          essai_decide_le: string | null
           created_at: string
         }
         Insert: {
@@ -345,6 +352,10 @@ export interface Database {
           total_heures: number
           montant?: number | null
           echeance?: string | null
+          essai?: boolean
+          tarif_vise_id?: string | null
+          essai_resultat?: 'poursuivi' | 'arrete' | null
+          essai_decide_le?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['packages']['Insert']>
