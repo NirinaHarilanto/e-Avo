@@ -610,9 +610,14 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
             </div>
 
             {prospect.objectif && (
-              <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
-                « {prospect.objectif} »
-              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Objectif indiqué à la réservation
+                </span>
+                <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
+                  « {prospect.objectif} »
+                </p>
+              </div>
             )}
 
             {prospect.statut === 'diagnostic_planifie' && (
@@ -649,6 +654,7 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
             {planificationOuverte && session && (
               <PlanifierAppelDiagnosticModale
                 prospect={prospect}
+                profile={profile}
                 session={session}
                 onFermer={() => setPlanificationOuverte(false)}
                 onChange={onChange}
@@ -656,19 +662,22 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
             )}
 
             {prospect.statut === 'diagnostic_planifie' && !ouvert && (
-              <button onClick={() => setOuvert(true)} className="btn-shine btn-secondary" style={{ width: '100%', fontSize: 12.5, padding: 10 }}>
+              <button
+                onClick={() => {
+                  setOuvert(true)
+                  // Demande client du 2026-09-21 : la trame doit se déplier directement, sans
+                  // clic supplémentaire sur « Remplir » — c'est justement ce que ce bouton sert
+                  // à commencer à remplir.
+                  setQuestionnaireOuvert(true)
+                }}
+                className="btn-shine btn-secondary"
+                style={{ width: '100%', fontSize: 12.5, padding: 10 }}
+              >
                 Marquer {estPositionnement ? 'le test' : 'le diagnostic'} comme fait
               </button>
             )}
             {prospect.statut === 'diagnostic_planifie' && ouvert && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <textarea
-                  placeholder="Résultats de l'appel, remarques… (facultatif)"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)', fontFamily: 'inherit', resize: 'vertical' }}
-                />
                 <BlocQuestionnaire
                   ouvert={questionnaireOuvert}
                   onBasculer={() => setQuestionnaireOuvert((v) => !v)}

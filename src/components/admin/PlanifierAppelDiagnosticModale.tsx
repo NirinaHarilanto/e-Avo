@@ -11,6 +11,7 @@ import { AgendaHebdo } from '../ui/AgendaHebdo'
 import { EtatChargement, MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { champStyle } from '../ui/Champ'
+import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
 
 interface ProspectAPlanifier {
   id: string
@@ -27,11 +28,13 @@ interface ProspectAPlanifier {
    que pour donner le contexte — cette fenêtre ne gère que le rendez-vous du prospect ouvert. */
 export function PlanifierAppelDiagnosticModale({
   prospect,
+  profile,
   session,
   onFermer,
   onChange,
 }: {
   prospect: ProspectAPlanifier
+  profile: { id: string } | null
   session: { access_token: string }
   onFermer: () => void
   onChange: () => void
@@ -46,6 +49,14 @@ export function PlanifierAppelDiagnosticModale({
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  /* Fiche d'un événement de l'agenda qui n'est PAS celui de ce prospect — un clic dessus doit lui
+     aussi ouvrir un pop-up avec ses informations, comme partout ailleurs dans l'application
+     (demande client du 2026-09-21 : « il faut le rendre uniforme »). L'annulation du rendez-vous
+     DE CE prospect reste gérée séparément ci-dessous (surlignée en rouge, un clic propose
+     directement l'annulation) : cette fenêtre reste dédiée à SON rendez-vous, les autres
+     événements ne sont ouverts qu'en consultation/action ponctuelle, jamais pour re-planifier
+     depuis ici le rendez-vous de quelqu'un d'autre. */
+  const [autreElementOuvertId, setAutreElementOuvertId] = useState<string | null>(null)
 
   useEffect(() => {
     supabase
@@ -182,7 +193,11 @@ export function PlanifierAppelDiagnosticModale({
               setDuree(dureeDefaut)
             }}
             onSelectionner={(evenement) => {
-              if (rdvDuProspect && evenement.id === PREFIXE_PROSPECT + rdvDuProspect.id) setAnnulationOuverte(true)
+              if (rdvDuProspect && evenement.id === PREFIXE_PROSPECT + rdvDuProspect.id) {
+                setAnnulationOuverte(true)
+                return
+              }
+              if (estEvenementAdmin(evenement.id)) setAutreElementOuvertId(evenement.id)
             }}
             videMessage="Aucun événement cette semaine dans l’agenda de l’établissement."
           />
@@ -216,6 +231,16 @@ export function PlanifierAppelDiagnosticModale({
           </div>
         )}
       </div>
+
+      <PopupEvenementAdmin
+        elementOuvertId={autreElementOuvertId}
+        onFermer={() => setAutreElementOuvertId(null)}
+        rendezVous={rendezVous}
+        evenementsAdmin={evenementsAdmin}
+        profile={profile}
+        session={session}
+        onChange={recharger}
+      />
     </Modale>
   )
 }

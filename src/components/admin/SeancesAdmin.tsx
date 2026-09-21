@@ -8,6 +8,7 @@ import { useEvenementsAdmin } from '../../hooks/useEvenementsAdmin'
 import { agendaAdminComplet } from '../../lib/agendaEvenements'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
+import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -40,11 +41,12 @@ function tonDuProfesseur(professeurIds: string[], id: string | undefined): Evene
 const ID_ADMIN = '__admin__'
 
 export function SeancesAdmin() {
+  const { profile, session } = useProfileContext()
   const { seances, loading, erreur, recharger } = useSeancesAdmin()
   const { professeurs } = useProfesseurs()
   const { etudiants } = useEtudiants()
-  const { rendezVous } = useRendezVous()
-  const { evenements: evenementsAdmin } = useEvenementsAdmin()
+  const { rendezVous, recharger: rechargerRendezVous } = useRendezVous()
+  const { evenements: evenementsAdmin, recharger: rechargerEvenementsAdmin } = useEvenementsAdmin()
   const [vue, setVue] = useState<Vue>('semaine')
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
   const [personnesSelectionnees, setPersonnesSelectionnees] = useState<Set<string>>(new Set())
@@ -123,8 +125,15 @@ export function SeancesAdmin() {
     semaineFin,
   ])
 
-  // Seule une séance encore planifiée s'ouvre en édition, comme dans la vue liste.
-  const seanceOuverte = seances.find((s) => s.session.id === seanceOuverteId && s.session.statut === 'planifiee') ?? null
+  // Seule une séance encore planifiée s'ouvre en édition, comme dans la vue liste. Quand le
+  // filtre « Admin » est coché, l'agenda mélange aussi des rendez-vous prospects et des
+  // événements admin (ids préfixés, voir lib/agendaEvenements.ts) : un clic dessus doit ouvrir
+  // leur propre fiche plutôt que de chercher en vain une séance qui n'existe pas (bug relevé le
+  // 2026-09-21 — le clic ne faisait alors rien).
+  const clicEstEvenementAdmin = estEvenementAdmin(seanceOuverteId)
+  const seanceOuverte = !clicEstEvenementAdmin
+    ? seances.find((s) => s.session.id === seanceOuverteId && s.session.statut === 'planifiee') ?? null
+    : null
 
   const maintenant = new Date().toISOString()
   const aVenir = seances
@@ -324,6 +333,21 @@ export function SeancesAdmin() {
           onEnregistre={() => {
             setSeanceOuverteId(null)
             recharger()
+          }}
+        />
+      )}
+
+      {clicEstEvenementAdmin && (
+        <PopupEvenementAdmin
+          elementOuvertId={seanceOuverteId}
+          onFermer={() => setSeanceOuverteId(null)}
+          rendezVous={rendezVous}
+          evenementsAdmin={evenementsAdmin}
+          profile={profile}
+          session={session}
+          onChange={() => {
+            rechargerRendezVous()
+            rechargerEvenementsAdmin()
           }}
         />
       )}
