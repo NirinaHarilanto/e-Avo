@@ -143,11 +143,6 @@ export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, onCha
                   {seance.session.duree_minutes} min ·{' '}
                   {seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`).join(', ') || 'aucun élève inscrit'}
                 </span>
-                {seance.session.changement_statut === 'en_attente' && (
-                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(255,190,110,.14)', border: '1px solid rgba(255,190,110,.3)', borderRadius: 999, padding: '3px 9px' }}>
-                    Changement en attente
-                  </span>
-                )}
               </button>
             ))}
           </div>

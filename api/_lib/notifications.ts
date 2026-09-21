@@ -28,3 +28,44 @@ export async function creerNotification(
     lien: params.lien ?? null,
   })
 }
+
+/**
+ * Notifie les personnes CONCERNÉES par une séance (son professeur et les élèves qui y sont
+ * inscrits) quand elle est reprogrammée ou annulée — jamais l'admin, sauf s'il fait partie de
+ * ces personnes (demande client du 2026-09-17 : la validation admin disparaît, remplacée par une
+ * notification directe aux seuls intéressés). L'auteur de la modification n'est jamais notifié
+ * de sa propre action. Le lien pointe vers le calendrier de chacun, différent selon son rôle.
+ */
+export async function notifierParticipantsSeance(
+  serviceClient: ServiceClient,
+  params: {
+    etablissementId: string
+    sessionId: string
+    teacherId: string
+    acteurId: string
+    type: string
+    titre: string
+    message?: string | null
+  },
+) {
+  const { data: enrollments } = await serviceClient.from('session_enrollments').select('student_id').eq('session_id', params.sessionId)
+  const destinataireIds = new Set<string>([params.teacherId, ...(enrollments ?? []).map((e) => e.student_id)])
+  destinataireIds.delete(params.acteurId)
+  if (destinataireIds.size === 0) return
+
+  const { data: profils } = await serviceClient.from('profiles').select('id, role').in('id', [...destinataireIds])
+  const roleParId = new Map((profils ?? []).map((p) => [p.id, p.role]))
+
+  await Promise.all(
+    [...destinataireIds].map((destinataireProfileId) =>
+      creerNotification(serviceClient, {
+        etablissementId: params.etablissementId,
+        destinataireProfileId,
+        type: params.type,
+        titre: params.titre,
+        message: params.message ?? null,
+        lien: roleParId.get(destinataireProfileId) === 'professeur' ? '/professeur/calendrier' : '/mon-espace/agenda',
+      }),
+    ),
+  )
+}

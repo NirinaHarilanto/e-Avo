@@ -1,5 +1,6 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { deplacerVisio } from '../_lib/synchroniserVisio.js'
+import { notifierParticipantsSeance } from '../_lib/notifications.js'
 
 export const config = { runtime: 'edge' }
 
@@ -10,11 +11,12 @@ interface Corps {
   justificatif?: string
 }
 
-// Modifie l'heure/la durée d'une séance encore planifiée. Un professeur ne peut agir que sur
-// ses propres séances et sa demande reste en attente jusqu'à validation par un admin
-// (api/admin/valider-changement-seance.ts) ; un admin, déjà validateur, voit son changement
-// appliqué immédiatement. Dans les deux cas, un justificatif est obligatoire dès que l'heure de
-// début ou la durée change réellement — sinon la demande est refusée avant toute écriture.
+// Modifie l'heure/la durée d'une séance encore planifiée — appliqué IMMÉDIATEMENT, professeur
+// comme admin. Remplace proposer-changement-seance.ts + admin/valider-changement-seance.ts
+// (supprimés) : la validation admin intermédiaire n'apportait rien puisque ni l'élève ni le
+// professeur n'étaient prévenus entre-temps (demande client du 2026-09-17). Un justificatif
+// reste obligatoire dès que l'heure ou la durée change réellement — il nourrit désormais
+// l'historique tracé dans session_modifications plutôt qu'une décision d'admin à motiver.
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 })
@@ -45,9 +47,6 @@ export default async function handler(request: Request): Promise<Response> {
     if (session.statut !== 'planifiee') {
       return Response.json({ error: 'Seule une séance encore planifiée peut être reprogrammée.' }, { status: 409 })
     }
-    if (session.changement_statut === 'en_attente' && !estAdmin) {
-      return Response.json({ error: 'Une demande est déjà en attente de validation pour cette séance.' }, { status: 409 })
-    }
 
     const nouveauDebut = body.debut ? new Date(body.debut).toISOString() : session.debut
     const nouvelleDuree = body.dureeMinutes ?? session.duree_minutes
@@ -68,51 +67,44 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: "Un justificatif est obligatoire pour modifier l'heure ou la durée d'une séance." }, { status: 400 })
     }
 
-    // L'admin est déjà le validateur : sa propre modification s'applique tout de suite plutôt
-    // que d'attendre qu'il se valide lui-même. Le professeur, lui, propose seulement — les
-    // colonnes réelles (debut/duree_minutes) ne bougent qu'à la validation admin.
     const { error: updateError } = await serviceClient
       .from('sessions')
-      .update(
-        estAdmin
-          ? {
-              debut: nouveauDebut,
-              duree_minutes: nouvelleDuree,
-              debut_propose: null,
-              duree_minutes_propose: null,
-              justificatif_changement: justificatif,
-              changement_demande_par: profileId,
-              changement_demande_le: new Date().toISOString(),
-              changement_statut: 'aucun',
-            }
-          : {
-              debut_propose: nouveauDebut,
-              duree_minutes_propose: nouvelleDuree,
-              justificatif_changement: justificatif,
-              changement_demande_par: profileId,
-              changement_demande_le: new Date().toISOString(),
-              changement_statut: 'en_attente',
-            },
-      )
+      .update({ debut: nouveauDebut, duree_minutes: nouvelleDuree })
       .eq('id', session.id)
-
     if (updateError) {
       return Response.json({ error: updateError.message }, { status: 500 })
     }
 
-    // Seul le changement d'un admin s'applique tout de suite : l'événement Google ne bouge donc
-    // qu'ici. Une proposition de professeur attendra sa validation
-    // (api/admin/valider-changement-seance.ts), qui fait le même appel.
-    if (estAdmin) {
-      await deplacerVisio(serviceClient, {
-        sessionId: session.id,
-        etablissementId,
-        debut: nouveauDebut,
-        dureeMinutes: nouvelleDuree,
-      })
-    }
+    await serviceClient.from('session_modifications').insert({
+      session_id: session.id,
+      etablissement_id: etablissementId,
+      modifie_par: profileId,
+      type_modification: 'reprogrammee',
+      ancien_debut: session.debut,
+      nouveau_debut: nouveauDebut,
+      ancienne_duree_minutes: session.duree_minutes,
+      nouvelle_duree_minutes: nouvelleDuree,
+      justificatif,
+    })
 
-    return Response.json({ ok: true, statut: estAdmin ? 'applique' : 'en_attente' })
+    await deplacerVisio(serviceClient, {
+      sessionId: session.id,
+      etablissementId,
+      debut: nouveauDebut,
+      dureeMinutes: nouvelleDuree,
+    })
+
+    await notifierParticipantsSeance(serviceClient, {
+      etablissementId,
+      sessionId: session.id,
+      teacherId: session.teacher_id,
+      acteurId: profileId,
+      type: 'seance_reprogrammee',
+      titre: 'Séance reprogrammée',
+      message: `Nouvelle heure : ${new Date(nouveauDebut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}.`,
+    })
+
+    return Response.json({ ok: true })
   } catch (error) {
     if (error instanceof TeacherAuthError) {
       return Response.json({ error: error.message }, { status: error.status })

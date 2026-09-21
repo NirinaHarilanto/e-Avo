@@ -238,11 +238,6 @@ function BlocPeriode({
                   {seance.session.type === 'individuel' ? 'Séance individuelle' : 'Séance collective'}
                 </span>
                 <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{seance.session.duree_minutes / 60} h</span>
-                {seance.session.changement_statut === 'en_attente' && (
-                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(255,190,110,.14)', border: '1px solid rgba(255,190,110,.3)', borderRadius: 999, padding: '2px 8px' }}>
-                    En attente
-                  </span>
-                )}
                 <span style={{ width: 72, textAlign: 'right' }}>
                   <StatutSeance enrollment={seance.enrollment} statutSession={seance.session.statut} />
                 </span>
@@ -559,11 +554,6 @@ export function DossierEtudiantVue({
                               {new Date(s.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
                             </span>
                             <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{s.session.duree_minutes} min</span>
-                            {s.session.changement_statut === 'en_attente' && (
-                              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(255,190,110,.14)', border: '1px solid rgba(255,190,110,.3)', borderRadius: 999, padding: '2px 8px' }}>
-                                En attente
-                              </span>
-                            )}
                           </div>
                         ))}
                       </ListeRepliable>

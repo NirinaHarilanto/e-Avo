@@ -37,7 +37,6 @@ function versEvenement(seance: SeanceProfesseur): EvenementAgenda {
     sousTitre: `${seance.session.type === 'individuel' ? 'Individuel' : 'Collectif'} · ${seance.session.duree_minutes} min`,
     ton: seance.session.statut === 'terminee' ? 'teal' : seance.session.statut === 'annulee' ? 'neutre' : 'bleu',
     attenue: seance.session.statut === 'annulee',
-    marqueur: seance.session.changement_statut === 'en_attente' ? 'à valider' : undefined,
   }
 }
 
@@ -399,11 +398,6 @@ function CarteSeance({
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {seance.session.changement_statut === 'en_attente' && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(255,190,110,.14)', border: '1px solid rgba(255,190,110,.3)', borderRadius: 999, padding: '3px 9px' }}>
-              Changement en attente
-            </span>
-          )}
           <BadgeStatutSeance statut={seance.session.statut} />
         </div>
       </div>
@@ -426,7 +420,7 @@ function CarteSeance({
             onClick={() => setEditionHoraireOuverte(true)}
             style={{ fontSize: 12.5, padding: '9px 16px', borderRadius: 999, border: '1px solid var(--border)', background: 'transparent', color: 'var(--accent-blue)', cursor: 'pointer' }}
           >
-            {seance.session.changement_statut === 'en_attente' ? 'Voir la demande' : "Modifier l'heure"}
+            Modifier l'heure
           </button>
           <button
             onClick={annuler}
