@@ -100,6 +100,30 @@ export function modeleRendezVousRefuse(params: {
   </p>`)
 }
 
+export function modeleRendezVousDeplace(params: { prenom: string; etablissement: string; quand: string; lienMeet: string | null }): string {
+  const bloclien = params.lienMeet
+    ? `<p style="margin:0 0 18px"><a href="${echapper(params.lienMeet)}" style="display:inline-block;background:#4A306D;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:999px">Rejoindre la visioconférence</a></p>
+       <p style="font-size:12.5px;color:#6b6580;margin:0 0 14px">Lien : ${echapper(params.lienMeet)}</p>`
+    : ''
+  return coquille(`
+  <h1 style="font-size:19px;margin:0 0 14px">Votre appel a été déplacé</h1>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 14px">Bonjour ${echapper(params.prenom)},</p>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 18px">
+    ${echapper(params.etablissement)} a reprogrammé votre appel diagnostic au <strong>${echapper(params.quand)}</strong>.
+  </p>
+  ${bloclien}`)
+}
+
+export function modeleRendezVousAnnule(params: { prenom: string; etablissement: string; quand: string }): string {
+  return coquille(`
+  <h1 style="font-size:19px;margin:0 0 14px">Votre rendez-vous a été annulé</h1>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 14px">Bonjour ${echapper(params.prenom)},</p>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 14px">
+    ${echapper(params.etablissement)} a annulé votre appel du ${echapper(params.quand)}. N'hésitez pas à reprendre
+    contact ou à choisir un autre créneau sur notre site.
+  </p>`)
+}
+
 export function modeleReinitialisationMotDePasse(params: { premiereConnexion: boolean; lien: string }): string {
   const titre = params.premiereConnexion ? 'Définissez votre mot de passe' : 'Réinitialisez votre mot de passe'
   const intro = params.premiereConnexion

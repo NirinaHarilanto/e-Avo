@@ -7,7 +7,8 @@ import { useEtudiants } from '../../hooks/useEtudiants'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { supabase } from '../../lib/supabaseClient'
 import type { StatutRendezVous } from '../../types/database.types'
-import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
+import { lundiDeLaSemaine } from '../../lib/agenda'
+import { agendaAdminComplet, typeEvenementAdmin, PREFIXE_PROSPECT, PREFIXE_EVENEMENT } from '../../lib/agendaEvenements'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -39,64 +40,6 @@ const COULEUR_STATUT: Record<StatutRendezVous, string> = {
   annule: 'var(--muted)',
 }
 
-/* Les identifiants des deux tables (rendez_vous et evenements_admin, voir useEvenementsAdmin.ts)
-   sont chacun des UUID indépendants : rien n'empêche qu'ils coïncident un jour par hasard. Un
-   préfixe sur l'id de l'EvenementAgenda lève toute ambiguïté au moment de rouvrir la bonne fiche
-   au clic, plutôt que de chercher le même id dans les deux tableaux. */
-const PREFIXE_PROSPECT = 'rdv:'
-const PREFIXE_EVENEMENT = 'evt:'
-
-/* Couleur = catégorie de participants, pas statut — demande client du 2026-09-16 : « jaune pour
-   les prospects, bleu pour les étudiants, vert pour les professeurs, violet pour mixte étudiants
-   et professeurs ». Le statut (à valider / annulé) reste lisible via `attenue` et `marqueur`,
-   déjà pris en charge par AgendaHebdo, sans avoir besoin d'une cinquième teinte. */
-function versEvenementProspect(rdv: RendezVousAvecProspect): EvenementAgenda {
-  const prospect = rdv.prospects
-  const nomProspect = prospect ? `${prospect.prenom} ${prospect.nom}` : 'Prospect supprimé'
-  return {
-    id: PREFIXE_PROSPECT + rdv.id,
-    debut: rdv.debut,
-    dureeMinutes: rdv.duree_minutes,
-    titre: nomProspect,
-    sousTitre: `Appel diagnostic${prospect?.langue_visee ? ` · ${prospect.langue_visee}` : ''}`,
-    ton: 'or',
-    attenue: rdv.statut === 'refuse' || rdv.statut === 'annule',
-    marqueur: rdv.statut === 'en_attente' ? 'à valider' : undefined,
-  }
-}
-
-/* La couleur ne dépend pas de la distinction obligatoire/optionnel (une seconde dimension,
-   propre à Outlook, qui n'a rien à voir avec la catégorie de participants) — seulement du rôle
-   de l'ensemble des personnes conviées, obligatoires et optionnelles confondues. */
-function tousLesParticipants(evenement: EvenementAdminAvecParticipants) {
-  return [...evenement.obligatoires, ...evenement.optionnels]
-}
-
-function versEvenementAdmin(evenement: EvenementAdminAvecParticipants): EvenementAgenda {
-  const participants = tousLesParticipants(evenement)
-  const aDesEtudiants = participants.some((p) => p.role === 'etudiant')
-  const aDesProfesseurs = participants.some((p) => p.role === 'professeur')
-  const noms = participants.map((p) => `${p.prenom} ${p.nom}`).join(', ')
-  return {
-    id: PREFIXE_EVENEMENT + evenement.id,
-    debut: evenement.debut,
-    dureeMinutes: evenement.duree_minutes,
-    titre: evenement.titre,
-    sousTitre: noms || undefined,
-    ton: aDesEtudiants && aDesProfesseurs ? 'violet' : aDesProfesseurs ? 'teal' : 'bleu',
-    attenue: evenement.annule,
-  }
-}
-
-function typeEvenementAdmin(evenement: EvenementAdminAvecParticipants): string {
-  const participants = tousLesParticipants(evenement)
-  const aDesEtudiants = participants.some((p) => p.role === 'etudiant')
-  const aDesProfesseurs = participants.some((p) => p.role === 'professeur')
-  if (aDesEtudiants && aDesProfesseurs) return 'Mixte — étudiants et professeurs'
-  if (aDesProfesseurs) return 'Professeurs'
-  return 'Étudiants'
-}
-
 function versDatetimeLocal(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
@@ -120,10 +63,7 @@ export function RendezVousAdmin() {
   const traites = rendezVous.filter((r) => r.statut === 'refuse' || r.statut === 'annule')
   const liste = onglet === 'À valider' ? enAttente : onglet === 'Confirmés' ? confirmes : traites
 
-  const evenementsAgenda = useMemo(
-    () => [...rendezVous.map(versEvenementProspect), ...evenementsAdmin.map(versEvenementAdmin)],
-    [rendezVous, evenementsAdmin],
-  )
+  const evenementsAgenda = useMemo(() => agendaAdminComplet(rendezVous, evenementsAdmin), [rendezVous, evenementsAdmin])
   const rdvOuvert = elementOuvertId?.startsWith(PREFIXE_PROSPECT)
     ? rendezVous.find((r) => r.id === elementOuvertId!.slice(PREFIXE_PROSPECT.length))
     : undefined
@@ -132,10 +72,10 @@ export function RendezVousAdmin() {
     : undefined
 
   return (
-    <AdminLayout actif="Rendez-vous">
+    <AdminLayout actif="Agenda">
       <EnTetePage
         compact
-        titre="Rendez-vous"
+        titre="Agenda"
         description="Les demandes d’appel diagnostic prises depuis la page d’accueil arrivent ici pour validation, et vous pouvez aussi y créer vous-même un rendez-vous avec un ou plusieurs étudiants et professeurs — cliquez un créneau libre de l’agenda, ou le bouton ci-contre."
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>

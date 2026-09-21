@@ -2,6 +2,10 @@ import { useMemo, useState } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useSeancesAdmin, type SeanceAdmin } from '../../hooks/useSeancesAdmin'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
+import { useEtudiants } from '../../hooks/useEtudiants'
+import { useRendezVous } from '../../hooks/useRendezVous'
+import { useEvenementsAdmin } from '../../hooks/useEvenementsAdmin'
+import { agendaAdminComplet } from '../../lib/agendaEvenements'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
 import { initiales } from '../etudiants/DossierEtudiantVue'
@@ -29,14 +33,32 @@ function tonDuProfesseur(professeurIds: string[], id: string | undefined): Evene
   return index === -1 ? 'neutre' : TONS_PROFESSEUR[index % TONS_PROFESSEUR.length]
 }
 
+/* Pseudo-identifiant pour « l'agenda de l'admin » (rendez-vous prospects + événements créés par
+   l'admin) dans la liste de personnes sélectionnables — jamais un UUID réel, donc jamais en
+   conflit avec un professeur ou un étudiant. Demande client du 2026-09-21 : pouvoir cocher
+   plusieurs professeurs et/ou étudiants à la fois, plus « Admin » pour voir son propre agenda. */
+const ID_ADMIN = '__admin__'
+
 export function SeancesAdmin() {
   const { seances, loading, erreur, recharger } = useSeancesAdmin()
   const { professeurs } = useProfesseurs()
+  const { etudiants } = useEtudiants()
+  const { rendezVous } = useRendezVous()
+  const { evenements: evenementsAdmin } = useEvenementsAdmin()
   const [vue, setVue] = useState<Vue>('semaine')
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
-  const [professeurId, setProfesseurId] = useState<string | null>(null)
+  const [personnesSelectionnees, setPersonnesSelectionnees] = useState<Set<string>>(new Set())
 
   const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
+
+  function basculerPersonne(id: string) {
+    setPersonnesSelectionnees((s) => {
+      const copie = new Set(s)
+      if (copie.has(id)) copie.delete(id)
+      else copie.add(id)
+      return copie
+    })
+  }
 
   const semaineFin = useMemo(() => ajouterJours(semaineDebut, 7), [semaineDebut])
 
@@ -46,9 +68,29 @@ export function SeancesAdmin() {
   )
 
   const professeurIds = useMemo(() => professeurs.map((p) => p.id), [professeurs])
+
+  const adminSelectionne = personnesSelectionnees.has(ID_ADMIN)
+  const profsSelectionnes = useMemo(
+    () => new Set([...personnesSelectionnees].filter((id) => professeurIds.includes(id))),
+    [personnesSelectionnees, professeurIds],
+  )
+  const etudiantIds = useMemo(() => etudiants.map((e) => e.id), [etudiants])
+  const etudiantsSelectionnes = useMemo(
+    () => new Set([...personnesSelectionnees].filter((id) => etudiantIds.includes(id))),
+    [personnesSelectionnees, etudiantIds],
+  )
+
   const evenements = useMemo(() => {
-    const visibles = professeurId ? seancesSemaine.filter((s) => s.professeur?.id === professeurId) : seancesSemaine
-    return visibles.map((seance): EvenementAgenda => {
+    // Rien coché : comportement d'origine, toutes les séances de la semaine, aucun agenda admin.
+    const visibles =
+      personnesSelectionnees.size === 0
+        ? seancesSemaine
+        : seancesSemaine.filter(
+            (s) =>
+              (s.professeur && profsSelectionnes.has(s.professeur.id)) ||
+              s.inscriptions.some((i) => i.etudiant && etudiantsSelectionnes.has(i.etudiant.id)),
+          )
+    const seancesEvenements = visibles.map((seance): EvenementAgenda => {
       const eleves = seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`.trim())
       return {
         id: seance.session.id,
@@ -60,7 +102,26 @@ export function SeancesAdmin() {
         attenue: seance.session.statut === 'annulee',
       }
     })
-  }, [seancesSemaine, professeurId, professeurIds])
+
+    if (!adminSelectionne) return seancesEvenements
+
+    const evenementsAgendaAdmin = agendaAdminComplet(rendezVous, evenementsAdmin).filter((e) => {
+      const debutIso = e.debut
+      return debutIso >= semaineDebut.toISOString() && debutIso < semaineFin.toISOString()
+    })
+    return [...seancesEvenements, ...evenementsAgendaAdmin]
+  }, [
+    seancesSemaine,
+    personnesSelectionnees,
+    profsSelectionnes,
+    etudiantsSelectionnes,
+    professeurIds,
+    adminSelectionne,
+    rendezVous,
+    evenementsAdmin,
+    semaineDebut,
+    semaineFin,
+  ])
 
   // Seule une séance encore planifiée s'ouvre en édition, comme dans la vue liste.
   const seanceOuverte = seances.find((s) => s.session.id === seanceOuverteId && s.session.statut === 'planifiee') ?? null
@@ -177,53 +238,63 @@ export function SeancesAdmin() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="grille-agenda-filtre">
-            <aside style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-              <button
-                onClick={() => setProfesseurId(null)}
-                className="carte-ligne"
-                style={{
-                  textAlign: 'left',
-                  borderRadius: 12,
-                  border: professeurId === null ? '1px solid rgba(94,179,255,.5)' : '1px solid var(--border)',
-                  background: 'var(--surface)',
-                  padding: '8px 11px',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: 'var(--ink)',
-                  cursor: 'pointer',
-                }}
-              >
-                Toutes les séances de la semaine
-              </button>
-              {professeurs.map((prof) => {
-                const nb = seancesSemaine.filter((s) => s.professeur?.id === prof.id).length
-                return (
-                  <button
-                    key={prof.id}
-                    onClick={() => setProfesseurId(prof.id)}
-                    className="carte-ligne"
-                    style={{
-                      textAlign: 'left',
-                      borderRadius: 12,
-                      border: professeurId === prof.id ? '1px solid rgba(94,179,255,.5)' : '1px solid var(--border)',
-                      background: 'var(--surface)',
-                      padding: '8px 11px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 9,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <span style={{ width: 26, height: 26, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
-                      {initiales(prof)}
-                    </span>
-                    <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink)', flexGrow: 1 }}>
-                      {prof.prenom} {prof.nom}
-                    </span>
-                    <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{nb}</span>
-                  </button>
-                )
-              })}
+            <aside style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+              {personnesSelectionnees.size > 0 && (
+                <button
+                  onClick={() => setPersonnesSelectionnees(new Set())}
+                  style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Tout décocher
+                </button>
+              )}
+
+              <LigneFiltrePersonne
+                id={ID_ADMIN}
+                libelle="Admin"
+                sousTitre="Rendez-vous et événements créés par l’admin"
+                coche={adminSelectionne}
+                onBasculer={() => basculerPersonne(ID_ADMIN)}
+              />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted-2)', padding: '2px 4px' }}>
+                  Professeurs
+                </span>
+                {professeurs.map((prof) => {
+                  const nb = seancesSemaine.filter((s) => s.professeur?.id === prof.id).length
+                  return (
+                    <LigneFiltrePersonne
+                      key={prof.id}
+                      id={prof.id}
+                      libelle={`${prof.prenom} ${prof.nom}`}
+                      compteur={nb}
+                      initiales={initiales(prof)}
+                      coche={profsSelectionnes.has(prof.id)}
+                      onBasculer={() => basculerPersonne(prof.id)}
+                    />
+                  )
+                })}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted-2)', padding: '2px 4px' }}>
+                  Étudiants
+                </span>
+                {etudiants.map((etu) => {
+                  const nb = seancesSemaine.filter((s) => s.inscriptions.some((i) => i.etudiant?.id === etu.id)).length
+                  return (
+                    <LigneFiltrePersonne
+                      key={etu.id}
+                      id={etu.id}
+                      libelle={`${etu.prenom} ${etu.nom}`}
+                      compteur={nb}
+                      initiales={initiales(etu)}
+                      coche={etudiantsSelectionnes.has(etu.id)}
+                      onBasculer={() => basculerPersonne(etu.id)}
+                    />
+                  )
+                })}
+              </div>
             </aside>
 
             <div style={{ minWidth: 0 }}>
@@ -233,8 +304,8 @@ export function SeancesAdmin() {
                 onSemaineChange={setSemaineDebut}
                 onSelectionner={(evenement) => setSeanceOuverteId(evenement.id)}
                 videMessage={
-                  professeurId
-                    ? 'Aucune séance pour ce professeur cette semaine. Retirez le filtre ou changez de semaine.'
+                  personnesSelectionnees.size > 0
+                    ? 'Aucun événement pour les personnes cochées cette semaine. Changez la sélection ou de semaine.'
                     : 'Aucune séance cette semaine. Les professeurs les créent depuis leur propre calendrier, ou l’admin en lot depuis un forfait étudiant.'
                 }
               />
@@ -257,6 +328,57 @@ export function SeancesAdmin() {
         />
       )}
     </AdminLayout>
+  )
+}
+
+/* Ligne à case à cocher du filtre multi-personnes — demande client du 2026-09-21 : pouvoir
+   sélectionner plusieurs professeurs et/ou étudiants à la fois, plus « Admin », et voir d'un
+   coup d'œil qui est coché. */
+function LigneFiltrePersonne({
+  id,
+  libelle,
+  sousTitre,
+  compteur,
+  initiales: initialesPersonne,
+  coche,
+  onBasculer,
+}: {
+  id: string
+  libelle: string
+  sousTitre?: string
+  compteur?: number
+  initiales?: string
+  coche: boolean
+  onBasculer: () => void
+}) {
+  return (
+    <label
+      htmlFor={`filtre-personne-${id}`}
+      className="carte-ligne"
+      style={{
+        textAlign: 'left',
+        borderRadius: 12,
+        border: coche ? '1px solid rgba(94,179,255,.5)' : '1px solid var(--border)',
+        background: 'var(--surface)',
+        padding: '8px 11px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 9,
+        cursor: 'pointer',
+      }}
+    >
+      <input id={`filtre-personne-${id}`} type="checkbox" checked={coche} onChange={onBasculer} style={{ flexShrink: 0 }} />
+      {initialesPersonne && (
+        <span style={{ width: 26, height: 26, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
+          {initialesPersonne}
+        </span>
+      )}
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 1, flexGrow: 1, minWidth: 0 }}>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink)' }}>{libelle}</span>
+        {sousTitre && <span style={{ fontSize: 10, color: 'var(--muted-2)' }}>{sousTitre}</span>}
+      </span>
+      {compteur !== undefined && <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{compteur}</span>}
+    </label>
   )
 }
 

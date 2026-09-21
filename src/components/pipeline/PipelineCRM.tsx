@@ -1,10 +1,11 @@
-import { useEffect, useState, type DragEvent, type FormEvent } from 'react'
+import { useState, type DragEvent, type FormEvent } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { estRempli, type ReponsesDiagnostic } from '../../lib/diagnostic'
 import { FormulaireDiagnosticCall } from '../prospects/FormulaireDiagnosticCall'
+import { PlanifierAppelDiagnosticModale } from '../admin/PlanifierAppelDiagnosticModale'
 import type { ProspectStatut, TypeProgrammeProspect } from '../../types/database.types'
 import { COLONNES_PIPELINE, useProspectsPipeline, type ProspectAvecDiagnostic } from '../../hooks/useProspectsPipeline'
 import { EnTetePage } from '../ui/EnTetePage'
@@ -26,19 +27,8 @@ const COULEUR_COLONNE: Record<string, string> = {
 export function PipelineCRM() {
   const { profile, session } = useProfileContext()
   const { prospects, loading, erreur, recharger } = useProspectsPipeline()
-  const [calendlyUrl, setCalendlyUrl] = useState<string | null>(null)
   const [colonneSurvolee, setColonneSurvolee] = useState<ProspectStatut | null>(null)
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
-
-  useEffect(() => {
-    if (!profile) return
-    supabase
-      .from('etablissements')
-      .select('calendly_url')
-      .eq('id', profile.etablissement_id)
-      .maybeSingle()
-      .then(({ data }) => setCalendlyUrl(data?.calendly_url ?? null))
-  }, [profile])
 
   // Mutation de statut centralisée : utilisée aussi bien par le glisser-déposer que par les
   // actions rapides des cartes, pour ne jamais dupliquer la logique de transition (conversion
@@ -236,7 +226,7 @@ export function PipelineCRM() {
                   </span>
                 )}
                 {items.map((prospect) => (
-                  <CarteProspect key={prospect.id} prospect={prospect} calendlyUrl={calendlyUrl} onChange={recharger} onChangerStatut={changerStatut} />
+                  <CarteProspect key={prospect.id} prospect={prospect} onChange={recharger} onChangerStatut={changerStatut} />
                 ))}
               </div>
             )
@@ -356,16 +346,15 @@ function FormulaireNouveauProspect({
 
 interface CarteProspectProps {
   prospect: ProspectAvecDiagnostic
-  calendlyUrl: string | null
   onChange: () => void
   onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut) => Promise<void>
 }
 
-function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: CarteProspectProps) {
+function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectProps) {
   const { profile, session } = useProfileContext()
   const estPositionnement = prospect.type_programme === 'collectif'
   const [ouvert, setOuvert] = useState(false)
-  const [dateAppel, setDateAppel] = useState('')
+  const [planificationOuverte, setPlanificationOuverte] = useState(false)
   const [niveauEvalue, setNiveauEvalue] = useState(prospect.diagnostic?.niveau_evalue ?? '')
   const [rythmeConvenu, setRythmeConvenu] = useState(prospect.diagnostic?.rythme_convenu ?? '')
   const [notes, setNotes] = useState(prospect.diagnostic?.notes ?? '')
@@ -376,34 +365,6 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
   const [enGlissement, setEnGlissement] = useState(false)
   const [detailOuvert, setDetailOuvert] = useState(false)
   const [validationEnCours, setValidationEnCours] = useState(false)
-
-  async function planifierAppel() {
-    if (!profile || !dateAppel) return
-    setEnCours(true)
-    setErreur(null)
-    const { error: insertError } = await supabase.from('diagnostic_calls').insert({
-      etablissement_id: prospect.etablissement_id,
-      prospect_id: prospect.id,
-      mene_par: profile.id,
-      date_appel: new Date(dateAppel).toISOString(),
-    })
-    if (insertError) {
-      setErreur(insertError.message)
-      setEnCours(false)
-      return
-    }
-    const { error: updateError } = await supabase
-      .from('prospects')
-      .update({ statut: 'diagnostic_planifie' })
-      .eq('id', prospect.id)
-    setEnCours(false)
-    if (updateError) {
-      setErreur(updateError.message)
-      return
-    }
-    setOuvert(false)
-    onChange()
-  }
 
   async function marquerRealise() {
     setEnCours(true)
@@ -619,48 +580,22 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
 
             {erreur && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{erreur}</p>}
 
-            {prospect.statut === 'prospect' &&
-              !ouvert &&
-              (calendlyUrl ? (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <a
-                    href={calendlyUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-shine"
-                    style={{ flex: 1, textAlign: 'center', fontSize: 12.5, padding: 10, background: 'var(--accent-gradient)', color: '#1b1510' }}
-                  >
-                    Ouvrir Calendly
-                  </a>
-                  <button
-                    onClick={() => onChangerStatut(prospect, 'diagnostic_planifie')}
-                    className="btn-shine btn-secondary"
-                    title={`Marquer ${estPositionnement ? 'le test' : "l'appel"} comme planifié`}
-                    style={{ fontSize: 12.5, padding: '0 14px' }}
-                  >
-                    ✓
-                  </button>
-                </div>
-              ) : (
-                <button onClick={() => setOuvert(true)} className="btn-shine" style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-gradient)', color: '#1b1510' }}>
-                  Planifier {estPositionnement ? 'le test de positionnement' : "l'appel diagnostic"}
-                </button>
-              ))}
-            {prospect.statut === 'prospect' && ouvert && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>
-                  {estPositionnement ? 'Test de positionnement' : 'Appel diagnostic'}
-                </span>
-                <input
-                  type="datetime-local"
-                  value={dateAppel}
-                  onChange={(e) => setDateAppel(e.target.value)}
-                  style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-                />
-                <button onClick={planifierAppel} disabled={enCours || !dateAppel} className="btn-shine" style={{ fontSize: 12.5, padding: 9, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours ? 0.7 : 1 }}>
-                  Confirmer
-                </button>
-              </div>
+            {prospect.statut === 'prospect' && (
+              <button
+                onClick={() => setPlanificationOuverte(true)}
+                className="btn-shine"
+                style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-gradient)', color: '#1b1510' }}
+              >
+                Planifier un appel diagnostic
+              </button>
+            )}
+            {planificationOuverte && session && (
+              <PlanifierAppelDiagnosticModale
+                prospect={prospect}
+                session={session}
+                onFermer={() => setPlanificationOuverte(false)}
+                onChange={onChange}
+              />
             )}
 
             {prospect.statut === 'diagnostic_planifie' && !ouvert && (
