@@ -15,7 +15,7 @@ import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GroupeSection } from '../ui/Section'
 import { Onglets } from '../ui/Onglets'
-import { TexteRepliable } from '../ui/Repliable'
+import { CompteRenduAffichage } from '../shared/CompteRenduAffichage'
 import { ChampRecherche } from '../ui/BarreOutils'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
@@ -263,12 +263,7 @@ function PanneauComptesRendus() {
               {participants.map((p) => `${p.prenom} ${p.nom}`).join(', ') || 'aucun participant'}
             </span>
           </div>
-          {rapport.themes && (
-            <p style={{ fontSize: 12.5, color: 'var(--ink-2)', margin: 0 }}>
-              <strong>Thèmes :</strong> {rapport.themes}
-            </p>
-          )}
-          {rapport.resume && <TexteRepliable texte={rapport.resume} style={{ fontSize: 12.5, color: 'var(--ink-2)' }} />}
+          <CompteRenduAffichage rapport={rapport} />
         </div>
       ))}
     </div>

@@ -596,8 +596,19 @@ export interface Database {
           etablissement_id: string
           session_id: string
           teacher_id: string
-          themes: string | null
-          resume: string | null
+          /* Template structuré du compte rendu (0052) — voir src/lib/compteRendu.ts pour le
+             détail des champs et des valeurs autorisées. */
+          objectifs: string[]
+          lecons_abordees: string | null
+          contenu_cours: string | null
+          nouveau_vocabulaire: string | null
+          erreurs_importantes: string | null
+          points_forts: string | null
+          points_a_ameliorer: string | null
+          devoirs: string | null
+          progres: string | null
+          priorites_prochain_cours: string | null
+          conseils_prochain_professeur: string | null
           created_at: string
           updated_at: string
         }
@@ -606,8 +617,17 @@ export interface Database {
           etablissement_id: string
           session_id: string
           teacher_id: string
-          themes?: string | null
-          resume?: string | null
+          objectifs?: string[]
+          lecons_abordees?: string | null
+          contenu_cours?: string | null
+          nouveau_vocabulaire?: string | null
+          erreurs_importantes?: string | null
+          points_forts?: string | null
+          points_a_ameliorer?: string | null
+          devoirs?: string | null
+          progres?: string | null
+          priorites_prochain_cours?: string | null
+          conseils_prochain_professeur?: string | null
           created_at?: string
           updated_at?: string
         }
