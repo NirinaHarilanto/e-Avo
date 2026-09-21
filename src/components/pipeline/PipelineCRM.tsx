@@ -2,6 +2,9 @@ import { useEffect, useState, type DragEvent, type FormEvent } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
+import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
+import { estRempli, type ReponsesDiagnostic } from '../../lib/diagnostic'
+import { FormulaireDiagnosticCall } from '../prospects/FormulaireDiagnosticCall'
 import type { ProspectStatut, TypeProgrammeProspect } from '../../types/database.types'
 import { COLONNES_PIPELINE, useProspectsPipeline, type ProspectAvecDiagnostic } from '../../hooks/useProspectsPipeline'
 import { EnTetePage } from '../ui/EnTetePage'
@@ -366,6 +369,8 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
   const [niveauEvalue, setNiveauEvalue] = useState(prospect.diagnostic?.niveau_evalue ?? '')
   const [rythmeConvenu, setRythmeConvenu] = useState(prospect.diagnostic?.rythme_convenu ?? '')
   const [notes, setNotes] = useState(prospect.diagnostic?.notes ?? '')
+  const [reponses, setReponses] = useState<ReponsesDiagnostic>(prospect.diagnostic?.reponses ?? {})
+  const [questionnaireOuvert, setQuestionnaireOuvert] = useState(false)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [enGlissement, setEnGlissement] = useState(false)
@@ -430,7 +435,7 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
 
     const { error: updateDiagError } = await supabase
       .from('diagnostic_calls')
-      .update({ niveau_evalue: niveauEvalue || null, rythme_convenu: rythmeConvenu || null, notes: notes || null })
+      .update({ niveau_evalue: niveauEvalue || null, rythme_convenu: rythmeConvenu || null, notes: notes || null, reponses })
       .eq('id', diagnosticId)
     if (updateDiagError) {
       setErreur(updateDiagError.message)
@@ -482,7 +487,7 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
 
     const { error } = await supabase
       .from('diagnostic_calls')
-      .update({ niveau_evalue: niveauEvalue || null, rythme_convenu: rythmeConvenu || null, notes: notes || null })
+      .update({ niveau_evalue: niveauEvalue || null, rythme_convenu: rythmeConvenu || null, notes: notes || null, reponses })
       .eq('id', diagnosticId)
     setEnCours(false)
     if (error) {
@@ -569,7 +574,7 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
       </div>
 
       {detailOuvert && (
-        <Modale titre={`${prospect.prenom} ${prospect.nom}`} onFermer={() => setDetailOuvert(false)}>
+        <Modale titre={`${prospect.prenom} ${prospect.nom}`} onFermer={() => setDetailOuvert(false)} largeurMax={560}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {/* Informations personnelles — demandées explicitement par le client le 2026-09-16
                 pour les fiches « Appel diagnostic planifié » et « Diagnostic réalisé », affichées
@@ -599,6 +604,8 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
                 onValider={validerRendezVous}
               />
             )}
+
+            {prospect.testPositionnement && <BilanTestPositionnement test={prospect.testPositionnement} />}
 
             {prospect.statut === 'diagnostic_fait' && prospect.diagnostic?.niveau_evalue && (
               <span style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
@@ -682,6 +689,12 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
                   rows={3}
                   style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)', fontFamily: 'inherit', resize: 'vertical' }}
                 />
+                <BlocQuestionnaire
+                  ouvert={questionnaireOuvert}
+                  onBasculer={() => setQuestionnaireOuvert((v) => !v)}
+                  reponses={reponses}
+                  onChange={setReponses}
+                />
                 <button onClick={marquerRealise} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
                   Confirmer
                 </button>
@@ -716,6 +729,12 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
                   rows={3}
                   style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)', fontFamily: 'inherit', resize: 'vertical' }}
                 />
+                <BlocQuestionnaire
+                  ouvert={questionnaireOuvert}
+                  onBasculer={() => setQuestionnaireOuvert((v) => !v)}
+                  reponses={reponses}
+                  onChange={setReponses}
+                />
                 <button onClick={enregistrerDiagnostic} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
                   {enCours ? 'Enregistrement…' : 'Enregistrer'}
                 </button>
@@ -728,6 +747,85 @@ function CarteProspect({ prospect, calendlyUrl, onChange, onChangerStatut }: Car
         </Modale>
       )}
     </>
+  )
+}
+
+/* Résultat du quiz écrit passé par un candidat au collectif pour valider sa place au test oral
+   (0051). Le bilan détaillé est aussi recopié dans les notes du diagnostic, ce qui le fait
+   suivre dans le dossier de l'élève une fois le prospect converti. */
+function BilanTestPositionnement({
+  test,
+}: {
+  test: NonNullable<ProspectAvecDiagnostic['testPositionnement']>
+}) {
+  const [ouvert, setOuvert] = useState(false)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, borderRadius: 10, border: '1px solid rgba(94,179,255,.3)', background: 'rgba(94,179,255,.08)', padding: '11px 13px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--accent-blue)', flexGrow: 1 }}>
+          Test de positionnement écrit
+        </span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+          {test.score}/{test.total}
+        </span>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)' }}>{test.niveau_estime ?? 'Non évalué'}</span>
+      </div>
+      {test.bilan && (
+        <>
+          <button
+            type="button"
+            onClick={() => setOuvert((v) => !v)}
+            style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: 0, fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            {ouvert ? 'Masquer le bilan' : 'Voir le bilan détaillé'}
+          </button>
+          {ouvert && (
+            <pre style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--ink-2)', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>
+              {test.bilan}
+            </pre>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+/* Trame complète de l'appel diagnostic (demande client du 2026-09-21), repliée par défaut :
+   elle fait une trentaine de champs et écraserait les trois champs de synthèse au-dessus, qui
+   restent le geste le plus fréquent après un appel. La pastille indique qu'un questionnaire a
+   déjà été rempli, pour ne pas avoir à déplier pour le savoir. */
+function BlocQuestionnaire({
+  ouvert,
+  onBasculer,
+  reponses,
+  onChange,
+}: {
+  ouvert: boolean
+  onBasculer: () => void
+  reponses: ReponsesDiagnostic
+  onChange: (reponses: ReponsesDiagnostic) => void
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--border-soft)', paddingTop: 10 }}>
+      <button
+        type="button"
+        onClick={onBasculer}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Trame de l’appel diagnostic
+        </span>
+        {estRempli(reponses) && (
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '2px 8px' }}>
+            Remplie
+          </span>
+        )}
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', marginLeft: 'auto' }}>
+          {ouvert ? 'Masquer' : 'Remplir'}
+        </span>
+      </button>
+      {ouvert && <FormulaireDiagnosticCall reponses={reponses} onChange={onChange} />}
+    </div>
   )
 }
 
@@ -749,7 +847,7 @@ function PostItRendezVous({
   if (!prospect.rendezVous) return null
   const rdv = prospect.rendezVous
   const valide = rdv.statut === 'confirme'
-  const quand = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'full', timeStyle: 'short' }).format(new Date(rdv.debut))
+  const quand = formaterDansFuseauEtablissement(rdv.debut)
 
   return (
     <div

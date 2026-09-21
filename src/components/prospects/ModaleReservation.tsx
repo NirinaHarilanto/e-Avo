@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { AccentPalette } from '../../lib/accent'
 import type { TypeProgrammeProspect } from '../../types/database.types'
 import { ReserverAppel } from './ReserverAppel'
+import { TestPositionnement } from './TestPositionnement'
 
 const TYPES: { valeur: TypeProgrammeProspect; libelle: string; detail: string }[] = [
   { valeur: 'individuel', libelle: 'Individuel', detail: 'Un professeur rien que pour vous' },
@@ -13,7 +14,7 @@ const TYPES: { valeur: TypeProgrammeProspect; libelle: string; detail: string }[
    positionnement : l'élève rejoint une vague existante, il faut donc situer son niveau par
    rapport au groupe. Le libellé suit ce que vit réellement le visiteur. */
 export function libelleAppel(type: TypeProgrammeProspect): string {
-  return type === 'collectif' ? 'Appel pour un test de positionnement' : 'Appel diagnostic'
+  return type === 'collectif' ? 'Test de positionnement' : 'Appel diagnostic'
 }
 
 /* Fenêtre de réservation, ouverte depuis n'importe quel bouton « Réserver » de la page publique.
@@ -48,7 +49,9 @@ export function ModaleReservation({
           <div style={{ minWidth: 0 }}>
             <h2 style={{ fontSize: 20, margin: '0 0 4px', color: 'var(--ink)' }}>{libelleAppel(type)}</h2>
             <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: 0 }}>
-              Gratuit et sans engagement, avec {etablissementNom}.
+              {type === 'collectif'
+                ? `Choisissez votre session de test oral, puis répondez au questionnaire pour valider votre place.`
+                : `Gratuit et sans engagement, avec ${etablissementNom}.`}
             </p>
           </div>
           <button type="button" onClick={onFermer} aria-label="Fermer" className="fermer-modale">
@@ -87,14 +90,26 @@ export function ModaleReservation({
         )}
 
         <div className="corps-reservation">
-          <ReserverAppel
-            etablissementSlug={etablissementSlug}
-            etablissementNom={etablissementNom}
-            accent={accent}
-            typeInitial={type}
-            onConfirme={() => setConfirme(true)}
-            sansCadre
-          />
+          {/* Le collectif suit un parcours entièrement différent (session de test oral +
+              questionnaire), pas une prise de rendez-vous individuelle — demande client du
+              2026-09-21. */}
+          {type === 'collectif' ? (
+            <TestPositionnement
+              etablissementSlug={etablissementSlug}
+              etablissementNom={etablissementNom}
+              accent={accent}
+              onConfirme={() => setConfirme(true)}
+            />
+          ) : (
+            <ReserverAppel
+              etablissementSlug={etablissementSlug}
+              etablissementNom={etablissementNom}
+              accent={accent}
+              typeInitial={type}
+              onConfirme={() => setConfirme(true)}
+              sansCadre
+            />
+          )}
         </div>
       </div>
     </div>

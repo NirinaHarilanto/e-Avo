@@ -159,6 +159,9 @@ export interface Database {
           niveau_evalue: string | null
           notes: string | null
           rythme_convenu: string | null
+          /* Questionnaire structuré rempli pendant l'appel (0050). Voir `ReponsesDiagnostic`
+             dans src/lib/diagnostic.ts pour la liste des clés. */
+          reponses: Record<string, string | string[] | undefined>
           created_at: string
         }
         Insert: {
@@ -170,6 +173,7 @@ export interface Database {
           niveau_evalue?: string | null
           notes?: string | null
           rythme_convenu?: string | null
+          reponses?: Record<string, string | string[] | undefined>
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['diagnostic_calls']['Insert']>
@@ -359,6 +363,87 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['cohorts']['Insert']>
         Relationships: []
       }
+      quiz_questions: {
+        Row: {
+          id: string
+          etablissement_id: string
+          ordre: number
+          enonce: string
+          options: string[]
+          /* Index dans `options`, jamais exposé au visiteur (0051). */
+          bonne_reponse: number
+          actif: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          ordre: number
+          enonce: string
+          options: string[]
+          bonne_reponse: number
+          actif?: boolean
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['quiz_questions']['Insert']>
+        Relationships: []
+      }
+      creneaux_test_positionnement: {
+        Row: {
+          id: string
+          etablissement_id: string
+          cohort_id: string
+          debut: string
+          duree_minutes: number
+          capacite_max: number | null
+          lien_visio: string | null
+          actif: boolean
+          created_by_profile_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          cohort_id: string
+          debut: string
+          duree_minutes?: number
+          capacite_max?: number | null
+          lien_visio?: string | null
+          actif?: boolean
+          created_by_profile_id: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['creneaux_test_positionnement']['Insert']>
+        Relationships: []
+      }
+      test_positionnement_inscriptions: {
+        Row: {
+          id: string
+          etablissement_id: string
+          creneau_id: string
+          prospect_id: string
+          reponses: { question_id: string; choix: number | null }[]
+          score: number
+          total: number
+          niveau_estime: string | null
+          bilan: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          creneau_id: string
+          prospect_id: string
+          reponses?: { question_id: string; choix: number | null }[]
+          score?: number
+          total?: number
+          niveau_estime?: string | null
+          bilan?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['test_positionnement_inscriptions']['Insert']>
+        Relationships: []
+      }
       cohort_enrollments: {
         Row: {
           id: string
@@ -543,6 +628,12 @@ export interface Database {
           date_paiement: string | null
           reference: string | null
           notes: string | null
+          /* Cumul des versements enregistrés, tenu à jour par trigger (0049). Le statut
+             « payé partiellement » s'en déduit, il n'existe pas dans l'enum. */
+          montant_regle: number
+          supprime_le: string | null
+          supprime_par: string | null
+          motif_suppression: string | null
           created_by_profile_id: string
           created_at: string
         }
@@ -559,6 +650,10 @@ export interface Database {
           date_paiement?: string | null
           reference?: string | null
           notes?: string | null
+          montant_regle?: number
+          supprime_le?: string | null
+          supprime_par?: string | null
+          motif_suppression?: string | null
           created_by_profile_id: string
           created_at?: string
         }
@@ -581,6 +676,10 @@ export interface Database {
           reference: string | null
           notes: string | null
           mode_remuneration: 'horaire' | 'mensuel'
+          montant_regle: number
+          supprime_le: string | null
+          supprime_par: string | null
+          motif_suppression: string | null
           created_by_profile_id: string
           created_at: string
         }
@@ -599,10 +698,46 @@ export interface Database {
           reference?: string | null
           notes?: string | null
           mode_remuneration?: 'horaire' | 'mensuel'
+          montant_regle?: number
+          supprime_le?: string | null
+          supprime_par?: string | null
+          motif_suppression?: string | null
           created_by_profile_id: string
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['teacher_payments']['Insert']>
+        Relationships: []
+      }
+      paiement_versements: {
+        Row: {
+          id: string
+          etablissement_id: string
+          /* Exactement l'un des deux est renseigné (contrainte
+             paiement_versements_une_seule_cible, 0049). */
+          student_payment_id: string | null
+          teacher_payment_id: string | null
+          montant: number
+          date_versement: string
+          moyen_paiement: string | null
+          reference: string | null
+          notes: string | null
+          created_by_profile_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          student_payment_id?: string | null
+          teacher_payment_id?: string | null
+          montant: number
+          date_versement?: string
+          moyen_paiement?: string | null
+          reference?: string | null
+          notes?: string | null
+          created_by_profile_id: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['paiement_versements']['Insert']>
         Relationships: []
       }
       quotes: {
@@ -654,6 +789,7 @@ export interface Database {
           teacher_id: string | null
           quote_id: string | null
           payment_id: string | null
+          teacher_payment_id: string | null
           numero: string
           statut: StatutFacture
           objet: string | null
@@ -675,6 +811,7 @@ export interface Database {
           teacher_id?: string | null
           quote_id?: string | null
           payment_id?: string | null
+          teacher_payment_id?: string | null
           numero: string
           statut?: StatutFacture
           objet?: string | null

@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
-import { usePaiementsEtudiants, type PaiementEtudiant } from '../../hooks/usePaiementsEtudiants'
+import { usePaiementsEtudiants, type ForfaitAPayer, type PaiementEtudiant } from '../../hooks/usePaiementsEtudiants'
 import { useRemunerationsProfesseurs, type RemunerationProfesseur } from '../../hooks/useRemunerationsProfesseurs'
-import { supabase } from '../../lib/supabaseClient'
 import { CreerPaiementEtudiant } from '../paiements/CreerPaiementEtudiant'
 import { CreerRemunerationProfesseur } from '../paiements/CreerRemunerationProfesseur'
+import { DetailPaiementModale, type CiblePaiement } from '../paiements/DetailPaiementModale'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
-import type { StatutPaiement } from '../../types/database.types'
+import { formaterMontant, resteAPayer, statutReglement, type LignePayable } from '../../lib/paiements'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -19,25 +19,42 @@ import { Icone } from '../ui/Icones'
 
 type Onglet = 'etudiants' | 'professeurs'
 
-const STATUTS: StatutPaiement[] = ['attendu', 'paye', 'en_retard', 'annule']
-const LABELS_STATUT: Record<StatutPaiement, string> = { attendu: 'Attendu', paye: 'Payé', en_retard: 'En retard', annule: 'Annulé' }
-
-/* Totaux dérivés des lignes déjà chargées par les hooks — la page n'affichait jusqu'ici aucun
-   montant cumulé, obligeant à additionner les lignes à la main pour savoir où en était la
-   trésorerie. Les lignes annulées sont volontairement exclues de tous les totaux. */
-function totaux(lignes: { montant: number; statut: StatutPaiement }[]) {
-  const cumul = (statut: StatutPaiement) =>
-    lignes.filter((l) => l.statut === statut).reduce((total, l) => total + l.montant, 0)
-  return { paye: cumul('paye'), attendu: cumul('attendu'), enRetard: cumul('en_retard') }
+/* Totaux dérivés des lignes déjà chargées par les hooks. Les lignes annulées sont exclues, et
+   l'encaissé se lit du cumul des acomptes (`montant_regle`) plutôt que du montant total des
+   lignes marquées payées : depuis la migration 0049, une ligne peut être réglée à moitié. */
+function totaux(lignes: LignePayable[]) {
+  const actives = lignes.filter((l) => statutReglement(l) !== 'annule')
+  return {
+    encaisse: actives.reduce((total, l) => total + l.montant_regle, 0),
+    reste: actives.reduce((total, l) => total + resteAPayer(l), 0),
+    enRetard: actives.filter((l) => statutReglement(l) === 'en_retard').reduce((total, l) => total + resteAPayer(l), 0),
+  }
 }
 
 export function PaiementsAdmin() {
   const { profile } = useProfileContext()
   const [onglet, setOnglet] = useState<Onglet>('etudiants')
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
+  const [detail, setDetail] = useState<CiblePaiement | null>(null)
 
   const paiementsEtudiants = usePaiementsEtudiants()
   const remunerationsProfs = useRemunerationsProfesseurs()
+
+  /* Un forfait souscrit sans ligne de paiement compte comme entièrement dû : c'est justement
+     ce que la demande client veut rendre visible. */
+  const lignesEtudiants: LignePayable[] = [
+    ...paiementsEtudiants.paiements.map((p) => p.paiement),
+    ...paiementsEtudiants.forfaitsAPayer.map((f) => ({ montant: f.forfait.montant ?? 0, montant_regle: 0, statut: 'attendu' as const })),
+  ]
+  const lignesProfesseurs: LignePayable[] = remunerationsProfs.remunerations.map((r) => r.paiement)
+
+  const totauxEtudiants = totaux(lignesEtudiants)
+  const totauxProfesseurs = totaux(lignesProfesseurs)
+
+  function rechargerTout() {
+    paiementsEtudiants.recharger()
+    remunerationsProfs.recharger()
+  }
 
   return (
     <AdminLayout actif="Paiements">
@@ -56,20 +73,21 @@ export function PaiementsAdmin() {
         id="admin-paiements"
         etapes={[
           <>
-            Choisissez l’onglet <strong>Étudiants</strong> pour enregistrer un encaissement, ou{' '}
-            <strong>Professeurs</strong> pour une rémunération à verser.
+            Choisissez l’onglet <strong>Étudiants</strong> pour suivre les encaissements, ou <strong>Professeurs</strong>{' '}
+            pour les rémunérations à verser.
           </>,
           <>
-            Créez la ligne avec son montant et son échéance, puis faites évoluer son <strong>statut</strong> (attendu,
-            payé, en retard, annulé) directement dans la liste, sans rouvrir de formulaire.
+            Tout élève ayant un <strong>forfait et un professeur</strong> apparaît automatiquement dans la liste, avec le
+            tag « À payer », même si aucune ligne de paiement n’a encore été créée.
           </>,
           <>
-            Passer un paiement étudiant à <strong>payé</strong> génère automatiquement un reçu, que l’élève retrouve
-            dans son espace « Mes paiements ».
+            <strong>Cliquez sur une ligne</strong> pour ouvrir son détail : montant dû, acomptes déjà encaissés, reste à
+            payer. Vous y enregistrez un acompte (le solde restant est pré-rempli) et le statut suit tout seul : à payer,
+            payé partiellement, puis payé.
           </>,
           <>
-            Pour un professeur rémunéré à l’heure, le montant est proposé à partir de son taux horaire et de ses heures
-            non encore payées : vérifiez-le avant de valider.
+            Depuis ce même détail, <strong>générez la facture</strong> correspondante, ou supprimez la ligne en indiquant
+            un motif — la trace de la suppression est conservée.
           </>,
         ]}
       />
@@ -83,62 +101,41 @@ export function PaiementsAdmin() {
             setFormulaireOuvert(false)
           }}
           onglets={[
-            { value: 'etudiants', label: 'Étudiants', compteur: paiementsEtudiants.paiements.length },
-            { value: 'professeurs', label: 'Professeurs', compteur: remunerationsProfs.remunerations.length },
+            { value: 'etudiants', label: 'Étudiants', compteur: lignesEtudiants.length },
+            { value: 'professeurs', label: 'Professeurs', compteur: lignesProfesseurs.length },
           ]}
         />
       </div>
 
-      {onglet === 'etudiants' && !paiementsEtudiants.loading && paiementsEtudiants.paiements.length > 0 && (
+      {onglet === 'etudiants' && !paiementsEtudiants.loading && lignesEtudiants.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <GrilleStats min={180}>
-            <Stat
-              libelle="Encaissé"
-              valeur={totaux(paiementsEtudiants.paiements.map((p) => p.paiement)).paye.toFixed(2)}
-              unite="Ar"
-              ton="teal"
-            />
-            <Stat
-              libelle="Attendu"
-              valeur={totaux(paiementsEtudiants.paiements.map((p) => p.paiement)).attendu.toFixed(2)}
-              unite="Ar"
-              ton="or"
-              aide="Échéances à venir non réglées"
-            />
+            <Stat libelle="Encaissé" valeur={totauxEtudiants.encaisse.toFixed(2)} unite="Ar" ton="teal" aide="Acomptes et soldes reçus" />
+            <Stat libelle="Reste à encaisser" valeur={totauxEtudiants.reste.toFixed(2)} unite="Ar" ton="or" />
             <Stat
               libelle="En retard"
-              valeur={totaux(paiementsEtudiants.paiements.map((p) => p.paiement)).enRetard.toFixed(2)}
+              valeur={totauxEtudiants.enRetard.toFixed(2)}
               unite="Ar"
-              ton={totaux(paiementsEtudiants.paiements.map((p) => p.paiement)).enRetard > 0 ? 'alerte' : 'neutre'}
+              ton={totauxEtudiants.enRetard > 0 ? 'alerte' : 'neutre'}
               aide="À relancer en priorité"
             />
-            <Stat libelle="Lignes enregistrées" valeur={paiementsEtudiants.paiements.length} ton="neutre" />
+            <Stat libelle="Lignes suivies" valeur={lignesEtudiants.length} ton="neutre" />
           </GrilleStats>
         </div>
       )}
 
-      {onglet === 'professeurs' && !remunerationsProfs.loading && remunerationsProfs.remunerations.length > 0 && (
+      {onglet === 'professeurs' && !remunerationsProfs.loading && lignesProfesseurs.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <GrilleStats min={180}>
-            <Stat
-              libelle="Versé"
-              valeur={totaux(remunerationsProfs.remunerations.map((r) => r.paiement)).paye.toFixed(2)}
-              unite="Ar"
-              ton="teal"
-            />
-            <Stat
-              libelle="À verser"
-              valeur={totaux(remunerationsProfs.remunerations.map((r) => r.paiement)).attendu.toFixed(2)}
-              unite="Ar"
-              ton="or"
-            />
+            <Stat libelle="Versé" valeur={totauxProfesseurs.encaisse.toFixed(2)} unite="Ar" ton="teal" />
+            <Stat libelle="Reste à verser" valeur={totauxProfesseurs.reste.toFixed(2)} unite="Ar" ton="or" />
             <Stat
               libelle="En retard"
-              valeur={totaux(remunerationsProfs.remunerations.map((r) => r.paiement)).enRetard.toFixed(2)}
+              valeur={totauxProfesseurs.enRetard.toFixed(2)}
               unite="Ar"
-              ton={totaux(remunerationsProfs.remunerations.map((r) => r.paiement)).enRetard > 0 ? 'alerte' : 'neutre'}
+              ton={totauxProfesseurs.enRetard > 0 ? 'alerte' : 'neutre'}
             />
-            <Stat libelle="Lignes enregistrées" valeur={remunerationsProfs.remunerations.length} ton="neutre" />
+            <Stat libelle="Lignes suivies" valeur={lignesProfesseurs.length} ton="neutre" />
           </GrilleStats>
         </div>
       )}
@@ -167,63 +164,99 @@ export function PaiementsAdmin() {
       {onglet === 'etudiants' ? (
         <ListePaiementsEtudiants
           paiements={paiementsEtudiants.paiements}
+          forfaitsAPayer={paiementsEtudiants.forfaitsAPayer}
           loading={paiementsEtudiants.loading}
           erreur={paiementsEtudiants.erreur}
-          recharger={paiementsEtudiants.recharger}
+          onOuvrir={setDetail}
         />
       ) : (
         <ListeRemunerationsProfesseurs
           remunerations={remunerationsProfs.remunerations}
           loading={remunerationsProfs.loading}
           erreur={remunerationsProfs.erreur}
-          recharger={remunerationsProfs.recharger}
+          onOuvrir={setDetail}
         />
       )}
+
+      {detail && <DetailPaiementModale cible={detail} onFermer={() => setDetail(null)} onChange={rechargerTout} />}
     </AdminLayout>
   )
 }
 
+const LABEL_PROGRAMME: Record<'individuel' | 'duo' | 'collectif', string> = {
+  individuel: 'Individuel',
+  duo: 'Duo',
+  collectif: 'Collectif',
+}
+
 function ListePaiementsEtudiants({
   paiements,
+  forfaitsAPayer,
   loading,
   erreur,
-  recharger,
+  onOuvrir,
 }: {
   paiements: PaiementEtudiant[]
+  forfaitsAPayer: ForfaitAPayer[]
   loading: boolean
   erreur: string | null
-  recharger: () => void
+  onOuvrir: (cible: CiblePaiement) => void
 }) {
   if (loading) return <EtatChargement lignes={4} hauteur={70} />
   if (erreur) return <MessageErreur>{erreur}</MessageErreur>
-  if (paiements.length === 0) {
+  if (paiements.length === 0 && forfaitsAPayer.length === 0) {
     return (
       <EtatVide
         icone="paiements"
-        titre="Aucun paiement enregistré"
-        description="Utilisez « Enregistrer un paiement » pour créer une première échéance : montant, date et étudiant concerné. Vous en suivrez ensuite le statut depuis cette liste."
+        titre="Aucun paiement à suivre"
+        description="Dès qu’un élève a un forfait et un professeur attribué, il apparaît ici avec le tag « À payer ». Vous pouvez aussi créer une ligne à la main avec « Enregistrer un paiement »."
       />
     )
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {paiements.map(({ paiement, etudiant, forfait }) => (
+      {/* Les forfaits pas encore facturés passent en tête : ce sont les seuls sur lesquels rien
+          n'a encore été fait, donc ceux qui appellent une action. */}
+      {forfaitsAPayer.map(({ forfait, etudiant, professeur }) => (
+        <LigneFinanciere
+          key={`forfait-${forfait.id}`}
+          nomPersonne={etudiant ? `${etudiant.prenom} ${etudiant.nom}` : 'Étudiant inconnu'}
+          sousTitre={[
+            `Forfait ${LABEL_PROGRAMME[forfait.type_programme]} · ${forfait.total_heures} h`,
+            professeur ? `prof. ${professeur.prenom} ${professeur.nom}` : null,
+            'aucun paiement enregistré',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+          montant={forfait.montant ?? 0}
+          montantRegle={0}
+          statutBase="attendu"
+          devise="Ar"
+          dateEcheance={forfait.echeance}
+          onOuvrir={() => onOuvrir({ type: 'forfait', forfait, personne: etudiant, professeur })}
+        />
+      ))}
+
+      {paiements.map(({ paiement, etudiant, forfait, professeur }) => (
         <LigneFinanciere
           key={paiement.id}
-          table="student_payments"
-          id={paiement.id}
           nomPersonne={etudiant ? `${etudiant.prenom} ${etudiant.nom}` : 'Étudiant inconnu'}
           sousTitre={
-            [forfait ? `Forfait ${forfait.type_programme} · ${forfait.total_heures} h` : null, paiement.moyen_paiement, paiement.reference]
+            [
+              forfait ? `Forfait ${LABEL_PROGRAMME[forfait.type_programme]} · ${forfait.total_heures} h` : null,
+              paiement.moyen_paiement,
+              paiement.reference,
+            ]
               .filter(Boolean)
               .join(' · ') || undefined
           }
           montant={paiement.montant}
+          montantRegle={paiement.montant_regle}
+          statutBase={paiement.statut}
           devise={paiement.devise}
-          statut={paiement.statut}
           dateEcheance={paiement.date_echeance}
-          onChange={recharger}
+          onOuvrir={() => onOuvrir({ type: 'etudiant', paiement, personne: etudiant, forfait, professeur })}
         />
       ))}
     </div>
@@ -234,12 +267,12 @@ function ListeRemunerationsProfesseurs({
   remunerations,
   loading,
   erreur,
-  recharger,
+  onOuvrir,
 }: {
   remunerations: RemunerationProfesseur[]
   loading: boolean
   erreur: string | null
-  recharger: () => void
+  onOuvrir: (cible: CiblePaiement) => void
 }) {
   if (loading) return <EtatChargement lignes={4} hauteur={70} />
   if (erreur) return <MessageErreur>{erreur}</MessageErreur>
@@ -258,19 +291,20 @@ function ListeRemunerationsProfesseurs({
       {remunerations.map(({ paiement, professeur }) => (
         <LigneFinanciere
           key={paiement.id}
-          table="teacher_payments"
-          id={paiement.id}
           nomPersonne={professeur ? `${professeur.prenom} ${professeur.nom}` : 'Professeur inconnu'}
           sousTitre={
             paiement.periode_debut
               ? `${new Date(paiement.periode_debut).toLocaleDateString('fr-FR')}${paiement.periode_fin ? ` → ${new Date(paiement.periode_fin).toLocaleDateString('fr-FR')}` : ''}`
-              : paiement.reference || undefined
+              : paiement.mode_remuneration === 'horaire'
+                ? 'Heures enseignées'
+                : paiement.reference || undefined
           }
           montant={paiement.montant}
+          montantRegle={paiement.montant_regle}
+          statutBase={paiement.statut}
           devise={paiement.devise}
-          statut={paiement.statut}
           dateEcheance={paiement.date_echeance}
-          onChange={recharger}
+          onOuvrir={() => onOuvrir({ type: 'professeur', paiement, personne: professeur })}
         />
       ))}
     </div>
@@ -278,75 +312,45 @@ function ListeRemunerationsProfesseurs({
 }
 
 function LigneFinanciere({
-  table,
-  id,
   nomPersonne,
   sousTitre,
   montant,
+  montantRegle,
+  statutBase,
   devise,
-  statut,
   dateEcheance,
-  onChange,
+  onOuvrir,
 }: {
-  table: 'student_payments' | 'teacher_payments'
-  id: string
   nomPersonne: string
   sousTitre?: string
   montant: number
+  montantRegle: number
+  statutBase: LignePayable['statut']
   devise: string
-  statut: StatutPaiement
   dateEcheance: string | null
-  onChange: () => void
+  onOuvrir: () => void
 }) {
-  const { session } = useProfileContext()
-  const [enCours, setEnCours] = useState(false)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  async function changerStatut(nouveauStatut: StatutPaiement) {
-    setEnCours(true)
-    setErreur(null)
-    const datePaiement = nouveauStatut === 'paye' ? new Date().toISOString().slice(0, 10) : undefined
-    // `table` est narrowé par branche : le client Supabase typé refuse un update générique sur
-    // l'union des deux tables (les colonnes propres à l'autre table seraient `never`).
-    const { error } =
-      table === 'student_payments'
-        ? await supabase
-            .from('student_payments')
-            .update({ statut: nouveauStatut, ...(datePaiement && { date_paiement: datePaiement }) })
-            .eq('id', id)
-        : await supabase
-            .from('teacher_payments')
-            .update({ statut: nouveauStatut, ...(datePaiement && { date_paiement: datePaiement }) })
-            .eq('id', id)
-    setEnCours(false)
-    if (error) {
-      setErreur(error.message)
-      return
-    }
-    onChange()
-  }
-
-  async function supprimer() {
-    if (!session) return
-    if (!window.confirm('Supprimer cette ligne ?')) return
-    setEnCours(true)
-    setErreur(null)
-    const reponse = await fetch('/api/admin/supprimer-ligne-financiere', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ table, id }),
-    })
-    setEnCours(false)
-    if (!reponse.ok) {
-      const corps = await reponse.json().catch(() => null)
-      setErreur(corps?.error ?? 'La suppression a échoué.')
-      return
-    }
-    onChange()
-  }
+  const ligne: LignePayable = { montant, montant_regle: montantRegle, statut: statutBase }
+  const statut = statutReglement(ligne)
+  const reste = resteAPayer(ligne)
 
   return (
-    <div className="card card-lift" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+    <button
+      type="button"
+      onClick={onOuvrir}
+      className="card card-lift"
+      style={{
+        padding: '14px 18px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        flexWrap: 'wrap',
+        width: '100%',
+        textAlign: 'left',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+      }}
+    >
       <div style={{ flexGrow: 1, minWidth: 180 }}>
         <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
           {nomPersonne}
@@ -356,30 +360,16 @@ function LigneFinanciere({
           {dateEcheance && `${sousTitre ? ' · ' : ''}échéance ${new Date(dateEcheance).toLocaleDateString('fr-FR')}`}
         </div>
       </div>
-      <span className="brand-font" style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)', flexShrink: 0 }}>
-        {montant} {devise}
-      </span>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', flexShrink: 0 }}>
+        <span className="brand-font" style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>
+          {formaterMontant(montant, devise)}
+        </span>
+        {statut === 'partiel' && (
+          <span style={{ fontSize: 11, color: 'var(--muted)' }}>reste {formaterMontant(reste, devise)}</span>
+        )}
+      </div>
       <BadgeStatutPaiement statut={statut} />
-      <select
-        value={statut}
-        disabled={enCours}
-        onChange={(e) => changerStatut(e.target.value as StatutPaiement)}
-        style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-      >
-        {STATUTS.map((s) => (
-          <option key={s} value={s}>
-            {LABELS_STATUT[s]}
-          </option>
-        ))}
-      </select>
-      <button
-        onClick={supprimer}
-        disabled={enCours}
-        style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}
-      >
-        Supprimer
-      </button>
-      {erreur && <p style={{ color: 'var(--danger)', fontSize: 11.5, width: '100%' }}>{erreur}</p>}
-    </div>
+      <Icone nom="chevron" taille={15} />
+    </button>
   )
 }

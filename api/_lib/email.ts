@@ -117,6 +117,30 @@ export function modeleReinitialisationMotDePasse(params: { premiereConnexion: bo
   </p>`)
 }
 
+export function modeleTestPositionnementInscrit(params: {
+  prenom: string
+  etablissement: string
+  quand: string
+  vague: string
+  score: number
+  total: number
+  niveau: string
+}): string {
+  return coquille(`
+  <h1 style="font-size:19px;margin:0 0 14px">Votre test oral est réservé</h1>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 14px">Bonjour ${echapper(params.prenom)},</p>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 14px">
+    Votre questionnaire écrit est enregistré : <strong>${params.score}/${params.total}</strong>,
+    niveau estimé <strong>${echapper(params.niveau)}</strong>. Ce résultat est indicatif, il sera confirmé
+    lors de l'oral.
+  </p>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 14px">
+    Votre place est retenue pour le test oral du <strong>${echapper(params.quand)}</strong>
+    (vague ${echapper(params.vague)}). ${echapper(params.etablissement)} vous transmet le lien de
+    visioconférence avant la séance.
+  </p>`)
+}
+
 /* Les valeurs viennent d'un formulaire public : elles se retrouvent dans du HTML envoyé par
    e-mail, donc échappées comme n'importe quelle donnée non maîtrisée. */
 function echapper(valeur: string): string {

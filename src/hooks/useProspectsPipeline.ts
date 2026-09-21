@@ -5,6 +5,7 @@ import { useCacheRequete } from './useCacheRequete'
 type Prospect = Database['public']['Tables']['prospects']['Row']
 type DiagnosticCall = Database['public']['Tables']['diagnostic_calls']['Row']
 type RendezVous = Database['public']['Tables']['rendez_vous']['Row']
+type TestPositionnement = Database['public']['Tables']['test_positionnement_inscriptions']['Row']
 
 export interface ProspectAvecDiagnostic extends Prospect {
   diagnostic: DiagnosticCall | null
@@ -16,6 +17,9 @@ export interface ProspectAvecDiagnostic extends Prospect {
      elle-même (demande client du 2026-09-16 : « la vraie date, l'heure, le lien Meet et le
      statut de validation »). */
   rendezVous: RendezVous | null
+  /* Candidature au test oral d'une vague, pour les prospects venus par le parcours collectif
+     (0051) : note au questionnaire écrit, niveau estimé et bilan généré automatiquement. */
+  testPositionnement: TestPositionnement | null
 }
 
 export const COLONNES_PIPELINE: { statut: ProspectStatut; titre: string }[] = [
@@ -31,10 +35,12 @@ export function useProspectsPipeline() {
       { data: prospectsData, error: prospectsError },
       { data: diagnosticsData, error: diagnosticsError },
       { data: rendezVousData, error: rendezVousError },
+      { data: testsData },
     ] = await Promise.all([
       supabase.from('prospects').select('*').order('created_at', { ascending: false }),
       supabase.from('diagnostic_calls').select('*').order('created_at', { ascending: false }),
       supabase.from('rendez_vous').select('*').order('debut', { ascending: false }),
+      supabase.from('test_positionnement_inscriptions').select('*').order('created_at', { ascending: false }),
     ])
     if (prospectsError || diagnosticsError || rendezVousError) {
       throw new Error((prospectsError ?? diagnosticsError ?? rendezVousError)?.message ?? 'Erreur de chargement.')
@@ -53,10 +59,18 @@ export function useProspectsPipeline() {
       }
     }
 
+    const testParProspect = new Map<string, TestPositionnement>()
+    for (const test of testsData ?? []) {
+      if (!testParProspect.has(test.prospect_id)) {
+        testParProspect.set(test.prospect_id, test)
+      }
+    }
+
     return (prospectsData ?? []).map((prospect): ProspectAvecDiagnostic => ({
       ...prospect,
       diagnostic: diagnosticParProspect.get(prospect.id) ?? null,
       rendezVous: rendezVousParProspect.get(prospect.id) ?? null,
+      testPositionnement: testParProspect.get(prospect.id) ?? null,
     }))
   })
 

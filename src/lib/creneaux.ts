@@ -173,6 +173,31 @@ export function calculerCreneauxLibres(
   return [...new Set(libres)].sort()
 }
 
+/* Fuseau réellement utilisé par le navigateur du visiteur. C'est la localisation que le
+   système d'exploitation applique déjà partout ailleurs, donc la meilleure approximation de
+   l'endroit où se trouve le prospect, sans rien lui demander ni géolocaliser quoi que ce soit
+   (demande client du 2026-09-21 : le choix du fuseau doit se faire tout seul).
+
+   Repli sur le fuseau de l'établissement si l'environnement ne le donne pas : certains
+   navigateurs durcis renvoient une chaîne vide, et les tests s'exécutent sans Intl complet. */
+export function fuseauDuVisiteur(defaut: string): string {
+  try {
+    const detecte = Intl.DateTimeFormat().resolvedOptions().timeZone
+    /* Un nom IANA sans barre oblique ('UTC', 'GMT') n'apporte rien au visiteur et n'apparaît
+       dans aucune liste de villes : on garde le fuseau de l'établissement dans ce cas. */
+    return detecte && detecte.includes('/') ? detecte : defaut
+  } catch {
+    return defaut
+  }
+}
+
+/** Libellé lisible d'un fuseau IANA : « Europe/Paris » devient « Paris (Europe) ». */
+export function libelleFuseau(fuseau: string): string {
+  const [region, ...reste] = fuseau.split('/')
+  const ville = reste.join('/').replace(/_/g, ' ')
+  return ville ? `${ville} (${region.replace(/_/g, ' ')})` : fuseau
+}
+
 /** Regroupe les créneaux par date locale, pour l'affichage en colonnes de jours. */
 export function grouperParJour(creneaux: string[], fuseau: string): { date: string; creneaux: string[] }[] {
   const parJour = new Map<string, string[]>()

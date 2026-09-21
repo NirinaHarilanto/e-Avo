@@ -13,6 +13,9 @@ import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { champStyle } from '../ui/Champ'
+import { Onglets } from '../ui/Onglets'
+import { CreneauxTestVague } from './CreneauxTestVague'
+import { QuizPositionnementAdmin } from './QuizPositionnementAdmin'
 
 type Cohort = Database['public']['Tables']['cohorts']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -23,6 +26,7 @@ export function CohortesAdmin() {
   const { profile } = useProfileContext()
   const { cohortes, loading, erreur, recharger } = useCohortes()
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
+  const [onglet, setOnglet] = useState<'vagues' | 'quiz'>('vagues')
 
   return (
     <AdminLayout actif="Vagues">
@@ -31,13 +35,53 @@ export function CohortesAdmin() {
         titre="Vagues (cours collectifs)"
         description="Une vague est un groupe d’élèves qui suivent le même programme sur une même période. C’est l’alternative au forfait individuel ou en duo."
         actions={
-          <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
-            <Icone nom="plus" taille={15} />
-            {formulaireOuvert ? 'Fermer' : 'Nouvelle vague'}
-          </button>
+          onglet === 'vagues' && (
+            <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
+              <Icone nom="plus" taille={15} />
+              {formulaireOuvert ? 'Fermer' : 'Nouvelle vague'}
+            </button>
+          )
         }
       />
 
+      <div style={{ marginBottom: 16 }}>
+        <Onglets
+          etiquette="Section"
+          actif={onglet}
+          onChange={setOnglet}
+          compact
+          onglets={[
+            { value: 'vagues', label: 'Vagues', compteur: cohortes.length },
+            { value: 'quiz', label: 'Quiz de positionnement' },
+          ]}
+        />
+      </div>
+
+      {onglet === 'quiz' ? (
+        <>
+          <GuidePage
+            id="admin-quiz-positionnement"
+            compact
+            etapes={[
+              <>
+                Ce questionnaire est posé aux candidats qui réservent une <strong>session de test oral</strong> depuis la
+                page publique. Y répondre est ce qui valide définitivement leur place.
+              </>,
+              <>
+                La note situe automatiquement un <strong>niveau estimé</strong> (A1 à C1) et produit un bilan rattaché au
+                dossier du candidat, que vous retrouvez dans la vague concernée et dans sa fiche prospect.
+              </>,
+              <>
+                Modifiez les questions, leurs propositions et la bonne réponse à votre guise. Une question{' '}
+                <strong>désactivée</strong> n’est plus posée et ne compte plus dans la note, sans fausser les tests déjà
+                passés.
+              </>,
+            ]}
+          />
+          <QuizPositionnementAdmin />
+        </>
+      ) : (
+        <>
       <GuidePage
         id="admin-vagues"
         compact
@@ -59,8 +103,9 @@ export function CohortesAdmin() {
             créée, sans toucher aux élèves déjà inscrits.
           </>,
           <>
-            Le bouton <strong>Voir les inscrits</strong> déplie la liste des élèves rattachés, pour vérifier le
-            remplissage avant d’ouvrir une nouvelle vague.
+            Le bouton <strong>Voir les inscrits</strong> déplie la liste des élèves rattachés, et donne accès aux{' '}
+            <strong>sessions de test oral</strong> que vous ouvrez pour cette vague : c’est ce que les candidats au
+            collectif réservent depuis la page publique.
           </>,
         ]}
       />
@@ -101,6 +146,8 @@ export function CohortesAdmin() {
             ))}
           </div>
         </div>
+      )}
+        </>
       )}
     </AdminLayout>
   )
@@ -306,7 +353,8 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
       </div>
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 11.5 }}>{erreur}</p>}
       {ouverte && (
-        <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {inscrits === null ? (
             <EtatChargement lignes={2} hauteur={38} />
           ) : inscrits.length === 0 ? (
@@ -328,6 +376,8 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
               </div>
             ))
           )}
+          </div>
+          <CreneauxTestVague cohorteId={cohorte.id} etablissementId={cohorte.etablissement_id} />
         </div>
       )}
     </div>

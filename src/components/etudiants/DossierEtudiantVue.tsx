@@ -2,6 +2,8 @@ import { useState, type ReactNode } from 'react'
 import type { DossierEtudiant, PeriodeProfesseur, SeanceDuParcours } from '../../hooks/useDossierEtudiant'
 import { useNiveauxEtudiant } from '../../hooks/useNiveauxEtudiant'
 import { getJoinUrl } from '../../lib/visio'
+import { estRempli } from '../../lib/diagnostic'
+import { RecapitulatifDiagnostic } from '../prospects/FormulaireDiagnosticCall'
 import type { Database } from '../../types/database.types'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { Section } from '../ui/Section'
@@ -46,6 +48,14 @@ function BlocDiagnostic({ diagnostic }: { diagnostic: NonNullable<DossierEtudian
       {diagnostic.notes && (
         <div style={{ background: 'rgba(0,0,0,.24)', borderRadius: 12, padding: '11px 13px' }}>
           <TexteRepliable texte={`« ${diagnostic.notes} »`} style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)' }} />
+        </div>
+      )}
+      {/* Réponses à la trame remplie pendant l'appel (0050) : elles suivent le prospect dans son
+          dossier d'élève, ce qui est précisément ce que la demande client appelle « enregistrer
+          les résultats dans les informations des étudiants ». */}
+      {estRempli(diagnostic.reponses ?? {}) && (
+        <div style={{ background: 'rgba(0,0,0,.24)', borderRadius: 12, padding: '13px 15px' }}>
+          <RecapitulatifDiagnostic reponses={diagnostic.reponses} />
         </div>
       )}
     </div>

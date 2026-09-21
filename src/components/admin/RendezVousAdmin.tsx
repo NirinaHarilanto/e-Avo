@@ -8,6 +8,7 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { supabase } from '../../lib/supabaseClient'
 import type { StatutRendezVous } from '../../types/database.types'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
+import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -250,7 +251,7 @@ export function RendezVousAdmin() {
 
       {rdvOuvert && (
         <Modale
-          titre={new Date(rdvOuvert.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
+          titre={formaterDansFuseauEtablissement(rdvOuvert.debut)}
           onFermer={() => setElementOuvertId(null)}
           largeurMax={520}
         >
@@ -303,7 +304,7 @@ function CarteEvenementAdmin({
 }) {
   const [enCours, setEnCours] = useState(false)
   const [echec, setEchec] = useState<string | null>(null)
-  const quand = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'full', timeStyle: 'short' }).format(new Date(evenement.debut))
+  const quand = formaterDansFuseauEtablissement(evenement.debut)
 
   async function annuler() {
     if (!session) return
@@ -525,7 +526,7 @@ function CarteRendezVous({
   const [motifRefus, setMotifRefus] = useState('')
 
   const prospect = rdv.prospects
-  const quand = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'full', timeStyle: 'short' }).format(new Date(rdv.debut))
+  const quand = formaterDansFuseauEtablissement(rdv.debut)
 
   async function decider(decision: 'confirmer' | 'refuser') {
     setEnCours(true)

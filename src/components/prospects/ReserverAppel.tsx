@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react'
 import type { AccentPalette } from '../../lib/accent'
-import { grouperParJour } from '../../lib/creneaux'
+import { fuseauDuVisiteur, grouperParJour, libelleFuseau } from '../../lib/creneaux'
+import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 import type { TypeProgrammeProspect } from '../../types/database.types'
 
 /* Prise de rendez-vous directement sur le site, en remplacement du renvoi vers Calendly : le
@@ -22,9 +23,10 @@ interface ReponseCreneaux {
   fuseau: string
 }
 
-/* Fuseau par défaut : celui de Hari Online Club, à Madagascar. Un prospect à l'étranger peut le
-   changer pour lire les créneaux dans son propre fuseau — la liste reste volontairement courte,
-   centrée sur les pays francophones et anglophones les plus probables pour des cours d'anglais. */
+/* Fuseaux proposés dans la liste : les pays francophones et anglophones les plus probables pour
+   des cours d'anglais. Le fuseau réellement sélectionné au chargement n'est pas celui de
+   l'établissement mais celui du visiteur, détecté depuis son navigateur (voir `fuseauxProposes`
+   plus bas) — un prospect en France lit d'emblée les créneaux à son heure, sans rien régler. */
 const FUSEAUX_PROSPECT: { valeur: string; libelle: string }[] = [
   { valeur: 'Indian/Antananarivo', libelle: 'Madagascar — Antananarivo' },
   { valeur: 'Indian/Mauritius', libelle: 'Maurice — Port-Louis' },
@@ -40,6 +42,14 @@ const FUSEAUX_PROSPECT: { valeur: string; libelle: string }[] = [
   { valeur: 'America/New_York', libelle: 'États-Unis (Est) — New York' },
   { valeur: 'Asia/Dubai', libelle: 'Émirats arabes unis — Dubaï' },
 ]
+
+/* Le fuseau détecté est ajouté en tête de liste s'il n'y figure pas déjà : le prospect voit
+   donc toujours sa propre ville, où qu'il soit, tout en gardant la possibilité de basculer sur
+   un autre fuseau (il réserve pour quelqu'un d'autre, il est en déplacement…). */
+function fuseauxProposes(fuseauDetecte: string): { valeur: string; libelle: string }[] {
+  if (FUSEAUX_PROSPECT.some((f) => f.valeur === fuseauDetecte)) return FUSEAUX_PROSPECT
+  return [{ valeur: fuseauDetecte, libelle: `Votre fuseau — ${libelleFuseau(fuseauDetecte)}` }, ...FUSEAUX_PROSPECT]
+}
 
 /* Décalage horaire courant lisible ("UTC+3"), pour aider le prospect à repérer son fuseau dans la
    liste sans avoir à connaître le nom IANA. */
@@ -78,7 +88,8 @@ export function ReserverAppel({
   const [erreurChargement, setErreurChargement] = useState<string | null>(null)
   const [creneauChoisi, setCreneauChoisi] = useState<string | null>(null)
   const [pageJours, setPageJours] = useState(0)
-  const [fuseauAffichage, setFuseauAffichage] = useState('Indian/Antananarivo')
+  const [fuseauAffichage, setFuseauAffichage] = useState(() => fuseauDuVisiteur(FUSEAU_ETABLISSEMENT))
+  const fuseaux = useMemo(() => fuseauxProposes(fuseauDuVisiteur(FUSEAU_ETABLISSEMENT)), [])
 
   const [typeProgramme, setTypeProgramme] = useState<TypeProgrammeProspect>(typeInitial)
   const [prenom, setPrenom] = useState('')
@@ -252,7 +263,7 @@ export function ReserverAppel({
               onChange={(e) => setFuseauAffichage(e.target.value)}
               style={champStyle}
             >
-              {FUSEAUX_PROSPECT.map((f) => (
+              {fuseaux.map((f) => (
                 <option key={f.valeur} value={f.valeur}>
                   {f.libelle} ({decalageLisible(f.valeur)})
                 </option>
@@ -362,7 +373,7 @@ export function ReserverAppel({
                 ))}
               </div>
               <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0 }}>
-                Horaires affichés dans le fuseau sélectionné : {FUSEAUX_PROSPECT.find((f) => f.valeur === fuseauAffichage)?.libelle ?? fuseauAffichage}.
+                Horaires affichés dans le fuseau sélectionné : {fuseaux.find((f) => f.valeur === fuseauAffichage)?.libelle ?? libelleFuseau(fuseauAffichage)}.
               </p>
             </div>
           </div>

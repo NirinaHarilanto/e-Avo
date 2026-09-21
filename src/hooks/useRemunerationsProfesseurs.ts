@@ -15,6 +15,7 @@ export function useRemunerationsProfesseurs() {
     const { data, error } = await supabase
       .from('teacher_payments')
       .select('*')
+      .is('supprime_le', null)
       .order('date_echeance', { ascending: true, nullsFirst: false })
     if (error) throw new Error(error.message)
 
