@@ -2,8 +2,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useSessionReports } from '../../hooks/useSessionReports'
 import { EtudiantLayout } from '../layout/EtudiantLayout'
-import { UploaderDocument } from '../documents/UploaderDocument'
-import { ListeDocuments } from '../documents/ListeDocuments'
+import { ExplorateurDocuments } from '../documents/ExplorateurDocuments'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GroupeSection } from '../ui/Section'
@@ -27,8 +26,14 @@ export function DocumentsEtudiant() {
         id="etudiant-documents"
         etapes={[
           <>
-            Déposez vos pièces avec le formulaire ci-dessous : choisissez la <strong>catégorie</strong> qui correspond,
-            puis le fichier. Formats acceptés : PDF, image ou .docx, jusqu’à 20 Mo.
+            Organisez votre espace comme vous le souhaitez : <strong>Nouveau dossier</strong> crée un dossier à
+            l’endroit où vous êtes, et un dossier peut lui-même en contenir d’autres. Le fil d’Ariane en haut
+            vous ramène où vous voulez.
+          </>,
+          <>
+            Déposez vos pièces avec le formulaire : le fichier est rangé dans le dossier ouvert. Choisissez la{' '}
+            <strong>catégorie</strong> qui correspond, puis le fichier. Formats acceptés : PDF, image ou .docx,
+            jusqu’à 20 Mo.
           </>,
           <>
             Vos documents sont visibles par vous, par votre professeur et par l’administration de votre établissement.
@@ -44,19 +49,18 @@ export function DocumentsEtudiant() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
         <GroupeSection titre="Mes pièces" description="Les documents que vous déposez ou que votre établissement ajoute à votre dossier.">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {profile && <UploaderDocument ownerProfileId={profile.id} etablissementId={profile.etablissement_id} onUploade={recharger} />}
             {erreur && <MessageErreur>{erreur}</MessageErreur>}
-            {loading ? (
+            {loading || !profile ? (
               <EtatChargement lignes={3} hauteur={52} />
             ) : (
-              <div className="card" style={{ padding: 20 }}>
-                <ListeDocuments
-                  documents={documents}
-                  peutSupprimer={(d) => d.uploaded_by_profile_id === profile?.id}
-                  onChange={recharger}
-                  messageVide="Votre dossier est vide pour l’instant. Utilisez le formulaire ci-dessus pour déposer une première pièce."
-                />
-              </div>
+              <ExplorateurDocuments
+                documents={documents}
+                ownerProfileId={profile.id}
+                etablissementId={profile.etablissement_id}
+                peutSupprimer={(d) => d.uploaded_by_profile_id === profile.id}
+                onChange={recharger}
+                messageVide="Votre dossier est vide pour l’instant. Créez un dossier pour vous organiser, ou déposez directement une première pièce."
+              />
             )}
           </div>
         </GroupeSection>

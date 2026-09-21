@@ -3,8 +3,7 @@ import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { useDocuments } from '../../hooks/useDocuments'
-import { UploaderDocument } from '../documents/UploaderDocument'
-import { ListeDocuments } from '../documents/ListeDocuments'
+import { ExplorateurDocuments } from '../documents/ExplorateurDocuments'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GroupeSection } from '../ui/Section'
@@ -90,17 +89,25 @@ export function DocumentsProfesseur() {
 function SectionDocuments({ ownerProfileId, etablissementId }: { ownerProfileId: string; etablissementId: string }) {
   const { profile } = useProfileContext()
   const { documents, loading, erreur, recharger } = useDocuments(ownerProfileId)
+  /* Le professeur organise SON espace ; dans celui d'un élève, il dépose et consulte mais ne
+     réorganise pas — c'est l'arborescence de l'élève, et la policy update de 0058 la réserve
+     d'ailleurs à son propriétaire. */
+  const estSonEspace = ownerProfileId === profile?.id
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <UploaderDocument ownerProfileId={ownerProfileId} etablissementId={etablissementId} onUploade={recharger} />
       {erreur && <MessageErreur>{erreur}</MessageErreur>}
       {loading ? (
         <EtatChargement lignes={3} hauteur={52} />
       ) : (
-        <div className="card" style={{ padding: 20 }}>
-          <ListeDocuments documents={documents} peutSupprimer={(d) => d.uploaded_by_profile_id === profile?.id} onChange={recharger} />
-        </div>
+        <ExplorateurDocuments
+          documents={documents}
+          ownerProfileId={ownerProfileId}
+          etablissementId={etablissementId}
+          peutOrganiser={estSonEspace}
+          peutSupprimer={(d) => d.uploaded_by_profile_id === profile?.id}
+          onChange={recharger}
+        />
       )}
     </div>
   )

@@ -8,6 +8,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { UploaderDocument } from '../documents/UploaderDocument'
 import { ListeDocuments } from '../documents/ListeDocuments'
+import { ExplorateurDocuments } from '../documents/ExplorateurDocuments'
 import { GestionAccesDocument } from '../documents/GestionAccesDocument'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import type { Database } from '../../types/database.types'
@@ -169,19 +170,20 @@ function PanneauDocuments({ personne, etablissementId }: { personne: Profile; et
       description="Visibles par cette personne, par ses professeurs le cas échéant, et par l’administration."
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <UploaderDocument ownerProfileId={personne.id} etablissementId={etablissementId} onUploade={recharger} />
         {erreur && <MessageErreur>{erreur}</MessageErreur>}
         {loading ? (
           <EtatChargement lignes={3} hauteur={52} />
         ) : (
-          <div className="card" style={{ padding: 20 }}>
-            <ListeDocuments
-              documents={documents}
-              peutSupprimer={() => true}
-              onChange={recharger}
-              messageVide={`Aucune pièce au dossier de ${personne.prenom}. Utilisez le formulaire ci-dessus pour en déposer une.`}
-            />
-          </div>
+          /* L'admin peut réorganiser l'arborescence de la personne : sa policy `all` (0058) le
+             lui permet, et c'est lui qu'on sollicite quand un dossier a été mal rangé. */
+          <ExplorateurDocuments
+            documents={documents}
+            ownerProfileId={personne.id}
+            etablissementId={etablissementId}
+            peutSupprimer={() => true}
+            onChange={recharger}
+            messageVide={`Aucune pièce au dossier de ${personne.prenom}. Créez un dossier pour organiser son espace, ou déposez directement un fichier.`}
+          />
         )}
       </div>
     </GroupeSection>

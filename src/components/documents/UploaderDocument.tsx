@@ -42,6 +42,9 @@ interface UploaderDocumentProps {
   // Onglet "Partageables" : le document est visible par tout l'établissement plutôt que par
   // les seules personnes couvertes par les policies habituelles (propriétaire/uploadeur/admin).
   etablissementWide?: boolean
+  // Dossier de destination dans l'arborescence (0058). `null`/absent = racine. Le classement ne
+  // change aucun droit d'accès : le fichier reste visible exactement par les mêmes personnes.
+  dossierId?: string | null
 }
 
 /* Upload en deux temps (pattern décrit dans le plan de la Phase 2) : (1) insert dans
@@ -49,7 +52,7 @@ interface UploaderDocumentProps {
    owner_role côté serveur, jamais fournis par ce composant — puis (2) upload du fichier à ce
    chemin dans le bucket Storage `documents`. Si l'étape 2 échoue, la ligne insérée en (1) est
    retirée pour ne jamais laisser un document "fantôme" sans fichier. */
-export function UploaderDocument({ ownerProfileId, etablissementId, onUploade, forcerCategorie, etablissementWide }: UploaderDocumentProps) {
+export function UploaderDocument({ ownerProfileId, etablissementId, onUploade, forcerCategorie, etablissementWide, dossierId }: UploaderDocumentProps) {
   const { session } = useProfileContext()
   const [fichier, setFichier] = useState<File | null>(null)
   const [categorie, setCategorie] = useState<CategorieDocument>(forcerCategorie ?? 'autre')
@@ -83,6 +86,7 @@ export function UploaderDocument({ ownerProfileId, etablissementId, onUploade, f
         mime_type: fichier.type,
         taille_octets: fichier.size,
         etablissement_wide: !!etablissementWide,
+        dossier_id: dossierId ?? null,
       })
       .select()
       .single()

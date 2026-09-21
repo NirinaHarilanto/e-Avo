@@ -579,6 +579,8 @@ export interface Database {
           taille_octets: number
           storage_path: string
           etablissement_wide: boolean
+          /* Dossier de classement (0058). Nul = racine de l'espace documentaire. */
+          dossier_id: string | null
           created_at: string
         }
         Insert: {
@@ -597,9 +599,60 @@ export interface Database {
           // Écrasé par le même trigger — ne jamais fournir de valeur côté client.
           storage_path?: string
           etablissement_wide?: boolean
+          dossier_id?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['documents']['Insert']>
+        Relationships: []
+      }
+      document_dossiers: {
+        Row: {
+          id: string
+          etablissement_id: string
+          proprietaire_profile_id: string
+          proprietaire_role: Role
+          parent_id: string | null
+          nom: string
+          created_by_profile_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          proprietaire_profile_id: string
+          // Recalculé par le trigger document_dossiers_avant_ecriture (0058), comme
+          // documents.owner_role : jamais fait confiance depuis le navigateur.
+          proprietaire_role?: Role
+          parent_id?: string | null
+          nom: string
+          created_by_profile_id: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['document_dossiers']['Insert']>
+        Relationships: []
+      }
+      document_partages: {
+        Row: {
+          id: string
+          document_id: string
+          destinataire_profile_id: string
+          partage_par_profile_id: string
+          /* Figé à l'insertion par trigger (0060) : le destinataire ne peut pas toujours lire
+             le profil de l'émetteur. */
+          partage_par_nom: string | null
+          message: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          document_id: string
+          destinataire_profile_id: string
+          partage_par_profile_id: string
+          partage_par_nom?: string | null
+          message?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['document_partages']['Insert']>
         Relationships: []
       }
       document_permissions: {
