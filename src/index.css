@@ -35,6 +35,19 @@
   --shadow-card: 0 12px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+/* Espace admin légèrement resserré (0059, demande client du 2026-09-22 : « réduit un peu la
+   taille de la police de toutes les informations dans l'espace admin »). Tout le texte de
+   l'application est en `fontSize` inline exprimé en px (voir la convention du projet — pas de
+   Tailwind, pas d'échelle typographique en `rem`) : une règle CSS sur un ancêtre ne l'atteindrait
+   jamais, un `font-size` inline gagne toujours face à l'héritage. `zoom` est la seule propriété
+   qui réduit uniformément un sous-arbre entier sans dépendre de comment chaque taille y a été
+   posée — y compris les pop-up de la page Prospects, montées par portail dans `document.body`
+   (voir Modale.tsx) mais toujours descendantes de ce même `body`. Classe posée par
+   `EspaceLayout.tsx` uniquement pour le rôle admin, jamais pour professeur/étudiant. */
+body.echelle-admin {
+  zoom: 0.93;
+}
+
 * {
   box-sizing: border-box;
   font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;

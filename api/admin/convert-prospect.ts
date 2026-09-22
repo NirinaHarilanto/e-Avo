@@ -69,12 +69,58 @@ export default async function handler(request: Request): Promise<Response> {
       .eq('id', invited.user.id)
     await serviceClient.from('prospects').update({ statut: 'etudiant' }).eq('id', prospect.id)
 
+    // DUO (0054) — demande client du 2026-09-21 : les deux personnes du binôme partagent le
+    // même espace étudiant. Si le partenaire a DÉJÀ été converti (son profil existe), celui
+    // qu'on convertit maintenant devient le « secondaire » : il obtient son propre compte/login,
+    // mais son dossier pédagogique et financier reste celui du partenaire (voir les policies
+    // RLS étendues dans la migration). Si le partenaire n'est pas encore converti, rien à lier
+    // pour l'instant — ce sera fait en sens inverse quand lui-même sera converti à son tour.
+    // Recherché AVANT la création du forfait ci-dessous (pas après, comme au départ) : c'est ce
+    // qui permet de savoir déjà si CE prospect devient secondaire, et donc de ne PAS lui créer
+    // son propre forfait — sans ce test, un binôme se retrouvait avec deux forfaits de 10 h
+    // séparés au lieu d'un seul pool d'heures partagé (0059, demande client du 2026-09-22 :
+    // « même comptage d'heure vu qu'ils seront associés »).
+    let profilPrincipal: { id: string; prenom: string | null; duo_nom_groupe: string | null } | null = null
+    // Repli du prénom du principal pour `nomGroupeDuo` ci-dessous, au cas défensif où
+    // `profiles.prenom` serait vide — celui du PARTENAIRE (prospect d'origine), jamais celui de
+    // `prospect` (le secondaire qu'on est en train de convertir), sans quoi le nom du groupe se
+    // retrouverait dupliqué (« Bensas/Bensas » au lieu de « Sandra/Bensas »).
+    let prenomPartenaireReplie: string | null = null
+    if (prospect.duo_partenaire_id) {
+      const { data: prospectPartenaire } = await serviceClient
+        .from('prospects')
+        .select('id, prenom')
+        .eq('id', prospect.duo_partenaire_id)
+        .maybeSingle()
+      if (prospectPartenaire) {
+        prenomPartenaireReplie = prospectPartenaire.prenom
+        const { data } = await serviceClient
+          .from('profiles')
+          .select('id, prenom, duo_nom_groupe')
+          .eq('prospect_id', prospectPartenaire.id)
+          .maybeSingle()
+        profilPrincipal = data
+      }
+    }
+
     // Forfait choisi par le prospect (0054) — demande client du 2026-09-21 : repris
     // automatiquement en `packages` à la conversion, pour ne pas ressaisir ce qui a déjà été
     // décidé à l'appel diagnostic. Le collectif n'a pas de forfait (l'élève est identifié par
     // sa vague via cohort_enrollments, voir 0027) : le tarif choisi y reste informatif.
     let forfaitId: string | null = null
-    if (prospect.tarif_choisi_id && (prospect.type_programme === 'individuel' || prospect.type_programme === 'duo')) {
+    if (profilPrincipal) {
+      // Secondaire : le forfait du binôme est déjà celui du principal, converti avant lui —
+      // reprend son id tel quel pour que le paiement de CE prospect (s'il y en a un — chacun
+      // paie sa part du forfait partagé) s'y rattache, plutôt que d'en ouvrir un second.
+      const { data: forfaitPrincipal } = await serviceClient
+        .from('packages')
+        .select('id')
+        .eq('student_id', profilPrincipal.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      forfaitId = forfaitPrincipal?.id ?? null
+    } else if (prospect.tarif_choisi_id && (prospect.type_programme === 'individuel' || prospect.type_programme === 'duo')) {
       /* Heure d'essai (0057) : on ne crée PAS le forfait complet. L'élève démarre sur un forfait
          d'une heure, au tarif horaire de son programme, qui mémorise le forfait visé. Le
          complément ne naîtra qu'à la décision (api/admin/decider-essai.ts) — de cette façon la
@@ -123,33 +169,13 @@ export default async function handler(request: Request): Promise<Response> {
       .eq('prospect_id', prospect.id)
       .is('student_id', null)
 
-    // DUO (0054) — demande client du 2026-09-21 : les deux personnes du binôme partagent le
-    // même espace étudiant. Si le partenaire a DÉJÀ été converti (son profil existe), celui
-    // qu'on convertit maintenant devient le « secondaire » : il obtient son propre compte/login,
-    // mais son dossier pédagogique et financier reste celui du partenaire (voir les policies
-    // RLS étendues dans la migration). Si le partenaire n'est pas encore converti, rien à lier
-    // pour l'instant — ce sera fait en sens inverse quand lui-même sera converti à son tour.
-    if (prospect.duo_partenaire_id) {
-      const { data: prospectPartenaire } = await serviceClient
-        .from('prospects')
-        .select('id, prenom')
-        .eq('id', prospect.duo_partenaire_id)
-        .maybeSingle()
-      if (prospectPartenaire) {
-        const { data: profilPrincipal } = await serviceClient
-          .from('profiles')
-          .select('id, prenom, duo_nom_groupe')
-          .eq('prospect_id', prospectPartenaire.id)
-          .maybeSingle()
-        if (profilPrincipal) {
-          const nomGroupe = nomGroupeDuo(prospect.duo_nom_groupe, profilPrincipal.prenom ?? prospectPartenaire.prenom, prospect.prenom)
-          await serviceClient
-            .from('profiles')
-            .update({ duo_partenaire_id: profilPrincipal.id, duo_nom_groupe: nomGroupe })
-            .eq('id', invited.user.id)
-          await serviceClient.from('profiles').update({ duo_nom_groupe: nomGroupe }).eq('id', profilPrincipal.id)
-        }
-      }
+    if (profilPrincipal) {
+      const nomGroupe = nomGroupeDuo(prospect.duo_nom_groupe, profilPrincipal.prenom ?? prenomPartenaireReplie ?? '', prospect.prenom)
+      await serviceClient
+        .from('profiles')
+        .update({ duo_partenaire_id: profilPrincipal.id, duo_nom_groupe: nomGroupe })
+        .eq('id', invited.user.id)
+      await serviceClient.from('profiles').update({ duo_nom_groupe: nomGroupe }).eq('id', profilPrincipal.id)
     }
 
     // Rattachement automatique à la vague du parcours collectif — demande client du 2026-09-21 :

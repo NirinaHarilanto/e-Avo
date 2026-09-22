@@ -438,29 +438,21 @@ export function grouperDuo(
   return groupes
 }
 
-interface CarteProspectProps {
-  prospect: ProspectAvecDiagnostic
-  onChange: () => void
-  onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut) => Promise<void>
-  /* Rendu à l'intérieur d'un bloc CarteDuo (0058) : pas de carte ni de glisser-déposer propres —
-     seuls la ligne d'identité repliée et la fenêtre de détail au clic sont conservées, le geste
-     de glisser-déposer étant porté par le bloc englobant pour déplacer les deux dossiers
-     ensemble. */
-  dansGroupeDuo?: boolean
-}
-
-function CarteProspect({ prospect, onChange, onChangerStatut, dansGroupeDuo = false }: CarteProspectProps) {
+/* Machine à états des actions d'un prospect (diagnostic, tarif, essai, relance, validation de
+   rendez-vous, paiement) — extraite de `CarteProspect` en un hook (0059, demande client du
+   2026-09-22 : « les informations des deux personnes formant le DUO dans le pop-up... car les
+   deux personnes vont toujours de pair ») pour être réutilisée telle quelle par `CarteDuo`, qui
+   fait porter ces actions par un SEUL des deux membres du binôme (voir `identifierPorteur`) au
+   lieu de les dupliquer. Le comportement d'un prospect individuel reste rigoureusement identique
+   à avant l'extraction. */
+function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => void) {
   const { profile, session } = useProfileContext()
-  const estPositionnement = prospect.type_programme === 'collectif'
-  const necessiteAction = prospectATraiter(prospect)
   const [ouvert, setOuvert] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
   const [reponses, setReponses] = useState<ReponsesDiagnostic>(prospect.diagnostic?.reponses ?? {})
   const [questionnaireOuvert, setQuestionnaireOuvert] = useState(false)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
-  const [enGlissement, setEnGlissement] = useState(false)
-  const [detailOuvert, setDetailOuvert] = useState(false)
   const [validationEnCours, setValidationEnCours] = useState(false)
   const [relanceEnCours, setRelanceEnCours] = useState(false)
   const [relanceEnvoyee, setRelanceEnvoyee] = useState(false)
@@ -480,7 +472,9 @@ function CarteProspect({ prospect, onChange, onChangerStatut, dansGroupeDuo = fa
   const tarifAEncaisser = essai ? tarifUneHeure : tarifChoisi
   /* Un simple acompte suffit à débloquer la conversion : le client parle d'« enregistrer le
      paiement », pas d'exiger le solde complet — un forfait se règle souvent en plusieurs fois
-     (voir paiement_versements, 0049). Le reste dû reste visible dans le dossier de l'étudiant. */
+     (voir paiement_versements, 0049). Le reste dû reste visible dans le dossier de l'étudiant
+     (ou, pour un duo, dans le dossier partagé — un seul paiement pour le binôme, porté par le
+     même prospect que le forfait, voir `identifierPorteur`). */
   const paiementEnregistre = !!prospect.paiement
 
   async function marquerRealise() {
@@ -645,10 +639,88 @@ function CarteProspect({ prospect, onChange, onChangerStatut, dansGroupeDuo = fa
     onChange()
   }
 
+  return {
+    profile,
+    session,
+    ouvert,
+    setOuvert,
+    planificationOuverte,
+    setPlanificationOuverte,
+    reponses,
+    setReponses,
+    questionnaireOuvert,
+    setQuestionnaireOuvert,
+    enCours,
+    setEnCours,
+    erreur,
+    validationEnCours,
+    relanceEnCours,
+    relanceEnvoyee,
+    paiementOuvert,
+    setPaiementOuvert,
+    tarifsDuProgramme,
+    tarifChoisi,
+    tarifUneHeure,
+    essai,
+    tarifAEncaisser,
+    paiementEnregistre,
+    marquerRealise,
+    enregistrerDiagnostic,
+    choisirTarif,
+    basculerEssai,
+    relancerProspect,
+    validerRendezVous,
+  }
+}
+
+interface CarteProspectProps {
+  prospect: ProspectAvecDiagnostic
+  onChange: () => void
+  onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut) => Promise<void>
+}
+
+function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectProps) {
+  const estPositionnement = prospect.type_programme === 'collectif'
+  const necessiteAction = prospectATraiter(prospect)
+  const [enGlissement, setEnGlissement] = useState(false)
+  const [detailOuvert, setDetailOuvert] = useState(false)
+  const a = useActionsProspect(prospect, onChange)
+  const {
+    profile,
+    session,
+    ouvert,
+    setOuvert,
+    planificationOuverte,
+    setPlanificationOuverte,
+    reponses,
+    setReponses,
+    questionnaireOuvert,
+    setQuestionnaireOuvert,
+    enCours,
+    erreur,
+    validationEnCours,
+    paiementOuvert,
+    setPaiementOuvert,
+    tarifsDuProgramme,
+    tarifChoisi,
+    tarifUneHeure,
+    essai,
+    tarifAEncaisser,
+    paiementEnregistre,
+    relanceEnCours,
+    relanceEnvoyee,
+    marquerRealise,
+    enregistrerDiagnostic,
+    choisirTarif,
+    basculerEssai,
+    relancerProspect,
+    validerRendezVous,
+  } = a
+
   async function convertirEnEtudiant() {
-    setEnCours(true)
+    a.setEnCours(true)
     await onChangerStatut(prospect, 'etudiant')
-    setEnCours(false)
+    a.setEnCours(false)
   }
 
   return (
@@ -657,123 +729,88 @@ function CarteProspect({ prospect, onChange, onChangerStatut, dansGroupeDuo = fa
           affluence tienne sur une hauteur raisonnable — tout le reste (objectif, diagnostic,
           actions) est déplacé dans la fenêtre de détail ouverte au clic. Le drag-and-drop reste
           porté par cette carte : un vrai clic n'émet jamais l'événement `click` après un
-          glissé, les deux interactions ne se marchent donc pas dessus.
-          Rendu compact (0058) : dans un binôme DUO, ce composant est imbriqué dans `CarteDuo`,
-          qui porte déjà la carte externe et le glisser-déposer du groupe — ici, plus qu'une
-          simple ligne d'identité cliquable, sans carte ni poignée de glisser propres. */}
-      {dansGroupeDuo ? (
-        <div onClick={() => setDetailOuvert(true)} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}>
-          <span style={{ width: 26, height: 26, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10.5, fontWeight: 800, flexShrink: 0 }}>
+          glissé, les deux interactions ne se marchent donc pas dessus. */}
+      <div
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData('text/plain', prospect.id)
+          e.dataTransfer.effectAllowed = 'move'
+          setEnGlissement(true)
+        }}
+        onDragEnd={() => setEnGlissement(false)}
+        onClick={() => setDetailOuvert(true)}
+        className="card card-lift"
+        style={{
+          padding: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 7,
+          cursor: 'grab',
+          opacity: enGlissement ? 0.4 : 1,
+          position: 'relative',
+          borderColor: necessiteAction ? 'rgba(255,138,112,.5)' : undefined,
+        }}
+      >
+        {necessiteAction && (
+          <span
+            style={{
+              position: 'absolute',
+              top: -8,
+              right: 8,
+              fontSize: 9.5,
+              fontWeight: 800,
+              letterSpacing: 0.4,
+              textTransform: 'uppercase',
+              color: '#fff',
+              background: 'var(--danger)',
+              borderRadius: 999,
+              padding: '2px 8px',
+              boxShadow: '0 3px 10px rgba(255,138,112,.4)',
+            }}
+          >
+            À traiter
+          </span>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+          <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11.5, fontWeight: 800, flexShrink: 0 }}>
             {(prospect.prenom[0] ?? '').toUpperCase()}
             {(prospect.nom[0] ?? '').toUpperCase()}
           </span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
               {prospect.prenom} {prospect.nom}
             </span>
-            <span style={{ fontSize: 10, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
+            <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
           </div>
-          {necessiteAction && (
-            <span
-              style={{
-                fontSize: 9,
-                fontWeight: 800,
-                letterSpacing: 0.4,
-                textTransform: 'uppercase',
-                color: '#fff',
-                background: 'var(--danger)',
-                borderRadius: 999,
-                padding: '2px 7px',
-                flexShrink: 0,
-              }}
-            >
-              À traiter
-            </span>
-          )}
         </div>
-      ) : (
-        <div
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData('text/plain', prospect.id)
-            e.dataTransfer.effectAllowed = 'move'
-            setEnGlissement(true)
-          }}
-          onDragEnd={() => setEnGlissement(false)}
-          onClick={() => setDetailOuvert(true)}
-          className="card card-lift"
-          style={{
-            padding: 10,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 7,
-            cursor: 'grab',
-            opacity: enGlissement ? 0.4 : 1,
-            position: 'relative',
-            borderColor: necessiteAction ? 'rgba(255,138,112,.5)' : undefined,
-          }}
-        >
-          {necessiteAction && (
-            <span
-              style={{
-                position: 'absolute',
-                top: -8,
-                right: 8,
-                fontSize: 9.5,
-                fontWeight: 800,
-                letterSpacing: 0.4,
-                textTransform: 'uppercase',
-                color: '#fff',
-                background: 'var(--danger)',
-                borderRadius: 999,
-                padding: '2px 8px',
-                boxShadow: '0 3px 10px rgba(255,138,112,.4)',
-              }}
-            >
-              À traiter
-            </span>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11.5, fontWeight: 800, flexShrink: 0 }}>
-              {(prospect.prenom[0] ?? '').toUpperCase()}
-              {(prospect.nom[0] ?? '').toUpperCase()}
-            </span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
-                {prospect.prenom} {prospect.nom}
-              </span>
-              <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
-            </div>
-          </div>
 
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {prospect.type_programme && (
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: 0.4,
-                  textTransform: 'uppercase',
-                  color: 'var(--muted-2)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 999,
-                  padding: '2px 9px',
-                }}
-              >
-                {LABEL_PROGRAMME[prospect.type_programme]}
-              </span>
-            )}
-            {/* Binôme DUO dont les membres n'ont pas (encore) le même statut (0058) : ils ne
-                peuvent pas être regroupés en un seul bloc (voir `grouperDuo`), ce repère évite
-                au moins de les traiter comme deux prospects sans rapport. */}
-            {prospect.duoPartenaireNom && (
-              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', border: '1px solid rgba(233,207,148,.32)', borderRadius: 999, padding: '2px 9px' }}>
-                Duo avec {prospect.duoPartenaireNom}
-              </span>
-            )}
-          </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {prospect.type_programme && (
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+                color: 'var(--muted-2)',
+                border: '1px solid var(--border)',
+                borderRadius: 999,
+                padding: '2px 9px',
+              }}
+            >
+              {LABEL_PROGRAMME[prospect.type_programme]}
+            </span>
+          )}
+          {/* Binôme DUO dont les membres n'ont pas (encore) le même statut (0058) : ils ne
+              peuvent pas être regroupés en un seul bloc (voir `grouperDuo`), ce repère évite
+              au moins de les traiter comme deux prospects sans rapport. */}
+          {prospect.duoPartenaireNom && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', border: '1px solid rgba(233,207,148,.32)', borderRadius: 999, padding: '2px 9px' }}>
+              Duo avec {prospect.duoPartenaireNom}
+            </span>
+          )}
         </div>
-      )}
+      </div>
 
       {detailOuvert && (
         <Modale titre={`${prospect.prenom} ${prospect.nom}`} onFermer={() => setDetailOuvert(false)} largeurMax={560}>
@@ -976,12 +1013,25 @@ function CarteProspect({ prospect, onChange, onChangerStatut, dansGroupeDuo = fa
   )
 }
 
+/* Le binôme ne partage qu'UNE fiche de réservation (0059) : rendez-vous, diagnostic et forfait
+   choisi ne sont jamais enregistrés que sur un seul des deux dossiers prospects — celui saisi en
+   « Personne 1 » du formulaire (voir api/prospects/reserver.ts), jamais sur les deux. Ce membre
+   devient le « porteur » de toutes les actions communes ; l'autre reste une identité à afficher,
+   jusqu'à sa propre conversion en étudiant « secondaire » (voir api/admin/convert-prospect.ts). */
+function identifierPorteur(paire: [ProspectAvecDiagnostic, ProspectAvecDiagnostic]): [ProspectAvecDiagnostic, ProspectAvecDiagnostic] {
+  const porteur = paire.find((p) => p.rendezVous || p.diagnostic || p.tarif_choisi_id) ?? paire[0]
+  const autre = paire.find((p) => p.id !== porteur.id)!
+  return [porteur, autre]
+}
+
 /* Bloc visuel unique pour un binôme DUO dont les deux membres partagent le même statut (0058,
-   demande client du 2026-09-22). Porte la carte externe et le glisser-déposer du groupe — les
-   deux id transportés ensemble (voir `onDropColonne`) garantissent qu'ils avancent toujours de
-   pair, jamais l'un sans l'autre. Chaque ligne d'identité imbriquée ouvre sa propre fenêtre de
-   détail (diagnostic, paiement, conversion...), ces informations restant propres à chaque
-   personne. */
+   demande client du 2026-09-22 : « traités par groupe mais pas individuellement »). Porte la
+   carte externe et le glisser-déposer du groupe — les deux id transportés ensemble (voir
+   `onDropColonne`), porteur en tête, garantissent qu'ils avancent toujours de pair.
+   Un seul pop-up pour les deux (0059, demande client du 2026-09-22 : « les deux personnes vont
+   toujours de pair tout au long de l'apprentissage ») — rendez-vous, diagnostic, forfait et
+   paiement du binôme y sont uniques (portés par `porteur`, voir `identifierPorteur`), seule
+   l'identité (nom, contact) reste propre à chaque personne. */
 function CarteDuo({
   paire,
   onChange,
@@ -989,44 +1039,262 @@ function CarteDuo({
 }: {
   paire: [ProspectAvecDiagnostic, ProspectAvecDiagnostic]
   onChange: () => void
-  onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut) => Promise<void>
+  onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut, dejaConfirme?: boolean) => Promise<void>
 }) {
+  const [porteur, autre] = identifierPorteur(paire)
   const [enGlissement, setEnGlissement] = useState(false)
-  const necessiteAction = paire.some(prospectATraiter)
+  const [detailOuvert, setDetailOuvert] = useState(false)
+  const necessiteAction = prospectATraiter(porteur)
   const nomGroupe = paire[0].duo_nom_groupe || paire[1].duo_nom_groupe || `${paire[0].prenom} & ${paire[1].prenom}`
+  const a = useActionsProspect(porteur, onChange)
+
+  async function convertirEnEtudiants() {
+    if (
+      !confirm(
+        `Convertir ${porteur.prenom} ${porteur.nom} et ${autre.prenom} ${autre.nom} en étudiants ? Un e-mail d’invitation sera envoyé à chacun pour qu’ils créent leur mot de passe.`,
+      )
+    ) {
+      return
+    }
+    a.setEnCours(true)
+    // Porteur d'abord : c'est sur son id que la conversion crée le forfait partagé (voir
+    // api/admin/convert-prospect.ts) — converti ensuite, l'autre membre le rejoint comme
+    // « secondaire » au lieu de recevoir son propre forfait en double.
+    await onChangerStatut(porteur, 'etudiant', true)
+    await onChangerStatut(autre, 'etudiant', true)
+    a.setEnCours(false)
+  }
 
   return (
-    <div
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', paire.map((p) => p.id).join(','))
-        e.dataTransfer.effectAllowed = 'move'
-        setEnGlissement(true)
-      }}
-      onDragEnd={() => setEnGlissement(false)}
-      className="card card-lift"
-      style={{
-        padding: 10,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 9,
-        cursor: 'grab',
-        opacity: enGlissement ? 0.4 : 1,
-        position: 'relative',
-        borderColor: necessiteAction ? 'rgba(255,138,112,.5)' : 'rgba(233,207,148,.32)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+    <>
+      <div
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData('text/plain', `${porteur.id},${autre.id}`)
+          e.dataTransfer.effectAllowed = 'move'
+          setEnGlissement(true)
+        }}
+        onDragEnd={() => setEnGlissement(false)}
+        onClick={() => setDetailOuvert(true)}
+        className="card card-lift"
+        style={{
+          padding: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          cursor: 'grab',
+          opacity: enGlissement ? 0.4 : 1,
+          position: 'relative',
+          borderColor: necessiteAction ? 'rgba(255,138,112,.5)' : 'rgba(233,207,148,.32)',
+        }}
+      >
+        {necessiteAction && (
+          <span
+            style={{
+              position: 'absolute',
+              top: -8,
+              right: 8,
+              fontSize: 9.5,
+              fontWeight: 800,
+              letterSpacing: 0.4,
+              textTransform: 'uppercase',
+              color: '#fff',
+              background: 'var(--danger)',
+              borderRadius: 999,
+              padding: '2px 8px',
+              boxShadow: '0 3px 10px rgba(255,138,112,.4)',
+            }}
+          >
+            À traiter
+          </span>
+        )}
         <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--accent-gold, #e9cf94)' }}>
           Duo · {nomGroupe}
         </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {paire.map((p) => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 24, height: 24, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
+                {(p.prenom[0] ?? '').toUpperCase()}
+                {(p.nom[0] ?? '').toUpperCase()}
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>
+                {p.prenom} {p.nom}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <CarteProspect prospect={paire[0]} onChange={onChange} onChangerStatut={onChangerStatut} dansGroupeDuo />
-        <div style={{ height: 1, background: 'var(--border-soft)' }} />
-        <CarteProspect prospect={paire[1]} onChange={onChange} onChangerStatut={onChangerStatut} dansGroupeDuo />
-      </div>
-    </div>
+
+      {detailOuvert && (
+        <Modale titre={`Duo · ${nomGroupe}`} onFermer={() => setDetailOuvert(false)} largeurMax={560}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {paire.map((p) => (
+              <div key={p.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
+                  {p.prenom} {p.nom}
+                </span>
+                <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{p.langue_visee || 'Langue non précisée'}</span>
+                <a href={`mailto:${p.email}`} style={{ fontSize: 12, color: 'var(--ink-2)' }}>
+                  {p.email}
+                </a>
+                {p.telephone && (
+                  <a href={`tel:${p.telephone}`} style={{ fontSize: 12, color: 'var(--ink-2)' }}>
+                    {p.telephone}
+                  </a>
+                )}
+              </div>
+            ))}
+
+            {porteur.objectif && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Objectif indiqué à la réservation
+                </span>
+                <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
+                  « {porteur.objectif} »
+                </p>
+              </div>
+            )}
+
+            {porteur.statut === 'diagnostic_planifie' && (
+              <PostItRendezVous prospect={porteur} validationEnCours={a.validationEnCours} onValider={a.validerRendezVous} />
+            )}
+
+            {porteur.statut === 'diagnostic_fait' && porteur.diagnostic?.niveau_evalue && (
+              <span style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
+                Niveau évalué {porteur.diagnostic.niveau_evalue}
+              </span>
+            )}
+
+            <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
+              Dossier créé le {new Date(porteur.created_at).toLocaleDateString('fr-FR')}
+            </span>
+
+            {a.erreur && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{a.erreur}</p>}
+
+            {porteur.statut === 'prospect' && (
+              <button
+                onClick={() => a.setPlanificationOuverte(true)}
+                className="btn-shine"
+                style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-gradient)', color: '#1b1510' }}
+              >
+                Planifier un appel diagnostic
+              </button>
+            )}
+
+            {a.paiementOuvert && (
+              <DetailPaiementModale
+                cible={{
+                  type: 'prospect',
+                  prospect: { id: porteur.id, etablissement_id: porteur.etablissement_id, prenom: porteur.prenom, nom: porteur.nom },
+                  tarif: a.tarifAEncaisser
+                    ? { titre: a.tarifAEncaisser.titre, prix: a.tarifAEncaisser.prix, heures: a.tarifAEncaisser.heures }
+                    : null,
+                  paiement: porteur.paiement,
+                }}
+                onFermer={() => a.setPaiementOuvert(false)}
+                onChange={onChange}
+              />
+            )}
+
+            {a.planificationOuverte && a.session && (
+              <PlanifierAppelDiagnosticModale
+                prospect={porteur}
+                profile={a.profile}
+                session={a.session}
+                onFermer={() => a.setPlanificationOuverte(false)}
+                onChange={onChange}
+              />
+            )}
+
+            {porteur.statut === 'diagnostic_planifie' && !a.ouvert && (
+              <button
+                onClick={() => {
+                  a.setOuvert(true)
+                  a.setQuestionnaireOuvert(true)
+                }}
+                className="btn-shine btn-secondary"
+                style={{ width: '100%', fontSize: 12.5, padding: 10 }}
+              >
+                Marquer le diagnostic comme fait
+              </button>
+            )}
+            {porteur.statut === 'diagnostic_planifie' && a.ouvert && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <BlocQuestionnaire
+                  ouvert={a.questionnaireOuvert}
+                  onBasculer={() => a.setQuestionnaireOuvert((v) => !v)}
+                  reponses={a.reponses}
+                  onChange={a.setReponses}
+                />
+                <ApercuNiveauRythme reponses={a.reponses} />
+                <SelecteurTarifChoisi tarifs={a.tarifsDuProgramme} valeur={porteur.tarif_choisi_id} onChoisir={a.choisirTarif} />
+                <button onClick={a.marquerRealise} disabled={a.enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: a.enCours ? 0.7 : 1 }}>
+                  Confirmer
+                </button>
+              </div>
+            )}
+
+            {porteur.statut === 'diagnostic_fait' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <BlocQuestionnaire
+                  ouvert={a.questionnaireOuvert}
+                  onBasculer={() => a.setQuestionnaireOuvert((v) => !v)}
+                  reponses={a.reponses}
+                  onChange={a.setReponses}
+                />
+                <ApercuNiveauRythme reponses={a.reponses} />
+                <SelecteurTarifChoisi tarifs={a.tarifsDuProgramme} valeur={porteur.tarif_choisi_id} onChoisir={a.choisirTarif} />
+                <ChoixHeureEssai
+                  essai={a.essai}
+                  tarifChoisi={a.tarifChoisi}
+                  tarifUneHeure={a.tarifUneHeure}
+                  verrouille={!!porteur.paiement}
+                  onBasculer={a.basculerEssai}
+                />
+                <BlocPaiementForfait paiement={porteur.paiement} tarifAEncaisser={a.tarifAEncaisser} essai={a.essai} onOuvrir={() => a.setPaiementOuvert(true)} />
+                <button onClick={a.enregistrerDiagnostic} disabled={a.enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: a.enCours ? 0.7 : 1 }}>
+                  {a.enCours ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+                <button
+                  onClick={a.relancerProspect}
+                  disabled={a.relanceEnCours || a.relanceEnvoyee}
+                  className="btn-shine btn-secondary"
+                  style={{ fontSize: 12.5, padding: 9, opacity: a.relanceEnCours ? 0.7 : 1, color: a.relanceEnvoyee ? 'var(--accent-teal)' : undefined }}
+                >
+                  {a.relanceEnvoyee ? 'Relance envoyée ✓' : a.relanceEnCours ? 'Envoi…' : 'Relancer le prospect'}
+                </button>
+                {!a.paiementEnregistre && (
+                  <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)', margin: 0, padding: '8px 10px', borderRadius: 8, border: '1px dashed var(--border)', background: 'rgba(0,0,0,.18)' }}>
+                    Enregistrez d’abord le paiement du forfait ci-dessus, partagé par le binôme : la conversion des
+                    deux en étudiants se débloquera aussitôt.
+                  </p>
+                )}
+                <button
+                  onClick={convertirEnEtudiants}
+                  disabled={a.enCours || !a.paiementEnregistre}
+                  title={a.paiementEnregistre ? undefined : 'Enregistrez le paiement du forfait pour débloquer la conversion.'}
+                  className={a.paiementEnregistre ? 'btn-shine' : undefined}
+                  style={{
+                    width: '100%',
+                    fontSize: 12.5,
+                    padding: 10,
+                    background: a.paiementEnregistre ? 'var(--accent-blue-gradient)' : 'var(--surface-alt)',
+                    color: a.paiementEnregistre ? '#fff' : 'var(--muted-2)',
+                    border: a.paiementEnregistre ? 'none' : '1px solid var(--border)',
+                    cursor: a.paiementEnregistre ? 'pointer' : 'not-allowed',
+                    opacity: a.enCours ? 0.7 : 1,
+                  }}
+                >
+                  Convertir les deux en étudiants
+                </button>
+              </div>
+            )}
+          </div>
+        </Modale>
+      )}
+    </>
   )
 }
 
