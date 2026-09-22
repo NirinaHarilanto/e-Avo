@@ -85,6 +85,19 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
     setTiroirOuvert(false)
   }, [location.pathname])
 
+  /* Palier de police le plus resserré, réservé aux 3 espaces que sert CE layout — admin,
+     professeur, étudiant (0059, demande client du 2026-09-22 : « dans les espaces étudiants,
+     professeurs, admin »). Pas de test sur `roleAttendu` : EspaceLayout n'est justement monté
+     QUE pour ces trois rôles (la plateforme et la vitrine publique ont leurs propres layouts qui
+     ne l'utilisent pas), inutile de distinguer lequel. Posée sur `document.body`, pas sur un
+     conteneur local, pour couvrir aussi les pop-up montées par portail (voir `body.echelle-
+     connectee` dans index.css) ; retirée au démontage, sans effet pratique ici puisque ce layout
+     reste monté tant qu'on est dans l'un des 3 espaces. */
+  useEffect(() => {
+    document.body.classList.add('echelle-connectee')
+    return () => document.body.classList.remove('echelle-connectee')
+  }, [])
+
   /* Volontairement sans `loading` : tant que session et profil sont déjà connus, un
      rafraîchissement de fond (renouvellement de jeton au retour sur l'onglet, rechargement du
      profil après une modification) ne doit pas remplacer toute la page par « Chargement… » —
