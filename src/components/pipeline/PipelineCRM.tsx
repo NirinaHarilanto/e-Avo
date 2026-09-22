@@ -37,12 +37,19 @@ export function PipelineCRM() {
   // Mutation de statut centralisée : utilisée aussi bien par le glisser-déposer que par les
   // actions rapides des cartes, pour ne jamais dupliquer la logique de transition (conversion
   // étudiant, création à la volée d'une ligne diagnostic_calls manquante).
-  async function changerStatut(prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut) {
+  async function changerStatut(
+    prospect: ProspectAvecDiagnostic,
+    nouveauStatut: ProspectStatut,
+    // Confirmation déjà obtenue par l'appelant : un binôme DUO déplacé d'un seul geste est
+    // confirmé une fois pour les deux dossiers (voir `onDropColonne`), pas une fois par personne.
+    dejaConfirme = false,
+  ) {
     if (nouveauStatut === prospect.statut) return
 
     if (nouveauStatut === 'etudiant') {
       if (!session) return
       if (
+        !dejaConfirme &&
         !confirm(
           `Convertir ${prospect.prenom} ${prospect.nom} en étudiant ? Un e-mail d'invitation sera envoyé à ${prospect.email} pour qu'il/elle crée son mot de passe.`,
         )
@@ -95,10 +102,32 @@ export function PipelineCRM() {
        délai de 0 ms suffit à laisser `dragend` se terminer d'abord — il s'exécute forcément avant,
        puisqu'il fait partie de la même file d'événements synchrones que `drop`, alors qu'un
        `setTimeout` est toujours placé après dans la file. */
-    setTimeout(() => {
-      for (const id of idsTransportes) {
-        const prospect = prospects.find((p) => p.id === id)
-        if (prospect) changerStatut(prospect, statutCible)
+    setTimeout(async () => {
+      const aDeplacer = idsTransportes
+        .map((id) => prospects.find((p) => p.id === id))
+        .filter((p): p is ProspectAvecDiagnostic => !!p && p.statut !== statutCible)
+      if (aDeplacer.length === 0) return
+
+      // Une seule confirmation pour tout le groupe, qui nomme les deux personnes concernées —
+      // enchaîner deux boîtes de dialogue identiques pour un geste unique donne l'impression
+      // d'un double-clic accidentel.
+      if (statutCible === 'etudiant') {
+        const noms = aDeplacer.map((p) => `${p.prenom} ${p.nom}`).join(' et ')
+        const emails = aDeplacer.map((p) => p.email).join(' et ')
+        const pluriel = aDeplacer.length > 1
+        if (
+          !confirm(
+            `Convertir ${noms} en étudiant${pluriel ? 's' : ''} ? Un e-mail d'invitation sera envoyé à ${emails} pour ${pluriel ? 'qu’ils créent leur mot de passe' : 'qu’il/elle crée son mot de passe'}.`,
+          )
+        ) {
+          return
+        }
+      }
+
+      // Séquentiel : deux conversions simultanées déclencheraient deux rechargements concurrents
+      // du tableau, dont le plus lent peut réafficher un état déjà périmé.
+      for (const prospect of aDeplacer) {
+        await changerStatut(prospect, statutCible, true)
       }
     }, 0)
   }
@@ -383,14 +412,20 @@ function prospectATraiter(prospect: ProspectAvecDiagnostic) {
    (encore) le même statut — l'un a avancé plus vite que l'autre — retombe sur deux cartes
    individuelles classiques, chacune affichant déjà le nom du partenaire (`duoPartenaireNom`) :
    rien ne permettrait de les représenter dans une seule colonne. */
-function grouperDuo(
+export function grouperDuo(
   items: ProspectAvecDiagnostic[],
 ): (ProspectAvecDiagnostic | [ProspectAvecDiagnostic, ProspectAvecDiagnostic])[] {
   const traites = new Set<string>()
   const groupes: (ProspectAvecDiagnostic | [ProspectAvecDiagnostic, ProspectAvecDiagnostic])[] = []
   for (const prospect of items) {
     if (traites.has(prospect.id)) continue
-    const partenaire = prospect.duo_partenaire_id ? items.find((p) => p.id === prospect.duo_partenaire_id) : undefined
+    /* Lien cherché dans les deux sens : api/prospects/reserver.ts l'écrit normalement des deux
+       côtés, mais le second écrit (la mise à jour du premier dossier) peut avoir échoué sans
+       annuler la réservation. Ne regarder que `duo_partenaire_id` laissait alors le binôme
+       éclaté en deux cartes — exactement le symptôme que ce regroupement doit supprimer. */
+    const partenaire = items.find(
+      (p) => p.id !== prospect.id && (p.id === prospect.duo_partenaire_id || p.duo_partenaire_id === prospect.id),
+    )
     if (partenaire && !traites.has(partenaire.id)) {
       groupes.push([prospect, partenaire])
       traites.add(prospect.id)
@@ -958,7 +993,7 @@ function CarteDuo({
 }) {
   const [enGlissement, setEnGlissement] = useState(false)
   const necessiteAction = paire.some(prospectATraiter)
-  const nomGroupe = paire[0].duo_nom_groupe || `${paire[0].prenom} & ${paire[1].prenom}`
+  const nomGroupe = paire[0].duo_nom_groupe || paire[1].duo_nom_groupe || `${paire[0].prenom} & ${paire[1].prenom}`
 
   return (
     <div
