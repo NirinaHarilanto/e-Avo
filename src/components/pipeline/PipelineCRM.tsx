@@ -82,7 +82,10 @@ export function PipelineCRM() {
   function onDropColonne(e: DragEvent, statutCible: ProspectStatut) {
     e.preventDefault()
     setColonneSurvolee(null)
-    const prospectId = e.dataTransfer.getData('text/plain')
+    // Un binôme DUO glissé (voir `CarteDuo`) transporte les deux id séparés par une virgule —
+    // les deux dossiers avancent toujours ensemble (demande client du 2026-09-22, « traités par
+    // groupe mais pas individuellement »), jamais l'un sans l'autre.
+    const idsTransportes = e.dataTransfer.getData('text/plain').split(',').filter(Boolean)
     /* La mutation d'état (et donc le rechargement qui déplace immédiatement la carte vers une
        autre colonne) est reportée après la fin du cycle natif de glisser-déposer du navigateur —
        demande client du 2026-09-16, « ça bloque et fait planter l'application ». `drop` survient
@@ -93,8 +96,10 @@ export function PipelineCRM() {
        puisqu'il fait partie de la même file d'événements synchrones que `drop`, alors qu'un
        `setTimeout` est toujours placé après dans la file. */
     setTimeout(() => {
-      const prospect = prospects.find((p) => p.id === prospectId)
-      if (prospect) changerStatut(prospect, statutCible)
+      for (const id of idsTransportes) {
+        const prospect = prospects.find((p) => p.id === id)
+        if (prospect) changerStatut(prospect, statutCible)
+      }
     }, 0)
   }
 
@@ -232,9 +237,13 @@ export function PipelineCRM() {
                     <span style={{ fontSize: 10.5, opacity: 0.8 }}>Déposez une carte ici</span>
                   </span>
                 )}
-                {items.map((prospect) => (
-                  <CarteProspect key={prospect.id} prospect={prospect} onChange={recharger} onChangerStatut={changerStatut} />
-                ))}
+                {grouperDuo(items).map((groupe) =>
+                  Array.isArray(groupe) ? (
+                    <CarteDuo key={groupe[0].id} paire={groupe} onChange={recharger} onChangerStatut={changerStatut} />
+                  ) : (
+                    <CarteProspect key={groupe.id} prospect={groupe} onChange={recharger} onChangerStatut={changerStatut} />
+                  ),
+                )}
               </div>
             )
           })}
@@ -351,26 +360,64 @@ function FormulaireNouveauProspect({
   )
 }
 
+/* Tag « À traiter » (demande client du 2026-09-22) : distingue au premier coup d'œil, dans une
+   colonne dense, les blocs qui attendent une décision de l'admin de ceux qui suivent simplement
+   leur cours normal. Trois cas concrets :
+   - un rendez-vous que le prospect a réservé lui-même, jamais encore validé ;
+   - le diagnostic fait mais aucun paiement encore enregistré (bloque la conversion, voir
+     BlocPaiementForfait plus bas) ;
+   - un nouveau prospect qui n'a même pas encore de rendez-vous planifié.
+   Extraite de CarteProspect pour être réutilisée par CarteDuo (0058), qui doit lever le badge dès
+   qu'UN SEUL des deux membres du binôme a besoin d'une action. */
+function prospectATraiter(prospect: ProspectAvecDiagnostic) {
+  return (
+    (prospect.statut === 'diagnostic_planifie' && prospect.rendezVous?.statut === 'en_attente') ||
+    (prospect.statut === 'diagnostic_fait' && !prospect.paiement) ||
+    (prospect.statut === 'prospect' && !prospect.rendezVous)
+  )
+}
+
+/* Regroupe les binômes DUO présents dans une même colonne en un seul bloc visuel (0058, demande
+   client du 2026-09-22 : « traités par groupe mais pas individuellement », un seul bloc pour
+   Sandra/Bensas plutôt que deux cartes séparées). Un binôme dont les deux membres n'ont pas
+   (encore) le même statut — l'un a avancé plus vite que l'autre — retombe sur deux cartes
+   individuelles classiques, chacune affichant déjà le nom du partenaire (`duoPartenaireNom`) :
+   rien ne permettrait de les représenter dans une seule colonne. */
+function grouperDuo(
+  items: ProspectAvecDiagnostic[],
+): (ProspectAvecDiagnostic | [ProspectAvecDiagnostic, ProspectAvecDiagnostic])[] {
+  const traites = new Set<string>()
+  const groupes: (ProspectAvecDiagnostic | [ProspectAvecDiagnostic, ProspectAvecDiagnostic])[] = []
+  for (const prospect of items) {
+    if (traites.has(prospect.id)) continue
+    const partenaire = prospect.duo_partenaire_id ? items.find((p) => p.id === prospect.duo_partenaire_id) : undefined
+    if (partenaire && !traites.has(partenaire.id)) {
+      groupes.push([prospect, partenaire])
+      traites.add(prospect.id)
+      traites.add(partenaire.id)
+    } else {
+      groupes.push(prospect)
+      traites.add(prospect.id)
+    }
+  }
+  return groupes
+}
+
 interface CarteProspectProps {
   prospect: ProspectAvecDiagnostic
   onChange: () => void
   onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut) => Promise<void>
+  /* Rendu à l'intérieur d'un bloc CarteDuo (0058) : pas de carte ni de glisser-déposer propres —
+     seuls la ligne d'identité repliée et la fenêtre de détail au clic sont conservées, le geste
+     de glisser-déposer étant porté par le bloc englobant pour déplacer les deux dossiers
+     ensemble. */
+  dansGroupeDuo?: boolean
 }
 
-function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectProps) {
+function CarteProspect({ prospect, onChange, onChangerStatut, dansGroupeDuo = false }: CarteProspectProps) {
   const { profile, session } = useProfileContext()
   const estPositionnement = prospect.type_programme === 'collectif'
-  /* Tag « À traiter » (demande client du 2026-09-22) : distingue au premier coup d'œil, dans
-     une colonne dense, les blocs qui attendent une décision de l'admin de ceux qui suivent
-     simplement leur cours normal. Trois cas concrets :
-     - un rendez-vous que le prospect a réservé lui-même, jamais encore validé ;
-     - le diagnostic fait mais aucun paiement encore enregistré (bloque la conversion, voir
-       BlocPaiementForfait plus bas) ;
-     - un nouveau prospect qui n'a même pas encore de rendez-vous planifié. */
-  const necessiteAction =
-    (prospect.statut === 'diagnostic_planifie' && prospect.rendezVous?.statut === 'en_attente') ||
-    (prospect.statut === 'diagnostic_fait' && !prospect.paiement) ||
-    (prospect.statut === 'prospect' && !prospect.rendezVous)
+  const necessiteAction = prospectATraiter(prospect)
   const [ouvert, setOuvert] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
   const [reponses, setReponses] = useState<ReponsesDiagnostic>(prospect.diagnostic?.reponses ?? {})
@@ -575,88 +622,123 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
           affluence tienne sur une hauteur raisonnable — tout le reste (objectif, diagnostic,
           actions) est déplacé dans la fenêtre de détail ouverte au clic. Le drag-and-drop reste
           porté par cette carte : un vrai clic n'émet jamais l'événement `click` après un
-          glissé, les deux interactions ne se marchent donc pas dessus. */}
-      <div
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData('text/plain', prospect.id)
-          e.dataTransfer.effectAllowed = 'move'
-          setEnGlissement(true)
-        }}
-        onDragEnd={() => setEnGlissement(false)}
-        onClick={() => setDetailOuvert(true)}
-        className="card card-lift"
-        style={{
-          padding: 10,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 7,
-          cursor: 'grab',
-          opacity: enGlissement ? 0.4 : 1,
-          position: 'relative',
-          borderColor: necessiteAction ? 'rgba(255,138,112,.5)' : undefined,
-        }}
-      >
-        {necessiteAction && (
-          <span
-            style={{
-              position: 'absolute',
-              top: -8,
-              right: 8,
-              fontSize: 9.5,
-              fontWeight: 800,
-              letterSpacing: 0.4,
-              textTransform: 'uppercase',
-              color: '#fff',
-              background: 'var(--danger)',
-              borderRadius: 999,
-              padding: '2px 8px',
-              boxShadow: '0 3px 10px rgba(255,138,112,.4)',
-            }}
-          >
-            À traiter
-          </span>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11.5, fontWeight: 800, flexShrink: 0 }}>
+          glissé, les deux interactions ne se marchent donc pas dessus.
+          Rendu compact (0058) : dans un binôme DUO, ce composant est imbriqué dans `CarteDuo`,
+          qui porte déjà la carte externe et le glisser-déposer du groupe — ici, plus qu'une
+          simple ligne d'identité cliquable, sans carte ni poignée de glisser propres. */}
+      {dansGroupeDuo ? (
+        <div onClick={() => setDetailOuvert(true)} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}>
+          <span style={{ width: 26, height: 26, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10.5, fontWeight: 800, flexShrink: 0 }}>
             {(prospect.prenom[0] ?? '').toUpperCase()}
             {(prospect.nom[0] ?? '').toUpperCase()}
           </span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>
               {prospect.prenom} {prospect.nom}
             </span>
-            <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
+            <span style={{ fontSize: 10, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
           </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {prospect.type_programme && (
+          {necessiteAction && (
             <span
               style={{
-                fontSize: 10,
-                fontWeight: 700,
+                fontSize: 9,
+                fontWeight: 800,
                 letterSpacing: 0.4,
                 textTransform: 'uppercase',
-                color: 'var(--muted-2)',
-                border: '1px solid var(--border)',
+                color: '#fff',
+                background: 'var(--danger)',
                 borderRadius: 999,
-                padding: '2px 9px',
+                padding: '2px 7px',
+                flexShrink: 0,
               }}
             >
-              {LABEL_PROGRAMME[prospect.type_programme]}
-            </span>
-          )}
-          {/* Binôme DUO (0054) : les deux dossiers restent deux cartes distinctes dans ce
-              tableau (chacune avance dans le pipeline à son propre rythme), ce repère évite
-              juste de les traiter comme deux prospects sans rapport. */}
-          {prospect.duoPartenaireNom && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', border: '1px solid rgba(233,207,148,.32)', borderRadius: 999, padding: '2px 9px' }}>
-              Duo avec {prospect.duoPartenaireNom}
+              À traiter
             </span>
           )}
         </div>
-      </div>
+      ) : (
+        <div
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('text/plain', prospect.id)
+            e.dataTransfer.effectAllowed = 'move'
+            setEnGlissement(true)
+          }}
+          onDragEnd={() => setEnGlissement(false)}
+          onClick={() => setDetailOuvert(true)}
+          className="card card-lift"
+          style={{
+            padding: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 7,
+            cursor: 'grab',
+            opacity: enGlissement ? 0.4 : 1,
+            position: 'relative',
+            borderColor: necessiteAction ? 'rgba(255,138,112,.5)' : undefined,
+          }}
+        >
+          {necessiteAction && (
+            <span
+              style={{
+                position: 'absolute',
+                top: -8,
+                right: 8,
+                fontSize: 9.5,
+                fontWeight: 800,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+                color: '#fff',
+                background: 'var(--danger)',
+                borderRadius: 999,
+                padding: '2px 8px',
+                boxShadow: '0 3px 10px rgba(255,138,112,.4)',
+              }}
+            >
+              À traiter
+            </span>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11.5, fontWeight: 800, flexShrink: 0 }}>
+              {(prospect.prenom[0] ?? '').toUpperCase()}
+              {(prospect.nom[0] ?? '').toUpperCase()}
+            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
+                {prospect.prenom} {prospect.nom}
+              </span>
+              <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {prospect.type_programme && (
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: 0.4,
+                  textTransform: 'uppercase',
+                  color: 'var(--muted-2)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 999,
+                  padding: '2px 9px',
+                }}
+              >
+                {LABEL_PROGRAMME[prospect.type_programme]}
+              </span>
+            )}
+            {/* Binôme DUO dont les membres n'ont pas (encore) le même statut (0058) : ils ne
+                peuvent pas être regroupés en un seul bloc (voir `grouperDuo`), ce repère évite
+                au moins de les traiter comme deux prospects sans rapport. */}
+            {prospect.duoPartenaireNom && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', border: '1px solid rgba(233,207,148,.32)', borderRadius: 999, padding: '2px 9px' }}>
+                Duo avec {prospect.duoPartenaireNom}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {detailOuvert && (
         <Modale titre={`${prospect.prenom} ${prospect.nom}`} onFermer={() => setDetailOuvert(false)} largeurMax={560}>
@@ -856,6 +938,60 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
         </Modale>
       )}
     </>
+  )
+}
+
+/* Bloc visuel unique pour un binôme DUO dont les deux membres partagent le même statut (0058,
+   demande client du 2026-09-22). Porte la carte externe et le glisser-déposer du groupe — les
+   deux id transportés ensemble (voir `onDropColonne`) garantissent qu'ils avancent toujours de
+   pair, jamais l'un sans l'autre. Chaque ligne d'identité imbriquée ouvre sa propre fenêtre de
+   détail (diagnostic, paiement, conversion...), ces informations restant propres à chaque
+   personne. */
+function CarteDuo({
+  paire,
+  onChange,
+  onChangerStatut,
+}: {
+  paire: [ProspectAvecDiagnostic, ProspectAvecDiagnostic]
+  onChange: () => void
+  onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut) => Promise<void>
+}) {
+  const [enGlissement, setEnGlissement] = useState(false)
+  const necessiteAction = paire.some(prospectATraiter)
+  const nomGroupe = paire[0].duo_nom_groupe || `${paire[0].prenom} & ${paire[1].prenom}`
+
+  return (
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', paire.map((p) => p.id).join(','))
+        e.dataTransfer.effectAllowed = 'move'
+        setEnGlissement(true)
+      }}
+      onDragEnd={() => setEnGlissement(false)}
+      className="card card-lift"
+      style={{
+        padding: 10,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 9,
+        cursor: 'grab',
+        opacity: enGlissement ? 0.4 : 1,
+        position: 'relative',
+        borderColor: necessiteAction ? 'rgba(255,138,112,.5)' : 'rgba(233,207,148,.32)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--accent-gold, #e9cf94)' }}>
+          Duo · {nomGroupe}
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <CarteProspect prospect={paire[0]} onChange={onChange} onChangerStatut={onChangerStatut} dansGroupeDuo />
+        <div style={{ height: 1, background: 'var(--border-soft)' }} />
+        <CarteProspect prospect={paire[1]} onChange={onChange} onChangerStatut={onChangerStatut} dansGroupeDuo />
+      </div>
+    </div>
   )
 }
 

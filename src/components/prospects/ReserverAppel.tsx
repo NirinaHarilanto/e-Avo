@@ -227,7 +227,10 @@ export function ReserverAppel({
         <h3 style={{ fontSize: 20, margin: 0, color: 'var(--ink)' }}>Votre demande est enregistrée</h3>
         <p style={{ fontSize: 14, lineHeight: 1.65, color: 'var(--muted)', maxWidth: 440, margin: 0 }}>
           {etablissementNom} confirme votre appel du <strong>{confirme}</strong> très vite. Vous recevrez alors
-          une invitation avec le lien de visioconférence à l’adresse {email}.
+          une invitation avec le lien de visioconférence
+          {typeProgramme === 'duo' && email2
+            ? <> aux adresses {email} et {email2}.</>
+            : <> à l’adresse {email}.</>}
         </p>
       </div>
     )
