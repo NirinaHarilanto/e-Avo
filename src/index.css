@@ -1003,8 +1003,9 @@ body.sans-defilement {
   margin: 0 auto;
 }
 
-/* Même mécanique que .card-lift (liseré tournant + soulèvement + ombre, voir plus haut) recolorée
-   en violet — demande client du 2026-09-15 de reprendre les animations de l'application. */
+/* Même mécanique que .card-lift (liseré tournant + soulèvement + ombre, voir plus haut), dorée à
+   l'identique — demande client du 2026-09-22 : revenir à l'ambiance sombre brillant doré de
+   l'application plutôt que le violet néon posé le 2026-09-15. */
 .carte-vue {
   position: relative;
   display: flex;
@@ -1022,7 +1023,7 @@ body.sans-defilement {
   background: conic-gradient(
     from var(--glow-angle),
     transparent 0%, transparent 76%,
-    #4a2494 83%, #a78bfa 88%, #f3e8ff 91%, #a78bfa 94%, #4a2494 99%,
+    #a97c00 83%, #ffd700 88%, #fff6c8 91%, #ffd700 94%, #a97c00 99%,
     transparent 100%
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -1030,6 +1031,7 @@ body.sans-defilement {
   mask-composite: exclude;
   opacity: 0;
   pointer-events: none;
+  filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.85));
   animation: navGlowSpin 3.4s linear infinite;
   transition: opacity 0.35s;
 }
@@ -1038,7 +1040,7 @@ body.sans-defilement {
 }
 .carte-vue:hover {
   transform: translateY(-3px);
-  box-shadow: 0 16px 34px rgba(76, 40, 150, 0.16);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45), 0 0 24px rgba(233, 207, 148, 0.16);
 }
 
 .etiquette-programme {
@@ -1062,38 +1064,44 @@ body.sans-defilement {
 }
 .carte-avis:hover {
   transform: translateY(-3px);
-  box-shadow: 0 16px 34px rgba(76, 40, 150, 0.16);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45), 0 0 24px rgba(233, 207, 148, 0.16);
 }
 
-/* ── Vues Programme / Tarifs / Professeurs / Avis : thème sombre glassmorphism néon ──────────
-   Maquettes fournies par le client le 2026-09-15 (Tarifs.jpg / Programme.jpg) : ces quatre vues
-   quittent le fond clair lavande de `.page-claire` pour un fond violet nuit immersif, avec des
-   cartes en verre dépoli à bordure et halo néon, quelques éléments décoratifs flottants (icônes,
-   bulles, étincelles) et des pastilles de catégorie inversées (claires sur fond sombre). Même
-   principe que `.page-claire` : redéfinir les variables --ink/--muted & co sur le conteneur
-   racine de la vue, pour que tous les styles inline qui les lisent déjà basculent de teinte sans
-   rien connaître du thème. */
-/* L'image de fond du Hero sert désormais aussi de socle aux quatre vues secondaires — demande
-   client du 2026-09-16 : « la page Hero doit servir de base pour les autres sections de la barre
-   de navigation ». Posée en DERNIÈRE couche (donc la plus profonde : en CSS, la première couche
-   listée dans `background` est celle du dessus), avec les mêmes radiaux et le même dégradé
-   qu'avant par-dessus, rendus nettement plus opaques (0.90 à 0.97, contre 0.26 à 0.32) pour rester
-   la couche qui domine visuellement. L'image n'est donc plus qu'une présence en filigrane — assez
-   discrète pour qu'aucune carte de verre ni aucun texte n'y perde en lisibilité, assez visible
-   pour qu'on reconnaisse le même décor que sur l'accueil. Le fichier est déjà en cache dès qu'on
-   quitte le Hero pour une de ces vues : aucun coût de chargement supplémentaire. */
+/* ── Vues Programme / Tarifs / Professeurs / Avis : ambiance sombre brillant doré ─────────────
+   Le violet néon posé le 2026-09-15 (fond « violet nuit », cartes en verre dépoli, décor flottant
+   animé) est retiré le 2026-09-22 à la demande du client, au profit de l'habillage déjà en place
+   partout ailleurs dans l'application : fond marine (`--bg-page`), cartes opaques (`.card`) et
+   liseré doré tournant au survol (`.carte-vue`, mécanique `.card-lift`). Rien de ce qui suit ne
+   touche à l'information affichée (données des forfaits, programmes, professeurs, avis) ni aux
+   mécanismes (extension de la liste de tarifs, réservation, etc.) — seules les couleurs et les
+   animations décoratives changent. */
+/* L'image de fond du Hero sert de socle aux quatre vues secondaires — demande client du
+   2026-09-16 : « la page Hero doit servir de base pour les autres sections de la barre de
+   navigation », conservée telle quelle. Posée en DERNIÈRE couche (donc la plus profonde : en CSS,
+   la première couche listée dans `background` est celle du dessus), sous les mêmes teintes que le
+   fond marine/or du reste de l'application plutôt que le violet nuit d'avant. L'image n'est donc
+   qu'une présence en filigrane — assez discrète pour qu'aucune carte ni aucun texte n'y perde en
+   lisibilité, assez visible pour qu'on reconnaisse le même décor que sur l'accueil. */
 .vue-sombre {
-  --ink: #f3edff;
-  --ink-2: #ddccff;
-  --muted: #baa6ea;
-  --muted-2: #9683c4;
+  /* `.page-claire` (posée sur toute la vitrine publique, voir plus haut) redéfinit --surface en
+     blanc et --ink en une encre sombre pensée pour CE fond clair — illisibles tels quels sur les
+     cartes sombres de ces quatre vues. Mêmes valeurs que le thème principal de l'application
+     (`:root`), pour que `.card`/`.carte-vue` s'y comportent à l'identique. */
+  --surface: linear-gradient(155deg, #101d40, #0b1530);
+  --surface-alt: #0d1938;
+  --border: rgba(212, 175, 106, 0.22);
+  --border-soft: rgba(255, 255, 255, 0.06);
+  --ink: #e7edf9;
+  --ink-2: #c7d0e8;
+  --muted: #8b96b8;
+  --muted-2: #5b6584;
   position: relative;
   isolation: isolate;
   background:
-    radial-gradient(700px 420px at 14% 8%, rgba(186, 140, 255, 0.4), transparent 62%),
-    radial-gradient(620px 380px at 92% 12%, rgba(150, 100, 240, 0.32), transparent 60%),
-    radial-gradient(900px 520px at 50% 105%, rgba(100, 50, 180, 0.4), transparent 70%),
-    linear-gradient(165deg, rgba(44, 22, 87, 0.93) 0%, rgba(32, 15, 73, 0.95) 45%, rgba(21, 10, 48, 0.97) 100%),
+    radial-gradient(700px 420px at 14% 8%, rgba(63, 127, 242, 0.28), transparent 62%),
+    radial-gradient(620px 380px at 92% 12%, rgba(233, 207, 148, 0.2), transparent 60%),
+    radial-gradient(900px 520px at 50% 105%, rgba(212, 175, 106, 0.24), transparent 70%),
+    linear-gradient(165deg, rgba(5, 10, 22, 0.93) 0%, rgba(10, 21, 48, 0.95) 45%, rgba(5, 10, 22, 0.97) 100%),
     url('/hero-hoc.webp') center 30% / cover no-repeat;
 }
 .vue-sombre .entete-vue,
@@ -1103,14 +1111,15 @@ body.sans-defilement {
 }
 
 /* Le pied de page est pensé pour la photo claire du hero (bande blanche translucide) : sur les
-   vues sombres il doit au contraire se fondre dans le violet nuit plutôt que trancher dessus. */
+   vues sombres il doit au contraire se fondre dans le marine, comme partout ailleurs dans
+   l'application. */
 .page-unique--sombre .pied-unique {
   background: transparent;
-  border-top-color: rgba(221, 204, 255, 0.14);
-  color: #a996d6;
+  border-top-color: rgba(212, 175, 106, 0.18);
+  color: var(--muted);
 }
 .page-unique--sombre .pied-unique a {
-  color: #cbb8f2;
+  color: var(--accent-gold);
 }
 .page-unique--sombre .pied-unique a:hover {
   color: #fff;
@@ -1127,120 +1136,20 @@ body.sans-defilement {
   margin: 0 auto 24px;
   padding: 16px 36px;
   border-radius: 20px;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(244, 238, 255, 0.94));
-  box-shadow: 0 18px 40px rgba(20, 8, 50, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(250, 244, 230, 0.94));
+  box-shadow: 0 18px 40px rgba(5, 10, 22, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
 }
 .titre-pastille h2 {
-  color: #2c1657 !important;
+  color: #0a1530 !important;
 }
 .titre-pastille p {
-  color: #6d5a99 !important;
+  color: #4a5578 !important;
 }
 
-/* Carte en verre dépoli : fond translucide flouté + halo néon qui « respire » doucement même
-   sans survol (c'est ce qui donne l'impression de profondeur lumineuse des maquettes). Vient en
-   complément de `.carte-vue` (liseré tournant + soulèvement déjà recolorés en violet un peu plus
-   haut) plutôt qu'en remplacement : les deux classes se combinent sur chaque carte. */
-@keyframes respirerNeon {
-  0%, 100% { box-shadow: 0 20px 50px rgba(15, 4, 40, 0.5), 0 0 26px rgba(178, 120, 255, 0.28); }
-  50% { box-shadow: 0 20px 50px rgba(15, 4, 40, 0.5), 0 0 42px rgba(178, 120, 255, 0.42); }
-}
-.carte-glass {
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02) 60%), rgba(60, 34, 110, 0.28);
-  border: 1px solid rgba(210, 180, 255, 0.4);
-  border-radius: 22px;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  transition: background 0.3s ease;
-  animation-name: respirerNeon;
-  animation-duration: 4.5s;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-}
-.carte-glass:hover {
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04) 60%), rgba(70, 42, 128, 0.32);
-}
-
-/* Pastille de catégorie sur fond sombre : inversée (claire) par rapport à `.etiquette-programme`
-   utilisée sur fond clair, pour rester lisible et fidèle aux maquettes fournies. */
-.etiquette-neon {
-  align-self: flex-start;
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  padding: 4px 12px;
-  border-radius: 999px;
-  color: #3c2170;
-  background: linear-gradient(120deg, #ffffff, #e8ddff);
-  box-shadow: 0 4px 14px rgba(20, 8, 50, 0.35);
-}
-
-/* Décor flottant : icônes/bulles/étincelles purement décoratives (aria-hidden côté JSX), posées
-   dans ce conteneur qui couvre toute la carte (y compris hors de ses bords, `overflow: visible`)
-   pour que chaque élément puisse être positionné librement en pourcentages par le composant, là
-   où la maquette le montre — jamais cliquable (pointer-events: none), toujours sous le contenu
-   de la carte (z-index 0, quand le titre/texte/bouton restent au niveau normal du flux). */
-.decor-flottant {
-  position: absolute;
-  inset: 0;
-  overflow: visible;
-  pointer-events: none;
-  /* Négatif et non 0 : un enfant positionné en z-index 0 peint APRÈS le contenu normal (titres,
-     texte, boutons) dans l'ordre de peinture CSS, donc au-dessus de lui — l'inverse de l'effet
-     recherché. En z-index négatif il peint juste après le fond de la carte (qui forme son propre
-     contexte d'empilement via `backdrop-filter`) et avant tout contenu normal : bien derrière. */
-  z-index: -1;
-}
-@keyframes flotterDecor {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-14px); }
-}
-@keyframes scintillerDecor {
-  0%, 100% { opacity: 0.35; transform: scale(0.85); }
-  50% { opacity: 1; transform: scale(1.15); }
-}
-.decor-icone,
-.decor-etincelle,
-.decor-bulle {
-  position: absolute;
-  z-index: 0;
-  pointer-events: none;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-}
-.decor-icone {
-  filter: drop-shadow(0 6px 16px rgba(20, 8, 50, 0.5)) drop-shadow(0 0 14px rgba(200, 160, 255, 0.55));
-  animation-name: flotterDecor;
-  animation-duration: 5s;
-}
-.decor-etincelle {
-  color: #f4e8ff;
-  filter: drop-shadow(0 0 6px rgba(230, 200, 255, 0.9));
-  animation-name: scintillerDecor;
-  animation-duration: 2.4s;
-}
-.decor-bulle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 13px;
-  border-radius: 999px 999px 999px 4px;
-  font-size: 12.5px;
-  font-weight: 800;
-  color: #4a2ea0;
-  white-space: nowrap;
-  background: linear-gradient(160deg, #ffffff, #e4d6ff);
-  box-shadow: 0 8px 20px rgba(20, 8, 50, 0.45);
-  animation-name: flotterDecor;
-  animation-duration: 6s;
-}
-
-/* Panneau photo (fondatrice / équipe, vue Professeurs) : l'ancien recadrage (`object-fit: cover`
-   sur 210px de haut) coupait le haut ou le bas des portraits. Le panneau est maintenant plus
-   grand et affiche la photo ENTIÈRE sans recadrage (`object-fit: contain`), sur un fond en verre
-   dépoli qui absorbe les bandes vides plutôt que de laisser du vide brut — demande client du
-   2026-09-15 : « les rendre plus visibles et complètes ». */
+/* Panneau photo (fondatrice / équipe, vue Professeurs) : affiche la photo ENTIÈRE sans recadrage
+   (`object-fit: contain`), sur un fond qui absorbe les bandes vides plutôt que de laisser du vide
+   brut — demande client du 2026-09-15 : « les rendre plus visibles et complètes », mécanisme
+   conservé, seule la teinte de bordure redevient dorée le 2026-09-22. */
 .panneau-photo {
   width: 100%;
   height: 300px;
@@ -1249,8 +1158,8 @@ body.sans-defilement {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02));
-  border: 1px solid rgba(210, 180, 255, 0.28);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(212, 175, 106, 0.28);
 }
 .panneau-photo img {
   width: 100%;
@@ -1373,13 +1282,6 @@ body.sans-defilement {
   }
   .vue-secondaire-corps {
     overflow: visible;
-  }
-  /* Le décor flottant (icônes/bulles/étincelles) suppose de la place tout autour des cartes pour
-     ne pas se chevaucher avec leur contenu : sous cette largeur, les cartes passent en une seule
-     colonne serrée où il n'y a plus cette place, donc on le retire plutôt que de le laisser
-     empiéter sur le texte. Le fond sombre et les cartes en verre restent inchangés. */
-  .decor-flottant {
-    display: none;
   }
   .titre-pastille {
     padding: 14px 22px;
