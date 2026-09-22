@@ -383,7 +383,7 @@ export function DossierEtudiantVue({
   peutModifierPlanning,
   onDossierChange,
 }: DossierEtudiantVueProps) {
-  const { etudiant, periodes, periodeActuelle, diagnostic, packages, cohorte, heuresConsommees, prochaineSeance, tarifChoisi } = dossier
+  const { etudiant, periodes, periodeActuelle, diagnostic, packages, cohorte, heuresConsommees, prochaineSeance, tarifChoisi, duoPartenaire } = dossier
   const forfait = packages[0] ?? null
   /* Restant et progression se calculent sur le CUMUL des forfaits, pas seulement le dernier
      souscrit — un ajout de forfait (0061) additionne des heures à un total déjà entamé, il ne
@@ -436,10 +436,25 @@ export function DossierEtudiantVue({
             {initiales(etudiant)}
           </span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
-            <h2 style={{ fontSize: 22, color: '#fff', margin: 0 }}>
-              {etudiant.prenom} {etudiant.nom}
-            </h2>
+            {/* Nom du binôme dans l'en-tête du dossier (0062, demande client du 2026-09-22 :
+                « rajoute les noms des deux personnes formant le DUO »). `dossier.duoPartenaire`
+                n'existe que côté principal — c'est bien lui qui porte le dossier partagé, voir
+                useDossierEtudiant. */}
+            {duoPartenaire ? (
+              <h2 style={{ fontSize: 22, color: '#fff', margin: 0 }}>
+                {etudiant.prenom} {etudiant.nom} & {duoPartenaire.prenom} {duoPartenaire.nom}
+              </h2>
+            ) : (
+              <h2 style={{ fontSize: 22, color: '#fff', margin: 0 }}>
+                {etudiant.prenom} {etudiant.nom}
+              </h2>
+            )}
             <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 7 }}>
+              {duoPartenaire && (
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(233,207,148,.14)', border: '1px solid rgba(233,207,148,.32)', borderRadius: 999, padding: '4px 11px' }}>
+                  Duo{etudiant.duo_nom_groupe || duoPartenaire.duo_nom_groupe ? ` · ${etudiant.duo_nom_groupe || duoPartenaire.duo_nom_groupe}` : ''}
+                </span>
+              )}
               <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.32)', borderRadius: 999, padding: '4px 11px' }}>
                 {etudiant.status === 'approved' ? 'Étudiant actif' : etudiant.status}
               </span>
