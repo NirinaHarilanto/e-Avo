@@ -45,24 +45,29 @@ export function PipelineCRM() {
   // Mutation de statut centralisée : utilisée aussi bien par le glisser-déposer que par les
   // actions rapides des cartes, pour ne jamais dupliquer la logique de transition (conversion
   // étudiant, création à la volée d'une ligne diagnostic_calls manquante).
+  /* Renvoie `false` si la transition n'a pas eu lieu (refus de la confirmation, erreur serveur)
+     — ce que l'appelant DOIT regarder quand il enchaîne les deux membres d'un binôme DUO :
+     convertir le second alors que le premier a échoué éclate la paire entre le pipeline et la
+     section Étudiants, exactement ce qui s'est produit le 2026-09-22 (un homonyme supprimé
+     bloquait l'un des deux, l'autre passait quand même). */
   async function changerStatut(
     prospect: ProspectAvecDiagnostic,
     nouveauStatut: ProspectStatut,
     // Confirmation déjà obtenue par l'appelant : un binôme DUO déplacé d'un seul geste est
     // confirmé une fois pour les deux dossiers (voir `onDropColonne`), pas une fois par personne.
     dejaConfirme = false,
-  ) {
-    if (nouveauStatut === prospect.statut) return
+  ): Promise<boolean> {
+    if (nouveauStatut === prospect.statut) return true
 
     if (nouveauStatut === 'etudiant') {
-      if (!session) return
+      if (!session) return false
       if (
         !dejaConfirme &&
         !confirm(
           `Convertir ${prospect.prenom} ${prospect.nom} en étudiant ? Un e-mail d'invitation sera envoyé à ${prospect.email} pour qu'il/elle crée son mot de passe.`,
         )
       ) {
-        return
+        return false
       }
       const reponse = await fetch('/api/admin/convert-prospect', {
         method: 'POST',
@@ -72,10 +77,10 @@ export function PipelineCRM() {
       if (!reponse.ok) {
         const corps = await reponse.json().catch(() => null)
         alert(corps?.error ?? 'La conversion a échoué.')
-        return
+        return false
       }
       recharger()
-      return
+      return true
     }
 
     // Un diagnostic_calls doit exister pour qu'on puisse plus tard y noter niveau/rythme —
@@ -90,8 +95,9 @@ export function PipelineCRM() {
       })
     }
 
-    await supabase.from('prospects').update({ statut: nouveauStatut }).eq('id', prospect.id)
+    const { error } = await supabase.from('prospects').update({ statut: nouveauStatut }).eq('id', prospect.id)
     recharger()
+    return !error
   }
 
   function onDropColonne(e: DragEvent, statutCible: ProspectStatut) {
@@ -132,10 +138,14 @@ export function PipelineCRM() {
         }
       }
 
-      // Séquentiel : deux conversions simultanées déclencheraient deux rechargements concurrents
-      // du tableau, dont le plus lent peut réafficher un état déjà périmé.
+      /* Séquentiel : deux conversions simultanées déclencheraient deux rechargements concurrents
+         du tableau, dont le plus lent peut réafficher un état déjà périmé. Et surtout, on
+         S'ARRÊTE au premier échec : faire passer le second membre d'un binôme alors que le
+         premier a été refusé laisserait la paire éclatée entre deux sections de l'application,
+         sans moyen simple de la recoller (demande client du 2026-09-22 : « les deux étudiants
+         devraient toujours aller de pair »). L'erreur a déjà été signalée par `changerStatut`. */
       for (const prospect of aDeplacer) {
-        await changerStatut(prospect, statutCible, true)
+        if (!(await changerStatut(prospect, statutCible, true))) return
       }
     }, 0)
   }
@@ -684,7 +694,7 @@ function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => vo
 interface CarteProspectProps {
   prospect: ProspectAvecDiagnostic
   onChange: () => void
-  onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut) => Promise<void>
+  onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut) => Promise<boolean>
 }
 
 function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectProps) {
@@ -1054,7 +1064,7 @@ function CarteDuo({
 }: {
   paire: [ProspectAvecDiagnostic, ProspectAvecDiagnostic]
   onChange: () => void
-  onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut, dejaConfirme?: boolean) => Promise<void>
+  onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut, dejaConfirme?: boolean) => Promise<boolean>
 }) {
   const [porteur, autre] = identifierPorteur(paire)
   const [enGlissement, setEnGlissement] = useState(false)
@@ -1148,11 +1158,14 @@ function CarteDuo({
       return
     }
     a.setEnCours(true)
-    // Porteur d'abord : c'est sur son id que la conversion crée le forfait partagé (voir
-    // api/admin/convert-prospect.ts) — converti ensuite, l'autre membre le rejoint comme
-    // « secondaire » au lieu de recevoir son propre forfait en double.
-    await onChangerStatut(porteur, 'etudiant', true)
-    await onChangerStatut(autre, 'etudiant', true)
+    /* Porteur d'abord : c'est sur son id que la conversion crée le forfait partagé (voir
+       api/admin/convert-prospect.ts) — converti ensuite, l'autre membre le rejoint comme
+       « secondaire » au lieu de recevoir son propre forfait en double. Si le premier échoue on
+       n'enchaîne pas : la paire resterait sinon à cheval entre le pipeline et la section
+       Étudiants (le message d'erreur a déjà été affiché par `changerStatut`). */
+    if (await onChangerStatut(porteur, 'etudiant', true)) {
+      await onChangerStatut(autre, 'etudiant', true)
+    }
     a.setEnCours(false)
   }
 

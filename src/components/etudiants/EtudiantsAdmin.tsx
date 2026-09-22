@@ -49,15 +49,20 @@ export function EtudiantsAdmin() {
   }, [tousLesEtudiants])
   const etudiants = useMemo(() => tousLesEtudiants.filter((e) => !e.duo_partenaire_id), [tousLesEtudiants])
 
+  /* La recherche porte aussi sur le second membre d'un binôme : son nom est affiché dans le bloc
+     du duo, le taper doit donc ramener ce bloc — sinon il paraîtrait introuvable. */
   const filtres = useMemo(
     () =>
-      etudiants.filter((e) =>
-        `${e.prenom ?? ''} ${e.nom ?? ''}`.toLowerCase().includes(recherche.toLowerCase()),
-      ),
-    [etudiants, recherche],
+      etudiants.filter((e) => {
+        const secondaire = secondaireParPrincipal.get(e.id)
+        const cible = `${e.prenom ?? ''} ${e.nom ?? ''} ${secondaire ? `${secondaire.prenom ?? ''} ${secondaire.nom ?? ''}` : ''}`
+        return cible.toLowerCase().includes(recherche.toLowerCase())
+      }),
+    [etudiants, recherche, secondaireParPrincipal],
   )
 
-  const actifs = etudiants.filter((e) => e.status === 'approved').length
+  // Comptés par personne, pas par bloc : un duo, c'est bien deux élèves inscrits.
+  const actifs = tousLesEtudiants.filter((e) => e.status === 'approved').length
   const statutsContrats = useStatutsContratsSignature(useMemo(() => etudiants.map((e) => e.id), [etudiants]))
   const programmes = useTypesProgrammeEtudiants(useMemo(() => etudiants.map((e) => e.id), [etudiants]))
   const sansContratSigne = etudiants.filter((e) => statutsContrats[e.id] && statutsContrats[e.id] !== 'signe').length
@@ -117,13 +122,13 @@ export function EtudiantsAdmin() {
       {!loading && etudiants.length > 0 && (
         <div style={{ marginBottom: 14 }}>
           <GrilleStats min={160} compact>
-            <Stat compact libelle="Étudiants inscrits" valeur={etudiants.length} ton="or" />
+            <Stat compact libelle="Étudiants inscrits" valeur={tousLesEtudiants.length} ton="or" />
             <Stat compact libelle="Comptes actifs" valeur={actifs} ton="teal" aide="Invitation acceptée et mot de passe défini" />
             <Stat
               compact
               libelle="En attente d’activation"
-              valeur={etudiants.length - actifs}
-              ton={etudiants.length - actifs > 0 ? 'alerte' : 'neutre'}
+              valeur={tousLesEtudiants.length - actifs}
+              ton={tousLesEtudiants.length - actifs > 0 ? 'alerte' : 'neutre'}
               aide="Invitation envoyée, pas encore acceptée"
             />
             <Stat
@@ -156,53 +161,74 @@ export function EtudiantsAdmin() {
             <EtatVide compact icone="recherche" titre="Aucun résultat" description={`Aucun étudiant ne correspond à « ${recherche} ».`} />
           )}
 
-          {filtres.map((etudiant) => (
-            <button
-              key={etudiant.id}
-              onClick={() => navigate(`/admin/etudiants/${etudiant.id}`)}
-              aria-current={etudiant.id === id ? 'true' : undefined}
-              className="carte-ligne"
-              style={{
-                textAlign: 'left',
-                borderRadius: 12,
-                border: etudiant.id === id ? '1px solid rgba(94,179,255,.5)' : '1px solid var(--border)',
-                background: 'var(--surface)',
-                padding: '9px 11px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                cursor: 'pointer',
-                color: 'inherit',
-              }}
-            >
-              <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11.5, fontWeight: 800, flexShrink: 0 }}>
-                {initiales(etudiant)}
-              </span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
-                  {etudiant.prenom} {etudiant.nom}
-                </span>
-                <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{etudiant.status === 'approved' ? 'Actif' : etudiant.status}</span>
+          {filtres.map((etudiant) => {
+            /* DUO (0058/0061) : le binôme ne fait qu'un seul bloc, les deux noms à l'intérieur —
+               demande client du 2026-09-22, « les deux étudiants doivent être contenus dans un
+               bloc ». Le dossier ouvert au clic reste celui du principal : c'est lui qui porte le
+               forfait, le planning et les heures partagés du binôme (voir migration 0054). */
+            const secondaire = secondaireParPrincipal.get(etudiant.id) ?? null
+            const membres = secondaire ? [etudiant, secondaire] : [etudiant]
+            const nomGroupe =
+              etudiant.duo_nom_groupe || secondaire?.duo_nom_groupe || (secondaire ? `${etudiant.prenom} & ${secondaire.prenom}` : null)
+            return (
+              <button
+                key={etudiant.id}
+                onClick={() => navigate(`/admin/etudiants/${etudiant.id}`)}
+                aria-current={etudiant.id === id ? 'true' : undefined}
+                className="carte-ligne"
+                style={{
+                  textAlign: 'left',
+                  borderRadius: 12,
+                  border:
+                    etudiant.id === id
+                      ? '1px solid rgba(94,179,255,.5)'
+                      : secondaire
+                        ? '1px solid rgba(233,207,148,.32)'
+                        : '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  padding: '9px 11px',
+                  display: 'flex',
+                  alignItems: secondaire ? 'stretch' : 'center',
+                  flexDirection: secondaire ? 'column' : 'row',
+                  gap: secondaire ? 6 : 10,
+                  cursor: 'pointer',
+                  color: 'inherit',
+                }}
+              >
+                {nomGroupe && (
+                  <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--accent-gold, #e9cf94)' }}>
+                    Duo · {nomGroupe}
+                  </span>
+                )}
+
+                {membres.map((membre) => (
+                  <div key={membre.id} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                    <span style={{ width: secondaire ? 26 : 30, height: secondaire ? 26 : 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: secondaire ? 10.5 : 11.5, fontWeight: 800, flexShrink: 0 }}>
+                      {initiales(membre)}
+                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
+                        {membre.prenom} {membre.nom}
+                      </span>
+                      <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{membre.status === 'approved' ? 'Actif' : membre.status}</span>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Badges du dossier — un seul jeu par bloc : forfait, contrat et heures sont
+                    communs au binôme, seules les informations personnelles restent propres à
+                    chacun (signalées ci-dessous pour l'un comme pour l'autre). */}
                 <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                  {secondaireParPrincipal.has(etudiant.id) ? (
-                    <TagProgramme
-                      programme={{
-                        libelle: `Duo · avec ${secondaireParPrincipal.get(etudiant.id)!.prenom}`,
-                        ton: 'or',
-                      }}
-                    />
-                  ) : (
-                    programmes[etudiant.id] && <TagProgramme programme={programmes[etudiant.id]} />
-                  )}
+                  {!secondaire && programmes[etudiant.id] && <TagProgramme programme={programmes[etudiant.id]} />}
                   {statutsContrats[etudiant.id] && <BadgeStatutContrat statut={statutsContrats[etudiant.id]} compact />}
                   {/* Téléphone, adresse, ville, date et lieu de naissance : tant qu'un de ces
                       champs manque, le dossier ne peut pas servir de base à un contrat ou à une
                       facture complets — voir informationsPersonnellesCompletes. */}
-                  {!informationsPersonnellesCompletes(etudiant) && <TagDossierIncomplet />}
+                  {membres.some((m) => !informationsPersonnellesCompletes(m)) && <TagDossierIncomplet />}
                 </span>
-              </div>
-            </button>
-          ))}
+              </button>
+            )
+          })}
         </aside>
 
         <div style={{ minWidth: 0 }}>

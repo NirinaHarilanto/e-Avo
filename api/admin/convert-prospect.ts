@@ -108,6 +108,12 @@ export default async function handler(request: Request): Promise<Response> {
     // décidé à l'appel diagnostic. Le collectif n'a pas de forfait (l'élève est identifié par
     // sa vague via cohort_enrollments, voir 0027) : le tarif choisi y reste informatif.
     let forfaitId: string | null = null
+
+    /* Le forfait d'un binôme vit TOUJOURS sur le principal (0054) : c'est son id que lit le
+       dossier étudiant partagé (voir useDossierEtudiant). Quand ce prospect-ci devient
+       secondaire, un éventuel forfait à créer doit donc l'être au nom du principal, pas au sien. */
+    const beneficiaireForfait = profilPrincipal?.id ?? invited.user.id
+
     if (profilPrincipal) {
       // Secondaire : le forfait du binôme est déjà celui du principal, converti avant lui —
       // reprend son id tel quel pour que le paiement de CE prospect (s'il y en a un — chacun
@@ -120,7 +126,14 @@ export default async function handler(request: Request): Promise<Response> {
         .limit(1)
         .maybeSingle()
       forfaitId = forfaitPrincipal?.id ?? null
-    } else if (prospect.tarif_choisi_id && (prospect.type_programme === 'individuel' || prospect.type_programme === 'duo')) {
+    }
+
+    /* Création du forfait si le binôme n'en a encore aucun. Le cas « secondaire sans forfait
+       principal » n'est pas théorique : le membre converti en premier peut très bien être celui
+       qui ne portait ni tarif ni rendez-vous (l'autre ayant été refusé au même moment, par
+       exemple par la garde d'homonyme). Sans ce repli, le tarif choisi à l'appel diagnostic était
+       purement et simplement perdu, et le binôme se retrouvait sans forfait du tout. */
+    if (!forfaitId && prospect.tarif_choisi_id && (prospect.type_programme === 'individuel' || prospect.type_programme === 'duo')) {
       /* Heure d'essai (0057) : on ne crée PAS le forfait complet. L'élève démarre sur un forfait
          d'une heure, au tarif horaire de son programme, qui mémorise le forfait visé. Le
          complément ne naîtra qu'à la décision (api/admin/decider-essai.ts) — de cette façon la
@@ -146,7 +159,7 @@ export default async function handler(request: Request): Promise<Response> {
           .from('packages')
           .insert({
             etablissement_id: etablissementId,
-            student_id: invited.user.id,
+            student_id: beneficiaireForfait,
             type_programme: prospect.type_programme,
             total_heures: tarif.heures,
             montant: tarif.prix,

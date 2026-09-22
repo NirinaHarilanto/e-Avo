@@ -18,6 +18,13 @@ const LIBELLE_ROLE: Record<string, string> = {
  *
  * Renvoie le profil en conflit, ou `null` si le nom est libre. À appeler AVANT toute création
  * de compte Auth, pour ne pas laisser d'utilisateur orphelin derrière un refus.
+ *
+ * Les comptes supprimés (`status = 'suspended'`, suppression douce — voir
+ * api/admin/supprimer-utilisateur.ts) sont ignorés : ils ne figurent plus dans aucune liste
+ * (`useEtudiants`/`useProfesseurs`) ni à la connexion, donc leur nom ne peut plus créer la
+ * confusion que cette garde existe pour éviter. Sans ce filtre, supprimer un élève réservait son
+ * nom à vie — c'est ce qui bloquait la conversion d'un prospect homonyme d'un compte supprimé,
+ * et faisait éclater un binôme DUO dont un seul membre passait (2026-09-22).
  */
 export async function trouverProfilHomonyme(
   serviceClient: ServiceClient,
@@ -34,6 +41,7 @@ export async function trouverProfilHomonyme(
     .select('id, nom, prenom')
     .eq('etablissement_id', params.etablissementId)
     .eq('role', params.role)
+    .neq('status', 'suspended')
 
   return (
     (profils ?? []).find(
