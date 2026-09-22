@@ -4,18 +4,24 @@ import {
   formaterReponse,
   type QuestionDiagnostic,
   type ReponsesDiagnostic,
+  type SectionDiagnostic,
 } from '../../lib/diagnostic'
 import { Champ, champStyle } from '../ui/Champ'
 
 /* Trame de l'appel diagnostic, déroulée par l'interviewer pendant l'appel. Les questions
    viennent de `lib/diagnostic.ts` : ce composant ne fait que les rendre, rien n'est écrit en
-   dur ici. */
+   dur ici. `sections` par défaut sur la trame complète — un prospect individuel n'a rien à
+   séparer ; un binôme DUO (0060) passe un sous-ensemble filtré (communes ou propres à une
+   personne, voir `sectionsPartageesDuo`/`sectionsIndividuellesDuo`) pour rendre plusieurs blocs
+   à partir du même composant plutôt que d'en dupliquer le rendu. */
 export function FormulaireDiagnosticCall({
   reponses,
   onChange,
+  sections = SECTIONS_DIAGNOSTIC,
 }: {
   reponses: ReponsesDiagnostic
   onChange: (reponses: ReponsesDiagnostic) => void
+  sections?: SectionDiagnostic[]
 }) {
   function definir(cle: string, valeur: string | string[] | undefined) {
     onChange({ ...reponses, [cle]: valeur })
@@ -23,7 +29,7 @@ export function FormulaireDiagnosticCall({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {SECTIONS_DIAGNOSTIC.map((section) => (
+      {sections.map((section) => (
         <div key={section.titre} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--accent-blue)' }}>
             {section.titre}

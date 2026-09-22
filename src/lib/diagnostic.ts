@@ -13,6 +13,11 @@ export interface QuestionDiagnostic {
   /* Autorise une saisie libre en plus des options cochées (« Autre (à préciser) »). */
   precision?: boolean
   placeholder?: string
+  /* Commune aux deux membres d'un binôme DUO (0060, demande client du 2026-09-22) : une seule
+     réponse pour le binôme plutôt qu'une par personne — disponibilités, rythme, profil du
+     formateur, besoins prioritaires, type de programme recommandé. Sans effet pour un prospect
+     individuel, qui voit toujours la trame complète en un seul bloc. */
+  partageDuo?: boolean
 }
 
 export interface SectionDiagnostic {
@@ -84,18 +89,21 @@ export const SECTIONS_DIAGNOSTIC: SectionDiagnostic[] = [
         libelle: 'Moments de la journée disponibles',
         type: 'choix-multiple',
         options: ['Matin', 'Après-midi', 'Soir'],
+        partageDuo: true,
       },
       {
         cle: 'jours_disponibles',
         libelle: 'Jours disponibles',
         type: 'choix-multiple',
         options: ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'],
+        partageDuo: true,
       },
       {
         cle: 'connait_google_meet',
         libelle: 'Savez-vous utiliser Google Meet ?',
         type: 'choix',
         options: ['Oui', 'Non'],
+        partageDuo: true,
       },
     ],
   },
@@ -107,12 +115,14 @@ export const SECTIONS_DIAGNOSTIC: SectionDiagnostic[] = [
         libelle: 'Combien d’heures par semaine souhaitez-vous consacrer aux cours ?',
         type: 'choix',
         options: ['1h', '2h', '3h', '4h', '5h'],
+        partageDuo: true,
       },
       {
         cle: 'duree_session',
         libelle: 'Durée des sessions',
         type: 'choix',
         options: ['30 min', '1h', '1h30', '2h00'],
+        partageDuo: true,
       },
     ],
   },
@@ -120,12 +130,34 @@ export const SECTIONS_DIAGNOSTIC: SectionDiagnostic[] = [
     titre: 'Notes internes',
     questions: [
       { cle: 'niveau_estime', libelle: 'Niveau estimé', type: 'texte', placeholder: 'Ex. B1' },
-      { cle: 'profil_formateur', libelle: 'Profil du formateur idéal', type: 'zone' },
-      { cle: 'besoins_prioritaires', libelle: 'Besoins prioritaires', type: 'zone' },
-      { cle: 'programme_recommande', libelle: 'Type de programme recommandé', type: 'zone' },
+      { cle: 'profil_formateur', libelle: 'Profil du formateur idéal', type: 'zone', partageDuo: true },
+      { cle: 'besoins_prioritaires', libelle: 'Besoins prioritaires', type: 'zone', partageDuo: true },
+      { cle: 'programme_recommande', libelle: 'Type de programme recommandé', type: 'zone', partageDuo: true },
     ],
   },
 ]
+
+/* Ne garde, dans chaque section, que les questions du côté demandé (communes au binôme ou
+   propres à chaque personne) — une section qui n'a plus aucune question des deux côtés est
+   retirée plutôt que rendue vide. `niveau_estime` reste seul individuel dans « Notes internes »,
+   les trois autres questions de cette section basculent côté commun : la séparation se fait
+   question par question, jamais section entière. */
+function filtrerSectionsDuo(partageDuo: boolean): SectionDiagnostic[] {
+  return SECTIONS_DIAGNOSTIC.map((section) => ({
+    titre: section.titre,
+    questions: section.questions.filter((q) => !!q.partageDuo === partageDuo),
+  })).filter((section) => section.questions.length > 0)
+}
+
+/** Sections communes au binôme DUO (0060) — une seule réponse pour les deux personnes. */
+export function sectionsPartageesDuo(): SectionDiagnostic[] {
+  return filtrerSectionsDuo(true)
+}
+
+/** Sections propres à chaque personne d'un binôme DUO (0060) — une réponse par personne. */
+export function sectionsIndividuellesDuo(): SectionDiagnostic[] {
+  return filtrerSectionsDuo(false)
+}
 
 /* Une réponse est soit une valeur simple, soit une liste de cases cochées. La précision libre
    d'une question « Autre » vit sous la clé `<cle>_precision`, ce qui évite un type imbriqué
@@ -136,6 +168,15 @@ export function estRempli(reponses: ReponsesDiagnostic): boolean {
   return Object.values(reponses).some((valeur) =>
     Array.isArray(valeur) ? valeur.length > 0 : (valeur ?? '').trim().length > 0,
   )
+}
+
+/* Ne garde, dans un objet de réponses, que les clés des questions des `sections` données (leur
+   éventuelle précision libre `<cle>_precision` comprise) — sert à isoler la part commune ou la
+   part individuelle d'un binôme DUO (0060) à partir d'un même historique de réponses, sans
+   dépendre de la façon dont elles ont été saisies avant cette séparation. */
+export function extraireCles(reponses: ReponsesDiagnostic, sections: SectionDiagnostic[]): ReponsesDiagnostic {
+  const cles = new Set(sections.flatMap((s) => s.questions.map((q) => q.cle)))
+  return Object.fromEntries(Object.entries(reponses).filter(([cle]) => cles.has(cle) || cles.has(cle.replace(/_precision$/, ''))))
 }
 
 /* `diagnostic_calls.niveau_evalue`/`rythme_convenu` (les deux champs "en tête" affichés partout

@@ -3,7 +3,15 @@ import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
-import { estRempli, niveauDepuisReponses, rythmeDepuisReponses, type ReponsesDiagnostic } from '../../lib/diagnostic'
+import {
+  estRempli,
+  extraireCles,
+  niveauDepuisReponses,
+  rythmeDepuisReponses,
+  sectionsIndividuellesDuo,
+  sectionsPartageesDuo,
+  type ReponsesDiagnostic,
+} from '../../lib/diagnostic'
 import { FormulaireDiagnosticCall } from '../prospects/FormulaireDiagnosticCall'
 import { PlanifierAppelDiagnosticModale } from '../admin/PlanifierAppelDiagnosticModale'
 import { DetailPaiementModale } from '../paiements/DetailPaiementModale'
@@ -1018,8 +1026,15 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
    « Personne 1 » du formulaire (voir api/prospects/reserver.ts), jamais sur les deux. Ce membre
    devient le « porteur » de toutes les actions communes ; l'autre reste une identité à afficher,
    jusqu'à sa propre conversion en étudiant « secondaire » (voir api/admin/convert-prospect.ts). */
-function identifierPorteur(paire: [ProspectAvecDiagnostic, ProspectAvecDiagnostic]): [ProspectAvecDiagnostic, ProspectAvecDiagnostic] {
-  const porteur = paire.find((p) => p.rendezVous || p.diagnostic || p.tarif_choisi_id) ?? paire[0]
+export function identifierPorteur(paire: [ProspectAvecDiagnostic, ProspectAvecDiagnostic]): [ProspectAvecDiagnostic, ProspectAvecDiagnostic] {
+  /* Ordre de priorité important (0060) : depuis que l'autre membre reçoit lui aussi son propre
+     `diagnostic_calls` (trame à deux vitesses, voir CarteDuo), `diagnostic` n'identifie plus le
+     porteur à coup sûr — les deux peuvent désormais en avoir un. `rendezVous` et
+     `tarif_choisi_id` restent en revanche exclusifs au porteur (jamais écrits sur l'autre membre,
+     voir api/prospects/reserver.ts et `choisirTarif`), donc plus fiables et vérifiés en premier.
+     Le repli sur `paire[0]` — stable d'un rendu à l'autre, ordonné par `created_at` — ne sert que
+     tant qu'aucun des trois signaux n'existe encore. */
+  const porteur = paire.find((p) => p.rendezVous) ?? paire.find((p) => p.tarif_choisi_id) ?? paire.find((p) => p.diagnostic) ?? paire[0]
   const autre = paire.find((p) => p.id !== porteur.id)!
   return [porteur, autre]
 }
@@ -1047,6 +1062,82 @@ function CarteDuo({
   const necessiteAction = prospectATraiter(porteur)
   const nomGroupe = paire[0].duo_nom_groupe || paire[1].duo_nom_groupe || `${paire[0].prenom} & ${paire[1].prenom}`
   const a = useActionsProspect(porteur, onChange)
+
+  /* Trame de l'appel diagnostic à deux vitesses (0060, demande client du 2026-09-22) : les
+     questions communes au binôme (disponibilités, rythme, profil du formateur, besoins
+     prioritaires, programme recommandé) n'ont qu'une réponse pour les deux, les autres en ont
+     une par personne. Jusqu'ici tout vivait dans le seul `diagnostic_calls` du porteur — ce qui
+     reste la source historique dont on repart ici, `extraireCles` en isolant juste la part
+     commune et la part du porteur ; celle de l'autre membre est neuve (il n'avait jamais eu son
+     propre diagnostic_calls). */
+  const [reponsesPorteur, setReponsesPorteur] = useState<ReponsesDiagnostic>(() =>
+    extraireCles(porteur.diagnostic?.reponses ?? {}, sectionsIndividuellesDuo()),
+  )
+  const [reponsesAutre, setReponsesAutre] = useState<ReponsesDiagnostic>(() =>
+    extraireCles(autre.diagnostic?.reponses ?? {}, sectionsIndividuellesDuo()),
+  )
+  const [reponsesPartagees, setReponsesPartagees] = useState<ReponsesDiagnostic>(() =>
+    extraireCles(porteur.diagnostic?.reponses ?? {}, sectionsPartageesDuo()),
+  )
+  const reponsesCompletesPorteur = { ...reponsesPorteur, ...reponsesPartagees }
+  const reponsesCompletesAutre = { ...reponsesAutre, ...reponsesPartagees }
+
+  /* Écrit le `diagnostic_calls` d'UNE personne du binôme (porteur ou autre, chacun le sien) —
+     même mécanique que `useActionsProspect.marquerRealise`, mais appelée deux fois ici (voir
+     `sauvegarderDiagnosticsDuo` plus bas) puisqu'un binôme tient désormais sur deux lignes. */
+  async function sauvegarderDiagnosticPersonne(cible: ProspectAvecDiagnostic, reponsesCompletes: ReponsesDiagnostic): Promise<boolean> {
+    if (!a.profile) return false
+    let diagnosticId = cible.diagnostic?.id ?? null
+    if (!diagnosticId) {
+      const { data: inserted, error: insertError } = await supabase
+        .from('diagnostic_calls')
+        .insert({
+          etablissement_id: cible.etablissement_id,
+          prospect_id: cible.id,
+          mene_par: a.profile.id,
+          date_appel: new Date().toISOString(),
+        })
+        .select('id')
+        .single()
+      if (insertError || !inserted) return false
+      diagnosticId = inserted.id
+    }
+    const { error } = await supabase
+      .from('diagnostic_calls')
+      .update({
+        niveau_evalue: niveauDepuisReponses(reponsesCompletes),
+        rythme_convenu: rythmeDepuisReponses(reponsesCompletes),
+        reponses: reponsesCompletes,
+      })
+      .eq('id', diagnosticId)
+    return !error
+  }
+
+  async function sauvegarderDiagnosticsDuo() {
+    a.setEnCours(true)
+    const [okPorteur, okAutre] = await Promise.all([
+      sauvegarderDiagnosticPersonne(porteur, reponsesCompletesPorteur),
+      sauvegarderDiagnosticPersonne(autre, reponsesCompletesAutre),
+    ])
+    a.setEnCours(false)
+    return okPorteur && okAutre
+  }
+
+  async function marquerDuoRealise() {
+    if (!(await sauvegarderDiagnosticsDuo())) return
+    // Les deux dossiers avancent ensemble (0058) — jamais seulement le porteur.
+    await supabase
+      .from('prospects')
+      .update({ statut: 'diagnostic_fait' })
+      .in('id', [porteur.id, autre.id])
+    a.setOuvert(false)
+    onChange()
+  }
+
+  async function enregistrerDuoDiagnostic() {
+    await sauvegarderDiagnosticsDuo()
+    onChange()
+  }
 
   async function convertirEnEtudiants() {
     if (
@@ -1161,10 +1252,19 @@ function CarteDuo({
               <PostItRendezVous prospect={porteur} validationEnCours={a.validationEnCours} onValider={a.validerRendezVous} />
             )}
 
-            {porteur.statut === 'diagnostic_fait' && porteur.diagnostic?.niveau_evalue && (
-              <span style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
-                Niveau évalué {porteur.diagnostic.niveau_evalue}
-              </span>
+            {porteur.statut === 'diagnostic_fait' && (porteur.diagnostic?.niveau_evalue || autre.diagnostic?.niveau_evalue) && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {porteur.diagnostic?.niveau_evalue && (
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
+                    Niveau {porteur.prenom} : {porteur.diagnostic.niveau_evalue}
+                  </span>
+                )}
+                {autre.diagnostic?.niveau_evalue && (
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
+                    Niveau {autre.prenom} : {autre.diagnostic.niveau_evalue}
+                  </span>
+                )}
+              </div>
             )}
 
             <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
@@ -1222,15 +1322,20 @@ function CarteDuo({
             )}
             {porteur.statut === 'diagnostic_planifie' && a.ouvert && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <BlocQuestionnaire
+                <BlocQuestionnaireDuo
+                  porteur={porteur}
+                  autre={autre}
                   ouvert={a.questionnaireOuvert}
                   onBasculer={() => a.setQuestionnaireOuvert((v) => !v)}
-                  reponses={a.reponses}
-                  onChange={a.setReponses}
+                  reponsesPartagees={reponsesPartagees}
+                  onChangePartagees={setReponsesPartagees}
+                  reponsesPorteur={reponsesPorteur}
+                  onChangePorteur={setReponsesPorteur}
+                  reponsesAutre={reponsesAutre}
+                  onChangeAutre={setReponsesAutre}
                 />
-                <ApercuNiveauRythme reponses={a.reponses} />
                 <SelecteurTarifChoisi tarifs={a.tarifsDuProgramme} valeur={porteur.tarif_choisi_id} onChoisir={a.choisirTarif} />
-                <button onClick={a.marquerRealise} disabled={a.enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: a.enCours ? 0.7 : 1 }}>
+                <button onClick={marquerDuoRealise} disabled={a.enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: a.enCours ? 0.7 : 1 }}>
                   Confirmer
                 </button>
               </div>
@@ -1238,13 +1343,18 @@ function CarteDuo({
 
             {porteur.statut === 'diagnostic_fait' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <BlocQuestionnaire
+                <BlocQuestionnaireDuo
+                  porteur={porteur}
+                  autre={autre}
                   ouvert={a.questionnaireOuvert}
                   onBasculer={() => a.setQuestionnaireOuvert((v) => !v)}
-                  reponses={a.reponses}
-                  onChange={a.setReponses}
+                  reponsesPartagees={reponsesPartagees}
+                  onChangePartagees={setReponsesPartagees}
+                  reponsesPorteur={reponsesPorteur}
+                  onChangePorteur={setReponsesPorteur}
+                  reponsesAutre={reponsesAutre}
+                  onChangeAutre={setReponsesAutre}
                 />
-                <ApercuNiveauRythme reponses={a.reponses} />
                 <SelecteurTarifChoisi tarifs={a.tarifsDuProgramme} valeur={porteur.tarif_choisi_id} onChoisir={a.choisirTarif} />
                 <ChoixHeureEssai
                   essai={a.essai}
@@ -1254,7 +1364,7 @@ function CarteDuo({
                   onBasculer={a.basculerEssai}
                 />
                 <BlocPaiementForfait paiement={porteur.paiement} tarifAEncaisser={a.tarifAEncaisser} essai={a.essai} onOuvrir={() => a.setPaiementOuvert(true)} />
-                <button onClick={a.enregistrerDiagnostic} disabled={a.enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: a.enCours ? 0.7 : 1 }}>
+                <button onClick={enregistrerDuoDiagnostic} disabled={a.enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: a.enCours ? 0.7 : 1 }}>
                   {a.enCours ? 'Enregistrement…' : 'Enregistrer'}
                 </button>
                 <button
@@ -1547,6 +1657,81 @@ function BlocQuestionnaire({
         </span>
       </button>
       {ouvert && <FormulaireDiagnosticCall reponses={reponses} onChange={onChange} />}
+    </div>
+  )
+}
+
+/* Variante DUO de `BlocQuestionnaire` (0060, demande client du 2026-09-22) : un bloc « Informations
+   communes au duo » (disponibilités, rythme, profil du formateur, besoins prioritaires, programme
+   recommandé) suivi de deux trames individuelles, une par personne — plutôt que la même trame
+   complète dupliquée deux fois, qui aurait fait ressaisir deux fois les mêmes réponses communes. */
+function BlocQuestionnaireDuo({
+  porteur,
+  autre,
+  ouvert,
+  onBasculer,
+  reponsesPartagees,
+  onChangePartagees,
+  reponsesPorteur,
+  onChangePorteur,
+  reponsesAutre,
+  onChangeAutre,
+}: {
+  porteur: ProspectAvecDiagnostic
+  autre: ProspectAvecDiagnostic
+  ouvert: boolean
+  onBasculer: () => void
+  reponsesPartagees: ReponsesDiagnostic
+  onChangePartagees: (reponses: ReponsesDiagnostic) => void
+  reponsesPorteur: ReponsesDiagnostic
+  onChangePorteur: (reponses: ReponsesDiagnostic) => void
+  reponsesAutre: ReponsesDiagnostic
+  onChangeAutre: (reponses: ReponsesDiagnostic) => void
+}) {
+  const rempli = estRempli(reponsesPartagees) || estRempli(reponsesPorteur) || estRempli(reponsesAutre)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--border-soft)', paddingTop: 10 }}>
+      <button
+        type="button"
+        onClick={onBasculer}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+      >
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Trame de l’appel diagnostic
+        </span>
+        {rempli && (
+          <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '2px 8px' }}>
+            Remplie
+          </span>
+        )}
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', marginLeft: 'auto' }}>
+          {ouvert ? 'Masquer' : 'Remplir'}
+        </span>
+      </button>
+      {ouvert && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--accent-gold, #e9cf94)' }}>
+              Informations communes au duo
+            </span>
+            <FormulaireDiagnosticCall sections={sectionsPartageesDuo()} reponses={reponsesPartagees} onChange={onChangePartagees} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
+            <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--accent-blue)' }}>
+              {porteur.prenom} {porteur.nom}
+            </span>
+            <FormulaireDiagnosticCall sections={sectionsIndividuellesDuo()} reponses={reponsesPorteur} onChange={onChangePorteur} />
+            <ApercuNiveauRythme reponses={{ ...reponsesPorteur, ...reponsesPartagees }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
+            <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--accent-blue)' }}>
+              {autre.prenom} {autre.nom}
+            </span>
+            <FormulaireDiagnosticCall sections={sectionsIndividuellesDuo()} reponses={reponsesAutre} onChange={onChangeAutre} />
+            <ApercuNiveauRythme reponses={{ ...reponsesAutre, ...reponsesPartagees }} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
