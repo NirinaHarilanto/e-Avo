@@ -69,12 +69,6 @@ export const SECTIONS_DIAGNOSTIC: SectionDiagnostic[] = [
     titre: 'Niveau d’anglais actuel',
     questions: [
       {
-        cle: 'niveau_auto_evalue',
-        libelle: 'Comment évaluez-vous votre niveau ?',
-        type: 'choix',
-        options: ['Débutant', 'A2', 'B1', 'B2', 'C1'],
-      },
-      {
         cle: 'aisance_presentation',
         libelle: 'Seriez-vous à l’aise pour vous présenter en quelques phrases en anglais ?',
         type: 'choix',

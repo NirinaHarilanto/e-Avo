@@ -360,6 +360,17 @@ interface CarteProspectProps {
 function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectProps) {
   const { profile, session } = useProfileContext()
   const estPositionnement = prospect.type_programme === 'collectif'
+  /* Tag « À traiter » (demande client du 2026-09-22) : distingue au premier coup d'œil, dans
+     une colonne dense, les blocs qui attendent une décision de l'admin de ceux qui suivent
+     simplement leur cours normal. Trois cas concrets :
+     - un rendez-vous que le prospect a réservé lui-même, jamais encore validé ;
+     - le diagnostic fait mais aucun paiement encore enregistré (bloque la conversion, voir
+       BlocPaiementForfait plus bas) ;
+     - un nouveau prospect qui n'a même pas encore de rendez-vous planifié. */
+  const necessiteAction =
+    (prospect.statut === 'diagnostic_planifie' && prospect.rendezVous?.statut === 'en_attente') ||
+    (prospect.statut === 'diagnostic_fait' && !prospect.paiement) ||
+    (prospect.statut === 'prospect' && !prospect.rendezVous)
   const [ouvert, setOuvert] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
   const [reponses, setReponses] = useState<ReponsesDiagnostic>(prospect.diagnostic?.reponses ?? {})
@@ -575,8 +586,37 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
         onDragEnd={() => setEnGlissement(false)}
         onClick={() => setDetailOuvert(true)}
         className="card card-lift"
-        style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 7, cursor: 'grab', opacity: enGlissement ? 0.4 : 1 }}
+        style={{
+          padding: 10,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 7,
+          cursor: 'grab',
+          opacity: enGlissement ? 0.4 : 1,
+          position: 'relative',
+          borderColor: necessiteAction ? 'rgba(255,138,112,.5)' : undefined,
+        }}
       >
+        {necessiteAction && (
+          <span
+            style={{
+              position: 'absolute',
+              top: -8,
+              right: 8,
+              fontSize: 9.5,
+              fontWeight: 800,
+              letterSpacing: 0.4,
+              textTransform: 'uppercase',
+              color: '#fff',
+              background: 'var(--danger)',
+              borderRadius: 999,
+              padding: '2px 8px',
+              boxShadow: '0 3px 10px rgba(255,138,112,.4)',
+            }}
+          >
+            À traiter
+          </span>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11.5, fontWeight: 800, flexShrink: 0 }}>
             {(prospect.prenom[0] ?? '').toUpperCase()}

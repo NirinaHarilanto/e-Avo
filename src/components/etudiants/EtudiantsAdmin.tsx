@@ -9,6 +9,8 @@ import { CreerForfait } from './CreerForfait'
 import { AssignerVague } from './AssignerVague'
 import { ChoixProgrammeInitial } from './ChoixProgrammeInitial'
 import { DecisionHeureEssai } from './DecisionHeureEssai'
+import { AjouterForfaitModale } from './AjouterForfaitModale'
+import { useDemandesForfait } from '../../hooks/useDemandesForfait'
 import { PlanifierSeancesForfait } from './PlanifierSeancesForfait'
 import { DossierEtudiantVue, initiales } from './DossierEtudiantVue'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
@@ -20,7 +22,7 @@ import { GrilleStats, Stat } from '../ui/Stat'
 import { ChampRecherche } from '../ui/BarreOutils'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
-import { boutonPrimaireStyle } from '../ui/Boutons'
+import { boutonPrimaireStyle, boutonNeutreStyle, boutonDangerStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
 import { useTypesProgrammeEtudiants } from '../../hooks/useTypesProgrammeEtudiants'
@@ -305,6 +307,7 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
           <DecisionHeureEssai essai={forfait} heuresConsommees={dossier.heuresConsommees} onDecide={recharger} />
         ) : undefined
       }
+      panneauAjoutForfait={<PanneauAjoutForfait studentId={etudiant.id} nomEtudiant={`${etudiant.prenom} ${etudiant.nom}`} onAjoute={recharger} />}
       panneauVague={
         dossier.cohorte ? (
           <AssignerVague studentId={etudiant.id} etablissementId={etudiant.etablissement_id} vagueActuelle={dossier.cohorte} ouvertParDefaut onTermine={recharger} />
@@ -325,6 +328,103 @@ const FOND_TON: Record<'teal' | 'bleu' | 'or', { color: string; bg: string; bord
 
 /* Petit tag discret indiquant si l'étudiant suit des cours particuliers (individuel/duo) ou un
    cours collectif, et dans ce cas laquelle vague — demande client du 2026-09-21. */
+/* Ajout de forfait (0061) : bouton toujours disponible, précédé d'un bandeau si l'élève a une
+   demande en attente — la traiter pré-remplit les heures et referme la demande une fois le
+   forfait créé. */
+function PanneauAjoutForfait({
+  studentId,
+  nomEtudiant,
+  onAjoute,
+}: {
+  studentId: string
+  nomEtudiant: string
+  onAjoute: () => void
+}) {
+  const { enAttente, recharger } = useDemandesForfait(studentId)
+  const [modaleOuverte, setModaleOuverte] = useState<{ demandeId?: string; heures?: number } | null>(null)
+  const [refusEnCours, setRefusEnCours] = useState<string | null>(null)
+  const [motifRefus, setMotifRefus] = useState('')
+
+  async function refuser(demandeId: string) {
+    const { data: session } = await supabase.auth.getUser()
+    if (!session.user) return
+    await supabase
+      .from('demandes_forfait')
+      .update({ statut: 'refusee', motif_refus: motifRefus.trim() || null, decidee_le: new Date().toISOString(), decidee_par_profile_id: session.user.id })
+      .eq('id', demandeId)
+    setRefusEnCours(null)
+    setMotifRefus('')
+    recharger()
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {enAttente.map((demande) => (
+        <div
+          key={demande.id}
+          style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '11px 13px', borderRadius: 12, border: '1px solid rgba(233,207,148,.35)', background: 'rgba(233,207,148,.08)' }}
+        >
+          <span style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
+            Demande de <strong>{demande.heures_demandees} h</strong> supplémentaires
+            {demande.message ? ` — « ${demande.message} »` : ''}
+          </span>
+          {refusEnCours === demande.id ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <input
+                value={motifRefus}
+                onChange={(e) => setMotifRefus(e.target.value)}
+                placeholder="Motif du refus (facultatif)"
+                style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '7px 9px', fontSize: 12, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+              />
+              <span style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setRefusEnCours(null)} style={boutonNeutreStyle}>
+                  Annuler
+                </button>
+                <button onClick={() => refuser(demande.id)} style={boutonDangerStyle}>
+                  Confirmer le refus
+                </button>
+              </span>
+            </div>
+          ) : (
+            <span style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setRefusEnCours(demande.id)} style={boutonNeutreStyle}>
+                Refuser
+              </button>
+              <button
+                onClick={() => setModaleOuverte({ demandeId: demande.id, heures: demande.heures_demandees })}
+                className="btn-shine btn-secondary"
+              >
+                Traiter la demande
+              </button>
+            </span>
+          )}
+        </div>
+      ))}
+
+      {enAttente.length === 0 && (
+        <button onClick={() => setModaleOuverte({})} className="btn-shine btn-secondary" style={{ alignSelf: 'flex-start' }}>
+          Ajouter un forfait
+        </button>
+      )}
+
+      {modaleOuverte && (
+        <AjouterForfaitModale
+          studentId={studentId}
+          nomEtudiant={nomEtudiant}
+          demandeId={modaleOuverte.demandeId}
+          heuresSuggerees={modaleOuverte.heures}
+          onFermer={() => setModaleOuverte(null)}
+          onAjoute={() => {
+            setModaleOuverte(null)
+            recharger()
+            onAjoute()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
 function TagProgramme({ programme }: { programme: { libelle: string; ton: 'teal' | 'bleu' | 'or' } }) {
   const style = FOND_TON[programme.ton]
   return (

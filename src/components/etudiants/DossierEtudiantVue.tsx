@@ -344,6 +344,11 @@ interface DossierEtudiantVueProps {
   panneauVague?: ReactNode
   /* Décision à prendre après l'heure d'essai (0057) — admin uniquement, absent en lecture seule. */
   panneauDecisionEssai?: ReactNode
+  /* Bouton d'ajout de forfait supplémentaire (0061) — admin uniquement. */
+  panneauAjoutForfait?: ReactNode
+  /* Demande de forfait supplémentaire (0061) — élève uniquement, exclusif avec
+     panneauAjoutForfait (jamais les deux à la fois sur un même dossier). */
+  panneauDemandeForfait?: ReactNode
   /* Bouton + pop-up de suppression du compte — admin uniquement, comme les autres panneaux. */
   panneauSuppression?: ReactNode
   /* Autorise l'ajout d'une réévaluation de niveau depuis la fenêtre d'historique — admin
@@ -371,6 +376,8 @@ export function DossierEtudiantVue({
   panneauPlanification,
   panneauVague,
   panneauDecisionEssai,
+  panneauAjoutForfait,
+  panneauDemandeForfait,
   panneauSuppression,
   peutModifierNiveau,
   peutModifierPlanning,
@@ -378,6 +385,11 @@ export function DossierEtudiantVue({
 }: DossierEtudiantVueProps) {
   const { etudiant, periodes, periodeActuelle, diagnostic, packages, cohorte, heuresConsommees, prochaineSeance, tarifChoisi } = dossier
   const forfait = packages[0] ?? null
+  /* Restant et progression se calculent sur le CUMUL des forfaits, pas seulement le dernier
+     souscrit — un ajout de forfait (0061) additionne des heures à un total déjà entamé, il ne
+     remplace jamais le précédent. */
+  const totalHeuresCumulees = packages.reduce((somme, p) => somme + p.total_heures, 0)
+  const heuresRestantes = Math.max(0, totalHeuresCumulees - heuresConsommees)
   const [editionForfaitOuverte, setEditionForfaitOuverte] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
   const [editionVagueOuverte, setEditionVagueOuverte] = useState(false)
@@ -596,30 +608,30 @@ export function DossierEtudiantVue({
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <LigneInfo label="Programme" valeur={forfait.type_programme === 'duo' ? 'Duo' : 'Individuel'} />
-                  <LigneInfo label="Formule" valeur={`${forfait.total_heures} h`} />
+                  <LigneInfo label="Formule en cours" valeur={`${forfait.total_heures} h`} />
                   <LigneInfo label="Montant" valeur={forfait.montant !== null ? `${forfait.montant.toLocaleString('fr-FR')} Ar` : '—'} />
                   <LigneInfo label="Consommées" valeur={`${heuresConsommees} h`} />
-                  <LigneInfo label="Restantes" valeur={`${Math.max(0, forfait.total_heures - heuresConsommees)} h`} />
+                  <LigneInfo label="Restantes (tous forfaits cumulés)" valeur={`${heuresRestantes} h`} />
                   <LigneInfo label="Échéance" valeur={forfait.echeance ? new Date(forfait.echeance).toLocaleDateString('fr-FR') : '—'} />
                 </div>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Progression du forfait</span>
+                    <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Progression (cumul des forfaits)</span>
                     <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>
-                      {Math.round(Math.min(100, (heuresConsommees / forfait.total_heures) * 100))} %
+                      {Math.round(Math.min(100, (heuresConsommees / totalHeuresCumulees) * 100))} %
                     </span>
                   </div>
                   <div
                     role="progressbar"
                     aria-valuenow={heuresConsommees}
                     aria-valuemin={0}
-                    aria-valuemax={forfait.total_heures}
-                    aria-label="Heures consommées sur le forfait"
+                    aria-valuemax={totalHeuresCumulees}
+                    aria-label="Heures consommées sur l’ensemble des forfaits"
                     style={{ height: 10, borderRadius: 999, background: 'rgba(0,0,0,.3)', overflow: 'hidden', display: 'flex' }}
                   >
                     <span
                       style={{
-                        width: `${Math.min(100, (heuresConsommees / forfait.total_heures) * 100)}%`,
+                        width: `${Math.min(100, (heuresConsommees / totalHeuresCumulees) * 100)}%`,
                         background: 'linear-gradient(90deg,#5eb3ff,#e9cf94)',
                         borderRadius: 999,
                       }}
@@ -628,6 +640,8 @@ export function DossierEtudiantVue({
                 </div>
                 {editionForfaitOuverte && panneauForfaitEdition}
                 {panneauDecisionEssai}
+                {panneauAjoutForfait}
+                {panneauDemandeForfait}
                 <HistoriqueForfaits packages={packages} />
               </>
             )}

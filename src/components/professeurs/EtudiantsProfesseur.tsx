@@ -5,6 +5,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { DossierEtudiantVue, initiales } from '../etudiants/DossierEtudiantVue'
+import { InformationsPersonnelles } from '../shared/InformationsPersonnelles'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { ChampRecherche } from '../ui/BarreOutils'
@@ -13,9 +14,12 @@ import { EtatChargement, MessageErreur } from '../ui/Etats'
 
 /* Équivalent, côté professeur, de EtudiantsAdmin.tsx : même agencement liste + dossier, mais
    scope réduit aux élèves actuellement assignés à ce professeur, et en lecture seule (aucun
-   panneau d'action — DossierEtudiantVue est déjà conçu pour ça, voir son commentaire). Les
-   forfaits/diagnostics restent invisibles ici : aucune policy RLS ne les ouvre au rôle
-   professeur (scope volontaire, pas un bug — cf. plan). */
+   panneau d'action — DossierEtudiantVue est déjà conçu pour ça, voir son commentaire).
+   Informations personnelles et forfait sont désormais visibles ici (demande client du
+   2026-09-22, « exactement comme dans l'espace admin »), via les policies RLS étendues au
+   professeur sur `packages`/`hour_ledger` (0061). Restent hors de portée, volontairement : les
+   diagnostics et les paiements, qui ne concernent ni la préparation d'un cours ni le suivi
+   pédagogique. */
 export function EtudiantsProfesseur() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -165,5 +169,10 @@ function DossierPanel({ studentId }: { studentId: string }) {
   if (loading) return <EtatChargement lignes={3} hauteur={110} />
   if (erreur || !dossier) return <MessageErreur>{erreur ?? 'Dossier introuvable.'}</MessageErreur>
 
-  return <DossierEtudiantVue dossier={dossier} />
+  return (
+    <DossierEtudiantVue
+      dossier={dossier}
+      panneauInformations={<InformationsPersonnelles personne={dossier.etudiant} onChange={() => {}} carte={false} lectureSeule />}
+    />
+  )
 }

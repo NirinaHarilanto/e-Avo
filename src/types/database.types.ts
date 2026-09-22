@@ -329,6 +329,36 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['session_enrollments']['Insert']>
         Relationships: []
       }
+      demandes_forfait: {
+        Row: {
+          id: string
+          etablissement_id: string
+          student_id: string
+          heures_demandees: number
+          message: string | null
+          statut: 'en_attente' | 'validee' | 'refusee'
+          package_id: string | null
+          motif_refus: string | null
+          created_at: string
+          decidee_le: string | null
+          decidee_par_profile_id: string | null
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          student_id: string
+          heures_demandees: number
+          message?: string | null
+          statut?: 'en_attente' | 'validee' | 'refusee'
+          package_id?: string | null
+          motif_refus?: string | null
+          created_at?: string
+          decidee_le?: string | null
+          decidee_par_profile_id?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['demandes_forfait']['Insert']>
+        Relationships: []
+      }
       packages: {
         Row: {
           id: string

@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import { useProfileContext } from '../../context/ProfileContext'
-import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { CATEGORIES } from './UploaderDocument'
-import { PartagerDocumentModale } from './PartagerDocumentModale'
+import { DetailDocumentModale } from './DetailDocumentModale'
 import { EtatVide } from '../ui/EtatVide'
-import { boutonSecondaireStyle, boutonDangerStyle } from '../ui/Boutons'
+import { Icone } from '../ui/Icones'
 
 type Document = Database['public']['Tables']['documents']['Row']
 
@@ -38,7 +36,12 @@ const enTeteStyle: React.CSSProperties = {
   letterSpacing: 0.5,
 }
 
+/* Chaque ligne ouvre le détail du document en pop-up (demande client du 2026-09-22) : c'est là
+   que vivent téléchargement, partage et suppression — plus aucun bouton d'action directement
+   sur la ligne, qui reste donc lisible même sur un petit écran. */
 export function ListeDocuments({ documents, peutSupprimer, onChange, messageVide, peutPartager, mentionPartage }: ListeDocumentsProps) {
+  const [ouvert, setOuvert] = useState<Document | null>(null)
+
   if (documents.length === 0) {
     return (
       <EtatVide
@@ -52,127 +55,73 @@ export function ListeDocuments({ documents, peutSupprimer, onChange, messageVide
 
   return (
     <div>
-      {/* La liste se lisait comme un tableau sans jamais dire ce que contenaient ses colonnes.
-          En-têtes visuels uniquement : chaque ligne reste lisible seule à la lecture d'écran. */}
       <div
         aria-hidden
         style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '0 4px 8px', borderBottom: '1px solid var(--border-soft)' }}
       >
         <span style={{ ...enTeteStyle, flexGrow: 1, minWidth: 200 }}>Fichier</span>
-        <span style={{ ...enTeteStyle, width: 160, textAlign: 'right' }}>Actions</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {documents.map((document) => (
-          <LigneDocument
-            key={document.id}
-            document={document}
-            peutSupprimer={peutSupprimer(document)}
-            peutPartager={peutPartager?.(document) ?? false}
-            mention={mentionPartage?.(document) ?? null}
-            onChange={onChange}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function LigneDocument({
-  document,
-  peutSupprimer,
-  peutPartager,
-  mention,
-  onChange,
-}: {
-  document: Document
-  peutSupprimer: boolean
-  peutPartager: boolean
-  mention: { par: string; message: string | null } | null
-  onChange: () => void
-}) {
-  const { session } = useProfileContext()
-  const [enCours, setEnCours] = useState(false)
-  const [erreur, setErreur] = useState<string | null>(null)
-  const [partageOuvert, setPartageOuvert] = useState(false)
-
-  async function telecharger() {
-    const { data, error } = await supabase.storage.from('documents').createSignedUrl(document.storage_path, 60)
-    if (error || !data) {
-      setErreur(error?.message ?? 'Téléchargement impossible.')
-      return
-    }
-    window.open(data.signedUrl, '_blank', 'noreferrer')
-  }
-
-  async function supprimer() {
-    if (!session) return
-    if (!window.confirm(`Supprimer « ${document.nom_original} » ?`)) return
-    setEnCours(true)
-    setErreur(null)
-    const reponse = await fetch('/api/documents/supprimer', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ documentId: document.id }),
-    })
-    setEnCours(false)
-    if (!reponse.ok) {
-      const corps = await reponse.json().catch(() => null)
-      setErreur(corps?.error ?? 'La suppression a échoué.')
-      return
-    }
-    onChange()
-  }
-
-  return (
-    <div className="row-hl" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 4px', borderBottom: '1px solid var(--border-soft)', flexWrap: 'wrap' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexGrow: 1, minWidth: 200 }}>
-        <span style={{ fontSize: 13, color: 'var(--ink)' }}>{document.nom_original}</span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 11, color: 'var(--muted)' }}>
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: 'var(--accent-cyan)',
-              background: 'rgba(94,179,255,.10)',
-              border: '1px solid rgba(94,179,255,.22)',
-              borderRadius: 999,
-              padding: '2px 8px',
-            }}
-          >
-            {libelleCategorie(document.categorie)}
-          </span>
-          {formatTaille(document.taille_octets)} · déposé le {new Date(document.created_at).toLocaleDateString('fr-FR')}
-        </span>
-        {/* Fichier reçu en partage : on dit qui l'a transmis, et son mot éventuel — exigence
-            explicite du client (2026-09-21). */}
-        {mention && (
-          <span style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2, fontSize: 11.5, color: 'var(--accent-teal)' }}>
-            <span>Partagé avec vous par {mention.par}</span>
-            {mention.message && (
-              <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>« {mention.message} »</span>
-            )}
-          </span>
-        )}
-        {erreur && <span style={{ fontSize: 11.5, color: 'var(--danger)' }}>{erreur}</span>}
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-        <button onClick={telecharger} style={boutonSecondaireStyle}>
-          Télécharger
-        </button>
-        {peutPartager && (
-          <button onClick={() => setPartageOuvert(true)} style={boutonSecondaireStyle}>
-            Partager
-          </button>
-        )}
-        {peutSupprimer && (
-          <button onClick={supprimer} disabled={enCours} style={{ ...boutonDangerStyle, opacity: enCours ? 0.6 : 1 }}>
-            {enCours ? 'Suppression…' : 'Supprimer'}
-          </button>
-        )}
+        {documents.map((document) => {
+          const mention = mentionPartage?.(document) ?? null
+          return (
+            <button
+              key={document.id}
+              type="button"
+              onClick={() => setOuvert(document)}
+              className="row-hl"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                padding: '11px 4px',
+                borderBottom: '1px solid var(--border-soft)',
+                background: 'transparent',
+                border: 'none',
+                borderRadius: 0,
+                width: '100%',
+                textAlign: 'left',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexGrow: 1, minWidth: 200 }}>
+                <span style={{ fontSize: 13, color: 'var(--ink)' }}>{document.nom_original}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 11, color: 'var(--muted)' }}>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: 'var(--accent-cyan)',
+                      background: 'rgba(94,179,255,.10)',
+                      border: '1px solid rgba(94,179,255,.22)',
+                      borderRadius: 999,
+                      padding: '2px 8px',
+                    }}
+                  >
+                    {libelleCategorie(document.categorie)}
+                  </span>
+                  {formatTaille(document.taille_octets)} · déposé le {new Date(document.created_at).toLocaleDateString('fr-FR')}
+                </span>
+                {mention && (
+                  <span style={{ fontSize: 11.5, color: 'var(--accent-teal)' }}>Partagé avec vous par {mention.par}</span>
+                )}
+              </div>
+              <Icone nom="chevron" taille={14} />
+            </button>
+          )
+        })}
       </div>
 
-      {partageOuvert && (
-        <PartagerDocumentModale document={document} onFermer={() => setPartageOuvert(false)} onChange={onChange} />
+      {ouvert && (
+        <DetailDocumentModale
+          document={ouvert}
+          peutSupprimer={peutSupprimer(ouvert)}
+          peutPartager={peutPartager?.(ouvert) ?? false}
+          mention={mentionPartage?.(ouvert) ?? null}
+          onFermer={() => setOuvert(null)}
+          onChange={onChange}
+        />
       )}
     </div>
   )

@@ -16,7 +16,6 @@ export function AttribuerProfesseur({ studentId, affectationActuelle, onTermine 
   const { professeurs, loading: chargementProfs } = useProfesseurs()
   const [ouvert, setOuvert] = useState(false)
   const [teacherId, setTeacherId] = useState('')
-  const [langue, setLangue] = useState('')
   const [motif, setMotif] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -32,10 +31,12 @@ export function AttribuerProfesseur({ studentId, affectationActuelle, onTermine 
        (individuelles transférées au nouveau prof, collectives désinscrites). L'ancienne version
        enchaînait un update puis un insert depuis le navigateur — un échec du second laissait
        l'élève sans aucun professeur actif. */
+    /* Plus de champ langue à saisir (demande client du 2026-09-22) : HOC n'enseigne que
+       l'anglais, le redemander à chaque attribution n'avait aucune valeur. `p_langue` reste
+       accepté par la fonction SQL (signature inchangée) mais n'est plus jamais renseigné. */
     const { data, error } = await supabase.rpc('attribuer_professeur', {
       p_student_id: studentId,
       p_teacher_id: teacherId,
-      p_langue: langue || null,
       p_motif: motif || null,
     })
     setEnCours(false)
@@ -60,7 +61,6 @@ export function AttribuerProfesseur({ studentId, affectationActuelle, onTermine 
     )
     setOuvert(false)
     setTeacherId('')
-    setLangue('')
     setMotif('')
     onTermine()
   }
@@ -100,12 +100,6 @@ export function AttribuerProfesseur({ studentId, affectationActuelle, onTermine 
           </option>
         ))}
       </select>
-      <input
-        placeholder="Langue (ex. Anglais)"
-        value={langue}
-        onChange={(e) => setLangue(e.target.value)}
-        style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
-      />
       {affectationActuelle && (
         <input
           placeholder="Motif du changement"

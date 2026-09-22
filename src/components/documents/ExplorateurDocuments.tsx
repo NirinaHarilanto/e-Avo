@@ -17,6 +17,12 @@ type Document = Database['public']['Tables']['documents']['Row']
    collision possible avec un identifiant de dossier. */
 const ID_PARTAGES = '__partages__'
 
+/* Ordre et libellés des quatre catégories par défaut (0059/0062) — demande client du
+   2026-09-22 : « disposées sous forme d'onglets ... intitulés plus visibles et lisibles en
+   entier ». Un dossier renommé ou supprimé par la personne sort simplement de cette liste
+   (filtré plus bas) plutôt que d'afficher un onglet cassé. */
+const NOMS_PAR_DEFAUT = ['Mes supports pédagogiques', 'Mes notes', 'Mes fichiers partagés', 'Mes communications HOC']
+
 /* Espace documentaire arborescent, partagé par les trois espaces (admin, professeur, étudiant)
    — demande client du 2026-09-21. Un seul composant pour les trois : les règles de visibilité
    sont portées par la RLS (0018 pour les fichiers, 0058 pour les dossiers), pas par l'écran,
@@ -81,6 +87,25 @@ export function ExplorateurDocuments({
     () => new Map(partages.map((p) => [p.document.id, p.partage])),
     [partages],
   )
+
+  const racine = useMemo(() => sousDossiers(dossiers, null), [dossiers])
+  /* Les quatre onglets, dans l'ordre imposé par le client. `Mes fichiers partagés` est virtuel
+     (ID_PARTAGES) ; les trois autres n'apparaissent que si le dossier par défaut correspondant
+     existe encore (voir NOMS_PAR_DEFAUT ci-dessus). */
+  const onglets = useMemo(() => {
+    const parNom = new Map(racine.map((d) => [d.nom, d]))
+    return NOMS_PAR_DEFAUT.map((nom) =>
+      nom === 'Mes fichiers partagés'
+        ? { id: ID_PARTAGES, nom, compteur: partages.length }
+        : parNom.has(nom)
+          ? { id: parNom.get(nom)!.id, nom, compteur: contenuDe(parNom.get(nom)!).fichiers + contenuDe(parNom.get(nom)!).dossiers }
+          : null,
+    ).filter((o): o is { id: string; nom: string; compteur: number } => o !== null)
+  }, [racine, partages.length, documents, dossiers])
+  const idsOnglets = new Set(onglets.map((o) => o.id))
+  /* Dossiers créés par la personne à la racine, en plus des quatre par défaut — restent
+     accessibles via la grille de cartes classique sous les onglets, pas dupliqués dedans. */
+  const racinePersonnalisee = racine.filter((d) => !idsOnglets.has(d.id))
 
   /* Compteurs affichés sur chaque sous-dossier : ce qu'il contient directement. Volontairement
      pas de total récursif — un chiffre qui inclurait les petits-enfants laisserait croire qu'un
@@ -152,6 +177,40 @@ export function ExplorateurDocuments({
       {erreur && <MessageErreur>{erreur}</MessageErreur>}
       {erreurAction && <MessageErreur>{erreurAction}</MessageErreur>}
 
+      {/* Onglets des quatre catégories par défaut (demande client du 2026-09-22) : toujours
+          visibles, pour changer de catégorie en un clic sans repasser par « Mes documents ».
+          Labels complets, jamais tronqués — c'était le reproche fait à l'ancien affichage en
+          grille de cartes étroites. */}
+      <div role="tablist" aria-label="Catégories de documents" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', borderBottom: '1px solid var(--border-soft)', paddingBottom: 2 }}>
+        {onglets.map((o) => {
+          const actif = dossierCourantId === o.id
+          return (
+            <button
+              key={o.id}
+              role="tab"
+              aria-selected={actif}
+              onClick={() => setDossierCourantId(o.id)}
+              style={{
+                padding: '9px 16px',
+                borderRadius: '10px 10px 0 0',
+                border: 'none',
+                borderBottom: actif ? '2px solid var(--accent-gold, #e9cf94)' : '2px solid transparent',
+                background: actif ? 'var(--surface-alt)' : 'transparent',
+                color: actif ? 'var(--ink)' : 'var(--muted)',
+                fontSize: 13,
+                fontWeight: actif ? 700 : 600,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {o.nom}
+              {o.compteur > 0 && <span style={{ marginLeft: 7, fontSize: 11, color: 'var(--muted-2)' }}>{o.compteur}</span>}
+            </button>
+          )
+        })}
+      </div>
+
       {/* Fil d'Ariane : la racine est toujours cliquable, y compris quand on est déjà dessus —
           repère stable plutôt qu'un élément qui disparaît selon la profondeur. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 12.5 }}>
@@ -219,30 +278,12 @@ export function ExplorateurDocuments({
         </div>
       )}
 
-      {(enfants.length > 0 || dossierCourantId === null) && (
+      {/* Sous la racine, les quatre catégories par défaut sont couvertes par les onglets
+          ci-dessus : cette grille n'affiche donc que les dossiers personnalisés créés en plus,
+          à la racine ou à l'intérieur d'une catégorie. */}
+      {((dossierCourantId === null ? racinePersonnalisee.length : enfants.length) > 0) && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 10 }}>
-          {/* Dossier virtuel, présenté à la racine comme les autres pour tenir la promesse
-              d'arborescence par défaut, mais sans bouton renommer/supprimer : il n'existe pas en
-              base et son contenu appartient à d'autres personnes. */}
-          {dossierCourantId === null && (
-            <div className="card card-lift" style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-              <button
-                onClick={() => setDossierCourantId(ID_PARTAGES)}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, flexGrow: 1, minWidth: 0, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
-              >
-                <span style={{ color: 'var(--accent-teal)', flexShrink: 0, display: 'inline-flex' }}>
-                  <Icone nom="documents" taille={17} />
-                </span>
-                <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                  <span style={{ fontSize: 13, color: 'var(--ink)' }}>Mes fichiers partagés</span>
-                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                    {partages.length} fichier{partages.length > 1 ? 's' : ''} reçu{partages.length > 1 ? 's' : ''}
-                  </span>
-                </span>
-              </button>
-            </div>
-          )}
-          {enfants.map((d) => {
+          {(dossierCourantId === null ? racinePersonnalisee : enfants).map((d) => {
             const contenu = contenuDe(d)
             return (
               <div

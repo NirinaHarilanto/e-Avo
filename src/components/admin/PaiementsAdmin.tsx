@@ -7,17 +7,39 @@ import { CreerPaiementEtudiant } from '../paiements/CreerPaiementEtudiant'
 import { CreerRemunerationProfesseur } from '../paiements/CreerRemunerationProfesseur'
 import { DetailPaiementModale, type CiblePaiement } from '../paiements/DetailPaiementModale'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
-import { formaterMontant, resteAPayer, statutReglement, type LignePayable } from '../../lib/paiements'
+import { formaterMontant, resteAPayer, statutReglement, LABELS_REGLEMENT, type LignePayable, type StatutReglement } from '../../lib/paiements'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { Onglets } from '../ui/Onglets'
+import { ChampRecherche } from '../ui/BarreOutils'
+import { Champ, champStyle } from '../ui/Champ'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
-import { boutonPrimaireStyle } from '../ui/Boutons'
+import { boutonPrimaireStyle, boutonNeutreStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 
 type Onglet = 'etudiants' | 'professeurs'
+type FiltreStatut = StatutReglement | 'tous'
+
+/* Filtres (demande client du 2026-09-22) : statut de règlement, nom de la personne, et
+   fourchette de montant. Appliqués aux deux onglets avec le même état — changer d'onglet garde
+   les filtres actifs, ce qui est ce qu'on attend en pratique (« montre-moi tout ce qui est en
+   retard », par exemple, des deux côtés). */
+interface Filtres {
+  recherche: string
+  statut: FiltreStatut
+  montantMin: string
+  montantMax: string
+}
+
+function correspond(nomPersonne: string, montant: number, ligne: LignePayable, filtres: Filtres): boolean {
+  if (filtres.recherche.trim() && !nomPersonne.toLowerCase().includes(filtres.recherche.trim().toLowerCase())) return false
+  if (filtres.statut !== 'tous' && statutReglement(ligne) !== filtres.statut) return false
+  if (filtres.montantMin && montant < Number(filtres.montantMin)) return false
+  if (filtres.montantMax && montant > Number(filtres.montantMax)) return false
+  return true
+}
 
 /* Totaux dérivés des lignes déjà chargées par les hooks. Les lignes annulées sont exclues, et
    l'encaissé se lit du cumul des acomptes (`montant_regle`) plutôt que du montant total des
@@ -36,6 +58,8 @@ export function PaiementsAdmin() {
   const [onglet, setOnglet] = useState<Onglet>('etudiants')
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [detail, setDetail] = useState<CiblePaiement | null>(null)
+  const [filtres, setFiltres] = useState<Filtres>({ recherche: '', statut: 'tous', montantMin: '', montantMax: '' })
+  const filtresActifs = !!filtres.recherche || filtres.statut !== 'tous' || !!filtres.montantMin || !!filtres.montantMax
 
   const paiementsEtudiants = usePaiementsEtudiants()
   const remunerationsProfs = useRemunerationsProfesseurs()
@@ -161,25 +185,77 @@ export function PaiementsAdmin() {
         />
       )}
 
+      <BarreFiltres filtres={filtres} onChange={setFiltres} placeholderNom={onglet === 'etudiants' ? 'Rechercher un étudiant…' : 'Rechercher un professeur…'} />
+
       {onglet === 'etudiants' ? (
         <ListePaiementsEtudiants
-          paiements={paiementsEtudiants.paiements}
-          forfaitsAPayer={paiementsEtudiants.forfaitsAPayer}
+          paiements={paiementsEtudiants.paiements.filter((p) => correspond(p.etudiant ? `${p.etudiant.prenom} ${p.etudiant.nom}` : '', p.paiement.montant, p.paiement, filtres))}
+          forfaitsAPayer={paiementsEtudiants.forfaitsAPayer.filter((f) =>
+            correspond(f.etudiant ? `${f.etudiant.prenom} ${f.etudiant.nom}` : '', f.forfait.montant ?? 0, { montant: f.forfait.montant ?? 0, montant_regle: 0, statut: 'attendu' }, filtres),
+          )}
           loading={paiementsEtudiants.loading}
           erreur={paiementsEtudiants.erreur}
           onOuvrir={setDetail}
+          filtresActifs={filtresActifs}
         />
       ) : (
         <ListeRemunerationsProfesseurs
-          remunerations={remunerationsProfs.remunerations}
+          remunerations={remunerationsProfs.remunerations.filter((r) =>
+            correspond(r.professeur ? `${r.professeur.prenom} ${r.professeur.nom}` : '', r.paiement.montant, r.paiement, filtres),
+          )}
           loading={remunerationsProfs.loading}
           erreur={remunerationsProfs.erreur}
           onOuvrir={setDetail}
+          filtresActifs={filtresActifs}
         />
       )}
 
       {detail && <DetailPaiementModale cible={detail} onFermer={() => setDetail(null)} onChange={rechargerTout} />}
     </AdminLayout>
+  )
+}
+
+function BarreFiltres({
+  filtres,
+  onChange,
+  placeholderNom,
+}: {
+  filtres: Filtres
+  onChange: (f: Filtres) => void
+  placeholderNom: string
+}) {
+  return (
+    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 16 }}>
+      <div style={{ minWidth: 200 }}>
+        <ChampRecherche
+          valeur={filtres.recherche}
+          onChange={(v) => onChange({ ...filtres, recherche: v })}
+          placeholder={placeholderNom}
+          etiquette="Rechercher par nom"
+        />
+      </div>
+      <Champ label="Statut">
+        <select value={filtres.statut} onChange={(e) => onChange({ ...filtres, statut: e.target.value as FiltreStatut })} style={{ ...champStyle, minWidth: 150 }}>
+          <option value="tous">Tous les statuts</option>
+          {(Object.keys(LABELS_REGLEMENT) as StatutReglement[]).map((s) => (
+            <option key={s} value={s}>
+              {LABELS_REGLEMENT[s]}
+            </option>
+          ))}
+        </select>
+      </Champ>
+      <Champ label="Montant min (Ar)">
+        <input type="number" min={0} value={filtres.montantMin} onChange={(e) => onChange({ ...filtres, montantMin: e.target.value })} style={{ ...champStyle, width: 130 }} />
+      </Champ>
+      <Champ label="Montant max (Ar)">
+        <input type="number" min={0} value={filtres.montantMax} onChange={(e) => onChange({ ...filtres, montantMax: e.target.value })} style={{ ...champStyle, width: 130 }} />
+      </Champ>
+      {(filtres.recherche || filtres.statut !== 'tous' || filtres.montantMin || filtres.montantMax) && (
+        <button onClick={() => onChange({ recherche: '', statut: 'tous', montantMin: '', montantMax: '' })} style={boutonNeutreStyle}>
+          Réinitialiser
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -195,17 +271,21 @@ function ListePaiementsEtudiants({
   loading,
   erreur,
   onOuvrir,
+  filtresActifs,
 }: {
   paiements: PaiementEtudiant[]
   forfaitsAPayer: ForfaitAPayer[]
   loading: boolean
   erreur: string | null
   onOuvrir: (cible: CiblePaiement) => void
+  filtresActifs: boolean
 }) {
   if (loading) return <EtatChargement lignes={4} hauteur={70} />
   if (erreur) return <MessageErreur>{erreur}</MessageErreur>
   if (paiements.length === 0 && forfaitsAPayer.length === 0) {
-    return (
+    return filtresActifs ? (
+      <EtatVide icone="recherche" titre="Aucun résultat" description="Aucune ligne ne correspond à ces filtres." />
+    ) : (
       <EtatVide
         icone="paiements"
         titre="Aucun paiement à suivre"
@@ -268,16 +348,20 @@ function ListeRemunerationsProfesseurs({
   loading,
   erreur,
   onOuvrir,
+  filtresActifs,
 }: {
   remunerations: RemunerationProfesseur[]
   loading: boolean
   erreur: string | null
   onOuvrir: (cible: CiblePaiement) => void
+  filtresActifs: boolean
 }) {
   if (loading) return <EtatChargement lignes={4} hauteur={70} />
   if (erreur) return <MessageErreur>{erreur}</MessageErreur>
   if (remunerations.length === 0) {
-    return (
+    return filtresActifs ? (
+      <EtatVide icone="recherche" titre="Aucun résultat" description="Aucune ligne ne correspond à ces filtres." />
+    ) : (
       <EtatVide
         icone="paiements"
         titre="Aucune rémunération enregistrée"

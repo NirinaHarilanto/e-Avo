@@ -27,13 +27,17 @@ interface InformationsPersonnellesProps {
      DossierEtudiantVue.tsx) : évite une carte dans une carte. Le contenu reste identique, seul
      l'habillage (fond, bordure) disparaît. */
   carte?: boolean
+  /* Masque le bouton "Modifier" — espace professeur (0061) : la RLS `profiles` n'ouvre l'écriture
+     qu'à l'admin et au titulaire lui-même, un professeur qui cliquerait "Enregistrer" essuierait
+     un échec silencieux (0 ligne mise à jour). Mieux vaut ne jamais proposer l'action. */
+  lectureSeule?: boolean
 }
 
 /* Panneau réutilisable admin : informations personnelles modifiables d'un étudiant ou d'un
    professeur (nom/prénom/téléphone/adresse). L'e-mail reste affiché en lecture seule : c'est
    aussi l'identifiant de connexion (auth.users), le modifier ici désynchroniserait l'affichage
    du login réel sans le changer — hors périmètre de ce panneau. */
-export function InformationsPersonnelles({ personne, onChange, extra, carte = true }: InformationsPersonnellesProps) {
+export function InformationsPersonnelles({ personne, onChange, extra, carte = true, lectureSeule = false }: InformationsPersonnellesProps) {
   const [edition, setEdition] = useState(false)
   const [nom, setNom] = useState(personne.nom ?? '')
   const [prenom, setPrenom] = useState(personne.prenom ?? '')
@@ -118,7 +122,7 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
       titre="Informations personnelles"
       {...proprietesConteneur}
       actions={
-        !edition ? (
+        !edition && !lectureSeule ? (
           <button onClick={() => setEdition(true)} style={boutonSecondaireStyle}>
             Modifier
           </button>
