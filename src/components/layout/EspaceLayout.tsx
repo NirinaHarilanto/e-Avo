@@ -85,17 +85,6 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
     setTiroirOuvert(false)
   }, [location.pathname])
 
-  /* Police resserrée dans l'espace admin uniquement (0059, voir `body.echelle-admin` dans
-     index.css) — posée sur `document.body`, pas sur un conteneur local, car les pop-up de la
-     page Prospects sont montées par portail dans `body` (Modale.tsx) et doivent rétrécir avec le
-     reste. Retirée au démontage : un admin plateforme peut enchaîner admin → professeur dans le
-     même onglet, la classe ne doit pas survivre à ce changement de rôle. */
-  useEffect(() => {
-    if (roleAttendu !== 'admin_etablissement') return
-    document.body.classList.add('echelle-admin')
-    return () => document.body.classList.remove('echelle-admin')
-  }, [roleAttendu])
-
   /* Volontairement sans `loading` : tant que session et profil sont déjà connus, un
      rafraîchissement de fond (renouvellement de jeton au retour sur l'onglet, rechargement du
      profil après une modification) ne doit pas remplacer toute la page par « Chargement… » —
