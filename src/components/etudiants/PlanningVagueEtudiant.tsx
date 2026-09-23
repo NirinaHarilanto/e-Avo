@@ -8,9 +8,11 @@ import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
    Rien à afficher pour un élève en individuel ou en duo : le composant se retire de lui-même
    plutôt que de laisser un bloc vide dans le dossier. */
 export function PlanningVagueEtudiant({ studentId }: { studentId: string }) {
-  const { vague, loading } = useVagueEtudiant(studentId)
+  const { vague } = useVagueEtudiant(studentId)
 
-  if (loading) return <EtatChargement lignes={2} hauteur={60} />
+  /* Rien pendant le chargement, pas même un squelette : la plupart des élèves sont en individuel
+     ou en duo et n'ont aucune vague. Un bloc de chargement leur ferait clignoter une section qui
+     ne les concerne pas avant de disparaître. */
   if (!vague) return null
 
   const maintenant = new Date().toISOString()
