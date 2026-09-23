@@ -189,8 +189,25 @@ export function TestPositionnement({
       {etape === 'creneau' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: 0, lineHeight: 1.6 }}>
-            Choisissez la session de test oral qui vous arrange. Vous répondrez ensuite à un court questionnaire écrit :
-            c’est lui qui valide définitivement votre réservation.
+            Choisissez la session de test oral qui vous arrange.
+          </p>
+          {/* Encadré plutôt qu'une ligne de texte gris : le candidat doit comprendre AVANT de
+              choisir son créneau que réserver ne suffit pas (demande client du 2026-09-23). */}
+          <p
+            style={{
+              margin: 0,
+              padding: '11px 13px',
+              borderRadius: 12,
+              border: `1px solid ${accent.accentBorder}`,
+              background: 'var(--surface-alt)',
+              fontSize: 12.5,
+              lineHeight: 1.6,
+              color: 'var(--ink-2)',
+            }}
+          >
+            <strong style={{ color: accent.accent }}>À savoir :</strong> votre demande n’est validée qu’une fois le
+            questionnaire terminé. Après avoir choisi ce créneau, vous répondrez à un court quiz écrit — sans lui, la
+            place n’est pas réservée.
           </p>
           {creneaux.map((creneau) => (
             <button
@@ -269,7 +286,8 @@ export function TestPositionnement({
         <form onSubmit={envoyer} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: 0, lineHeight: 1.6 }}>
             {questions.length} questions, une seule bonne réponse à chaque fois. Répondez sans aide extérieure : ce test
-            sert à vous placer dans le bon groupe, pas à vous juger.
+            sert à vous placer dans le bon groupe, pas à vous juger. Votre réservation ne sera validée qu’une fois les{' '}
+            {questions.length} questions répondues et le questionnaire envoyé.
           </p>
 
           {questions.map((question, index) => (
@@ -293,6 +311,8 @@ export function TestPositionnement({
                       cursor: 'pointer',
                       fontSize: 13,
                       color: 'var(--ink-2)',
+                      // Une proposition longue se coupe plutôt que d'élargir la fenêtre.
+                      overflowWrap: 'anywhere',
                     }}
                   >
                     <input
