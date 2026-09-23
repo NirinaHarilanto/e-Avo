@@ -4,7 +4,7 @@ import { useNiveauxEtudiant } from '../../hooks/useNiveauxEtudiant'
 import { getJoinUrl } from '../../lib/visio'
 import { estRempli } from '../../lib/diagnostic'
 import { libelleStatutProfil, tonStatutProfil } from '../../lib/statutProfil'
-import { formaterHeures } from '../../lib/heures'
+import { formaterHeures, formaterMinutes } from '../../lib/heures'
 import { RecapitulatifDiagnostic } from '../prospects/FormulaireDiagnosticCall'
 import type { Database } from '../../types/database.types'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -233,7 +233,7 @@ function IdentiteProfesseur({ periode, taille = 46 }: { periode: PeriodeProfesse
       </span>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
         <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
-          {periode.professeur ? `${periode.professeur.prenom} ${periode.professeur.nom}` : 'Professeur'}
+          {periode.professeur ? `${periode.professeur.prenom} ${periode.professeur.nom}` : 'Professeur supprimé'}
         </span>
         <span style={{ fontSize: 12, color: 'var(--muted)' }}>{periode.affectation.langue ?? 'Langue non précisée'}</span>
       </div>
@@ -289,7 +289,7 @@ function BlocPeriode({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexGrow: 1, minWidth: 160 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
             <span className="brand-font" style={{ fontSize: 16, color: 'var(--ink)' }}>
-              {periode.professeur ? `${periode.professeur.prenom} ${periode.professeur.nom}` : 'Professeur'}
+              {periode.professeur ? `${periode.professeur.prenom} ${periode.professeur.nom}` : 'Professeur supprimé'}
             </span>
             {estActuelle && (
               <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '3px 9px' }}>
@@ -366,7 +366,7 @@ function BlocPeriode({
                   )}
                   {seance.session.statut === 'terminee' && !satisfactionEtudiantId && <BadgeSatisfaction satisfactions={seance.satisfactions} />}
                 </span>
-                <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{seance.session.duree_minutes / 60} h</span>
+                <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{formaterMinutes(seance.session.duree_minutes)}</span>
                 <span style={{ width: 72, textAlign: 'right' }}>
                   <StatutSeance enrollment={seance.enrollment} statutSession={seance.session.statut} />
                 </span>

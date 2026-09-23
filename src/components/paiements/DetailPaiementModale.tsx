@@ -3,6 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { acompteSuggere, arrondi, formaterMontant, resteAPayer, statutReglement } from '../../lib/paiements'
 import { useEtablissement } from '../../hooks/useEtablissement'
+import { formaterHeures } from '../../lib/heures'
 import { EcheancierPaiement } from './EcheancierPaiement'
 import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 import type { Database } from '../../types/database.types'
@@ -425,12 +426,12 @@ function BlocHeures({ heures, tauxHoraire }: { heures: HeureEnseignee[]; tauxHor
         {heures.map((h) => (
           <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12.5, color: 'var(--ink-2)', padding: '5px 8px', borderRadius: 7, background: 'rgba(255,255,255,.03)' }}>
             <span>{h.debut ? new Date(h.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Date inconnue'}</span>
-            <span style={{ color: 'var(--muted)' }}>{h.heures} h</span>
+            <span style={{ color: 'var(--muted)' }}>{formaterHeures(h.heures)}</span>
           </div>
         ))}
       </div>
       <span style={{ fontSize: 12.5, color: 'var(--ink-2)', textAlign: 'right' }}>
-        Total : <strong>{total} h</strong>
+        Total : <strong>{formaterHeures(total)}</strong>
         {tauxHoraire ? ` × ${tauxHoraire} Ar/h` : ''}
       </span>
     </div>

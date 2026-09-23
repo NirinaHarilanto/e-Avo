@@ -24,16 +24,22 @@ export function useEvenementsAdmin() {
     if (error) throw new Error(error.message)
 
     const tousLesIds = [...new Set((evenements ?? []).flatMap((e) => [...e.participants_obligatoires, ...e.participants_optionnels]))]
+    // Un participant supprimé disparaît du rendez-vous (demande client du 2026-09-23) —
+    // passé compris : la ligne reste en base, réversible si la personne se réinscrit.
     const { data: profils } = tousLesIds.length
-      ? await supabase.from('profiles').select('id, nom, prenom, role').in('id', tousLesIds)
+      ? await supabase.from('profiles').select('id, nom, prenom, role').in('id', tousLesIds).neq('status', 'suspended')
       : { data: [] as ParticipantEvenement[] }
     const profilParId = new Map((profils ?? []).map((p) => [p.id, p]))
 
-    return (evenements ?? []).map((e): EvenementAdminAvecParticipants => ({
-      ...e,
-      obligatoires: e.participants_obligatoires.map((id) => profilParId.get(id)).filter((p): p is ParticipantEvenement => !!p),
-      optionnels: e.participants_optionnels.map((id) => profilParId.get(id)).filter((p): p is ParticipantEvenement => !!p),
-    }))
+    return (evenements ?? [])
+      .map((e): EvenementAdminAvecParticipants => ({
+        ...e,
+        obligatoires: e.participants_obligatoires.map((id) => profilParId.get(id)).filter((p): p is ParticipantEvenement => !!p),
+        optionnels: e.participants_optionnels.map((id) => profilParId.get(id)).filter((p): p is ParticipantEvenement => !!p),
+      }))
+      // Un rendez-vous qui n'a plus personne (tous les participants supprimés) n'a plus rien à
+      // montrer — il disparaît de l'agenda plutôt que d'apparaître vide.
+      .filter((e) => e.obligatoires.length + e.optionnels.length > 0)
   })
 
   return { evenements: valeur ?? [], loading, erreur, recharger }

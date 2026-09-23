@@ -29,19 +29,24 @@ export function useContrats() {
         ...(data ?? []).map((c) => c.signe_etablissement_par).filter((id): id is string => !!id),
       ]),
     ]
+    // Un compte supprimé ne doit plus laisser aucune trace visible, y compris son contrat
+    // (demande client du 2026-09-23) — filtré ici plutôt qu'en RLS pour rester réversible : la
+    // ligne reste en base, prête à réapparaître si la personne se réinscrit.
     const { data: profils } = profileIds.length
-      ? await supabase.from('profiles').select('*').in('id', profileIds)
+      ? await supabase.from('profiles').select('*').in('id', profileIds).neq('status', 'suspended')
       : { data: [] as Profile[] }
     const profilParId = new Map((profils ?? []).map((p) => [p.id, p]))
 
-    return (data ?? []).map(
-      (c): ContratAvecDestinataire => ({
-        contrat: c,
-        destinataire: profilParId.get(c.destinataire_profile_id) ?? null,
-        destinataireSecondaire: c.destinataire_secondaire_profile_id ? profilParId.get(c.destinataire_secondaire_profile_id) ?? null : null,
-        signataireEtablissement: c.signe_etablissement_par ? profilParId.get(c.signe_etablissement_par) ?? null : null,
-      }),
-    )
+    return (data ?? [])
+      .filter((c) => profilParId.has(c.destinataire_profile_id))
+      .map(
+        (c): ContratAvecDestinataire => ({
+          contrat: c,
+          destinataire: profilParId.get(c.destinataire_profile_id) ?? null,
+          destinataireSecondaire: c.destinataire_secondaire_profile_id ? profilParId.get(c.destinataire_secondaire_profile_id) ?? null : null,
+          signataireEtablissement: c.signe_etablissement_par ? profilParId.get(c.signe_etablissement_par) ?? null : null,
+        }),
+      )
   })
 
   return { contrats: valeur ?? [], loading, erreur, recharger }

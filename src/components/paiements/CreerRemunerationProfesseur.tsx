@@ -3,6 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useHeuresNonPayeesProfesseur } from '../../hooks/useHeuresNonPayeesProfesseur'
 import { supabase } from '../../lib/supabaseClient'
+import { formaterHeures } from '../../lib/heures'
 import { champStyle } from '../ui/Champ'
 import { EtatChargement } from '../ui/Etats'
 
@@ -174,13 +175,13 @@ export function CreerRemunerationProfesseur({ etablissementId, onCree, onAnnuler
                 <label key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--ink)', cursor: 'pointer', padding: '6px 8px', borderRadius: 8, background: 'rgba(255,255,255,.03)' }}>
                   <input type="checkbox" checked={lignesSelectionnees.has(l.id)} onChange={() => basculerLigne(l.id)} />
                   <span style={{ flexGrow: 1 }}>{l.sessionDebut ? new Date(l.sessionDebut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Date inconnue'}</span>
-                  <span style={{ color: 'var(--muted)' }}>{l.heures} h</span>
+                  <span style={{ color: 'var(--muted)' }}>{formaterHeures(l.heures)}</span>
                 </label>
               ))}
             </div>
           )}
           <div style={{ fontSize: 12.5, color: 'var(--ink-2)', textAlign: 'right' }}>
-            Total : <strong>{heuresSelectionnees} h</strong> × {professeur.taux_horaire} Ar/h ={' '}
+            Total : <strong>{formaterHeures(heuresSelectionnees)}</strong> × {professeur.taux_horaire} Ar/h ={' '}
             <strong style={{ color: 'var(--accent-gold, #e9cf94)' }}>{montantHoraire.toFixed(2)} Ar</strong>
           </div>
         </div>

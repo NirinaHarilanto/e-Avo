@@ -52,9 +52,14 @@ export function usePaiementsEtudiants() {
         ...(affectations ?? []).map((a) => a.teacher_id),
       ]),
     ]
+    // Un élève supprimé disparaît de la page Paiements — son paiement, comme son forfait « à
+    // payer », reste en base mais n'y apparaît plus (demande client du 2026-09-23). Le
+    // professeur, lui, n'est PAS filtré ici : son nom peut légitimement manquer (deleted) sans
+    // faire disparaître le paiement de l'élève, qui le concerne au premier chef.
     const { data: profils } = profileIds.length
       ? await supabase.from('profiles').select('*').in('id', profileIds)
       : { data: [] as Profile[] }
+    const etudiantsActifsIds = new Set((profils ?? []).filter((p) => p.status !== 'suspended').map((p) => p.id))
     const profilParId = new Map((profils ?? []).map((p) => [p.id, p]))
     const forfaitParId = new Map((forfaits ?? []).map((f) => [f.id, f]))
 
@@ -63,16 +68,18 @@ export function usePaiementsEtudiants() {
       return teacherId ? (profilParId.get(teacherId) ?? null) : null
     }
 
-    const paiements = (data ?? []).map((paiement): PaiementEtudiant => ({
-      paiement,
-      etudiant: paiement.student_id ? (profilParId.get(paiement.student_id) ?? null) : null,
-      forfait: paiement.package_id ? (forfaitParId.get(paiement.package_id) ?? null) : null,
-      professeur: paiement.student_id ? professeurDe(paiement.student_id) : null,
-    }))
+    const paiements = (data ?? [])
+      .filter((paiement) => !paiement.student_id || etudiantsActifsIds.has(paiement.student_id))
+      .map((paiement): PaiementEtudiant => ({
+        paiement,
+        etudiant: paiement.student_id ? (profilParId.get(paiement.student_id) ?? null) : null,
+        forfait: paiement.package_id ? (forfaitParId.get(paiement.package_id) ?? null) : null,
+        professeur: paiement.student_id ? professeurDe(paiement.student_id) : null,
+      }))
 
     const forfaitsDejaFactures = new Set((data ?? []).map((p) => p.package_id).filter((id): id is string => !!id))
     const forfaitsAPayer = (forfaits ?? [])
-      .filter((f) => !forfaitsDejaFactures.has(f.id) && professeurParEleve.has(f.student_id))
+      .filter((f) => !forfaitsDejaFactures.has(f.id) && professeurParEleve.has(f.student_id) && etudiantsActifsIds.has(f.student_id))
       .map((forfait): ForfaitAPayer => ({
         forfait,
         etudiant: profilParId.get(forfait.student_id) ?? null,

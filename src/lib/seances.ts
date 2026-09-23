@@ -16,20 +16,19 @@ export function nomsElevesInscrits(
   return inscriptions.map((i) => nomEleveInscrit(i.etudiant))
 }
 
-export function seanceAVenir(session: { debut: string; statut: string }): boolean {
-  return session.statut === 'planifiee' && new Date(session.debut).getTime() > Date.now()
-}
+/* Revu le 2026-09-23 : un compte supprimé ne doit plus laisser aucune trace visible NULLE PART,
+   passé compris (demande client explicite — « il faut enlever toutes les informations lui
+   concernant [...] les rendez-vous passés, planning, rendez-vous futur »). L'ancienne version ne
+   filtrait que l'avenir, en gardant l'historique intact par souci de traçabilité pédagogique ;
+   ce choix est désormais surclassé par la demande du client. Les données ne sont PAS supprimées
+   en base (la personne peut se réinscrire plus tard) — seul l'AFFICHAGE change.
 
-/* Le passé est de l'historique : on le montre tel quel, « Élève supprimé » compris. L'avenir,
-   lui, ne doit plus faire état de quelqu'un qui n'est plus là — un créneau encore planifié pour
-   un compte supprimé n'aura jamais lieu. Renvoie `null` quand la séance entière est à masquer :
-   elle avait des inscrits, tous supprimés. Une séance créée sans aucun inscrit est légitime et
-   reste visible. */
+   Renvoie `null` quand la séance entière est à masquer : elle avait des inscrits, tous
+   supprimés. Une séance créée sans aucun inscrit est légitime et reste visible (aucun rapport
+   avec une suppression de compte). */
 export function inscriptionsVisibles<I extends { etudiant: unknown | null }>(
-  session: { debut: string; statut: string },
   inscriptions: I[],
 ): I[] | null {
-  if (!seanceAVenir(session)) return inscriptions
   const actives = inscriptions.filter((i) => i.etudiant)
   if (inscriptions.length > 0 && actives.length === 0) return null
   return actives

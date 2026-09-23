@@ -30,7 +30,12 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
       .select('*')
       .eq('id', teacherId as string)
       .single()
-    if (professeurError || !professeur) throw new Error(professeurError?.message ?? 'Professeur introuvable.')
+    // Un accès direct par URL à un professeur supprimé (il n'apparaît plus dans aucune liste
+    // depuis sa suppression, mais son identifiant reste valide) ne doit pas exposer sa fiche —
+    // demande client du 2026-09-23 : « son espace personnel » fait partie de ce qui disparaît.
+    if (professeurError || !professeur || professeur.status === 'suspended') {
+      throw new Error(professeurError?.message ?? 'Professeur introuvable.')
+    }
 
     const { data: affectations } = await supabase
       .from('teacher_assignments')

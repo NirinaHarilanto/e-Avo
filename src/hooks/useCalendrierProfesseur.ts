@@ -91,7 +91,7 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
         const inscriptions = (enrollments ?? [])
           .filter((e) => e.session_id === session.id)
           .map((e) => ({ ...e, etudiant: etudiantParId.get(e.student_id) ?? null }))
-        const visibles = inscriptionsVisibles(session, inscriptions)
+        const visibles = inscriptionsVisibles(inscriptions)
         if (!visibles) return []
         return [{ session, inscriptions: visibles, video: videoParSession.get(session.id) ?? null }]
       }),

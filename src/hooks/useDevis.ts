@@ -16,12 +16,16 @@ export function useDevis() {
     if (error) throw new Error(error.message)
 
     const studentIds = [...new Set((data ?? []).map((d) => d.student_id))]
+    // Un devis rattaché à un compte supprimé disparaît de la liste (demande client du
+    // 2026-09-23) — la ligne reste en base, réversible si la personne se réinscrit.
     const { data: etudiants } = studentIds.length
-      ? await supabase.from('profiles').select('*').in('id', studentIds)
+      ? await supabase.from('profiles').select('*').in('id', studentIds).neq('status', 'suspended')
       : { data: [] as Profile[] }
     const etudiantParId = new Map((etudiants ?? []).map((e) => [e.id, e]))
 
-    return (data ?? []).map((d): DevisAvecEtudiant => ({ devis: d, etudiant: etudiantParId.get(d.student_id) ?? null }))
+    return (data ?? [])
+      .filter((d) => etudiantParId.has(d.student_id))
+      .map((d): DevisAvecEtudiant => ({ devis: d, etudiant: etudiantParId.get(d.student_id) ?? null }))
   })
 
   return { devis: valeur ?? [], loading, erreur, recharger }

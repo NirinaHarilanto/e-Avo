@@ -98,7 +98,12 @@ export function useDossierEtudiant(studentId: string | undefined) {
       // s'afficher dans l'en-tête et les informations personnelles du dossier partagé.
       supabase.from('profiles').select('*').eq('duo_partenaire_id', studentId as string).neq('status', 'suspended').maybeSingle(),
     ])
-    if (etudiantError || !etudiant) throw new Error(etudiantError?.message ?? 'Étudiant introuvable.')
+    // Un accès direct par URL (l'élève n'apparaît plus dans aucune liste depuis sa suppression,
+    // mais son identifiant reste valide) ne doit pas exposer son dossier — demande client du
+    // 2026-09-23 : « son espace personnel » fait partie de ce qui doit disparaître.
+    if (etudiantError || !etudiant || etudiant.status === 'suspended') {
+      throw new Error(etudiantError?.message ?? 'Étudiant introuvable.')
+    }
 
     const sessionIds = [...new Set((enrollments ?? []).map((e) => e.session_id))]
     const teacherIds = [...new Set((affectations ?? []).map((a) => a.teacher_id))]
@@ -121,7 +126,10 @@ export function useDossierEtudiant(studentId: string | undefined) {
         : Promise.resolve({ data: null as Cohort | null }),
       sessionIds.length > 0 ? supabase.from('sessions').select('*').in('id', sessionIds) : Promise.resolve({ data: [] as Session[] }),
       sessionIds.length > 0 ? supabase.from('video_sessions').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as VideoSession[] }),
-      teacherIds.length > 0 ? supabase.from('profiles').select('*').in('id', teacherIds) : Promise.resolve({ data: [] as Profile[] }),
+      // Un professeur supprimé n'apparaît plus dans le parcours pédagogique de l'élève — la
+      // période et ses séances restent (c'est l'historique de L'ÉLÈVE), seule l'identité du
+      // professeur disparaît (demande client du 2026-09-23).
+      teacherIds.length > 0 ? supabase.from('profiles').select('*').in('id', teacherIds).neq('status', 'suspended') : Promise.resolve({ data: [] as Profile[] }),
       etudiant.prospect_id
         ? supabase.from('diagnostic_calls').select('*').eq('prospect_id', etudiant.prospect_id).order('created_at', { ascending: false }).limit(1).maybeSingle()
         : Promise.resolve({ data: null as DiagnosticCall | null }),

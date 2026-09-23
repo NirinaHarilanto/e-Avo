@@ -19,12 +19,16 @@ export function useFactures() {
     if (error) throw new Error(error.message)
 
     const profileIds = [...new Set((data ?? []).map((f) => f.student_id ?? f.teacher_id).filter((id): id is string => !!id))]
+    // Une facture rattachée à un compte supprimé disparaît de la liste (demande client du
+    // 2026-09-23) — la ligne reste en base, réversible si la personne se réinscrit.
     const { data: profiles } = profileIds.length
-      ? await supabase.from('profiles').select('*').in('id', profileIds)
+      ? await supabase.from('profiles').select('*').in('id', profileIds).neq('status', 'suspended')
       : { data: [] as Profile[] }
     const profilParId = new Map((profiles ?? []).map((p) => [p.id, p]))
 
-    return (data ?? []).map((f): FactureAvecDestinataire => ({ facture: f, destinataire: profilParId.get(f.student_id ?? f.teacher_id ?? '') ?? null }))
+    return (data ?? [])
+      .filter((f) => profilParId.has(f.student_id ?? f.teacher_id ?? ''))
+      .map((f): FactureAvecDestinataire => ({ facture: f, destinataire: profilParId.get(f.student_id ?? f.teacher_id ?? '') ?? null }))
   })
 
   return { factures: valeur ?? [], loading, erreur, recharger }

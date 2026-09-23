@@ -65,10 +65,16 @@ interface CarteListeEtudiantProps {
    professeur (EtudiantsProfesseur.tsx) plutôt que deux rendus qui divergent au fil du temps —
    demande client du 2026-09-23, « il faut que le bloc étudiant dans l'espace admin soit repris
    exactement » côté professeur.
-   Nom et prénom TOUJOURS sur une seule ligne (`whiteSpace: nowrap` + `textOverflow: ellipsis`,
-   `minWidth: 0` sur toute la chaîne de conteneurs flex parents — sans lui, un item flex refuse
-   de rétrécir sous la taille de son contenu et l'ellipsis ne s'applique jamais) : demande client
-   du 2026-09-23, un nom long faisait déborder sur deux lignes et percutait les badges. */
+
+   Structure TOUJOURS en colonne (`flexDirection: 'column'`), quel que soit le cas (seul ou
+   DUO) : la ligne [avatar + nom] occupe TOUTE la largeur du bloc sur sa propre ligne, les badges
+   (forfait, contrat, dossier…) viennent EN DESSOUS sur leur propre ligne — jamais côte à côte.
+   Exigence redite trois fois par le client (2026-09-21, 2026-09-23 ×2) : un précédent réglage
+   gardait `flexDirection: 'row'` pour le cas non-DUO, ce qui partageait la largeur entre le nom
+   et les badges sur une seule ligne et tronquait le nom en « ETU... » pour faire de la place —
+   visible sur une liste étroite (barre latérale ~260px). Nom et prénom restent sur une seule
+   ligne (`whiteSpace: nowrap` + `textOverflow: ellipsis`, `minWidth: 0` sur toute la chaîne de
+   conteneurs flex parents), mais disposent maintenant de la largeur ENTIÈRE du bloc pour ça. */
 export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick, programme, statutContrat, dossierIncomplet }: CarteListeEtudiantProps) {
   const membres = secondaire ? [principal, secondaire] : [principal]
   const nomGroupe = principal.duo_nom_groupe || secondaire?.duo_nom_groupe || (secondaire ? `${principal.prenom} & ${secondaire.prenom}` : null)
@@ -85,9 +91,9 @@ export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick
         background: 'var(--surface)',
         padding: '9px 11px',
         display: 'flex',
-        alignItems: secondaire ? 'stretch' : 'center',
-        flexDirection: secondaire ? 'column' : 'row',
-        gap: secondaire ? 6 : 10,
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        gap: 6,
         cursor: 'pointer',
         color: 'inherit',
         width: '100%',
@@ -101,7 +107,7 @@ export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick
       )}
 
       {membres.map((membre) => (
-        <div key={membre.id} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+        <div key={membre.id} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, width: '100%' }}>
           <span style={{ width: secondaire ? 26 : 30, height: secondaire ? 26 : 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: secondaire ? 10.5 : 11.5, fontWeight: 800, flexShrink: 0 }}>
             {initiales(membre)}
           </span>
@@ -114,9 +120,10 @@ export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick
         </div>
       ))}
 
-      {/* Badges du dossier — un seul jeu par bloc : forfait, contrat et heures sont communs au
-          binôme, seules les informations personnelles restent propres à chacun (signalées
-          ci-dessous pour l'un comme pour l'autre). */}
+      {/* Badges du dossier, sur leur propre ligne sous le(s) nom(s) — un seul jeu par bloc :
+          forfait, contrat et heures sont communs au binôme, seules les informations
+          personnelles restent propres à chacun (signalées ci-dessus pour l'un comme pour
+          l'autre). */}
       {(programme || statutContrat || dossierIncomplet) && (
         <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           {!secondaire && programme && <TagProgramme programme={programme} />}

@@ -20,12 +20,16 @@ export function useRemunerationsProfesseurs() {
     if (error) throw new Error(error.message)
 
     const teacherIds = [...new Set((data ?? []).map((p) => p.teacher_id))]
+    // Une rémunération d'un professeur supprimé disparaît de la liste (demande client du
+    // 2026-09-23) — la ligne reste en base, réversible s'il se réinscrit.
     const { data: professeurs } = teacherIds.length
-      ? await supabase.from('profiles').select('*').in('id', teacherIds)
+      ? await supabase.from('profiles').select('*').in('id', teacherIds).neq('status', 'suspended')
       : { data: [] as Profile[] }
     const professeurParId = new Map((professeurs ?? []).map((p) => [p.id, p]))
 
-    return (data ?? []).map((paiement): RemunerationProfesseur => ({ paiement, professeur: professeurParId.get(paiement.teacher_id) ?? null }))
+    return (data ?? [])
+      .filter((paiement) => professeurParId.has(paiement.teacher_id))
+      .map((paiement): RemunerationProfesseur => ({ paiement, professeur: professeurParId.get(paiement.teacher_id) ?? null }))
   })
 
   return { remunerations: valeur ?? [], loading, erreur, recharger }

@@ -28,7 +28,10 @@ export function useSeancesAdmin() {
 
     const [{ data: enrollments }, { data: professeurs }, { data: videos }] = await Promise.all([
       sessionIds.length ? supabase.from('session_enrollments').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as SessionEnrollment[] }),
-      teacherIds.length ? supabase.from('profiles').select('*').in('id', teacherIds) : Promise.resolve({ data: [] as Profile[] }),
+      // Un professeur supprimé disparaît de son propre nom sur la séance — la séance elle-même
+      // reste visible, c'est l'historique de l'élève qui la concerne (demande client du
+      // 2026-09-23).
+      teacherIds.length ? supabase.from('profiles').select('*').in('id', teacherIds).neq('status', 'suspended') : Promise.resolve({ data: [] as Profile[] }),
       sessionIds.length ? supabase.from('video_sessions').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as VideoSession[] }),
     ])
 
@@ -45,7 +48,7 @@ export function useSeancesAdmin() {
       const inscriptions = (enrollments ?? [])
         .filter((e) => e.session_id === session.id)
         .map((e) => ({ ...e, etudiant: etudiantParId.get(e.student_id) ?? null }))
-      const visibles = inscriptionsVisibles(session, inscriptions)
+      const visibles = inscriptionsVisibles(inscriptions)
       if (!visibles) return []
       return [{
         session,
