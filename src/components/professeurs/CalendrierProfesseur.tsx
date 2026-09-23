@@ -25,6 +25,23 @@ import { champStyle } from '../ui/Champ'
 
 type VueCalendrier = 'agenda' | 'liste' | 'previsionnel'
 
+/* `sessions.type` ne distingue que 'individuel'/'collectif' (0008) : une séance à deux élèves
+   est déjà classée 'collectif' à la création (voir plus bas, `type: studentIds.length > 1 ?
+   'collectif' : 'individuel'`), qu'il s'agisse d'un vrai groupe ou d'un binôme DUO. Le distinguer
+   demande donc de regarder QUI est inscrit, pas la colonne `type` : exactement deux élèves,
+   mutuellement liés par `duo_partenaire_id` (0054). Une coïncidence — deux élèves d'une vague,
+   non liés en duo, mais seuls inscrits ce jour-là — ne matche pas ce test et reste « collectif ». */
+function estSeanceDuo(seance: SeanceProfesseur): boolean {
+  if (seance.inscriptions.length !== 2) return false
+  const [a, b] = seance.inscriptions
+  return a.etudiant?.duo_partenaire_id === b.etudiant?.id || b.etudiant?.duo_partenaire_id === a.etudiant?.id
+}
+
+function libelleTypeSeance(seance: SeanceProfesseur): string {
+  if (estSeanceDuo(seance)) return 'Duo'
+  return seance.session.type === 'individuel' ? 'Individuel' : 'Collectif'
+}
+
 /* Une séance telle que l'agenda hebdomadaire la connaît. Le composant de grille ignore tout des
    séances et des inscriptions : il ne manipule que des `EvenementAgenda`. */
 function versEvenement(seance: SeanceProfesseur): EvenementAgenda {
@@ -34,10 +51,38 @@ function versEvenement(seance: SeanceProfesseur): EvenementAgenda {
     debut: seance.session.debut,
     dureeMinutes: seance.session.duree_minutes,
     titre: eleves.join(', ') || 'Séance sans élève inscrit',
-    sousTitre: `${seance.session.type === 'individuel' ? 'Individuel' : 'Collectif'} · ${seance.session.duree_minutes} min`,
-    ton: seance.session.statut === 'terminee' ? 'teal' : seance.session.statut === 'annulee' ? 'neutre' : 'bleu',
+    sousTitre: `${libelleTypeSeance(seance)} · ${seance.session.duree_minutes} min`,
+    /* Couleur par TYPE de cours plutôt que par statut (demande client du 2026-09-23, « mets les
+       évènements de cours DUO et collectif avec des couleurs différentes que celle des
+       évènements de cours individuels ») — l'annulation reste signalée en gris quel que soit le
+       type, seul état jugé plus important à distinguer qu'à quel programme appartient le cours.
+       Or/violet reprennent les teintes déjà associées à Duo/Collectif ailleurs dans
+       l'application (TagProgramme, EtudiantsAdmin). */
+    ton: seance.session.statut === 'annulee' ? 'neutre' : estSeanceDuo(seance) ? 'or' : seance.session.type === 'collectif' ? 'violet' : 'bleu',
     attenue: seance.session.statut === 'annulee',
   }
+}
+
+/* Légende des couleurs par type de cours (0068, demande client du 2026-09-23) — mêmes teintes
+   que `versEvenement` ci-dessus et que le vocabulaire de couleur déjà établi ailleurs dans
+   l'application pour Duo/Collectif (TagProgramme, EtudiantsAdmin.tsx : or = duo, ici étendu à
+   violet pour collectif faute d'un troisième ton déjà associé). */
+function LegendeTypeSeance() {
+  const puces: { libelle: string; couleur: string }[] = [
+    { libelle: 'Individuel', couleur: 'var(--accent-blue)' },
+    { libelle: 'Duo', couleur: 'var(--accent-gold)' },
+    { libelle: 'Collectif', couleur: 'var(--accent-violet)' },
+  ]
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      {puces.map((puce) => (
+        <span key={puce.libelle} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--muted)' }}>
+          <span style={{ width: 9, height: 9, borderRadius: 999, background: puce.couleur, flexShrink: 0 }} />
+          {puce.libelle}
+        </span>
+      ))}
+    </div>
+  )
 }
 
 function versDatetimeLocal(date: Date): string {
@@ -167,6 +212,7 @@ export function CalendrierProfesseur() {
             onSemaineChange={setSemaineDebut}
             onSelectionner={(evenement) => setSeanceOuverteId(evenement.id)}
             onCreneauLibre={etudiantsActifs.length > 0 ? ouvrirPlanification : undefined}
+            legende={<LegendeTypeSeance />}
             videMessage={
               etudiantsActifs.length === 0
                 ? 'Aucun élève ne vous est encore attribué : l’administration doit le faire avant que vous puissiez planifier un cours.'
@@ -399,7 +445,7 @@ function CarteSeance({
             {new Date(seance.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
           </span>
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-            {seance.session.type === 'individuel' ? 'Individuel' : 'Collectif'} · {seance.session.duree_minutes} min ·{' '}
+            {libelleTypeSeance(seance)} · {seance.session.duree_minutes} min ·{' '}
             {seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`).join(', ')}
           </span>
         </div>

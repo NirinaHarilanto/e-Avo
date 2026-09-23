@@ -21,7 +21,13 @@ import { Icone } from './Icones'
    Sous 900 px la grille bascule en vue « jour » : sept colonnes sur un téléphone ne seraient ni
    lisibles ni cliquables. */
 
-const HAUTEUR_HEURE = 58
+/* Grille et pastilles agrandies (0068, demande client du 2026-09-23 : « il faut que les
+   évènements dans les agendas, surtout pour les DUO, soient visuellement visibles... en
+   agrandissant un peu le bloc pour rendre tout visible ») — un binôme DUO affiche les deux noms
+   dans le titre et « Duo · 60 min » en sous-titre, sensiblement plus long qu'un événement
+   individuel ; les trois hauteurs ci-dessous montent ensemble, dans les mêmes proportions
+   qu'avant, pour ne rien redéfinir en dur au hasard. */
+const HAUTEUR_HEURE = 64
 const LARGEUR_GOUTTIERE = 54
 const PAS_MINUTES = 15
 
@@ -29,10 +35,10 @@ const PAS_MINUTES = 15
    haut et son libellé serait tronqué au point d'être illisible. On lui impose donc une hauteur
    plancher — elle déborde alors légèrement sur le créneau suivant, ce qui est sans conséquence
    puisque les chevauchements sont de toute façon répartis en colonnes. */
-const HAUTEUR_MIN_EVENEMENT = 38
+const HAUTEUR_MIN_EVENEMENT = 46
 /* En dessous de cette hauteur, la pastille n'a la place que d'une seule ligne : le sous-titre
    est retiré plutôt qu'affiché coupé. */
-const HAUTEUR_SOUS_TITRE = 52
+const HAUTEUR_SOUS_TITRE = 58
 
 const JOURS_COURTS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
