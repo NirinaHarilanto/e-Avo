@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deduireSource, preparerVariables } from '../contrats'
+import { deduireSource, preparerVariables, substituerVariablesDuo } from '../contrats'
 import type { Database } from '../../types/database.types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -314,7 +314,7 @@ describe('preparerVariables — second membre du duo', () => {
   /* Bug signalé par le client le 2026-09-23 : un modèle non pensé pour le DUO (aucun champ _2
      déclaré) ne montrait, une fois généré, QUE les informations du destinataire principal — le
      second signataire n'apparaissait nulle part dans le contrat qu'il devait pourtant signer. */
-  it("sans champ _2 déclaré par le modèle, les champs d'identité de base portent automatiquement les deux membres", () => {
+  it("sans champ _2 déclaré par le modèle, les champs d'identité de base gardent la valeur du principal et portent en plus celle du second membre", () => {
     const modele = [
       { cle: 'nom_complet_etudiant', label: "Nom complet de l'étudiant" },
       { cle: 'adresse_etudiant', label: "Adresse de l'étudiant" },
@@ -324,24 +324,28 @@ describe('preparerVariables — second membre du duo', () => {
     const resolues = preparerVariables(corps, modele, etudiant, etablissement, { typeProgrammeLabel: 'Duo' }, partenaire)
     const parCle = Object.fromEntries(resolues.map((v) => [v.cle, v]))
 
-    expect(parCle.nom_complet_etudiant.valeurAuto).toBe('Miora Rakoto & Tojo Andria')
+    expect(parCle.nom_complet_etudiant.valeurAuto).toBe('Miora Rakoto')
+    expect(parCle.nom_complet_etudiant.valeurAutoSecondaire).toBe('Tojo Andria')
     // L'adresse du partenaire n'est pas renseignée sur son profil (hérite de `etudiant` sauf
-    // override) : elle est donc identique à celle du principal, jointe une seule fois plutôt que
-    // dupliquée en « X & X ».
+    // override) : elle est donc identique à celle du principal — pas de second paragraphe pour un
+    // champ qui ne dirait rien de plus.
     expect(parCle.adresse_etudiant.valeurAuto).toBe('Lot II M 12, Antananarivo')
+    expect(parCle.adresse_etudiant.valeurAutoSecondaire).toBeUndefined()
     // Un champ de programme (partagé par construction, pas propre à une personne) n'est jamais
-    // joint, même en DUO.
+    // dupliqué, même en DUO.
     expect(parCle.type_prog.valeurAuto).toBe('Duo')
+    expect(parCle.type_prog.valeurAutoSecondaire).toBeUndefined()
   })
 
-  it("sans champ _2 déclaré, une adresse différente entre les deux membres est jointe", () => {
+  it("sans champ _2 déclaré, une adresse différente entre les deux membres produit une valeur secondaire", () => {
     const modele = [{ cle: 'adresse_etudiant', label: "Adresse de l'étudiant" }]
     const autrePartenaire = { ...partenaire, adresse: 'Ambohipo, Antananarivo' }
     const resolues = preparerVariables('{{adresse_etudiant}}', modele, etudiant, etablissement, undefined, autrePartenaire)
-    expect(resolues[0].valeurAuto).toBe('Lot II M 12, Antananarivo & Ambohipo, Antananarivo')
+    expect(resolues[0].valeurAuto).toBe('Lot II M 12, Antananarivo')
+    expect(resolues[0].valeurAutoSecondaire).toBe('Ambohipo, Antananarivo')
   })
 
-  it('un modèle qui déclare déjà un champ _2 garde son champ de base propre au seul principal (pas de double affichage)', () => {
+  it('un modèle qui déclare déjà un champ _2 garde son champ de base propre au seul principal (pas de valeur secondaire)', () => {
     const modele = [
       { cle: 'nom1', label: 'Nom (étudiant 1)', source: 'nom' },
       { cle: 'nom2', label: 'Nom (étudiant 2)', source: 'nom_2' },
@@ -349,6 +353,40 @@ describe('preparerVariables — second membre du duo', () => {
     const resolues = preparerVariables('{{nom1}} {{nom2}}', modele, etudiant, etablissement, undefined, partenaire)
     const parCle = Object.fromEntries(resolues.map((v) => [v.cle, v]))
     expect(parCle.nom1.valeurAuto).toBe('Rakoto')
+    expect(parCle.nom1.valeurAutoSecondaire).toBeUndefined()
     expect(parCle.nom2.valeurAuto).toBe('Andria')
+  })
+})
+
+/* Corps du contrat DUO : chaque paragraphe concerné par le second membre est dupliqué, une
+   personne par ligne, plutôt que ses champs joints avec « & » dans la même phrase (illisible et
+   grammaticalement faux — « né(e) le date1 & date2 »). Demande client du 2026-09-23. */
+describe('substituerVariablesDuo', () => {
+  it('sans valeur secondaire, se comporte comme substituerVariables', () => {
+    const rendu = substituerVariablesDuo('Entre {{etablissement}} et {{nom}}, domicilié {{adresse}}.', { etablissement: 'HOC', nom: 'Miora Rakoto', adresse: 'Lot X' }, {})
+    expect(rendu).toBe('Entre HOC et Miora Rakoto, domicilié Lot X.')
+  })
+
+  it('duplique le paragraphe concerné, une personne par ligne, et laisse les autres paragraphes intacts', () => {
+    const corps = [
+      'Entre {{etablissement}},',
+      '',
+      '{{nom}}, né(e) le {{naissance}}, domicilié(e) {{adresse}}, ci-après « l’Étudiant »,',
+      '',
+      'Fait à {{ville}}, le {{date}}.',
+    ].join('\n')
+    const valeurs = { etablissement: 'HOC', nom: 'Miora Rakoto', naissance: '01/01/2010', adresse: 'Lot X', ville: 'Antananarivo', date: '23/09/2026' }
+    const valeursSecondaires = { nom: 'Tojo Andria', naissance: '02/02/2011', adresse: 'Lot Y' }
+    const rendu = substituerVariablesDuo(corps, valeurs, valeursSecondaires)
+
+    expect(rendu).toBe(
+      [
+        'Entre HOC,',
+        '',
+        'Miora Rakoto, né(e) le 01/01/2010, domicilié(e) Lot X, ci-après « l’Étudiant »,\nTojo Andria, né(e) le 02/02/2011, domicilié(e) Lot Y, ci-après « l’Étudiant »,',
+        '',
+        'Fait à Antananarivo, le 23/09/2026.',
+      ].join('\n'),
+    )
   })
 })

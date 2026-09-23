@@ -381,8 +381,19 @@ const MENTION_MINEUR_DEFAUT =
 export interface VariableResolue {
   cle: string
   label: string
-  /* Valeur reprise d'une fiche/du dossier : le champ n'est alors pas demandé à l'admin. */
+  /* Valeur reprise d'une fiche/du dossier : le champ n'est alors pas demandé à l'admin. Pour un
+     contrat DUO, c'est TOUJOURS la valeur du seul destinataire principal — jamais fusionnée avec
+     celle du second membre (voir `valeurAutoSecondaire` et `substituerVariablesDuo`). */
   valeurAuto?: string
+  /* Valeur du second membre du DUO pour ce même champ, présente uniquement quand (a) le modèle
+     n'a lui-même déclaré aucun champ `_2` (voir `joindreLesDeuxMembres` plus bas) et (b) sa
+     valeur diffère de celle du principal. Sert à `substituerVariablesDuo` pour dupliquer, dans le
+     corps généré, le paragraphe concerné avec les informations de chacun l'une sous l'autre —
+     demande client du 2026-09-23 : « Nom de la première personne, suivi des informations lui
+     concernant (on va à la ligne) Nom de la deuxième personne, suivi des informations lui
+     concernant ». Un simple séparateur « & » dans la même phrase (essayé d'abord) rendait le
+     texte à la fois illisible et grammaticalement faux (« né(e) le date1 & date2 »). */
+  valeurAutoSecondaire?: string
   /* Origine ayant produit `valeurAuto`, pour l'afficher dans le récapitulatif. */
   source?: string
   /* Proposition modifiable pour les variables restées en saisie manuelle. */
@@ -439,7 +450,7 @@ export function preparerVariables(
         if (joindreLesDeuxMembres && CHAMPS_IDENTITE_JOIGNABLES_DUO.has(source as SourceVariable)) {
           const valeurSecondaire = resoudreSource(source, destinataireSecondaire!, etablissement, contexte)
           if (valeurSecondaire !== null && valeurSecondaire !== valeurAuto) {
-            return { cle, label, valeurAuto: `${valeurAuto} & ${valeurSecondaire}`, source }
+            return { cle, label, valeurAuto, valeurAutoSecondaire: valeurSecondaire, source }
           }
         }
         return { cle, label, valeurAuto, source }
@@ -448,4 +459,30 @@ export function preparerVariables(
 
     return { cle, label, defaut: declaree?.valeur_defaut ?? deduireValeurDefaut(cle, label) }
   })
+}
+
+/* Génère le corps d'un contrat DUO en dupliquant, paragraphe par paragraphe, ceux qui portent au
+   moins un champ d'identité concerné par `valeursSecondaires` (voir `valeurAutoSecondaire`
+   ci-dessus) : une première version substituée avec les valeurs du principal, une seconde avec
+   celles du second membre, l'une sous l'autre. Les paragraphes sont délimités par une ligne vide,
+   convention déjà suivie par tous les modèles existants pour séparer leurs clauses. Sans second
+   membre à intégrer (`valeursSecondaires` vide — étudiant seul, professeur, ou modèle déjà conçu
+   pour le DUO avec ses propres champs `_2`), se comporte exactement comme `substituerVariables`. */
+export function substituerVariablesDuo(
+  corpsTemplate: string,
+  valeurs: Record<string, string>,
+  valeursSecondaires: Record<string, string>,
+): string {
+  if (Object.keys(valeursSecondaires).length === 0) return substituerVariables(corpsTemplate, valeurs)
+
+  return corpsTemplate
+    .split(/\n{2,}/)
+    .map((paragraphe) => {
+      const concerneParLeDuo = extraireVariables(paragraphe).some((cle) => cle in valeursSecondaires)
+      if (!concerneParLeDuo) return substituerVariables(paragraphe, valeurs)
+      const premierMembre = substituerVariables(paragraphe, valeurs)
+      const secondMembre = substituerVariables(paragraphe, { ...valeurs, ...valeursSecondaires })
+      return `${premierMembre}\n${secondMembre}`
+    })
+    .join('\n\n')
 }

@@ -6,7 +6,7 @@ import { useEtablissement } from '../../hooks/useEtablissement'
 import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { useProfesseurDetailAdmin } from '../../hooks/useProfesseurDetailAdmin'
 import { supabase } from '../../lib/supabaseClient'
-import { libelleTypeProgramme, preparerVariables, substituerVariables, type ContexteProgramme } from '../../lib/contrats'
+import { libelleTypeProgramme, preparerVariables, substituerVariablesDuo, type ContexteProgramme } from '../../lib/contrats'
 import type { Database, Role } from '../../types/database.types'
 import { Champ, LigneInfo, champStyle } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
@@ -103,11 +103,16 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
   const aCompleter = variables.filter((v) => v.valeurAuto === undefined)
 
   const valeurs: Record<string, string> = {}
+  // Le second membre d'un DUO (0066, repli du 2026-09-23) ne pèse jamais sur `valeurs` : il ne
+  // doit apparaître qu'au paragraphe dupliqué par `substituerVariablesDuo`, jamais fusionné dans
+  // la valeur du principal.
+  const valeursSecondaires: Record<string, string> = {}
   for (const variable of variables) {
     const valeur = complements[variable.cle] ?? variable.valeurAuto ?? variable.defaut
     if (valeur !== undefined) valeurs[variable.cle] = valeur
+    if (variable.valeurAutoSecondaire !== undefined) valeursSecondaires[variable.cle] = variable.valeurAutoSecondaire
   }
-  const corpsGenere = modele ? substituerVariables(modele.corps_template, valeurs) : ''
+  const corpsGenere = modele ? substituerVariablesDuo(modele.corps_template, valeurs, valeursSecondaires) : ''
 
   function changerType(nouveau: Role) {
     setTypeContrat(nouveau)
@@ -237,7 +242,23 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
             {remplies.length} champ{remplies.length > 1 ? 's remplis' : ' rempli'} automatiquement
           </div>
           {remplies.map((variable) => (
-            <LigneInfo key={variable.cle} label={variable.label} valeur={variable.valeurAuto} />
+            <LigneInfo
+              key={variable.cle}
+              label={variable.label}
+              valeur={
+                // Même présentation « une personne par ligne » que dans le contrat généré — pas
+                // un simple « & » dans la même ligne, qui masquerait que ce champ sera bien
+                // dupliqué en deux paragraphes distincts.
+                variable.valeurAutoSecondaire ? (
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                    <span>{variable.valeurAuto}</span>
+                    <span>{variable.valeurAutoSecondaire}</span>
+                  </span>
+                ) : (
+                  variable.valeurAuto
+                )
+              }
+            />
           ))}
         </div>
       )}
