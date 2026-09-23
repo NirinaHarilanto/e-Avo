@@ -9,7 +9,7 @@ import { Icone } from '../ui/Icones'
 
 /* Cinq étoiles cliquables (note obligatoire) ou simplement affichées (lecture seule) — un seul
    composant pour les deux usages plutôt que dupliquer le tracé des cinq pictogrammes. */
-function Etoiles({
+export function Etoiles({
   valeur,
   onChange,
   taille = 15,

@@ -10,10 +10,12 @@ import { nomsElevesInscrits } from '../../lib/seances'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
 import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
+import { DetailSeanceModale } from '../shared/DetailSeanceModale'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
+import { boutonSecondaireStyle } from '../ui/Boutons'
 import { GroupeSection } from '../ui/Section'
 import { Onglets } from '../ui/Onglets'
 import { EtatVide } from '../ui/EtatVide'
@@ -53,6 +55,7 @@ export function SeancesAdmin() {
   const [personnesSelectionnees, setPersonnesSelectionnees] = useState<Set<string>>(new Set())
 
   const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
+  const [editionOuverte, setEditionOuverte] = useState(false)
 
   function basculerPersonne(id: string) {
     setPersonnesSelectionnees((s) => {
@@ -126,14 +129,15 @@ export function SeancesAdmin() {
     semaineFin,
   ])
 
-  // Seule une séance encore planifiée s'ouvre en édition, comme dans la vue liste. Quand le
-  // filtre « Admin » est coché, l'agenda mélange aussi des rendez-vous prospects et des
-  // événements admin (ids préfixés, voir lib/agendaEvenements.ts) : un clic dessus doit ouvrir
-  // leur propre fiche plutôt que de chercher en vain une séance qui n'existe pas (bug relevé le
-  // 2026-09-21 — le clic ne faisait alors rien).
+  /* Toute séance s'ouvre, quel que soit son statut — demande client du 2026-09-23 (point 4) :
+     une séance terminée doit livrer son compte rendu et les avis de ses élèves, ce que
+     l'ancienne condition `statut === 'planifiee'` rendait impossible (le clic ne faisait rien).
+     L'édition reste, elle, réservée aux séances encore planifiées. Quand le filtre « Admin » est
+     coché, l'agenda mélange aussi des rendez-vous prospects et des événements admin (ids
+     préfixés, voir lib/agendaEvenements.ts) : un clic dessus ouvre leur propre fiche. */
   const clicEstEvenementAdmin = estEvenementAdmin(seanceOuverteId)
   const seanceOuverte = !clicEstEvenementAdmin
-    ? seances.find((s) => s.session.id === seanceOuverteId && s.session.statut === 'planifiee') ?? null
+    ? seances.find((s) => s.session.id === seanceOuverteId) ?? null
     : null
 
   const maintenant = new Date().toISOString()
@@ -184,6 +188,12 @@ export function SeancesAdmin() {
             Le <strong>lien Google Meet</strong> de chaque séance à venir apparaît sur sa ligne. S’il manque — séance
             créée avant la connexion du compte Google — le bouton <strong>Générer le lien Meet</strong> le crée et
             prévient les participants.
+          </>,
+          <>
+            <strong>Cliquez sur n’importe quel créneau de l’agenda</strong> pour ouvrir sa fiche : professeur, élèves
+            inscrits, et — pour une séance terminée — le <strong>compte rendu</strong> rédigé par le professeur ainsi
+            que les <strong>avis de satisfaction</strong> déposés par les élèves. Une séance encore planifiée s’y
+            modifie ou s’y annule.
           </>,
         ]}
       />
@@ -324,14 +334,32 @@ export function SeancesAdmin() {
         </div>
       )}
 
-      {seanceOuverte && (
+      {seanceOuverte && !editionOuverte && (
+        <DetailSeanceModale
+          session={seanceOuverte.session}
+          professeur={seanceOuverte.professeur}
+          eleves={seanceOuverte.inscriptions.map((i) => i.etudiant)}
+          video={seanceOuverte.video}
+          onFermer={() => setSeanceOuverteId(null)}
+          actions={
+            seanceOuverte.session.statut === 'planifiee' ? (
+              <button onClick={() => setEditionOuverte(true)} style={boutonSecondaireStyle}>
+                Modifier ou annuler la séance
+              </button>
+            ) : undefined
+          }
+        />
+      )}
+
+      {seanceOuverte && editionOuverte && (
         <EditerSeancePlanifieeModale
           session={seanceOuverte.session}
           etudiants={seanceOuverte.inscriptions.map((i) => i.etudiant).filter((e): e is NonNullable<typeof e> => !!e)}
           professeur={seanceOuverte.professeur}
           video={seanceOuverte.video}
-          onFermer={() => setSeanceOuverteId(null)}
+          onFermer={() => setEditionOuverte(false)}
           onEnregistre={() => {
+            setEditionOuverte(false)
             setSeanceOuverteId(null)
             recharger()
           }}

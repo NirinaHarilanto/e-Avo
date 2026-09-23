@@ -9,6 +9,7 @@ import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, EtatChargementStats } from '../ui/Etats'
 import { formaterHeures } from '../../lib/heures'
+import { KpiSatisfaction } from './KpiSatisfaction'
 
 export function HeuresProfesseur() {
   const { profile } = useProfileContext()
@@ -120,6 +121,8 @@ export function HeuresProfesseur() {
               </div>
             )}
           </Section>
+
+          <KpiSatisfaction teacherId={profile?.id} />
         </div>
       )}
     </ProfesseurLayout>

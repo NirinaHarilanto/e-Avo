@@ -10,6 +10,7 @@ import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { formaterHeures } from '../../lib/heures'
+import { KpiSatisfaction } from './KpiSatisfaction'
 
 export function ProfesseurDetailAdmin() {
   const { id } = useParams<{ id: string }>()
@@ -40,7 +41,7 @@ export function ProfesseurDetailAdmin() {
 
           <GrilleStats>
             <Stat libelle="Élèves actifs" valeur={detail.eleves.length} ton="bleu" aide="Attributions en cours" />
-            <Stat libelle="Heures enseignées" valeur={detail.heuresTotalEnseignees} unite="h" ton="or" aide="Total depuis son arrivée" />
+            <Stat libelle="Heures enseignées" valeur={formaterHeures(detail.heuresTotalEnseignees)} ton="or" aide="Total depuis son arrivée" />
             <Stat
               libelle="Taux horaire"
               valeur={detail.professeur.taux_horaire ? `${detail.professeur.taux_horaire}` : '—'}
@@ -53,6 +54,8 @@ export function ProfesseurDetailAdmin() {
               }
             />
           </GrilleStats>
+
+          <KpiSatisfaction teacherId={detail.professeur.id} />
 
           <div className="grille-dossier">
             <Section
