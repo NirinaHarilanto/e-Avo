@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { acompteSuggere, arrondi, formaterMontant, resteAPayer, statutReglement } from '../../lib/paiements'
+import { useEtablissement } from '../../hooks/useEtablissement'
+import { EcheancierPaiement } from './EcheancierPaiement'
 import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 import type { Database } from '../../types/database.types'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
@@ -63,6 +65,7 @@ interface HeureEnseignee {
 
 export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: CiblePaiement; onFermer: () => void; onChange: () => void }) {
   const { profile, session } = useProfileContext()
+  const etablissement = useEtablissement(profile?.etablissement_id)
   /* La ligne de paiement d'un forfait pas encore facturé naît dans cette fenêtre : son
      identifiant n'existe qu'à partir de sa création, d'où cet état local plutôt qu'une
      remontée immédiate au parent (qui refermerait la fenêtre en rechargeant sa liste). */
@@ -333,6 +336,18 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
                   enCours={enCours}
                   estProfesseur={estProfesseur}
                   onValider={ajouterVersement}
+                />
+              )}
+
+              {/* L'échéancier ne concerne que les élèves : une rémunération de professeur se
+                  règle en une fois, on ne lui planifie pas un calendrier de versements. */}
+              {!estProfesseur && (
+                <EcheancierPaiement
+                  studentPaymentId={paiement.id}
+                  etablissementId={paiement.etablissement_id}
+                  devise={paiement.devise}
+                  resteDu={resteAPayer(ligne)}
+                  relanceJours={etablissement?.relance_echeance_jours ?? 3}
                 />
               )}
 

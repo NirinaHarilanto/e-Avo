@@ -186,6 +186,13 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
     charger()
   }
 
+  /* Compteurs de la vague entière : sans eux, un candidat n'était visible qu'après avoir déplié
+     la bonne session, et rien ne signalait qu'il en restait à convertir (demande client du
+     2026-09-23, point 7). */
+  const tousCandidats = [...candidatsParCreneau.values()].flat()
+  const totalCandidats = tousCandidats.length
+  const aConvertir = tousCandidats.filter((c) => c.prospect && c.prospect.statut !== 'etudiant').length
+
   if (creneaux === null) return <EtatChargement lignes={2} hauteur={40} />
 
   return (
@@ -193,6 +200,12 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)', flexGrow: 1 }}>
           Sessions de test oral
+          {totalCandidats > 0 && (
+            <span style={{ marginLeft: 8, textTransform: 'none', letterSpacing: 0, fontWeight: 700, color: 'var(--accent-blue)' }}>
+              {totalCandidats} candidat{totalCandidats > 1 ? 's' : ''}
+              {aConvertir > 0 ? ` · ${aConvertir} à convertir` : ''}
+            </span>
+          )}
         </span>
         <button onClick={() => setFormulaireOuvert(true)} style={boutonSecondaireStyle}>
           Ouvrir une session
