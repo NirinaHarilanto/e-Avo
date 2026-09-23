@@ -49,8 +49,11 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
     ])
 
     const studentIds = [...new Set([...(enrollments ?? []).map((e) => e.student_id), ...(affectations ?? []).map((a) => a.student_id)])]
+    // Un élève supprimé (soft-delete) garde son `teacher_assignments`/`session_enrollments`
+    // historique — sans ce filtre il continuait à apparaître comme élève actif (ou ancien élève)
+    // du professeur alors que son compte n'existe plus (demande client du 2026-09-23).
     const { data: etudiants } = studentIds.length
-      ? await supabase.from('profiles').select('*').in('id', studentIds)
+      ? await supabase.from('profiles').select('*').in('id', studentIds).neq('status', 'suspended')
       : { data: [] as Profile[] }
     const etudiantParId = new Map((etudiants ?? []).map((e) => [e.id, e]))
     const videoParSession = new Map((videos ?? []).map((v) => [v.session_id, v]))

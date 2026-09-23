@@ -280,7 +280,9 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
       setInscrits([])
       return
     }
-    const { data: profiles } = await supabase.from('profiles').select('*').in('id', studentIds)
+    // Un élève supprimé garde son inscription à la vague — exclu ici pour ne plus apparaître
+    // dans le détail d'une cohorte (demande client du 2026-09-23).
+    const { data: profiles } = await supabase.from('profiles').select('*').in('id', studentIds).neq('status', 'suspended')
     setInscrits(profiles ?? [])
   }
 

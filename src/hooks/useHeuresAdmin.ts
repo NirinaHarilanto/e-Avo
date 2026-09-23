@@ -20,9 +20,12 @@ interface HeuresAdmin {
    qu'entité par entité (dossier étudiant, carte professeur). */
 export function useHeuresAdmin() {
   const { valeur, loading, recharger } = useCacheRequete('heures-admin', async (): Promise<HeuresAdmin> => {
+    // Un compte supprimé (soft-delete, voir api/admin/supprimer-utilisateur.ts) ne doit plus
+    // apparaître dans ce tableau de bord — demande client du 2026-09-23, contrairement à
+    // useEtudiants()/useProfesseurs() (déjà filtrés) cette requête directe ne l'était pas.
     const [{ data: profilsEtudiants }, { data: profilsProfs }] = await Promise.all([
-      supabase.from('profiles').select('*').eq('role', 'etudiant').order('nom'),
-      supabase.from('profiles').select('*').eq('role', 'professeur').order('nom'),
+      supabase.from('profiles').select('*').eq('role', 'etudiant').neq('status', 'suspended').order('nom'),
+      supabase.from('profiles').select('*').eq('role', 'professeur').neq('status', 'suspended').order('nom'),
     ])
 
     const studentIds = (profilsEtudiants ?? []).map((p) => p.id)

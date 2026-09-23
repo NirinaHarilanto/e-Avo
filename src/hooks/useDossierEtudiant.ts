@@ -87,7 +87,10 @@ export function useDossierEtudiant(studentId: string | undefined) {
       supabase.from('packages').select('*').eq('student_id', studentId as string).order('created_at', { ascending: false }),
       supabase.from('student_hours_summary').select('*').eq('student_id', studentId as string).maybeSingle(),
       supabase.from('cohort_enrollments').select('cohort_id').eq('student_id', studentId as string).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      supabase.from('profiles').select('*').eq('duo_partenaire_id', studentId as string).maybeSingle(),
+      // Un partenaire DUO supprimé ne doit plus apparaître comme second membre du binôme
+      // (demande client du 2026-09-23) — sans ce filtre, un compte supprimé continuait à
+      // s'afficher dans l'en-tête et les informations personnelles du dossier partagé.
+      supabase.from('profiles').select('*').eq('duo_partenaire_id', studentId as string).neq('status', 'suspended').maybeSingle(),
     ])
     if (etudiantError || !etudiant) throw new Error(etudiantError?.message ?? 'Étudiant introuvable.')
 

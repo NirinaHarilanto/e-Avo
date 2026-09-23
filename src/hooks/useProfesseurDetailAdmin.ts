@@ -41,8 +41,11 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
 
     const studentIds = [...new Set((affectations ?? []).map((a) => a.student_id))]
 
+    // Un élève supprimé (soft-delete) garde son affectation `teacher_assignments` (date_fin
+    // toujours null) — sans ce filtre il continuait à apparaître dans la fiche du professeur
+    // comme un élève actuel alors que son compte n'existe plus (demande client du 2026-09-23).
     const [{ data: eleveProfiles }, { data: packages }, { data: sessionsTerminees }] = await Promise.all([
-      studentIds.length > 0 ? supabase.from('profiles').select('*').in('id', studentIds) : Promise.resolve({ data: [] as Profile[] }),
+      studentIds.length > 0 ? supabase.from('profiles').select('*').in('id', studentIds).neq('status', 'suspended') : Promise.resolve({ data: [] as Profile[] }),
       studentIds.length > 0 ? supabase.from('packages').select('*').in('student_id', studentIds) : Promise.resolve({ data: [] as Package[] }),
       supabase.from('sessions').select('id, duree_minutes').eq('teacher_id', teacherId as string).eq('statut', 'terminee'),
     ])

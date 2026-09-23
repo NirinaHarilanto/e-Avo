@@ -24,6 +24,7 @@ export function useSecondairesDuo(principalIds: string[]) {
       .from('profiles')
       .select('*')
       .in('duo_partenaire_id', cleIds.split(','))
+      .neq('status', 'suspended')
       .then(({ data }) => {
         const table = new Map<string, Profile>()
         for (const secondaire of data ?? []) {
