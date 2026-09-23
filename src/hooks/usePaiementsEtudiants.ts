@@ -11,6 +11,12 @@ export interface PaiementEtudiant {
   etudiant: Profile | null
   forfait: Package | null
   professeur: Profile | null
+  /* Partenaire DUO de l'élève (0054), quel que soit le sens du lien — demande client du
+     2026-09-23 : « dans toutes les fenêtres [...] afficher les deux noms des personnes formant
+     le DUO ». Un paiement (forfait partagé ou heure d'essai individuelle) ne concerne jamais
+     qu'un membre du binôme à la fois côté `student_payments`, mais reste toujours SON paiement
+     à elle/lui aussi. */
+  duoPartenaire: Profile | null
 }
 
 /* Forfait souscrit par un élève qui a bien un professeur attribué, mais pour lequel aucune
@@ -22,6 +28,7 @@ export interface ForfaitAPayer {
   forfait: Package
   etudiant: Profile | null
   professeur: Profile | null
+  duoPartenaire: Profile | null
 }
 
 export function usePaiementsEtudiants() {
@@ -63,6 +70,36 @@ export function usePaiementsEtudiants() {
     const profilParId = new Map((profils ?? []).map((p) => [p.id, p]))
     const forfaitParId = new Map((forfaits ?? []).map((f) => [f.id, f]))
 
+    /* Partenaire DUO de chaque élève concerné par un paiement — le lien est ASYMÉTRIQUE
+       (0054, migration 0054_forfait_choisi_et_duo.sql) : un secondaire porte son
+       `duo_partenaire_id`, le principal ne porte rien et se retrouve donc à l'inverse, via une
+       recherche de qui pointe VERS lui. Deux requêtes complémentaires plutôt qu'une seule pour
+       couvrir les deux sens. */
+    const idsEtudiantsConcernes = [
+      ...new Set([...(data ?? []).map((p) => p.student_id).filter((id): id is string => !!id), ...(forfaits ?? []).map((f) => f.student_id)]),
+    ]
+    const idsSecondairesConnus = idsEtudiantsConcernes
+      .map((id) => profilParId.get(id)?.duo_partenaire_id)
+      .filter((id): id is string => !!id)
+    const [{ data: principauxManquants }, { data: secondairesDeCesEtudiants }] = await Promise.all([
+      idsSecondairesConnus.length
+        ? supabase.from('profiles').select('*').in('id', idsSecondairesConnus).neq('status', 'suspended')
+        : Promise.resolve({ data: [] as Profile[] }),
+      idsEtudiantsConcernes.length
+        ? supabase.from('profiles').select('*').in('duo_partenaire_id', idsEtudiantsConcernes).neq('status', 'suspended')
+        : Promise.resolve({ data: [] as Profile[] }),
+    ])
+    for (const p of principauxManquants ?? []) profilParId.set(p.id, p)
+    const partenaireParEtudiant = new Map<string, Profile>()
+    for (const secondaire of secondairesDeCesEtudiants ?? []) {
+      if (secondaire.duo_partenaire_id) partenaireParEtudiant.set(secondaire.duo_partenaire_id, secondaire)
+    }
+    const partenaireDe = (studentId: string): Profile | null => {
+      const viaSecondaire = profilParId.get(studentId)?.duo_partenaire_id
+      if (viaSecondaire) return profilParId.get(viaSecondaire) ?? null
+      return partenaireParEtudiant.get(studentId) ?? null
+    }
+
     const professeurDe = (studentId: string) => {
       const teacherId = professeurParEleve.get(studentId)
       return teacherId ? (profilParId.get(teacherId) ?? null) : null
@@ -75,6 +112,7 @@ export function usePaiementsEtudiants() {
         etudiant: paiement.student_id ? (profilParId.get(paiement.student_id) ?? null) : null,
         forfait: paiement.package_id ? (forfaitParId.get(paiement.package_id) ?? null) : null,
         professeur: paiement.student_id ? professeurDe(paiement.student_id) : null,
+        duoPartenaire: paiement.student_id ? partenaireDe(paiement.student_id) : null,
       }))
 
     const forfaitsDejaFactures = new Set((data ?? []).map((p) => p.package_id).filter((id): id is string => !!id))
@@ -84,6 +122,7 @@ export function usePaiementsEtudiants() {
         forfait,
         etudiant: profilParId.get(forfait.student_id) ?? null,
         professeur: professeurDe(forfait.student_id),
+        duoPartenaire: partenaireDe(forfait.student_id),
       }))
 
     return { paiements, forfaitsAPayer }

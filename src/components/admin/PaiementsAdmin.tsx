@@ -8,6 +8,7 @@ import { CreerRemunerationProfesseur } from '../paiements/CreerRemunerationProfe
 import { DetailPaiementModale, type CiblePaiement } from '../paiements/DetailPaiementModale'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
 import { formaterMontant, resteAPayer, statutReglement, LABELS_REGLEMENT, type LignePayable, type StatutReglement } from '../../lib/paiements'
+import { nomAvecDuo } from '../../lib/duo'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -189,9 +190,9 @@ export function PaiementsAdmin() {
 
       {onglet === 'etudiants' ? (
         <ListePaiementsEtudiants
-          paiements={paiementsEtudiants.paiements.filter((p) => correspond(p.etudiant ? `${p.etudiant.prenom} ${p.etudiant.nom}` : '', p.paiement.montant, p.paiement, filtres))}
+          paiements={paiementsEtudiants.paiements.filter((p) => correspond(p.etudiant ? nomAvecDuo(p.etudiant, p.duoPartenaire) : '', p.paiement.montant, p.paiement, filtres))}
           forfaitsAPayer={paiementsEtudiants.forfaitsAPayer.filter((f) =>
-            correspond(f.etudiant ? `${f.etudiant.prenom} ${f.etudiant.nom}` : '', f.forfait.montant ?? 0, { montant: f.forfait.montant ?? 0, montant_regle: 0, statut: 'attendu' }, filtres),
+            correspond(f.etudiant ? nomAvecDuo(f.etudiant, f.duoPartenaire) : '', f.forfait.montant ?? 0, { montant: f.forfait.montant ?? 0, montant_regle: 0, statut: 'attendu' }, filtres),
           )}
           loading={paiementsEtudiants.loading}
           erreur={paiementsEtudiants.erreur}
@@ -298,10 +299,10 @@ function ListePaiementsEtudiants({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {/* Les forfaits pas encore facturés passent en tête : ce sont les seuls sur lesquels rien
           n'a encore été fait, donc ceux qui appellent une action. */}
-      {forfaitsAPayer.map(({ forfait, etudiant, professeur }) => (
+      {forfaitsAPayer.map(({ forfait, etudiant, professeur, duoPartenaire }) => (
         <LigneFinanciere
           key={`forfait-${forfait.id}`}
-          nomPersonne={etudiant ? `${etudiant.prenom} ${etudiant.nom}` : 'Étudiant inconnu'}
+          nomPersonne={etudiant ? nomAvecDuo(etudiant, duoPartenaire) : 'Étudiant inconnu'}
           sousTitre={[
             `Forfait ${LABEL_PROGRAMME[forfait.type_programme]} · ${forfait.total_heures} h`,
             professeur ? `prof. ${professeur.prenom} ${professeur.nom}` : null,
@@ -314,14 +315,14 @@ function ListePaiementsEtudiants({
           statutBase="attendu"
           devise="Ar"
           dateEcheance={forfait.echeance}
-          onOuvrir={() => onOuvrir({ type: 'forfait', forfait, personne: etudiant, professeur })}
+          onOuvrir={() => onOuvrir({ type: 'forfait', forfait, personne: etudiant, professeur, duoPartenaire })}
         />
       ))}
 
-      {paiements.map(({ paiement, etudiant, forfait, professeur }) => (
+      {paiements.map(({ paiement, etudiant, forfait, professeur, duoPartenaire }) => (
         <LigneFinanciere
           key={paiement.id}
-          nomPersonne={etudiant ? `${etudiant.prenom} ${etudiant.nom}` : 'Étudiant inconnu'}
+          nomPersonne={etudiant ? nomAvecDuo(etudiant, duoPartenaire) : 'Étudiant inconnu'}
           sousTitre={
             [
               forfait ? `Forfait ${LABEL_PROGRAMME[forfait.type_programme]} · ${forfait.total_heures} h` : null,
@@ -336,7 +337,7 @@ function ListePaiementsEtudiants({
           statutBase={paiement.statut}
           devise={paiement.devise}
           dateEcheance={paiement.date_echeance}
-          onOuvrir={() => onOuvrir({ type: 'etudiant', paiement, personne: etudiant, forfait, professeur })}
+          onOuvrir={() => onOuvrir({ type: 'etudiant', paiement, personne: etudiant, forfait, professeur, duoPartenaire })}
         />
       ))}
     </div>

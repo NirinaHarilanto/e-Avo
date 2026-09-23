@@ -10,3 +10,16 @@ export function nomGroupeDuo(
   const propre = nomSaisi?.trim()
   return propre && propre.length > 0 ? propre : `${prenomA}/${prenomB}`
 }
+
+/* Nom d'une personne suivi de son binôme DUO, s'il y en a un — demande client du 2026-09-23 :
+   « dans toutes les fenêtres [...] afficher les deux noms des personnes formant le DUO ». Une
+   seule fonction pour ne jamais faire diverger le séparateur (« & », déjà celui du sous-titre du
+   dossier étudiant, DossierEtudiantVue.tsx) entre les différents endroits qui l'affichent. */
+export function nomAvecDuo(
+  personne: { prenom: string | null; nom: string | null },
+  partenaire: { prenom: string | null; nom: string | null } | null | undefined,
+): string {
+  const nom = `${personne.prenom ?? ''} ${personne.nom ?? ''}`.trim()
+  if (!partenaire) return nom
+  return `${nom} & ${partenaire.prenom ?? ''} ${partenaire.nom ?? ''}`.trim()
+}

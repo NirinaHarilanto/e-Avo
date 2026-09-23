@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { acompteSuggere, arrondi, formaterMontant, resteAPayer, statutReglement } from '../../lib/paiements'
 import { useEtablissement } from '../../hooks/useEtablissement'
 import { formaterHeures } from '../../lib/heures'
+import { nomAvecDuo } from '../../lib/duo'
 import { EcheancierPaiement } from './EcheancierPaiement'
 import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 import type { Database } from '../../types/database.types'
@@ -26,9 +27,18 @@ type Invoice = Database['public']['Tables']['invoices']['Row']
    distingue des deux autres que le temps du premier enregistrement : dès que la ligne est
    créée, la fenêtre affiche exactement la même chose qu'un paiement étudiant ordinaire. */
 export type CiblePaiement =
-  | { type: 'etudiant'; paiement: StudentPayment; personne: Profile | null; forfait: Package | null; professeur: Profile | null }
+  | {
+      type: 'etudiant'
+      paiement: StudentPayment
+      personne: Profile | null
+      forfait: Package | null
+      professeur: Profile | null
+      /* Partenaire DUO de la personne concernée (0054) — demande client du 2026-09-23 : « dans
+         toutes les fenêtres [...] afficher les deux noms des personnes formant le DUO ». */
+      duoPartenaire?: Profile | null
+    }
   | { type: 'professeur'; paiement: TeacherPayment; personne: Profile | null }
-  | { type: 'forfait'; forfait: Package; personne: Profile | null; professeur: Profile | null }
+  | { type: 'forfait'; forfait: Package; personne: Profile | null; professeur: Profile | null; duoPartenaire?: Profile | null }
   /* Forfait réglé AVANT la conversion en étudiant (0056) : la ligne est rattachée au prospect,
      `student_id` reste nul jusqu'à la conversion qui la reprend telle quelle. Rien d'autre ne
      change — acomptes, reste dû, reçu et facture sont ceux de n'importe quel paiement. */
@@ -81,11 +91,15 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
 
   const estProfesseur = cible.type === 'professeur'
   const colonneCible = estProfesseur ? 'teacher_payment_id' : 'student_payment_id'
+  // Binôme DUO toujours affiché ensemble, y compris dans une fenêtre qui ne concerne
+  // financièrement qu'un seul des deux (forfait partagé porté par un seul, ou heure d'essai
+  // individuelle) — demande client du 2026-09-23.
+  const duoPartenaire = cible.type === 'etudiant' || cible.type === 'forfait' ? (cible.duoPartenaire ?? null) : null
   const nomPersonne =
     cible.type === 'prospect'
       ? `${cible.prospect.prenom} ${cible.prospect.nom}`
       : cible.personne
-        ? `${cible.personne.prenom} ${cible.personne.nom}`
+        ? nomAvecDuo(cible.personne, duoPartenaire)
         : 'Personne inconnue'
 
   const charger = useCallback(async () => {
