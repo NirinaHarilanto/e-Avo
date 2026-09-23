@@ -34,6 +34,7 @@ export type NomIcone =
   | 'supprimer'
   | 'pause'
   | 'lecture'
+  | 'etoile'
 
 const CHEMINS: Record<NomIcone, ReactNode> = {
   prospects: <path d="M3 4h18l-7 8.2V19l-4 2v-8.8z" />,
@@ -184,6 +185,7 @@ const CHEMINS: Record<NomIcone, ReactNode> = {
     </>
   ),
   lecture: <path d="M7 4.5v15l13-7.5z" fill="currentColor" stroke="none" />,
+  etoile: <path d="M12 2.5l2.9 6.4 6.9.7-5.2 4.8 1.5 6.9L12 17.8l-6.1 3.5 1.5-6.9L2.2 9.6l6.9-.7z" fill="currentColor" stroke="none" />,
 }
 
 interface IconeProps extends Omit<SVGProps<SVGSVGElement>, 'children'> {

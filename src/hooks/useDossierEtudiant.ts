@@ -11,11 +11,17 @@ type Package = Database['public']['Tables']['packages']['Row']
 type VideoSession = Database['public']['Tables']['video_sessions']['Row']
 type Cohort = Database['public']['Tables']['cohorts']['Row']
 type Tarif = Database['public']['Tables']['tarifs']['Row']
+type SessionSatisfaction = Database['public']['Tables']['session_satisfaction']['Row']
 
 export interface SeanceDuParcours {
   enrollment: SessionEnrollment
   session: Session
   video: VideoSession | null
+  /* Enquête(s) de satisfaction de cette séance (0068) — ce que la RLS laisse voir à l'appelant :
+     sa propre ligne pour un élève, toutes pour un admin, celles de ses séances pour un
+     professeur. Jamais plus d'une par élève (contrainte unique session_id/student_id), donc au
+     plus deux pour un binôme DUO. */
+  satisfactions: SessionSatisfaction[]
 }
 
 export interface PeriodeProfesseur {
@@ -100,7 +106,16 @@ export function useDossierEtudiant(studentId: string | undefined) {
     // Vague 2 : chacune de ces 5 requêtes dépend d'un résultat de la vague 1 (inscriptionCohorte,
     // sessionIds, teacherIds ou etudiant.prospect_id), mais JAMAIS du résultat d'une autre requête
     // de cette même vague — elles peuvent donc toutes partir ensemble plutôt qu'en cascade.
-    const [{ data: cohorte }, { data: sessions }, { data: videos }, { data: professeurs }, { data: diagnostic }, { data: diagnosticPartenaire }, { data: prospectTarifRef }] = await Promise.all([
+    const [
+      { data: cohorte },
+      { data: sessions },
+      { data: videos },
+      { data: professeurs },
+      { data: diagnostic },
+      { data: diagnosticPartenaire },
+      { data: prospectTarifRef },
+      { data: satisfactions },
+    ] = await Promise.all([
       inscriptionCohorte
         ? supabase.from('cohorts').select('*').eq('id', inscriptionCohorte.cohort_id).maybeSingle()
         : Promise.resolve({ data: null as Cohort | null }),
@@ -116,6 +131,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
       etudiant.prospect_id
         ? supabase.from('prospects').select('tarif_choisi_id').eq('id', etudiant.prospect_id).maybeSingle()
         : Promise.resolve({ data: null as { tarif_choisi_id: string | null } | null }),
+      sessionIds.length > 0 ? supabase.from('session_satisfaction').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as SessionSatisfaction[] }),
     ])
     // Second aller-retour, seulement si le prospect d'origine avait choisi un tarif (0054) —
     // `profiles.prospect_id` n'a pas de contrainte FK (0002), donc pas d'embed PostgREST
@@ -126,11 +142,17 @@ export function useDossierEtudiant(studentId: string | undefined) {
     const sessionParId = new Map((sessions ?? []).map((s) => [s.id, s]))
     const videoParSession = new Map((videos ?? []).map((v) => [v.session_id, v]))
     const professeurParId = new Map((professeurs ?? []).map((p) => [p.id, p]))
+    const satisfactionsParSession = new Map<string, SessionSatisfaction[]>()
+    for (const satisfaction of satisfactions ?? []) {
+      satisfactionsParSession.set(satisfaction.session_id, [...(satisfactionsParSession.get(satisfaction.session_id) ?? []), satisfaction])
+    }
 
     const seancesToutes: SeanceDuParcours[] = (enrollments ?? [])
       .map((enrollment) => {
         const session = sessionParId.get(enrollment.session_id)
-        return session ? { enrollment, session, video: videoParSession.get(enrollment.session_id) ?? null } : null
+        return session
+          ? { enrollment, session, video: videoParSession.get(enrollment.session_id) ?? null, satisfactions: satisfactionsParSession.get(enrollment.session_id) ?? [] }
+          : null
       })
       .filter((v): v is SeanceDuParcours => v !== null)
 

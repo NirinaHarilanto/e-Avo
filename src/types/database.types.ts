@@ -1128,6 +1128,30 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['niveau_evaluations']['Insert']>
         Relationships: []
       }
+      session_satisfaction: {
+        Row: {
+          id: string
+          etablissement_id: string
+          session_id: string
+          student_id: string
+          note_globale: number
+          note_pedagogie: number | null
+          commentaire: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          session_id: string
+          student_id: string
+          note_globale: number
+          note_pedagogie?: number | null
+          commentaire?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['session_satisfaction']['Insert']>
+        Relationships: []
+      }
       reservation_parametres: {
         Row: {
           etablissement_id: string

@@ -15,6 +15,7 @@ import { Onglets, type Onglet } from '../ui/Onglets'
 import { ListeRepliable, TexteRepliable } from '../ui/Repliable'
 import { HistoriqueNiveauModale } from './HistoriqueNiveauModale'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
+import { BadgeSatisfaction, SatisfactionSeance } from './SatisfactionSeance'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -243,6 +244,8 @@ function BlocPeriode({
   periode,
   estActuelle,
   onModifierSeance,
+  satisfactionEtudiantId,
+  onSatisfactionEnregistree,
 }: {
   periode: PeriodeProfesseur
   estActuelle: boolean
@@ -250,6 +253,9 @@ function BlocPeriode({
      ouvre le même pop-up de reprogrammation que l'onglet Forfait & Planning — même interaction,
      deux points d'entrée. */
   onModifierSeance?: (seance: SeanceDuParcours) => void
+  /* Voir DossierEtudiantVueProps.satisfactionEtudiantId (0068). */
+  satisfactionEtudiantId?: string
+  onSatisfactionEnregistree?: () => void
 }) {
   const heures = periode.seances.reduce((total, s) => total + s.session.duree_minutes / 60, 0)
   return (
@@ -349,8 +355,15 @@ function BlocPeriode({
                 <span style={{ fontSize: 12, color: 'var(--muted)', width: 90, flexShrink: 0 }}>
                   {new Date(seance.session.debut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
                 </span>
-                <span style={{ fontSize: 13, color: 'var(--ink)', flexGrow: 1 }}>
+                <span style={{ fontSize: 13, color: 'var(--ink)', flexGrow: 1, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   {seance.session.type === 'individuel' ? 'Séance individuelle' : 'Séance collective'}
+                  {/* Enquête de satisfaction (0068) : formulaire cliquable pour l'élève tant qu'il
+                      n'a pas répondu, badge en lecture seule pour l'admin/le professeur qui
+                      consultent ce même dossier. */}
+                  {seance.session.statut === 'terminee' && satisfactionEtudiantId && (
+                    <SatisfactionSeance seance={seance} studentId={satisfactionEtudiantId} onEnregistre={() => onSatisfactionEnregistree?.()} />
+                  )}
+                  {seance.session.statut === 'terminee' && !satisfactionEtudiantId && <BadgeSatisfaction satisfactions={seance.satisfactions} />}
                 </span>
                 <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{seance.session.duree_minutes / 60} h</span>
                 <span style={{ width: 72, textAlign: 'right' }}>
@@ -409,6 +422,12 @@ interface DossierEtudiantVueProps {
      d'une séance depuis la liste ci-dessous, par exemple) — les panneauXxx gèrent déjà leur
      propre `onCree`/`onTermine`, celui-ci couvre ce que ce composant fait lui-même. */
   onDossierChange?: () => void
+  /* Identifiant PROPRE de l'élève connecté (0068) — absent en vue admin/professeur (lecture
+     seule des enquêtes déjà soumises), fourni uniquement par MonEspaceEtudiant.tsx. Jamais
+     `dossier.etudiant.id` : pour un secondaire DUO, ce dernier est celui du principal (dossier
+     partagé), alors que l'enquête de satisfaction est propre à CHAQUE identité de connexion —
+     les deux membres ont assisté au même cours mais peuvent avoir un avis différent. */
+  satisfactionEtudiantId?: string
 }
 
 /* Rendu du dossier étudiant, partagé entre la vue admin (avec actions) et l'espace élève/
@@ -428,6 +447,7 @@ export function DossierEtudiantVue({
   peutModifierNiveau,
   peutModifierPlanning,
   onDossierChange,
+  satisfactionEtudiantId,
 }: DossierEtudiantVueProps) {
   const { etudiant, periodes, periodeActuelle, diagnostic, diagnosticPartenaire, packages, cohorte, heuresConsommees, prochaineSeance, tarifChoisi, duoPartenaire } = dossier
   const forfait = packages[0] ?? null
@@ -624,6 +644,8 @@ export function DossierEtudiantVue({
                     periode={periode}
                     estActuelle={periode.affectation.id === periodeActuelle?.affectation.id}
                     onModifierSeance={peutModifierPlanning ? setSeanceEnEdition : undefined}
+                    satisfactionEtudiantId={satisfactionEtudiantId}
+                    onSatisfactionEnregistree={onDossierChange}
                   />
                 ))}
                 {(diagnostic || diagnosticPartenaire) && (

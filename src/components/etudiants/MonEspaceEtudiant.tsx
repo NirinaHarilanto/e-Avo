@@ -10,7 +10,7 @@ import { EtatVide } from '../ui/EtatVide'
 
 export function MonEspaceEtudiant() {
   const { profile, idEtudiantEffectif } = useProfileContext()
-  const { dossier, loading, erreur } = useDossierEtudiant(idEtudiantEffectif ?? undefined)
+  const { dossier, loading, erreur, recharger } = useDossierEtudiant(idEtudiantEffectif ?? undefined)
   /* DUO (0054) : le dossier affiché est celui du binôme, pas forcément le profil qu'on vient de
      créer soi-même — un mot d'explication évite toute confusion à la première connexion. */
   const estSecondaireDuo = !!profile?.duo_partenaire_id
@@ -62,8 +62,13 @@ export function MonEspaceEtudiant() {
           description="Votre inscription est enregistrée, mais l’établissement n’a pas encore constitué votre dossier pédagogique. Il apparaîtra ici dès qu’un professeur et un programme vous auront été attribués."
         />
       )}
-      {dossier && idEtudiantEffectif && (
-        <DossierEtudiantVue dossier={dossier} panneauDemandeForfait={<DemandeForfaitEtudiant studentId={idEtudiantEffectif} />} />
+      {dossier && idEtudiantEffectif && profile && (
+        <DossierEtudiantVue
+          dossier={dossier}
+          panneauDemandeForfait={<DemandeForfaitEtudiant studentId={idEtudiantEffectif} />}
+          satisfactionEtudiantId={profile.id}
+          onDossierChange={recharger}
+        />
       )}
     </EtudiantLayout>
   )
