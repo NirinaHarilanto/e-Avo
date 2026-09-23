@@ -60,7 +60,10 @@ function BlocDiagnostic({ diagnostic, tarifChoisi }: { diagnostic: NonNullable<D
       )}
       {diagnostic.notes && (
         <div style={{ background: 'rgba(0,0,0,.24)', borderRadius: 12, padding: '11px 13px' }}>
-          <TexteRepliable texte={`« ${diagnostic.notes} »`} style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)' }} />
+          <TexteRepliable
+            texte={`« ${diagnostic.notes} »`}
+            style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)', whiteSpace: 'pre-wrap' }}
+          />
         </div>
       )}
       {/* Réponses à la trame remplie pendant l'appel (0050) : elles suivent le prospect dans son

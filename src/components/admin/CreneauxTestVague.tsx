@@ -45,13 +45,16 @@ function versDatetimeLocalAntananarivo(instantIso: string): string {
    Création/modification/suppression passent par le serveur pour générer, déplacer ou retirer le
    lien Google Meet en même temps que le créneau. */
 export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
-  const { session } = useProfileContext()
+  const { session, profile } = useProfileContext()
   const [creneaux, setCreneaux] = useState<CreneauTest[] | null>(null)
   const [candidatsParCreneau, setCandidatsParCreneau] = useState<Map<string, CandidatInscrit[]>>(new Map())
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [creneauEnEdition, setCreneauEnEdition] = useState<CreneauTest | null>(null)
   const [creneauDeplie, setCreneauDeplie] = useState<string | null>(null)
   const [bilanOuvert, setBilanOuvert] = useState<CandidatInscrit | null>(null)
+  // Candidat pour lequel on saisit les résultats du test oral avant conversion (demande client
+  // du 2026-09-24) — remplace le simple window.confirm d'avant.
+  const [candidatPourResultats, setCandidatPourResultats] = useState<CandidatInscrit | null>(null)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [messageConversion, setMessageConversion] = useState<string | null>(null)
@@ -168,18 +171,34 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
     charger()
   }
 
-  async function convertirEnEtudiant(candidat: CandidatInscrit) {
-    if (!session || !candidat.prospect) return
-    if (
-      !window.confirm(
-        `Convertir ${candidat.prospect.prenom} ${candidat.prospect.nom} en étudiant ? Il/elle rejoindra automatiquement cette vague, et un e-mail d'invitation lui sera envoyé pour créer son mot de passe.`,
-      )
-    ) {
-      return
-    }
+  /* Consigne d'abord les résultats du test oral (niveau, profil, objectifs) dans un
+     diagnostic_calls — comme l'appel diagnostic individuel/duo, le dossier de l'élève les
+     affichera ensuite sans plomberie supplémentaire (BlocDiagnostic, DossierEtudiantVue.tsx) —
+     puis convertit le prospect. Les deux échouent ensemble si l'un des deux échoue : pas
+     d'étudiant sans trace de son test oral. */
+  async function validerResultatsEtConvertir(
+    candidat: CandidatInscrit,
+    resultats: { niveau: string; profilDetaille: string; objectifs: string },
+  ) {
+    if (!session || !candidat.prospect || !profile) return
     setEnCours(true)
     setErreur(null)
     setMessageConversion(null)
+
+    const { error: diagnosticError } = await supabase.from('diagnostic_calls').insert({
+      etablissement_id: candidat.prospect.etablissement_id,
+      prospect_id: candidat.prospect.id,
+      mene_par: profile.id,
+      date_appel: new Date().toISOString(),
+      niveau_evalue: resultats.niveau.trim() || null,
+      notes: formaterNotesTestOral(resultats.profilDetaille, resultats.objectifs),
+    })
+    if (diagnosticError) {
+      setEnCours(false)
+      setErreur(diagnosticError.message)
+      return
+    }
+
     const { data, error } = await appelServeur('/api/admin/convert-prospect', { prospectId: candidat.prospect.id })
     setEnCours(false)
     if (error) {
@@ -198,6 +217,7 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
     } else {
       setMessageConversion("Niveau non déterminé (quiz non passé ou non concluant) : affectez la classe à la main depuis le dossier de l'élève.")
     }
+    setCandidatPourResultats(null)
     charger()
   }
 
@@ -312,7 +332,7 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
                             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-teal)' }}>Converti ✓</span>
                           ) : (
                             <button
-                              onClick={() => convertirEnEtudiant(candidat)}
+                              onClick={() => setCandidatPourResultats(candidat)}
                               disabled={enCours || !candidat.prospect}
                               style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'transparent', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '5px 11px', cursor: 'pointer' }}
                             >
@@ -351,6 +371,19 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
             {bilanOuvert.inscription.bilan ?? 'Aucun bilan enregistré.'}
           </pre>
         </Modale>
+      )}
+      {candidatPourResultats && (
+        <ModaleResultatsTestOral
+          candidat={candidatPourResultats}
+          enCours={enCours}
+          erreur={erreur}
+          onFermer={() => {
+            if (enCours) return
+            setCandidatPourResultats(null)
+            setErreur(null)
+          }}
+          onValider={(resultats) => validerResultatsEtConvertir(candidatPourResultats, resultats)}
+        />
       )}
     </div>
   )
@@ -408,6 +441,85 @@ function FormulaireCreneau({
             style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: debut && !enCours ? 1 : 0.6 }}
           >
             {enCours ? 'Enregistrement…' : enModification ? 'Enregistrer les modifications' : 'Ouvrir la session'}
+          </button>
+        </div>
+      </div>
+    </Modale>
+  )
+}
+
+/* Notes de l'appel diagnostic (0006) : un seul champ texte libre. Le profil détaillé et les
+   objectifs saisis au test oral y sont regroupés sous deux paragraphes étiquetés plutôt que
+   d'ajouter des colonnes dédiées, pour rester lisibles tels quels dans BlocDiagnostic
+   (DossierEtudiantVue.tsx) sans y toucher. `null` si les deux champs sont vides. */
+function formaterNotesTestOral(profilDetaille: string, objectifs: string): string | null {
+  const parties = [
+    profilDetaille.trim() ? `Profil détaillé :\n${profilDetaille.trim()}` : null,
+    objectifs.trim() ? `Objectifs :\n${objectifs.trim()}` : null,
+  ].filter((p): p is string => p !== null)
+  return parties.length > 0 ? parties.join('\n\n') : null
+}
+
+/* Résultats du test oral, saisis avant conversion (demande client du 2026-09-24) : jusqu'ici,
+   « Convertir en étudiant » ne faisait qu'un window.confirm, et rien du test oral (par
+   opposition au quiz écrit, déjà noté automatiquement) n'était conservé dans le dossier de
+   l'élève. */
+function ModaleResultatsTestOral({
+  candidat,
+  enCours,
+  erreur,
+  onFermer,
+  onValider,
+}: {
+  candidat: CandidatInscrit
+  enCours: boolean
+  erreur: string | null
+  onFermer: () => void
+  onValider: (resultats: { niveau: string; profilDetaille: string; objectifs: string }) => void
+}) {
+  const [niveau, setNiveau] = useState('')
+  const [profilDetaille, setProfilDetaille] = useState('')
+  const [objectifs, setObjectifs] = useState('')
+  const nom = candidat.prospect ? `${candidat.prospect.prenom} ${candidat.prospect.nom}` : 'ce candidat'
+
+  return (
+    <Modale titre={`Résultats du test oral · ${nom}`} onFermer={onFermer} largeurMax={520}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: 0, lineHeight: 1.55 }}>
+          Ces résultats sont enregistrés dans le dossier de l'élève (comme un appel diagnostic), puis {nom} est
+          converti·e en étudiant·e et rejoint automatiquement cette vague.
+        </p>
+        <Champ label="Niveau d'anglais" aide="Ex. B1, Intermédiaire…">
+          <input value={niveau} onChange={(e) => setNiveau(e.target.value)} placeholder="Niveau déterminé à l'oral" style={champStyle} />
+        </Champ>
+        <Champ label="Profil détaillé">
+          <textarea
+            value={profilDetaille}
+            onChange={(e) => setProfilDetaille(e.target.value)}
+            rows={3}
+            style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
+          />
+        </Champ>
+        <Champ label="Objectifs">
+          <textarea
+            value={objectifs}
+            onChange={(e) => setObjectifs(e.target.value)}
+            rows={3}
+            style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
+          />
+        </Champ>
+        {erreur && <MessageErreur>{erreur}</MessageErreur>}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={onFermer} disabled={enCours} style={boutonNeutreStyle}>
+            Annuler
+          </button>
+          <button
+            onClick={() => onValider({ niveau, profilDetaille, objectifs })}
+            disabled={enCours}
+            className="btn-shine"
+            style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: enCours ? 0.6 : 1 }}
+          >
+            {enCours ? 'Enregistrement…' : 'Valider et convertir en étudiant'}
           </button>
         </div>
       </div>
