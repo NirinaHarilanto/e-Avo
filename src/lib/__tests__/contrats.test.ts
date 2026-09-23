@@ -389,4 +389,31 @@ describe('substituerVariablesDuo', () => {
       ].join('\n'),
     )
   })
+
+  /* Bug réel constaté le 2026-09-23 sur le modèle de production, saisi avec des retours à la
+     ligne Windows (`\r\n`) : un modèle qui ne contient AUCUN `\n\n` (les séparateurs sont tous en
+     `\r\n\r\n`) n'était jamais découpé — tout le corps formait un seul « paragraphe », dupliqué en
+     ENTIER (établissement, tous les articles...) plutôt que la seule clause d'identité. Les
+     informations du second membre existaient bien dans le texte, mais tout en bas, après une
+     copie complète du contrat, hors du cadre défilant de l'aperçu — d'où l'impression que
+     « Bensaloc n'apparaît nulle part » alors qu'il apparaissait, juste noyé. */
+  it('reconnaît aussi les paragraphes séparés par des retours à la ligne Windows (\\r\\n\\r\\n)', () => {
+    const corps = [
+      'Entre {{etablissement}},',
+      '',
+      '{{nom}}, né(e) le {{naissance}}, ci-après « l’Étudiant »,',
+      '',
+      'ARTICLE 1 — OBJET',
+      'Texte sans rapport avec les personnes.',
+    ].join('\r\n')
+    const valeurs = { etablissement: 'HOC', nom: 'Miora Rakoto', naissance: '01/01/2010' }
+    const valeursSecondaires = { nom: 'Tojo Andria', naissance: '02/02/2011' }
+    const rendu = substituerVariablesDuo(corps, valeurs, valeursSecondaires)
+
+    // Le préambule et les articles n'apparaissent qu'une seule fois : seule la clause
+    // d'identité est dupliquée, pas tout le contrat.
+    expect(rendu.match(/Entre HOC/g)?.length).toBe(1)
+    expect(rendu.match(/ARTICLE 1/g)?.length).toBe(1)
+    expect(rendu).toContain('Miora Rakoto, né(e) le 01/01/2010, ci-après « l’Étudiant »,\nTojo Andria, né(e) le 02/02/2011, ci-après « l’Étudiant »,')
+  })
 })

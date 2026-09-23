@@ -465,9 +465,17 @@ export function preparerVariables(
    moins un champ d'identité concerné par `valeursSecondaires` (voir `valeurAutoSecondaire`
    ci-dessus) : une première version substituée avec les valeurs du principal, une seconde avec
    celles du second membre, l'une sous l'autre. Les paragraphes sont délimités par une ligne vide,
-   convention déjà suivie par tous les modèles existants pour séparer leurs clauses. Sans second
-   membre à intégrer (`valeursSecondaires` vide — étudiant seul, professeur, ou modèle déjà conçu
-   pour le DUO avec ses propres champs `_2`), se comporte exactement comme `substituerVariables`. */
+   convention déjà suivie par tous les modèles existants pour séparer leurs clauses.
+   `(?:\r\n|\r|\n)` plutôt que `\n` seul : les modèles saisis/collés depuis un éditeur Windows
+   (Word, Bloc-notes) utilisent `\r\n`, jamais reconnu par `\n{2,}` puisqu'un `\r` s'intercale
+   entre les deux retours à la ligne — bug constaté le 2026-09-23 sur le modèle réel de
+   l'établissement : faute de séparateur reconnu, TOUT le corps était traité comme un seul
+   paragraphe et donc dupliqué en entier (le contrat entier deux fois de suite, avec les
+   informations du second membre invisibles car loin après la première copie complète, hors du
+   cadre défilant de l'aperçu) plutôt que la seule clause d'identité concernée.
+   Sans second membre à intégrer (`valeursSecondaires` vide — étudiant seul, professeur, ou
+   modèle déjà conçu pour le DUO avec ses propres champs `_2`), se comporte exactement comme
+   `substituerVariables`. */
 export function substituerVariablesDuo(
   corpsTemplate: string,
   valeurs: Record<string, string>,
@@ -476,7 +484,7 @@ export function substituerVariablesDuo(
   if (Object.keys(valeursSecondaires).length === 0) return substituerVariables(corpsTemplate, valeurs)
 
   return corpsTemplate
-    .split(/\n{2,}/)
+    .split(/(?:\r\n|\r|\n){2,}/)
     .map((paragraphe) => {
       const concerneParLeDuo = extraireVariables(paragraphe).some((cle) => cle in valeursSecondaires)
       if (!concerneParLeDuo) return substituerVariables(paragraphe, valeurs)
