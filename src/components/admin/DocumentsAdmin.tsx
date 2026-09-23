@@ -21,6 +21,8 @@ import { ChampRecherche } from '../ui/BarreOutils'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
 import { boutonSecondaireStyle } from '../ui/Boutons'
+import { champStyle, etiquetteStyle } from '../ui/Champ'
+import { Icone } from '../ui/Icones'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type Document = Database['public']['Tables']['documents']['Row']
@@ -233,8 +235,34 @@ function PanneauPartageables({ etablissementId, adminId }: { etablissementId: st
   )
 }
 
+/* Rangés en liste pliable/dépliable (un seul ouvert à la fois, comme la liste des accès
+   confidentiels plus bas) avec filtre par personne concernée et par date — demande client du
+   2026-09-23 : la liste, jusqu'ici entièrement dépliée, devenait vite trop longue à parcourir dès
+   que les professeurs accumulaient des comptes rendus. */
 function PanneauComptesRendus() {
   const { comptesRendus, loading, erreur } = useSessionReports()
+  const [ouvertId, setOuvertId] = useState<string | null>(null)
+  const [recherchePersonne, setRecherchePersonne] = useState('')
+  const [dateDebut, setDateDebut] = useState('')
+  const [dateFin, setDateFin] = useState('')
+
+  const filtres = useMemo(() => {
+    const rechercheNormalisee = recherchePersonne.trim().toLowerCase()
+    return comptesRendus.filter(({ session, professeur, participants }) => {
+      if (rechercheNormalisee) {
+        const personnes = [professeur, ...participants].filter((p): p is Profile => !!p)
+        const correspond = personnes.some((p) => `${p.prenom ?? ''} ${p.nom ?? ''}`.toLowerCase().includes(rechercheNormalisee))
+        if (!correspond) return false
+      }
+      if (dateDebut || dateFin) {
+        if (!session) return false
+        const jour = session.debut.slice(0, 10)
+        if (dateDebut && jour < dateDebut) return false
+        if (dateFin && jour > dateFin) return false
+      }
+      return true
+    })
+  }, [comptesRendus, recherchePersonne, dateDebut, dateFin])
 
   if (loading) return <EtatChargement lignes={3} hauteur={96} />
   if (erreur) return <MessageErreur>{erreur}</MessageErreur>
@@ -248,26 +276,95 @@ function PanneauComptesRendus() {
     )
   }
 
+  const filtresActifs = !!(recherchePersonne || dateDebut || dateFin)
+
   return (
     <GroupeSection
       titre="Comptes rendus de séances"
       description="Rédigés par les professeurs après chaque cours, en lecture seule ici. L’élève concerné les retrouve dans son espace."
     >
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {comptesRendus.map(({ rapport, session, professeur, participants }) => (
-        <div key={rapport.id} className="card card-lift" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-            <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
-              {session ? new Date(session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Séance inconnue'}
-            </span>
-            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{professeur ? `${professeur.prenom} ${professeur.nom}` : 'Professeur inconnu'}</span>
-            <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>
-              {participants.map((p) => `${p.prenom} ${p.nom}`).join(', ') || 'aucun participant'}
-            </span>
-          </div>
-          <CompteRenduAffichage rapport={rapport} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div style={{ flexGrow: 1, minWidth: 220 }}>
+          <ChampRecherche valeur={recherchePersonne} onChange={setRecherchePersonne} placeholder="Filtrer par professeur ou élève…" />
         </div>
-      ))}
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <span style={etiquetteStyle}>Du</span>
+          <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} style={champStyle} />
+        </label>
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <span style={etiquetteStyle}>Au</span>
+          <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} style={champStyle} />
+        </label>
+        {filtresActifs && (
+          <button
+            type="button"
+            onClick={() => {
+              setRecherchePersonne('')
+              setDateDebut('')
+              setDateFin('')
+            }}
+            style={{ ...boutonSecondaireStyle, alignSelf: 'stretch' }}
+          >
+            Réinitialiser
+          </button>
+        )}
+      </div>
+
+      {filtres.length === 0 ? (
+        <EtatVide
+          compact
+          icone="recherche"
+          titre="Aucun résultat"
+          description="Aucun compte rendu ne correspond à ces filtres."
+        />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {filtres.map(({ rapport, session, professeur, participants }) => {
+            const ouvert = ouvertId === rapport.id
+            return (
+              <div key={rapport.id} className="card card-lift" style={{ padding: 0, overflow: 'hidden' }}>
+                <button
+                  type="button"
+                  onClick={() => setOuvertId(ouvert ? null : rapport.id)}
+                  style={{
+                    width: '100%',
+                    textAlign: 'left',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '16px 20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
+                    flexWrap: 'wrap',
+                    color: 'inherit',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
+                    {session ? new Date(session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Séance inconnue'}
+                  </span>
+                  <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{professeur ? `${professeur.prenom} ${professeur.nom}` : 'Professeur inconnu'}</span>
+                  <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>
+                    {participants.map((p) => `${p.prenom} ${p.nom}`).join(', ') || 'aucun participant'}
+                  </span>
+                  <Icone
+                    nom="chevron"
+                    taille={14}
+                    style={{ marginLeft: 'auto', flexShrink: 0, color: 'var(--muted)', transform: ouvert ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}
+                  />
+                </button>
+                {ouvert && (
+                  <div style={{ padding: '0 20px 18px' }}>
+                    <CompteRenduAffichage rapport={rapport} />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
     </GroupeSection>
   )

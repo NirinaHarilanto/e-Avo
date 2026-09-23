@@ -111,6 +111,24 @@ export function libelleSource(source: string): string | undefined {
   return SOURCES_VARIABLE.find((s) => s.valeur === source)?.label
 }
 
+/* Champs d'identité personnelle qu'un contrat DUO doit porter pour les DEUX membres même quand
+   le modèle n'a jamais été pensé pour ça (voir `preparerVariables`, repli automatique) — exclut
+   `taux_horaire` (professeur uniquement, jamais de DUO) et tous les champs de programme/
+   établissement/date, partagés par construction, pas propres à une personne. */
+const CHAMPS_IDENTITE_JOIGNABLES_DUO = new Set<SourceVariable>([
+  'prenom',
+  'nom',
+  'nom_complet',
+  'email',
+  'telephone',
+  'whatsapp',
+  'adresse',
+  'ville',
+  'date_naissance',
+  'lieu_naissance',
+  'age',
+])
+
 const LABELS_TYPE_PROGRAMME = { individuel: 'Individuel', duo: 'Duo', collectif: 'Collectif' } as const
 
 export function libelleTypeProgramme(type: keyof typeof LABELS_TYPE_PROGRAMME): string {
@@ -386,7 +404,25 @@ export function preparerVariables(
      pour tout contrat sans second destinataire (professeur, étudiant individuel). */
   destinataireSecondaire?: Profile | null,
 ): VariableResolue[] {
-  return extraireVariables(corpsTemplate).map((cle) => {
+  const cles = extraireVariables(corpsTemplate)
+
+  function resoudreSourceDeCle(cle: string): SourceVariable | undefined {
+    const declaree = variablesModele.find((v) => v.cle === cle)
+    return (declaree?.source as SourceVariable | undefined) || deduireSource(cle, declaree?.label || cle)
+  }
+
+  /* Un modèle qui ne déclare JAMAIS de champ « second membre » explicite (`*_2`) n'a
+     vraisemblablement pas été pensé pour le DUO — sans repli, le contrat généré ne porterait
+     alors les informations que du destinataire principal, alors que le second signataire est
+     tout autant partie au contrat. Demande client du 2026-09-23 : « les informations des deux
+     personnes formant le DUO [doivent être] intégrées dans le contrat généré ». À l'inverse, un
+     modèle qui déclare déjà au moins un champ `_2` a été conçu consciemment pour afficher les
+     deux personnes côte à côte (ex. un tableau à deux colonnes) : on respecte ce choix explicite
+     plutôt que de doubler aussi les champs de base, ce qui produirait une redondance. */
+  const modeleDejaPenseurPourLeDuo = cles.some((cle) => resoudreSourceDeCle(cle)?.endsWith('_2'))
+  const joindreLesDeuxMembres = !!destinataireSecondaire && !modeleDejaPenseurPourLeDuo
+
+  return cles.map((cle) => {
     const declaree = variablesModele.find((v) => v.cle === cle)
     const label = declaree?.label || cle
 
@@ -399,7 +435,15 @@ export function preparerVariables(
     const source = declaree?.source || deduireSource(cle, label)
     if (destinataire && source && source !== SOURCE_MANUELLE) {
       const valeurAuto = resoudreSource(source, destinataire, etablissement, contexte, destinataireSecondaire)
-      if (valeurAuto !== null) return { cle, label, valeurAuto, source }
+      if (valeurAuto !== null) {
+        if (joindreLesDeuxMembres && CHAMPS_IDENTITE_JOIGNABLES_DUO.has(source as SourceVariable)) {
+          const valeurSecondaire = resoudreSource(source, destinataireSecondaire!, etablissement, contexte)
+          if (valeurSecondaire !== null && valeurSecondaire !== valeurAuto) {
+            return { cle, label, valeurAuto: `${valeurAuto} & ${valeurSecondaire}`, source }
+          }
+        }
+        return { cle, label, valeurAuto, source }
+      }
     }
 
     return { cle, label, defaut: declaree?.valeur_defaut ?? deduireValeurDefaut(cle, label) }

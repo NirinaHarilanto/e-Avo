@@ -310,4 +310,45 @@ describe('preparerVariables — second membre du duo', () => {
     const resolues = preparerVariables('{{nom2}}', modele, etudiant, etablissement)
     expect(resolues[0].valeurAuto).toBeUndefined()
   })
+
+  /* Bug signalé par le client le 2026-09-23 : un modèle non pensé pour le DUO (aucun champ _2
+     déclaré) ne montrait, une fois généré, QUE les informations du destinataire principal — le
+     second signataire n'apparaissait nulle part dans le contrat qu'il devait pourtant signer. */
+  it("sans champ _2 déclaré par le modèle, les champs d'identité de base portent automatiquement les deux membres", () => {
+    const modele = [
+      { cle: 'nom_complet_etudiant', label: "Nom complet de l'étudiant" },
+      { cle: 'adresse_etudiant', label: "Adresse de l'étudiant" },
+      { cle: 'type_prog', label: 'Type de programme' },
+    ]
+    const corps = '{{nom_complet_etudiant}} {{adresse_etudiant}} {{type_prog}}'
+    const resolues = preparerVariables(corps, modele, etudiant, etablissement, { typeProgrammeLabel: 'Duo' }, partenaire)
+    const parCle = Object.fromEntries(resolues.map((v) => [v.cle, v]))
+
+    expect(parCle.nom_complet_etudiant.valeurAuto).toBe('Miora Rakoto & Tojo Andria')
+    // L'adresse du partenaire n'est pas renseignée sur son profil (hérite de `etudiant` sauf
+    // override) : elle est donc identique à celle du principal, jointe une seule fois plutôt que
+    // dupliquée en « X & X ».
+    expect(parCle.adresse_etudiant.valeurAuto).toBe('Lot II M 12, Antananarivo')
+    // Un champ de programme (partagé par construction, pas propre à une personne) n'est jamais
+    // joint, même en DUO.
+    expect(parCle.type_prog.valeurAuto).toBe('Duo')
+  })
+
+  it("sans champ _2 déclaré, une adresse différente entre les deux membres est jointe", () => {
+    const modele = [{ cle: 'adresse_etudiant', label: "Adresse de l'étudiant" }]
+    const autrePartenaire = { ...partenaire, adresse: 'Ambohipo, Antananarivo' }
+    const resolues = preparerVariables('{{adresse_etudiant}}', modele, etudiant, etablissement, undefined, autrePartenaire)
+    expect(resolues[0].valeurAuto).toBe('Lot II M 12, Antananarivo & Ambohipo, Antananarivo')
+  })
+
+  it('un modèle qui déclare déjà un champ _2 garde son champ de base propre au seul principal (pas de double affichage)', () => {
+    const modele = [
+      { cle: 'nom1', label: 'Nom (étudiant 1)', source: 'nom' },
+      { cle: 'nom2', label: 'Nom (étudiant 2)', source: 'nom_2' },
+    ]
+    const resolues = preparerVariables('{{nom1}} {{nom2}}', modele, etudiant, etablissement, undefined, partenaire)
+    const parCle = Object.fromEntries(resolues.map((v) => [v.cle, v]))
+    expect(parCle.nom1.valeurAuto).toBe('Rakoto')
+    expect(parCle.nom2.valeurAuto).toBe('Andria')
+  })
 })

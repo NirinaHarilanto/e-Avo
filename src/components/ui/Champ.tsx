@@ -59,10 +59,19 @@ export function Champ({ label, aide, obligatoire, children, style }: ChampProps)
 
 /* Ligne « libellé / valeur » des panneaux de consultation. Était dupliquée à l'identique dans
    DossierEtudiantVue et InformationsPersonnelles. */
-export function LigneInfo({ label, valeur }: { label: string; valeur: ReactNode }) {
+export function LigneInfo({ label, valeur, accent }: { label: string; valeur: ReactNode; accent?: boolean }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 14, padding: '5px 0' }}>
-      <span style={{ fontSize: 12, color: 'var(--muted)', flexShrink: 0 }}>{label}</span>
+      <span
+        style={{
+          fontSize: 12,
+          color: accent ? 'var(--accent-blue)' : 'var(--muted)',
+          fontWeight: accent ? 700 : 400,
+          flexShrink: 0,
+        }}
+      >
+        {label}
+      </span>
       <span style={{ fontSize: 12.5, color: 'var(--ink-2)', textAlign: 'right', minWidth: 0, wordBreak: 'break-word' }}>
         {valeur ?? '—'}
       </span>

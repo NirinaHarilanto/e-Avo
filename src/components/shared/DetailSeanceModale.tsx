@@ -26,10 +26,15 @@ interface DetailSeanceModaleProps {
   actions?: ReactNode
 }
 
+/* Intitulés rendus plus visibles dans cette fiche précisément — demande client du 2026-09-23 :
+   « les intitulés » de la fenêtre Détail de la séance étaient trop ternes (`var(--muted)`, gris
+   estompé) pour être lus confortablement. `var(--accent-blue)` plutôt qu'un simple éclaircissement
+   de `--muted` : déjà la teinte utilisée pour le lien de visioconférence juste au-dessus, donc
+   cohérente avec le reste de la fiche. */
 function Bloc({ titre, children }: { titre: string; children: ReactNode }) {
   return (
     <section style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-      <h4 style={{ margin: 0, fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)' }}>
+      <h4 style={{ margin: 0, fontSize: 11.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--accent-blue)' }}>
         {titre}
       </h4>
       {children}
@@ -66,10 +71,10 @@ export function DetailSeanceModale({ session, professeur, eleves, video, onFerme
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <LigneInfo label="Professeur" valeur={professeur ? `${professeur.prenom} ${professeur.nom}` : 'Non attribué'} />
-          <LigneInfo label={nomsEleves.length > 1 ? 'Étudiants' : 'Étudiant'} valeur={nomsEleves.join(', ') || 'Aucun élève inscrit'} />
-          <LigneInfo label="Type" valeur={session.type === 'individuel' ? 'Individuel' : 'Collectif'} />
-          <LigneInfo label="Durée" valeur={formaterMinutes(session.duree_minutes)} />
+          <LigneInfo accent label="Professeur" valeur={professeur ? `${professeur.prenom} ${professeur.nom}` : 'Non attribué'} />
+          <LigneInfo accent label={nomsEleves.length > 1 ? 'Étudiants' : 'Étudiant'} valeur={nomsEleves.join(', ') || 'Aucun élève inscrit'} />
+          <LigneInfo accent label="Type" valeur={session.type === 'individuel' ? 'Individuel' : 'Collectif'} />
+          <LigneInfo accent label="Durée" valeur={formaterMinutes(session.duree_minutes)} />
         </div>
 
         {video && lienVisio && estLienReel(video) && (
