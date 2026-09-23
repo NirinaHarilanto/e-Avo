@@ -2,6 +2,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { DossierEtudiantVue } from './DossierEtudiantVue'
 import { DemandeForfaitEtudiant } from './DemandeForfaitEtudiant'
+import { PlanningVagueEtudiant } from './PlanningVagueEtudiant'
 import { EtudiantLayout } from '../layout/EtudiantLayout'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -62,6 +63,12 @@ export function MonEspaceEtudiant() {
           description="Votre inscription est enregistrée, mais l’établissement n’a pas encore constitué votre dossier pédagogique. Il apparaîtra ici dès qu’un professeur et un programme vous auront été attribués."
         />
       )}
+      {idEtudiantEffectif && (
+        <div style={{ marginBottom: 14 }}>
+          <PlanningVagueEtudiant studentId={idEtudiantEffectif} />
+        </div>
+      )}
+
       {dossier && idEtudiantEffectif && profile && (
         <DossierEtudiantVue
           dossier={dossier}

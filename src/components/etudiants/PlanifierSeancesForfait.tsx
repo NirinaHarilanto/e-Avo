@@ -20,6 +20,9 @@ interface Creneau {
 
 interface PlanifierSeancesForfaitProps {
   studentIds: string[]
+  /* Planning d'une vague entière (0069) : le serveur résout lui-même les élèves depuis la vague
+     — `studentIds` ne sert alors qu'à savoir s'il y a quelqu'un à planifier. */
+  cohortId?: string
   /* Omis côté professeur : la route `api/professeur/...` planifie forcément pour l'appelant.
      Renseigné côté admin, qui planifie pour le professeur attribué à l'élève. */
   teacherId?: string
@@ -45,6 +48,7 @@ interface PlanifierSeancesForfaitProps {
    date déjà résolue. */
 export function PlanifierSeancesForfait({
   studentIds,
+  cohortId,
   teacherId,
   dureeParDefaut,
   dateFinParDefaut,
@@ -141,7 +145,13 @@ export function PlanifierSeancesForfait({
     const reponse = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ studentIds, ...(teacherId ? { teacherId } : {}), dureeMinutes, debuts: debutsPrevus }),
+      body: JSON.stringify({
+        studentIds,
+        ...(cohortId ? { cohortId } : {}),
+        ...(teacherId ? { teacherId } : {}),
+        dureeMinutes,
+        debuts: debutsPrevus,
+      }),
     })
     setEnCours(false)
     if (!reponse.ok) {

@@ -11,10 +11,14 @@ import { boutonSecondaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
+type Cohort = Database['public']['Tables']['cohorts']['Row']
 
 interface PlanningPrevisionnelProfesseurProps {
   seances: SeanceProfesseur[]
   etudiantsActifs: Profile[]
+  /* Vagues animées par ce professeur (0069) : elles se planifient d'un bloc, pas élève par
+     élève — demande client du 2026-09-23 (point 8). */
+  vagues: { cohorte: Cohort; eleves: Profile[] }[]
   onChange: () => void
 }
 
@@ -29,24 +33,40 @@ interface PlanningPrevisionnelProfesseurProps {
    Modifier une séance déjà planifiée passe par la modale partagée : côté professeur, le
    changement est une PROPOSITION soumise à validation de l'administration (migration 0038),
    règle inchangée ici. */
-export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, onChange }: PlanningPrevisionnelProfesseurProps) {
+export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, vagues, onChange }: PlanningPrevisionnelProfesseurProps) {
   const { profile } = useProfileContext()
   const [eleveId, setEleveId] = useState<string | null>(null)
+  const [vagueId, setVagueId] = useState<string | null>(null)
   const [generateurOuvert, setGenerateurOuvert] = useState(false)
   const [seanceEnEdition, setSeanceEnEdition] = useState<string | null>(null)
+
+  const vagueChoisie = vagues.find((v) => v.cohorte.id === vagueId) ?? null
 
   const planifiees = useMemo(
     () =>
       seances
         .filter((s) => s.session.statut === 'planifiee')
-        .filter((s) => !eleveId || s.inscriptions.some((i) => i.student_id === eleveId))
+        .filter((s) => (vagueId ? s.session.cohort_id === vagueId : true))
+        .filter((s) => (eleveId ? s.inscriptions.some((i) => i.student_id === eleveId) : true))
         .sort((a, b) => a.session.debut.localeCompare(b.session.debut)),
-    [seances, eleveId],
+    [seances, eleveId, vagueId],
   )
 
   const seanceOuverte = seances.find((s) => s.session.id === seanceEnEdition) ?? null
 
-  if (etudiantsActifs.length === 0) {
+  function choisirEleve(id: string | null) {
+    setEleveId(id)
+    setVagueId(null)
+    setGenerateurOuvert(false)
+  }
+
+  function choisirVague(id: string) {
+    setVagueId(id)
+    setEleveId(null)
+    setGenerateurOuvert(false)
+  }
+
+  if (etudiantsActifs.length === 0 && vagues.length === 0) {
     return (
       <EtatVide
         icone="etudiants"
@@ -59,20 +79,21 @@ export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, onCha
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <GroupeSection
-        titre="Élève concerné"
-        description="Choisissez l’élève dont vous préparez le planning. Sélectionnez-en plusieurs pour un cours collectif."
+        titre="Qui concerne ce planning"
+        description="Un élève pour un planning individuel, une vague pour planifier tout un groupe de cours collectif d’un seul coup."
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <button
-            type="button"
-            onClick={() => setEleveId(null)}
-            style={pastilleStyle(eleveId === null)}
-          >
+          <button type="button" onClick={() => choisirEleve(null)} style={pastilleStyle(eleveId === null && vagueId === null)}>
             Tous mes élèves
           </button>
           {etudiantsActifs.map((etudiant) => (
-            <button key={etudiant.id} type="button" onClick={() => setEleveId(etudiant.id)} style={pastilleStyle(eleveId === etudiant.id)}>
+            <button key={etudiant.id} type="button" onClick={() => choisirEleve(etudiant.id)} style={pastilleStyle(eleveId === etudiant.id)}>
               {etudiant.prenom} {etudiant.nom}
+            </button>
+          ))}
+          {vagues.map(({ cohorte, eleves }) => (
+            <button key={cohorte.id} type="button" onClick={() => choisirVague(cohorte.id)} style={pastilleStyle(vagueId === cohorte.id)}>
+              Vague {cohorte.nom} · {eleves.length} élève{eleves.length > 1 ? 's' : ''}
             </button>
           ))}
         </div>
@@ -82,7 +103,7 @@ export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, onCha
         titre="Séances prévues"
         description="Chaque ligne est une séance déjà planifiée. Cliquez-la pour proposer un nouvel horaire : l’administration valide le changement."
         actions={
-          eleveId ? (
+          eleveId || vagueChoisie ? (
             <button type="button" onClick={() => setGenerateurOuvert((v) => !v)} style={boutonSecondaireStyle}>
               <Icone nom="plus" taille={14} />
               {generateurOuvert ? 'Fermer' : 'Générer une récurrence'}
@@ -90,12 +111,15 @@ export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, onCha
           ) : undefined
         }
       >
-        {generateurOuvert && eleveId && (
+        {generateurOuvert && (eleveId || vagueChoisie) && (
           <div style={{ marginBottom: 14 }}>
             <PlanifierSeancesForfait
-              studentIds={[eleveId]}
+              studentIds={vagueChoisie ? vagueChoisie.eleves.map((e) => e.id) : [eleveId as string]}
+              cohortId={vagueChoisie?.cohorte.id}
+              dateFinParDefaut={vagueChoisie?.cohorte.date_fin}
+              heuresForfait={vagueChoisie?.cohorte.heures_forfait}
               endpoint="/api/professeur/planifier-seances-prevision"
-              titre="Générer les séances récurrentes"
+              titre={vagueChoisie ? `Planning de la vague ${vagueChoisie.cohorte.nom}` : 'Générer les séances récurrentes'}
               onCree={() => {
                 setGenerateurOuvert(false)
                 onChange()
@@ -110,9 +134,9 @@ export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, onCha
             icone="seances"
             titre="Aucune séance prévue"
             description={
-              eleveId
-                ? 'Utilisez « Générer une récurrence » pour créer d’un coup toutes les séances à venir de cet élève.'
-                : 'Sélectionnez un élève pour générer son planning, ou planifiez un cours depuis l’agenda.'
+              eleveId || vagueChoisie
+                ? 'Utilisez « Générer une récurrence » pour créer d’un coup toutes les séances à venir.'
+                : 'Sélectionnez un élève ou une vague pour générer son planning, ou planifiez un cours depuis l’agenda.'
             }
           />
         ) : (

@@ -19,6 +19,8 @@ export function ParametresAdmin() {
   const [etablissement, setEtablissement] = useState<Etablissement | null>(null)
   const [loading, setLoading] = useState(true)
   const [calendlyUrl, setCalendlyUrl] = useState('')
+  const [heuresForfaitCollectif, setHeuresForfaitCollectif] = useState(32)
+  const [relanceEcheanceJours, setRelanceEcheanceJours] = useState(3)
   const [enregistrement, setEnregistrement] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [enregistre, setEnregistre] = useState(false)
@@ -33,6 +35,8 @@ export function ParametresAdmin() {
       .then(({ data }) => {
         setEtablissement(data)
         setCalendlyUrl(data?.calendly_url ?? '')
+        setHeuresForfaitCollectif(data?.heures_forfait_collectif ?? 32)
+        setRelanceEcheanceJours(data?.relance_echeance_jours ?? 3)
         setLoading(false)
       })
   }, [profile])
@@ -45,7 +49,11 @@ export function ParametresAdmin() {
     setEnregistre(false)
     const { error } = await supabase
       .from('etablissements')
-      .update({ calendly_url: calendlyUrl.trim() || null })
+      .update({
+        calendly_url: calendlyUrl.trim() || null,
+        heures_forfait_collectif: heuresForfaitCollectif,
+        relance_echeance_jours: relanceEcheanceJours,
+      })
       .eq('id', etablissement.id)
     setEnregistrement(false)
     if (error) {
@@ -95,6 +103,38 @@ export function ParametresAdmin() {
               placeholder="https://calendly.com/votre-etablissement/appel-diagnostic"
               value={calendlyUrl}
               onChange={(e) => setCalendlyUrl(e.target.value)}
+              style={champStyle}
+            />
+          </Champ>
+
+          <h2 style={{ fontSize: 16, color: 'var(--accent-gold, #e9cf94)', margin: '8px 0 0' }}>Cours collectifs</h2>
+
+          <Champ
+            label="Forfait d’heures par élève en cours collectif"
+            aide="Appliqué automatiquement à chaque élève inscrit dans une vague. La dernière heure est consacrée à son évaluation. Une vague peut fixer sa propre valeur depuis sa fiche."
+          >
+            <input
+              type="number"
+              min={1}
+              max={500}
+              value={heuresForfaitCollectif}
+              onChange={(e) => setHeuresForfaitCollectif(Number(e.target.value))}
+              style={champStyle}
+            />
+          </Champ>
+
+          <h2 style={{ fontSize: 16, color: 'var(--accent-gold, #e9cf94)', margin: '8px 0 0' }}>Relances de paiement</h2>
+
+          <Champ
+            label="Prévenir combien de jours avant une échéance"
+            aide="Une notification part automatiquement à l’élève à l’approche de chaque échéance de son échéancier, puis le jour du dépassement. 0 pour ne prévenir que le jour même."
+          >
+            <input
+              type="number"
+              min={0}
+              max={60}
+              value={relanceEcheanceJours}
+              onChange={(e) => setRelanceEcheanceJours(Number(e.target.value))}
               style={champStyle}
             />
           </Champ>

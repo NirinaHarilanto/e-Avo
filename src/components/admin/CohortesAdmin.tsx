@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCohortes } from '../../hooks/useCohortes'
+import { useProfesseurs } from '../../hooks/useProfesseurs'
+import { useEtablissement } from '../../hooks/useEtablissement'
 import { supabase } from '../../lib/supabaseClient'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import type { Database, StatutCohorte } from '../../types/database.types'
@@ -14,6 +16,8 @@ import { boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { champStyle } from '../ui/Champ'
 import { Onglets } from '../ui/Onglets'
+import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
+import { formaterHeures } from '../../lib/heures'
 import { CreneauxTestVague } from './CreneauxTestVague'
 import { QuizPositionnementAdmin } from './QuizPositionnementAdmin'
 
@@ -171,32 +175,39 @@ interface CreerVagueProps {
 
 function CreerVague({ etablissementId, onAnnuler, onEnregistre, vague }: CreerVagueProps) {
   const { profile } = useProfileContext()
+  const { professeurs } = useProfesseurs()
+  const etablissement = useEtablissement(etablissementId)
   const [nom, setNom] = useState(vague?.nom ?? '')
   const [langue, setLangue] = useState(vague?.langue ?? '')
   const [dateDebut, setDateDebut] = useState(vague?.date_debut ?? '')
   const [dateFin, setDateFin] = useState(vague?.date_fin ?? '')
   const [capaciteMax, setCapaciteMax] = useState<number | ''>(vague?.capacite_max ?? '')
+  const [teacherId, setTeacherId] = useState(vague?.teacher_id ?? '')
+  const [heuresForfait, setHeuresForfait] = useState<number | ''>(vague?.heures_forfait ?? '')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const enModification = !!vague
+  const forfaitParDefaut = etablissement?.heures_forfait_collectif ?? 32
 
   async function enregistrer() {
     if ((!profile && !enModification) || !nom || !dateDebut || !dateFin) return
     setEnCours(true)
     setErreur(null)
 
+    const champs = {
+      nom,
+      langue: langue || null,
+      date_debut: dateDebut,
+      date_fin: dateFin,
+      capacite_max: capaciteMax === '' ? null : capaciteMax,
+      teacher_id: teacherId || null,
+      heures_forfait: heuresForfait === '' ? null : heuresForfait,
+    }
     const { error } = enModification
-      ? await supabase
-          .from('cohorts')
-          .update({ nom, langue: langue || null, date_debut: dateDebut, date_fin: dateFin, capacite_max: capaciteMax === '' ? null : capaciteMax })
-          .eq('id', vague.id)
+      ? await supabase.from('cohorts').update(champs).eq('id', vague.id)
       : await supabase.from('cohorts').insert({
+          ...champs,
           etablissement_id: etablissementId,
-          nom,
-          langue: langue || null,
-          date_debut: dateDebut,
-          date_fin: dateFin,
-          capacite_max: capaciteMax === '' ? null : capaciteMax,
           created_by_profile_id: profile!.id,
         })
 
@@ -238,6 +249,32 @@ function CreerVague({ etablissementId, onAnnuler, onEnregistre, vague }: CreerVa
             style={champStyle}
           />
         </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Professeur de la vague</label>
+          <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} style={champStyle}>
+            <option value="">À désigner plus tard</option>
+            {professeurs.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.prenom} {p.nom}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Forfait d’heures par élève</label>
+          <input
+            type="number"
+            min={1}
+            placeholder={`${forfaitParDefaut} h (valeur de l’établissement)`}
+            value={heuresForfait}
+            onChange={(e) => setHeuresForfait(e.target.value === '' ? '' : Number(e.target.value))}
+            style={champStyle}
+          />
+          <span style={{ fontSize: 11, color: 'var(--muted-2)', lineHeight: 1.45 }}>
+            Laissez vide pour reprendre les {forfaitParDefaut} h paramétrées pour l’établissement. La dernière heure est
+            consacrée à l’évaluation de l’élève.
+          </span>
+        </div>
       </div>
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{erreur}</p>}
       <div style={{ display: 'flex', gap: 10 }}>
@@ -258,11 +295,16 @@ function CreerVague({ etablissementId, onAnnuler, onEnregistre, vague }: CreerVa
 }
 
 function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => void }) {
+  const { professeurs } = useProfesseurs()
+  const etablissement = useEtablissement(cohorte.etablissement_id)
   const [ouverte, setOuverte] = useState(false)
   const [edition, setEdition] = useState(false)
   const [inscrits, setInscrits] = useState<Profile[] | null>(null)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+
+  const professeurVague = professeurs.find((p) => p.id === cohorte.teacher_id) ?? null
+  const forfaitVague = cohorte.heures_forfait ?? etablissement?.heures_forfait_collectif ?? 32
 
   async function basculerDetail() {
     if (ouverte) {
@@ -335,6 +377,10 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
             {cohorte.langue ? `${cohorte.langue} · ` : ''}
             {new Date(cohorte.date_debut).toLocaleDateString('fr-FR')} → {new Date(cohorte.date_fin).toLocaleDateString('fr-FR')}
             {cohorte.capacite_max ? ` · capacité ${cohorte.capacite_max}` : ''}
+            {` · forfait ${formaterHeures(forfaitVague)}`}
+          </div>
+          <div style={{ fontSize: 11.5, color: professeurVague ? 'var(--accent-teal)' : 'var(--muted-2)' }}>
+            {professeurVague ? `Professeur : ${professeurVague.prenom} ${professeurVague.nom}` : 'Aucun professeur désigné'}
           </div>
         </div>
         <select
@@ -385,6 +431,29 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
             ))
           )}
           </div>
+
+          {/* Planning prévisionnel de la vague (demande client du 2026-09-23, point 8) : toutes
+              les séances du groupe d'un coup, rattachées à la vague — c'est ce rattachement qui
+              les fait apparaître dans l'espace du professeur ET dans celui de chaque inscrit. */}
+          {inscrits !== null && inscrits.length > 0 && (
+            cohorte.teacher_id ? (
+              <PlanifierSeancesForfait
+                studentIds={inscrits.map((e) => e.id)}
+                cohortId={cohorte.id}
+                teacherId={cohorte.teacher_id}
+                heuresForfait={forfaitVague}
+                dateFinParDefaut={cohorte.date_fin}
+                titre={`Planning prévisionnel · ${cohorte.nom}`}
+                onCree={onChange}
+              />
+            ) : (
+              <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0, lineHeight: 1.5 }}>
+                Désignez un professeur pour cette vague (bouton <strong>Modifier</strong>) afin de pouvoir établir son
+                planning prévisionnel.
+              </p>
+            )
+          )}
+
           <CreneauxTestVague cohorteId={cohorte.id} />
         </div>
       )}

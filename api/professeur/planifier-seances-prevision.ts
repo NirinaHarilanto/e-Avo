@@ -7,6 +7,9 @@ interface Corps {
   studentIds?: string[]
   dureeMinutes?: number
   debuts?: string[]
+  /* Planning d'une vague entière (0069) : les élèves sont alors ceux de la vague, et le
+     professeur doit en être l'animateur. */
+  cohortId?: string
 }
 
 const MAX_OCCURRENCES = 156 // même garde-fou que la version admin (~3 ans à 2 séances/semaine)
@@ -27,7 +30,7 @@ export default async function handler(request: Request): Promise<Response> {
     const { serviceClient, profileId, etablissementId } = await requireTeacherOrAdmin(request)
     const body = (await request.json()) as Corps
 
-    if (!body.studentIds?.length || !body.dureeMinutes || !body.debuts?.length) {
+    if ((!body.studentIds?.length && !body.cohortId) || !body.dureeMinutes || !body.debuts?.length) {
       return Response.json({ error: 'Champs requis manquants.' }, { status: 400 })
     }
     if (body.debuts.length > MAX_OCCURRENCES) {
@@ -40,22 +43,50 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Une des dates est invalide.' }, { status: 400 })
     }
 
-    const { data: affectations } = await serviceClient
-      .from('teacher_assignments')
-      .select('student_id')
-      .eq('teacher_id', profileId)
-      .is('date_fin', null)
-    const elevesAutorises = new Set((affectations ?? []).map((a) => a.student_id))
+    /* Une vague se planifie d'un bloc, et le droit d'y toucher ne vient pas des affectations
+       individuelles (un élève de vague n'a pas forcément de `teacher_assignments`) mais du fait
+       d'en être l'animateur désigné — 0069, demande client du 2026-09-23 (point 8). */
+    let cohortId: string | null = null
+    let studentIds = body.studentIds ?? []
+    if (body.cohortId) {
+      const { data: cohorte } = await serviceClient
+        .from('cohorts')
+        .select('id, etablissement_id, teacher_id')
+        .eq('id', body.cohortId)
+        .maybeSingle()
+      if (!cohorte || cohorte.etablissement_id !== etablissementId) {
+        return Response.json({ error: 'Vague invalide pour cet établissement.' }, { status: 400 })
+      }
+      if (cohorte.teacher_id !== profileId) {
+        return Response.json({ error: "Vous n'êtes pas le professeur de cette vague." }, { status: 403 })
+      }
+      const { data: inscrits } = await serviceClient
+        .from('cohort_enrollments')
+        .select('student_id')
+        .eq('cohort_id', cohorte.id)
+      studentIds = (inscrits ?? []).map((i: { student_id: string }) => i.student_id)
+      if (studentIds.length === 0) {
+        return Response.json({ error: 'Cette vague n’a encore aucun élève inscrit.' }, { status: 400 })
+      }
+      cohortId = cohorte.id
+    } else {
+      const { data: affectations } = await serviceClient
+        .from('teacher_assignments')
+        .select('student_id')
+        .eq('teacher_id', profileId)
+        .is('date_fin', null)
+      const elevesAutorises = new Set((affectations ?? []).map((a) => a.student_id))
 
-    const nonAutorises = body.studentIds.filter((id) => !elevesAutorises.has(id))
-    if (nonAutorises.length > 0) {
-      return Response.json(
-        { error: "Vous ne pouvez planifier que pour les élèves qui vous sont actuellement attribués." },
-        { status: 403 },
-      )
+      const nonAutorises = studentIds.filter((id) => !elevesAutorises.has(id))
+      if (nonAutorises.length > 0) {
+        return Response.json(
+          { error: "Vous ne pouvez planifier que pour les élèves qui vous sont actuellement attribués." },
+          { status: 403 },
+        )
+      }
     }
 
-    const type = body.studentIds.length > 1 ? 'collectif' : 'individuel'
+    const type = studentIds.length > 1 ? 'collectif' : 'individuel'
     const sessionIds: string[] = []
     for (const debut of body.debuts) {
       const resultat = await creerSeanceAvecInscriptions(serviceClient, {
@@ -64,7 +95,8 @@ export default async function handler(request: Request): Promise<Response> {
         type,
         debut,
         dureeMinutes: body.dureeMinutes,
-        studentIds: body.studentIds,
+        studentIds,
+        cohortId,
       })
       if ('error' in resultat) {
         return Response.json({ error: resultat.error, sessionsCreees: sessionIds.length }, { status: 500 })

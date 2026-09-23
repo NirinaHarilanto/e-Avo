@@ -8,6 +8,7 @@ interface Corps {
   teacherId?: string
   dureeMinutes?: number
   debuts?: string[]
+  cohortId?: string
 }
 
 const MAX_OCCURRENCES = 156 // ~3 ans à raison de 2 séances/semaine — garde-fou anti-erreur de saisie
@@ -26,17 +27,48 @@ export default async function handler(request: Request): Promise<Response> {
     const { serviceClient, etablissementId } = await requireAdmin(request)
     const body = (await request.json()) as Corps
 
-    if (!body.studentIds?.length || !body.teacherId || !body.dureeMinutes || !body.debuts?.length) {
+    if (!body.dureeMinutes || !body.debuts?.length) {
       return Response.json({ error: 'Champs requis manquants.' }, { status: 400 })
     }
     if (body.debuts.length > MAX_OCCURRENCES) {
       return Response.json({ error: `Trop de séances demandées (max ${MAX_OCCURRENCES}).` }, { status: 400 })
     }
 
+    /* Vague : c'est elle qui définit la liste des élèves et le professeur, pas l'appelant — une
+       vague se planifie d'un bloc (demande client du 2026-09-23, point 8). Les élèves sont
+       relus ici pour que le planning couvre l'effectif réel au moment où on le crée. */
+    let cohortId: string | null = null
+    let studentIds = body.studentIds ?? []
+    let teacherId = body.teacherId
+    if (body.cohortId) {
+      const { data: cohorte } = await serviceClient
+        .from('cohorts')
+        .select('id, etablissement_id, teacher_id')
+        .eq('id', body.cohortId)
+        .maybeSingle()
+      if (!cohorte || cohorte.etablissement_id !== etablissementId) {
+        return Response.json({ error: 'Vague invalide pour cet établissement.' }, { status: 400 })
+      }
+      const { data: inscrits } = await serviceClient
+        .from('cohort_enrollments')
+        .select('student_id')
+        .eq('cohort_id', cohorte.id)
+      studentIds = (inscrits ?? []).map((i: { student_id: string }) => i.student_id)
+      if (studentIds.length === 0) {
+        return Response.json({ error: 'Cette vague n’a encore aucun élève inscrit.' }, { status: 400 })
+      }
+      teacherId = teacherId ?? cohorte.teacher_id ?? undefined
+      cohortId = cohorte.id
+    }
+
+    if (studentIds.length === 0 || !teacherId) {
+      return Response.json({ error: 'Champs requis manquants.' }, { status: 400 })
+    }
+
     const { data: teacher } = await serviceClient
       .from('profiles')
       .select('id, role, etablissement_id')
-      .eq('id', body.teacherId)
+      .eq('id', teacherId)
       .single()
     if (!teacher || teacher.role !== 'professeur' || teacher.etablissement_id !== etablissementId) {
       return Response.json({ error: 'Professeur invalide pour cet établissement.' }, { status: 400 })
@@ -45,24 +77,25 @@ export default async function handler(request: Request): Promise<Response> {
     const { data: students } = await serviceClient
       .from('profiles')
       .select('id, role, etablissement_id')
-      .in('id', body.studentIds)
+      .in('id', studentIds)
     const studentsValides = (students ?? []).filter(
       (s) => s.role === 'etudiant' && s.etablissement_id === etablissementId,
     )
-    if (studentsValides.length !== body.studentIds.length) {
+    if (studentsValides.length !== studentIds.length) {
       return Response.json({ error: 'Un ou plusieurs étudiants sont invalides pour cet établissement.' }, { status: 400 })
     }
 
-    const type = body.studentIds.length > 1 ? 'collectif' : 'individuel'
+    const type = studentIds.length > 1 ? 'collectif' : 'individuel'
     const sessionIds: string[] = []
     for (const debut of body.debuts) {
       const resultat = await creerSeanceAvecInscriptions(serviceClient, {
         etablissementId,
-        teacherId: body.teacherId,
+        teacherId,
         type,
         debut,
         dureeMinutes: body.dureeMinutes,
-        studentIds: body.studentIds,
+        studentIds,
+        cohortId,
       })
       if ('error' in resultat) {
         return Response.json({ error: resultat.error, sessionsCreees: sessionIds.length }, { status: 500 })

@@ -99,7 +99,7 @@ function versDatetimeLocal(date: Date): string {
 
 export function CalendrierProfesseur() {
   const { profile } = useProfileContext()
-  const { seances, etudiantsActifs, heuresEnseignees, loading, erreur, recharger } = useCalendrierProfesseur(profile?.id)
+  const { seances, etudiantsActifs, vagues, heuresEnseignees, loading, erreur, recharger } = useCalendrierProfesseur(profile?.id)
   const [vue, setVue] = useState<VueCalendrier>('agenda')
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
@@ -227,7 +227,7 @@ export function CalendrierProfesseur() {
             }
           />
         ) : vue === 'previsionnel' ? (
-          <PlanningPrevisionnelProfesseur seances={seances} etudiantsActifs={etudiantsActifs} onChange={recharger} />
+          <PlanningPrevisionnelProfesseur seances={seances} etudiantsActifs={etudiantsActifs} vagues={vagues} onChange={recharger} />
         ) : (
           <>
             <GroupeSection titre="À venir" description="Vos prochaines séances, de la plus proche à la plus lointaine.">
