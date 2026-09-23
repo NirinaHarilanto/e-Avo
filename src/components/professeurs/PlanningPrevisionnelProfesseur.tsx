@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import type { Database } from '../../types/database.types'
 import type { SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
+import { nomsElevesInscrits } from '../../lib/seances'
 import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
 import { GroupeSection } from '../ui/Section'
@@ -141,7 +142,7 @@ export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, onCha
                 </span>
                 <span style={{ fontSize: 12, color: 'var(--ink-2)', flexGrow: 1, minWidth: 160 }}>
                   {seance.session.duree_minutes} min ·{' '}
-                  {seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`).join(', ') || 'aucun élève inscrit'}
+                  {nomsElevesInscrits(seance.inscriptions).join(', ') || 'aucun élève inscrit'}
                 </span>
               </button>
             ))}

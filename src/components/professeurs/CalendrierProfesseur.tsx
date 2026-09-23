@@ -3,6 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur, type SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { getJoinUrl } from '../../lib/visio'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
+import { nomsElevesInscrits } from '../../lib/seances'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -34,7 +35,8 @@ type VueCalendrier = 'agenda' | 'liste' | 'previsionnel'
 function estSeanceDuo(seance: SeanceProfesseur): boolean {
   if (seance.inscriptions.length !== 2) return false
   const [a, b] = seance.inscriptions
-  return a.etudiant?.duo_partenaire_id === b.etudiant?.id || b.etudiant?.duo_partenaire_id === a.etudiant?.id
+  if (!a.etudiant || !b.etudiant) return false
+  return a.etudiant.duo_partenaire_id === b.etudiant.id || b.etudiant.duo_partenaire_id === a.etudiant.id
 }
 
 function libelleTypeSeance(seance: SeanceProfesseur): string {
@@ -45,7 +47,7 @@ function libelleTypeSeance(seance: SeanceProfesseur): string {
 /* Une séance telle que l'agenda hebdomadaire la connaît. Le composant de grille ignore tout des
    séances et des inscriptions : il ne manipule que des `EvenementAgenda`. */
 function versEvenement(seance: SeanceProfesseur): EvenementAgenda {
-  const eleves = seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`.trim())
+  const eleves = nomsElevesInscrits(seance.inscriptions)
   return {
     id: seance.session.id,
     debut: seance.session.debut,
@@ -446,7 +448,7 @@ function CarteSeance({
           </span>
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>
             {libelleTypeSeance(seance)} · {seance.session.duree_minutes} min ·{' '}
-            {seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`).join(', ')}
+            {nomsElevesInscrits(seance.inscriptions).join(', ')}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

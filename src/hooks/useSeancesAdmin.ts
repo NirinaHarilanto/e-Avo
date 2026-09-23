@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
 import { useCacheRequete } from './useCacheRequete'
+import { inscriptionsVisibles } from '../lib/seances'
 
 type Session = Database['public']['Tables']['sessions']['Row']
 type SessionEnrollment = Database['public']['Tables']['session_enrollments']['Row']
@@ -33,21 +34,26 @@ export function useSeancesAdmin() {
 
     const studentIds = [...new Set((enrollments ?? []).map((e) => e.student_id))]
     const { data: etudiants } = studentIds.length
-      ? await supabase.from('profiles').select('*').in('id', studentIds)
+      ? await supabase.from('profiles').select('*').in('id', studentIds).neq('status', 'suspended')
       : { data: [] as Profile[] }
 
     const profParId = new Map((professeurs ?? []).map((p) => [p.id, p]))
     const videoParSession = new Map((videos ?? []).map((v) => [v.session_id, v]))
     const etudiantParId = new Map((etudiants ?? []).map((e) => [e.id, e]))
 
-    return (sessions ?? []).map((session): SeanceAdmin => ({
-      session,
-      professeur: profParId.get(session.teacher_id) ?? null,
-      inscriptions: (enrollments ?? [])
+    return (sessions ?? []).flatMap((session): SeanceAdmin[] => {
+      const inscriptions = (enrollments ?? [])
         .filter((e) => e.session_id === session.id)
-        .map((e) => ({ ...e, etudiant: etudiantParId.get(e.student_id) ?? null })),
-      video: videoParSession.get(session.id) ?? null,
-    }))
+        .map((e) => ({ ...e, etudiant: etudiantParId.get(e.student_id) ?? null }))
+      const visibles = inscriptionsVisibles(session, inscriptions)
+      if (!visibles) return []
+      return [{
+        session,
+        professeur: profParId.get(session.teacher_id) ?? null,
+        inscriptions: visibles,
+        video: videoParSession.get(session.id) ?? null,
+      }]
+    })
   })
 
   return { seances: valeur ?? [], loading, erreur, recharger }

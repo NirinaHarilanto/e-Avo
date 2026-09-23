@@ -6,6 +6,7 @@ import { useEtudiants } from '../../hooks/useEtudiants'
 import { useRendezVous } from '../../hooks/useRendezVous'
 import { useEvenementsAdmin } from '../../hooks/useEvenementsAdmin'
 import { agendaAdminComplet } from '../../lib/agendaEvenements'
+import { nomsElevesInscrits } from '../../lib/seances'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
 import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
@@ -93,7 +94,7 @@ export function SeancesAdmin() {
               s.inscriptions.some((i) => i.etudiant && etudiantsSelectionnes.has(i.etudiant.id)),
           )
     const seancesEvenements = visibles.map((seance): EvenementAgenda => {
-      const eleves = seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`.trim())
+      const eleves = nomsElevesInscrits(seance.inscriptions)
       return {
         id: seance.session.id,
         debut: seance.session.debut,
@@ -446,7 +447,7 @@ function LigneSeance({ seance, onChange }: { seance: SeanceAdmin; maintenant: st
       </span>
       <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1, minWidth: 200 }}>
         {seance.session.type === 'individuel' ? 'Individuel' : 'Collectif'} · {seance.session.duree_minutes} min ·{' '}
-        {seance.inscriptions.map((i) => `${i.etudiant?.prenom ?? '?'} ${i.etudiant?.nom ?? ''}`).join(', ') || 'aucun élève inscrit'}
+        {nomsElevesInscrits(seance.inscriptions).join(', ') || 'aucun élève inscrit'}
       </span>
       <BadgeStatutSeance statut={seance.session.statut} />
 

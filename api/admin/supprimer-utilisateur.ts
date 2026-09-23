@@ -15,6 +15,41 @@ export const config = { runtime: 'edge' }
  * connexion définitivement impossible) SANS supprimer la ligne `auth.users` : `profiles.id` reste
  * une référence valide, tout l'historique lié reste intact et correctement attribué.
  */
+/* Les séances déjà planifiées d'un élève supprimé ne disparaissaient nulle part : ni la séance,
+   ni son inscription ne sont touchées par le passage en `suspended`. Résultat constaté le
+   2026-09-23 : l'agenda du professeur continuait d'afficher des créneaux dont l'élève n'existe
+   plus pour l'application. On ne touche qu'à l'AVENIR et qu'au `planifiee` — le passé est de
+   l'historique pédagogique et financier, il reste intact. Une séance qui n'a plus aucun inscrit
+   après le retrait passe en `annulee` plutôt que d'être supprimée, pour que le professeur garde
+   trace de ce qui était prévu. */
+async function annulerSeancesAVenir(
+  serviceClient: Awaited<ReturnType<typeof requireAdmin>>['serviceClient'],
+  studentId: string,
+): Promise<void> {
+  const maintenant = new Date().toISOString()
+  const { data: inscriptions } = await serviceClient
+    .from('session_enrollments')
+    .select('session_id, sessions!inner(id, debut, statut)')
+    .eq('student_id', studentId)
+    .gt('sessions.debut', maintenant)
+    .eq('sessions.statut', 'planifiee')
+
+  const sessionIds = (inscriptions ?? []).map((i: { session_id: string }) => i.session_id)
+  if (sessionIds.length === 0) return
+
+  await serviceClient.from('session_enrollments').delete().eq('student_id', studentId).in('session_id', sessionIds)
+
+  const { data: restantes } = await serviceClient
+    .from('session_enrollments')
+    .select('session_id')
+    .in('session_id', sessionIds)
+  const encoreOccupees = new Set((restantes ?? []).map((r: { session_id: string }) => r.session_id))
+  const aAnnuler = sessionIds.filter((id) => !encoreOccupees.has(id))
+  if (aAnnuler.length > 0) {
+    await serviceClient.from('sessions').update({ statut: 'annulee' }).in('id', aAnnuler)
+  }
+}
+
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 })
@@ -58,6 +93,10 @@ export default async function handler(request: Request): Promise<Response> {
       .eq('id', body.profileId)
     if (erreurStatut) {
       return Response.json({ error: erreurStatut.message }, { status: 500 })
+    }
+
+    if (cible.role === 'etudiant') {
+      await annulerSeancesAVenir(serviceClient, body.profileId)
     }
 
     const { error: erreurAuth } = await serviceClient.auth.admin.deleteUser(body.profileId, true)

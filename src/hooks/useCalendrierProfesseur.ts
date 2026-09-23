@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
 import { useCacheRequete } from './useCacheRequete'
+import { inscriptionsVisibles } from '../lib/seances'
 
 type Session = Database['public']['Tables']['sessions']['Row']
 type SessionEnrollment = Database['public']['Tables']['session_enrollments']['Row']
@@ -70,13 +71,14 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
     }
 
     return {
-      seances: (sessions ?? []).map((session) => ({
-        session,
-        inscriptions: (enrollments ?? [])
+      seances: (sessions ?? []).flatMap((session) => {
+        const inscriptions = (enrollments ?? [])
           .filter((e) => e.session_id === session.id)
-          .map((e) => ({ ...e, etudiant: etudiantParId.get(e.student_id) ?? null })),
-        video: videoParSession.get(session.id) ?? null,
-      })),
+          .map((e) => ({ ...e, etudiant: etudiantParId.get(e.student_id) ?? null }))
+        const visibles = inscriptionsVisibles(session, inscriptions)
+        if (!visibles) return []
+        return [{ session, inscriptions: visibles, video: videoParSession.get(session.id) ?? null }]
+      }),
       /* Dédupliqué par élève, pas par affectation : cette liste alimente « Mes étudiants » et
          les pastilles de sélection du formulaire de planification, où un même nom ne doit
          jamais apparaître deux fois. La migration 0039 interdit désormais deux affectations
