@@ -465,6 +465,15 @@ export function DossierEtudiantVue({
   const [ongletDemande, setOngletDemande] = useState<OngletDossier>('parcours')
   const { evaluations: niveaux } = useNiveauxEtudiant(etudiant.id)
   const niveauActuel = niveaux[niveaux.length - 1]?.niveau ?? diagnostic?.niveau_evalue ?? null
+  /* Pour un binôme DUO, chaque personne a son propre niveau — jamais un seul niveau fondu pour
+     les deux (demande client du 2026-09-23 : « il faut afficher les deux niveaux des deux
+     personnes formant le DUO »). `duoPartenaire` peut être `null` (pas de duo), d'où le hook
+     appelé avec un id éventuellement `undefined` — comportement déjà prévu par
+     useNiveauxEtudiant (retourne un tableau vide tant qu'aucun id n'est fourni). */
+  const { evaluations: niveauxPartenaire } = useNiveauxEtudiant(duoPartenaire?.id)
+  const niveauActuelPartenaire = duoPartenaire
+    ? (niveauxPartenaire[niveauxPartenaire.length - 1]?.niveau ?? diagnosticPartenaire?.niveau_evalue ?? null)
+    : null
   const seancesTerminees = periodes.flatMap((p) => p.seances).filter((s) => s.session.statut === 'terminee')
   const assiduite =
     seancesTerminees.length > 0
@@ -577,9 +586,22 @@ export function DossierEtudiantVue({
         <Stat
           compact
           libelle="Niveau évalué"
-          valeur={niveauActuel ?? '—'}
+          valeur={
+            duoPartenaire ? (
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 15 }}>
+                <span>
+                  {etudiant.prenom} : {niveauActuel ?? '—'}
+                </span>
+                <span>
+                  {duoPartenaire.prenom} : {niveauActuelPartenaire ?? '—'}
+                </span>
+              </span>
+            ) : (
+              (niveauActuel ?? '—')
+            )
+          }
           ton="violet"
-          aide={diagnostic || niveaux.length > 0 ? 'Établi lors de l’appel diagnostic' : 'Pas encore de diagnostic'}
+          aide={diagnostic || niveaux.length > 0 || diagnosticPartenaire || niveauxPartenaire.length > 0 ? 'Établi lors de l’appel diagnostic' : 'Pas encore de diagnostic'}
           pied={
             (diagnostic || niveaux.length > 0) && (
               <button
