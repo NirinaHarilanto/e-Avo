@@ -20,6 +20,9 @@ export function ParametresAdmin() {
   const [loading, setLoading] = useState(true)
   const [calendlyUrl, setCalendlyUrl] = useState('')
   const [heuresForfaitCollectif, setHeuresForfaitCollectif] = useState(32)
+  const [creneauMatin, setCreneauMatin] = useState('07:00')
+  const [creneauMidi, setCreneauMidi] = useState('12:00')
+  const [creneauSoir, setCreneauSoir] = useState('19:00')
   const [relanceEcheanceJours, setRelanceEcheanceJours] = useState(3)
   const [enregistrement, setEnregistrement] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -36,6 +39,9 @@ export function ParametresAdmin() {
         setEtablissement(data)
         setCalendlyUrl(data?.calendly_url ?? '')
         setHeuresForfaitCollectif(data?.heures_forfait_collectif ?? 32)
+        setCreneauMatin(data?.creneau_matin?.slice(0, 5) ?? '07:00')
+        setCreneauMidi(data?.creneau_midi?.slice(0, 5) ?? '12:00')
+        setCreneauSoir(data?.creneau_soir?.slice(0, 5) ?? '19:00')
         setRelanceEcheanceJours(data?.relance_echeance_jours ?? 3)
         setLoading(false)
       })
@@ -52,6 +58,9 @@ export function ParametresAdmin() {
       .update({
         calendly_url: calendlyUrl.trim() || null,
         heures_forfait_collectif: heuresForfaitCollectif,
+        creneau_matin: creneauMatin,
+        creneau_midi: creneauMidi,
+        creneau_soir: creneauSoir,
         relance_echeance_jours: relanceEcheanceJours,
       })
       .eq('id', etablissement.id)
@@ -84,6 +93,11 @@ export function ParametresAdmin() {
           <>
             Dans les deux cas, le dossier apparaît dans la page <strong>Prospects</strong>, où vous le faites avancer
             jusqu'à sa conversion en étudiant.
+          </>,
+          <>
+            Les <strong>3 créneaux horaires</strong> (matin/midi/soir) réglés ci-dessous sont ceux proposés pour les{' '}
+            <strong>classes de niveau</strong> des cours collectifs, page « Cours collectifs ». Les changer ici les
+            change pour toutes les promotions.
           </>,
         ]}
       />
@@ -121,6 +135,23 @@ export function ParametresAdmin() {
               onChange={(e) => setHeuresForfaitCollectif(Number(e.target.value))}
               style={champStyle}
             />
+          </Champ>
+
+          <Champ label="Créneaux horaires des classes" aide="Heures par défaut des classes de niveau matin/midi/soir des cours collectifs.">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Matin</span>
+                <input type="time" value={creneauMatin} onChange={(e) => setCreneauMatin(e.target.value)} style={champStyle} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Midi</span>
+                <input type="time" value={creneauMidi} onChange={(e) => setCreneauMidi(e.target.value)} style={champStyle} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Soir</span>
+                <input type="time" value={creneauSoir} onChange={(e) => setCreneauSoir(e.target.value)} style={champStyle} />
+              </div>
+            </div>
           </Champ>
 
           <h2 style={{ fontSize: 16, color: 'var(--accent-gold, #e9cf94)', margin: '8px 0 0' }}>Relances de paiement</h2>

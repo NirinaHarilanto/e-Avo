@@ -12,9 +12,14 @@ interface ParamsSeance {
   debut: string
   dureeMinutes: number
   studentIds: string[]
-  /* Vague à laquelle rattacher la séance (0069) — présent seulement quand toute la vague, et
-     elle seule, est inscrite. */
+  /* Vague (promotion) à laquelle rattacher la séance (0069) — toujours renseigné dès que la
+     séance vient d'une vague ou d'une de ses classes, y compris quand `cohortClassId` est posé
+     (dérivé alors de `cohort_classes.cohort_id` par l'appelant) : la clôture et le décompte
+     d'heures collectif (0069/0071) ne regardent que cette colonne. */
   cohortId?: string | null
+  /* Classe de niveau au sein de la vague (0074) — présente seulement quand ce sont les inscrits
+     de CETTE classe, et elle seule, qui sont dans `studentIds`. */
+  cohortClassId?: string | null
 }
 
 /**
@@ -39,6 +44,7 @@ export async function creerSeanceAvecInscriptions(
       duree_minutes: params.dureeMinutes,
       statut: 'planifiee',
       cohort_id: params.cohortId ?? null,
+      cohort_class_id: params.cohortClassId ?? null,
     })
     .select('id')
     .single()

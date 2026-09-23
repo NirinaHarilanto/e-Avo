@@ -7,6 +7,7 @@ import { libelleStatutProfil, tonStatutProfil } from '../../lib/statutProfil'
 import { formaterHeures, formaterMinutes } from '../../lib/heures'
 import { RecapitulatifDiagnostic } from '../prospects/FormulaireDiagnosticCall'
 import type { Database } from '../../types/database.types'
+import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE } from '../../lib/classesCollectif'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
@@ -450,7 +451,21 @@ export function DossierEtudiantVue({
   onDossierChange,
   satisfactionEtudiantId,
 }: DossierEtudiantVueProps) {
-  const { etudiant, periodes, periodeActuelle, diagnostic, diagnosticPartenaire, packages, cohorte, heuresConsommees, prochaineSeance, tarifChoisi, duoPartenaire } = dossier
+  const {
+    etudiant,
+    periodes,
+    periodeActuelle,
+    diagnostic,
+    diagnosticPartenaire,
+    packages,
+    cohorte,
+    cohortClasse,
+    professeurClasse,
+    heuresConsommees,
+    prochaineSeance,
+    tarifChoisi,
+    duoPartenaire,
+  } = dossier
   const forfait = packages[0] ?? null
   /* Restant et progression se calculent sur le CUMUL des forfaits, pas seulement le dernier
      souscrit — un ajout de forfait (0061) additionne des heures à un total déjà entamé, il ne
@@ -714,6 +729,19 @@ export function DossierEtudiantVue({
                     label="Dates"
                     valeur={`${new Date(cohorte.date_debut).toLocaleDateString('fr-FR')} → ${new Date(cohorte.date_fin).toLocaleDateString('fr-FR')}`}
                   />
+                  {cohortClasse && (
+                    <>
+                      <LigneInfo
+                        label="Classe"
+                        valeur={`${LABEL_NIVEAU_CLASSE[cohortClasse.niveau]}${cohortClasse.nom ? ` — ${cohortClasse.nom}` : ''}`}
+                      />
+                      <LigneInfo label="Créneau" valeur={LABEL_CRENEAU_CLASSE[cohortClasse.creneau]} />
+                      <LigneInfo
+                        label="Professeur de la classe"
+                        valeur={professeurClasse ? `${professeurClasse.prenom} ${professeurClasse.nom}` : 'Non désigné'}
+                      />
+                    </>
+                  )}
                 </div>
                 {editionVagueOuverte && panneauVague}
               </>

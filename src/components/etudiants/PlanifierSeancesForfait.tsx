@@ -23,6 +23,9 @@ interface PlanifierSeancesForfaitProps {
   /* Planning d'une vague entière (0069) : le serveur résout lui-même les élèves depuis la vague
      — `studentIds` ne sert alors qu'à savoir s'il y a quelqu'un à planifier. */
   cohortId?: string
+  /* Planning d'une classe de niveau au sein d'une vague (0074), prioritaire sur `cohortId` côté
+     serveur. Même principe : `studentIds` ne sert qu'à savoir s'il y a quelqu'un à planifier. */
+  cohortClassId?: string
   /* Omis côté professeur : la route `api/professeur/...` planifie forcément pour l'appelant.
      Renseigné côté admin, qui planifie pour le professeur attribué à l'élève. */
   teacherId?: string
@@ -49,6 +52,7 @@ interface PlanifierSeancesForfaitProps {
 export function PlanifierSeancesForfait({
   studentIds,
   cohortId,
+  cohortClassId,
   teacherId,
   dureeParDefaut,
   dateFinParDefaut,
@@ -148,6 +152,7 @@ export function PlanifierSeancesForfait({
       body: JSON.stringify({
         studentIds,
         ...(cohortId ? { cohortId } : {}),
+        ...(cohortClassId ? { cohortClassId } : {}),
         ...(teacherId ? { teacherId } : {}),
         dureeMinutes,
         debuts: debutsPrevus,

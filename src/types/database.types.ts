@@ -26,6 +26,11 @@ export type StatutDevis = 'brouillon' | 'envoye' | 'accepte' | 'refuse' | 'expir
 export type StatutFacture = 'emise' | 'envoyee' | 'payee' | 'en_retard' | 'annulee'
 export type StatutContrat = 'brouillon' | 'envoye' | 'signe' | 'resilie'
 export type StatutCohorte = 'a_venir' | 'en_cours' | 'terminee'
+/* Niveau d'une classe au sein d'une promotion (0074), dérivé automatiquement du niveau CECRL
+   estimé au quiz écrit — voir src/lib/classesCollectif.ts. */
+export type NiveauClasse = 'beginner' | 'intermediate' | 'advanced'
+/* Créneau horaire d'une classe (0074), réglé au niveau établissement (etablissements.creneau_*). */
+export type CreneauClasse = 'matin' | 'midi' | 'soir'
 export type StatutRendezVous = 'en_attente' | 'confirme' | 'refuse' | 'annule'
 
 export interface LigneFacturation {
@@ -62,6 +67,11 @@ export interface Database {
           heures_forfait_collectif: number
           /* Nombre de jours avant une échéance à partir duquel la relance part (0070). */
           relance_echeance_jours: number
+          /* Créneaux horaires des classes de cours collectif, réglables (0074) : 7h/12h/19h
+             par défaut. */
+          creneau_matin: string
+          creneau_midi: string
+          creneau_soir: string
           created_at: string
         }
         Insert: {
@@ -74,6 +84,9 @@ export interface Database {
           calendly_url?: string | null
           heures_forfait_collectif?: number
           relance_echeance_jours?: number
+          creneau_matin?: string
+          creneau_midi?: string
+          creneau_soir?: string
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['etablissements']['Insert']>
@@ -274,9 +287,13 @@ export interface Database {
           debut: string
           duree_minutes: number
           statut: SessionStatut
-          /* Vague à laquelle la séance appartient (0069) : planning commun au groupe, et
-             décompte d'heures appliqué à tous ses inscrits à la clôture. */
+          /* Vague (promotion) à laquelle la séance appartient (0069) : planning commun au
+             groupe, et décompte d'heures appliqué à tous ses inscrits à la clôture. Toujours
+             renseigné pour une séance de classe (dérivé de cohort_classes.cohort_id, 0074),
+             pour ne pas casser la clôture ni le décompte existants. */
           cohort_id: string | null
+          /* Classe de niveau au sein de la promotion (0074), si la séance en vient une. */
+          cohort_class_id: string | null
           created_at: string
         }
         Insert: {
@@ -288,6 +305,7 @@ export interface Database {
           duree_minutes: number
           statut?: SessionStatut
           cohort_id?: string | null
+          cohort_class_id?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['sessions']['Insert']>
@@ -443,6 +461,34 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['cohorts']['Insert']>
         Relationships: []
       }
+      /* Classe de niveau au sein d'une promotion (0074) : niveau, créneau et professeur
+         propres, plusieurs classes du même niveau pouvant coexister (règle des 3-7 élèves). */
+      cohort_classes: {
+        Row: {
+          id: string
+          etablissement_id: string
+          cohort_id: string
+          niveau: NiveauClasse
+          nom: string | null
+          creneau: CreneauClasse
+          teacher_id: string | null
+          created_by_profile_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          cohort_id: string
+          niveau: NiveauClasse
+          nom?: string | null
+          creneau?: CreneauClasse
+          teacher_id?: string | null
+          created_by_profile_id: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['cohort_classes']['Insert']>
+        Relationships: []
+      }
       quiz_questions: {
         Row: {
           id: string
@@ -533,6 +579,9 @@ export interface Database {
           id: string
           etablissement_id: string
           cohort_id: string
+          /* Classe de niveau assignée au sein de la promotion (0074). Nullable : vague legacy
+             sans classes, ou étudiant en attente d'affectation. */
+          cohort_class_id: string | null
           student_id: string
           created_at: string
         }
@@ -540,6 +589,7 @@ export interface Database {
           id?: string
           etablissement_id: string
           cohort_id: string
+          cohort_class_id?: string | null
           student_id: string
           created_at?: string
         }

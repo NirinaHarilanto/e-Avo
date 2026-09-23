@@ -3,10 +3,11 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { formaterDansFuseauEtablissement, FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 import { instantDepuisLocal, partiesLocales } from '../../lib/creneaux'
-import type { Database } from '../../types/database.types'
+import type { Database, NiveauClasse } from '../../types/database.types'
 import { Champ, champStyle } from '../ui/Champ'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
-import { EtatChargement, MessageErreur } from '../ui/Etats'
+import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
+import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import { Modale } from '../ui/Modale'
 import { Icone } from '../ui/Icones'
 
@@ -53,6 +54,7 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
   const [bilanOuvert, setBilanOuvert] = useState<CandidatInscrit | null>(null)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  const [messageConversion, setMessageConversion] = useState<string | null>(null)
 
   const charger = useCallback(async () => {
     const { data: lignes, error } = await supabase
@@ -177,11 +179,24 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
     }
     setEnCours(true)
     setErreur(null)
-    const { error } = await appelServeur('/api/admin/convert-prospect', { prospectId: candidat.prospect.id })
+    setMessageConversion(null)
+    const { data, error } = await appelServeur('/api/admin/convert-prospect', { prospectId: candidat.prospect.id })
     setEnCours(false)
     if (error) {
       setErreur(error)
       return
+    }
+    // Niveau détecté automatiquement à partir du quiz écrit, et classe assignée en conséquence
+    // (0074) — informe l'admin du résultat plutôt que de le laisser deviner en rouvrant la fiche.
+    const resultat = data as { niveauDetecte?: NiveauClasse | null; classeAssignee?: string | null } | undefined
+    if (resultat?.niveauDetecte) {
+      setMessageConversion(
+        resultat.classeAssignee
+          ? `Niveau détecté : ${LABEL_NIVEAU_CLASSE[resultat.niveauDetecte]} · classe assignée automatiquement.`
+          : `Niveau détecté : ${LABEL_NIVEAU_CLASSE[resultat.niveauDetecte]} · aucune classe disponible (complète ou inexistante), à créer ou compléter depuis l'onglet Vagues.`,
+      )
+    } else {
+      setMessageConversion("Niveau non déterminé (quiz non passé ou non concluant) : affectez la classe à la main depuis le dossier de l'élève.")
     }
     charger()
   }
@@ -213,6 +228,7 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
       </div>
 
       {erreur && <MessageErreur>{erreur}</MessageErreur>}
+      {messageConversion && <MessageInfo>{messageConversion}</MessageInfo>}
 
       {creneaux.length === 0 ? (
         <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0, lineHeight: 1.55 }}>

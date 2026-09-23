@@ -106,6 +106,11 @@ export function EtudiantsAdmin() {
             Le badge <strong>Contrat signé / en attente / aucun contrat</strong> sous chaque nom indique s’il reste à
             faire signer un contrat avant le début des cours — la génération se fait page <strong>Contrats</strong>.
           </>,
+          <>
+            Un étudiant en collectif peut <strong>changer de promotion</strong> tant qu'il n'a suivi aucune séance
+            décomptée de son forfait dans sa promotion actuelle. Dès la première séance clôturée, le changement est
+            bloqué automatiquement.
+          </>,
         ]}
       />
 

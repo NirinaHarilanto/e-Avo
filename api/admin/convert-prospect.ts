@@ -2,6 +2,7 @@ import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { creerCompteSansEmail } from '../_lib/creerCompte.js'
 import { trouverProfilHomonyme, messageHomonyme } from '../_lib/nomDuplique.js'
 import { nomGroupeDuo } from '../../src/lib/duo.js'
+import { categorieDepuisNiveauEstime, CAPACITE_MAX_CLASSE } from '../../src/lib/classesCollectif.js'
 
 export const config = { runtime: 'edge' }
 
@@ -196,9 +197,11 @@ export default async function handler(request: Request): Promise<Response> {
     // l'admin ait à la ré-assigner à la main. Dérivé de l'inscription la plus récente plutôt que
     // d'un paramètre transmis par l'appelant : couvre indifféremment la conversion depuis la
     // page Prospects et depuis la nouvelle page Cours collectifs, sans dupliquer cette logique.
+    let niveauDetecte: string | null = null
+    let classeAssignee: string | null = null
     const { data: inscription } = await serviceClient
       .from('test_positionnement_inscriptions')
-      .select('creneau_id')
+      .select('creneau_id, niveau_estime')
       .eq('prospect_id', prospect.id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -210,16 +213,52 @@ export default async function handler(request: Request): Promise<Response> {
         .eq('id', inscription.creneau_id)
         .maybeSingle()
       if (creneau) {
+        // Classe de niveau (0074) : dérivée automatiquement du niveau CECRL du quiz écrit, sans
+        // ressaisie — demande client du 2026-09-23. On ne bloque jamais la conversion faute de
+        // classe disponible : l'étudiant rejoint quand même la promotion, à régulariser ensuite
+        // depuis la page Cours collectifs (le trigger de capacité, migration 0074, empêche de
+        // toute façon de dépasser 7 élèves par classe).
+        const categorie = categorieDepuisNiveauEstime(inscription.niveau_estime)
+        niveauDetecte = categorie
+        let cohortClassId: string | null = null
+        if (categorie) {
+          const { data: classes } = await serviceClient
+            .from('cohort_classes')
+            .select('id')
+            .eq('cohort_id', creneau.cohort_id)
+            .eq('niveau', categorie)
+          const classeIds = (classes ?? []).map((c: { id: string }) => c.id)
+          if (classeIds.length > 0) {
+            const { data: inscrits } = await serviceClient
+              .from('cohort_enrollments')
+              .select('cohort_class_id')
+              .in('cohort_class_id', classeIds)
+            const effectifs = new Map<string, number>(classeIds.map((id: string) => [id, 0]))
+            for (const i of inscrits ?? []) {
+              if (i.cohort_class_id) effectifs.set(i.cohort_class_id, (effectifs.get(i.cohort_class_id) ?? 0) + 1)
+            }
+            const disponible = classeIds
+              .filter((id: string) => (effectifs.get(id) ?? 0) < CAPACITE_MAX_CLASSE)
+              .sort((a: string, b: string) => (effectifs.get(a) ?? 0) - (effectifs.get(b) ?? 0))[0]
+            cohortClassId = disponible ?? null
+          }
+        }
+        classeAssignee = cohortClassId
         await serviceClient
           .from('cohort_enrollments')
           .upsert(
-            { etablissement_id: etablissementId, cohort_id: creneau.cohort_id, student_id: invited.user.id },
+            {
+              etablissement_id: etablissementId,
+              cohort_id: creneau.cohort_id,
+              cohort_class_id: cohortClassId,
+              student_id: invited.user.id,
+            },
             { onConflict: 'cohort_id,student_id' },
           )
       }
     }
 
-    return Response.json({ profileId: invited.user.id })
+    return Response.json({ profileId: invited.user.id, niveauDetecte, classeAssignee })
   } catch (error) {
     if (error instanceof AdminAuthError) {
       return Response.json({ error: error.message }, { status: error.status })

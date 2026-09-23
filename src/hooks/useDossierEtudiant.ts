@@ -10,6 +10,7 @@ type DiagnosticCall = Database['public']['Tables']['diagnostic_calls']['Row']
 type Package = Database['public']['Tables']['packages']['Row']
 type VideoSession = Database['public']['Tables']['video_sessions']['Row']
 type Cohort = Database['public']['Tables']['cohorts']['Row']
+type CohortClass = Database['public']['Tables']['cohort_classes']['Row']
 type Tarif = Database['public']['Tables']['tarifs']['Row']
 type SessionSatisfaction = Database['public']['Tables']['session_satisfaction']['Row']
 
@@ -49,6 +50,12 @@ export interface DossierEtudiant {
      `packages`. Pas de colonne dédiée : la présence d'une inscription à une cohorte suffit à
      distinguer les deux cas. */
   cohorte: Cohort | null
+  /* Classe de niveau (0074) au sein de la vague, si l'étudiant y a été affecté — null pour une
+     vague legacy sans classes, ou un étudiant pas encore affecté à une classe. */
+  cohortClasse: CohortClass | null
+  /* Professeur de `cohortClasse`, résolu séparément (voir plus bas) — null tant qu'aucun
+     professeur n'est désigné pour la classe, ou pas de classe. */
+  professeurClasse: Profile | null
   heuresConsommees: number
   prochaineSeance: SeanceDuParcours | null
   /* DUO (0054) : la personne dont le profil pointe VERS ce dossier (duo_partenaire_id = ce
@@ -92,7 +99,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
       supabase.from('session_enrollments').select('*').eq('student_id', studentId as string),
       supabase.from('packages').select('*').eq('student_id', studentId as string).order('created_at', { ascending: false }),
       supabase.from('student_hours_summary').select('*').eq('student_id', studentId as string).maybeSingle(),
-      supabase.from('cohort_enrollments').select('cohort_id').eq('student_id', studentId as string).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('cohort_enrollments').select('cohort_id, cohort_class_id').eq('student_id', studentId as string).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       // Un partenaire DUO supprimé ne doit plus apparaître comme second membre du binôme
       // (demande client du 2026-09-23) — sans ce filtre, un compte supprimé continuait à
       // s'afficher dans l'en-tête et les informations personnelles du dossier partagé.
@@ -113,6 +120,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
     // de cette même vague — elles peuvent donc toutes partir ensemble plutôt qu'en cascade.
     const [
       { data: cohorte },
+      { data: cohortClasse },
       { data: sessions },
       { data: videos },
       { data: professeurs },
@@ -124,6 +132,9 @@ export function useDossierEtudiant(studentId: string | undefined) {
       inscriptionCohorte
         ? supabase.from('cohorts').select('*').eq('id', inscriptionCohorte.cohort_id).maybeSingle()
         : Promise.resolve({ data: null as Cohort | null }),
+      inscriptionCohorte?.cohort_class_id
+        ? supabase.from('cohort_classes').select('*').eq('id', inscriptionCohorte.cohort_class_id).maybeSingle()
+        : Promise.resolve({ data: null as CohortClass | null }),
       sessionIds.length > 0 ? supabase.from('sessions').select('*').in('id', sessionIds) : Promise.resolve({ data: [] as Session[] }),
       sessionIds.length > 0 ? supabase.from('video_sessions').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as VideoSession[] }),
       // Un professeur supprimé n'apparaît plus dans le parcours pédagogique de l'élève — la
@@ -147,6 +158,12 @@ export function useDossierEtudiant(studentId: string | undefined) {
     const { data: tarifChoisi } = prospectTarifRef?.tarif_choisi_id
       ? await supabase.from('tarifs').select('*').eq('id', prospectTarifRef.tarif_choisi_id).maybeSingle()
       : { data: null as Tarif | null }
+    // Professeur de la classe de niveau (0074) : pas dans `professeurs` ci-dessus, qui ne couvre
+    // que les affectations individuelles (`teacher_assignments`) — un professeur de classe n'en
+    // a pas forcément.
+    const { data: professeurClasse } = cohortClasse?.teacher_id
+      ? await supabase.from('profiles').select('*').eq('id', cohortClasse.teacher_id).maybeSingle()
+      : { data: null as Profile | null }
     const sessionParId = new Map((sessions ?? []).map((s) => [s.id, s]))
     const videoParSession = new Map((videos ?? []).map((v) => [v.session_id, v]))
     const professeurParId = new Map((professeurs ?? []).map((p) => [p.id, p]))
@@ -188,6 +205,8 @@ export function useDossierEtudiant(studentId: string | undefined) {
       diagnosticPartenaire: diagnosticPartenaire ?? null,
       packages: packages ?? [],
       cohorte: cohorte ?? null,
+      cohortClasse: cohortClasse ?? null,
+      professeurClasse: professeurClasse ?? null,
       heuresConsommees: resume?.heures_consommees ?? 0,
       prochaineSeance,
       duoPartenaire: duoPartenaire ?? null,

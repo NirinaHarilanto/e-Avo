@@ -1,5 +1,6 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { creerSeanceAvecInscriptions } from '../_lib/creerSeance.js'
+import { CAPACITE_MIN_CLASSE } from '../../src/lib/classesCollectif.js'
 
 export const config = { runtime: 'edge' }
 
@@ -9,6 +10,10 @@ interface Corps {
   dureeMinutes?: number
   debuts?: string[]
   cohortId?: string
+  /* Classe de niveau (0074) : planifie uniquement les inscrits de cette classe, avec son
+     professeur propre — prioritaire sur `cohortId` seul, qui reste le chemin legacy pour une
+     vague pas encore scindée en classes. */
+  cohortClassId?: string
 }
 
 const MAX_OCCURRENCES = 156 // ~3 ans à raison de 2 séances/semaine — garde-fou anti-erreur de saisie
@@ -34,13 +39,38 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: `Trop de séances demandées (max ${MAX_OCCURRENCES}).` }, { status: 400 })
     }
 
-    /* Vague : c'est elle qui définit la liste des élèves et le professeur, pas l'appelant — une
-       vague se planifie d'un bloc (demande client du 2026-09-23, point 8). Les élèves sont
-       relus ici pour que le planning couvre l'effectif réel au moment où on le crée. */
+    /* Vague ou classe : c'est elle qui définit la liste des élèves et le professeur, pas
+       l'appelant — un groupe se planifie d'un bloc (demande client du 2026-09-23, point 8). Les
+       élèves sont relus ici pour que le planning couvre l'effectif réel au moment où on le
+       crée. */
     let cohortId: string | null = null
+    let cohortClassId: string | null = null
     let studentIds = body.studentIds ?? []
     let teacherId = body.teacherId
-    if (body.cohortId) {
+    if (body.cohortClassId) {
+      const { data: classe } = await serviceClient
+        .from('cohort_classes')
+        .select('id, etablissement_id, cohort_id, teacher_id')
+        .eq('id', body.cohortClassId)
+        .maybeSingle()
+      if (!classe || classe.etablissement_id !== etablissementId) {
+        return Response.json({ error: 'Classe invalide pour cet établissement.' }, { status: 400 })
+      }
+      const { data: inscrits } = await serviceClient
+        .from('cohort_enrollments')
+        .select('student_id')
+        .eq('cohort_class_id', classe.id)
+      studentIds = (inscrits ?? []).map((i: { student_id: string }) => i.student_id)
+      if (studentIds.length < CAPACITE_MIN_CLASSE) {
+        return Response.json(
+          { error: `Cette classe compte moins de ${CAPACITE_MIN_CLASSE} élèves, les cours ne peuvent pas encore commencer.` },
+          { status: 400 },
+        )
+      }
+      teacherId = teacherId ?? classe.teacher_id ?? undefined
+      cohortId = classe.cohort_id
+      cohortClassId = classe.id
+    } else if (body.cohortId) {
       const { data: cohorte } = await serviceClient
         .from('cohorts')
         .select('id, etablissement_id, teacher_id')
@@ -96,6 +126,7 @@ export default async function handler(request: Request): Promise<Response> {
         dureeMinutes: body.dureeMinutes,
         studentIds,
         cohortId,
+        cohortClassId,
       })
       if ('error' in resultat) {
         return Response.json({ error: resultat.error, sessionsCreees: sessionIds.length }, { status: 500 })
