@@ -50,6 +50,37 @@ async function annulerSeancesAVenir(
   }
 }
 
+/* Un binôme DUO n'a de sens qu'à deux : si l'un des deux membres est supprimé alors que l'autre
+   n'a JAMAIS activé son compte (`status = 'pending'`), ce second compte reste orphelin pour
+   toujours — sans principal ni secondaire en face, il ne mènera jamais nulle part, mais son
+   adresse e-mail reste retenue indéfiniment côté Auth et bloque toute réinscription future avec
+   cette même adresse (bug réel constaté le 2026-09-23, voir aussi la garde de secours dans
+   api/_lib/creerCompte.ts). On ne touche qu'aux invitations jamais activées : un partenaire déjà
+   actif (`approved`/`en_pause`) garde son compte et son dossier intacts, même privé de l'autre
+   moitié de son duo — cette suppression-ci reste volontairement silencieuse sur ce cas, laissé à
+   une décision explicite de l'admin. */
+async function nettoyerPartenaireDuoJamaisActive(
+  serviceClient: Awaited<ReturnType<typeof requireAdmin>>['serviceClient'],
+  profileId: string,
+  duoPartenaireId: string | null,
+): Promise<void> {
+  // Les deux sens du lien sont possibles : le profil supprimé peut être le secondaire (son
+  // propre duo_partenaire_id pointe vers le principal) ou le principal (un secondaire pointe
+  // vers lui) — voir migration 0054, lien asymétrique.
+  const [{ data: viaPrincipal }, { data: viaSecondaire }] = await Promise.all([
+    duoPartenaireId
+      ? serviceClient.from('profiles').select('id, status').eq('id', duoPartenaireId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    serviceClient.from('profiles').select('id, status').eq('duo_partenaire_id', profileId).maybeSingle(),
+  ])
+
+  for (const candidat of [viaPrincipal, viaSecondaire]) {
+    if (!candidat || candidat.status !== 'pending') continue
+    await serviceClient.from('profiles').update({ status: 'suspended', email: null }).eq('id', candidat.id)
+    await serviceClient.auth.admin.deleteUser(candidat.id, true)
+  }
+}
+
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 })
@@ -67,7 +98,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: cible, error: erreurCible } = await serviceClient
       .from('profiles')
-      .select('id, role, etablissement_id')
+      .select('id, role, etablissement_id, duo_partenaire_id')
       .eq('id', body.profileId)
       .maybeSingle()
 
@@ -98,6 +129,8 @@ export default async function handler(request: Request): Promise<Response> {
     if (cible.role === 'etudiant') {
       await annulerSeancesAVenir(serviceClient, body.profileId)
     }
+
+    await nettoyerPartenaireDuoJamaisActive(serviceClient, body.profileId, cible.duo_partenaire_id)
 
     const { error: erreurAuth } = await serviceClient.auth.admin.deleteUser(body.profileId, true)
     if (erreurAuth) {
