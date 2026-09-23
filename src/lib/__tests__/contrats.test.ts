@@ -260,3 +260,52 @@ describe('preparerVariables — contexte de programme', () => {
     expect(resolues[0].valeurAuto).toBeUndefined()
   })
 })
+
+/* Contrat DUO (0066, demande client du 2026-09-23) : les deux membres du binôme dans le même
+   contrat, chacun avec ses propres informations. */
+describe('deduireSource — second membre du duo', () => {
+  it('reconnaît le nom/prénom/email de « l’étudiant 2 »', () => {
+    expect(deduireSource('nom_etudiant_2', "Nom de l'étudiant 2")).toBe('nom_2')
+    expect(deduireSource('prenom_etudiant_2', "Prénom de l'étudiant 2")).toBe('prenom_2')
+    expect(deduireSource('email_2', 'E-mail (étudiant 2)')).toBe('email_2')
+  })
+
+  it('ne confond pas le champ nu du premier membre avec le second', () => {
+    expect(deduireSource('nom_etudiant', "Nom de l'étudiant")).toBe('nom')
+  })
+
+  it('le taux horaire n’a pas de variante duo (jamais un contrat professeur)', () => {
+    expect(deduireSource('taux_horaire_2', 'Taux horaire 2')).toBeUndefined()
+  })
+})
+
+describe('preparerVariables — second membre du duo', () => {
+  const partenaire: Profile = {
+    ...etudiant,
+    id: 'p3',
+    nom: 'Andria',
+    prenom: 'Tojo',
+    email: 'tojo@example.mg',
+    duo_partenaire_id: 'p1',
+  }
+
+  it('remplit les champs du second membre depuis son propre profil', () => {
+    const modele = [
+      { cle: 'nom1', label: 'Nom (étudiant 1)', source: 'nom' },
+      { cle: 'nom2', label: 'Nom (étudiant 2)', source: 'nom_2' },
+      { cle: 'email2', label: 'E-mail (étudiant 2)', source: 'email_2' },
+    ]
+    const resolues = preparerVariables('{{nom1}} {{nom2}} {{email2}}', modele, etudiant, etablissement, undefined, partenaire)
+    const parCle = Object.fromEntries(resolues.map((v) => [v.cle, v]))
+
+    expect(parCle.nom1.valeurAuto).toBe('Rakoto')
+    expect(parCle.nom2.valeurAuto).toBe('Andria')
+    expect(parCle.email2.valeurAuto).toBe('tojo@example.mg')
+  })
+
+  it('sans second destinataire, les sources _2 restent en saisie manuelle plutôt que vides à tort', () => {
+    const modele = [{ cle: 'nom2', label: 'Nom (étudiant 2)', source: 'nom_2' }]
+    const resolues = preparerVariables('{{nom2}}', modele, etudiant, etablissement)
+    expect(resolues[0].valeurAuto).toBeUndefined()
+  })
+})

@@ -243,6 +243,7 @@ export function ContratsAdmin() {
         <ContratImprimable
           contrat={contratAImprimer.contrat}
           destinataire={contratAImprimer.destinataire}
+          destinataireSecondaire={contratAImprimer.destinataireSecondaire}
           signataireEtablissement={contratAImprimer.signataireEtablissement}
           onFermer={() => setContratAImprimer(null)}
         />
@@ -252,7 +253,11 @@ export function ContratsAdmin() {
 }
 
 function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestinataire; onImprimer: () => void; onChange: () => void }) {
-  const { contrat, destinataire } = item
+  const { contrat, destinataire, destinataireSecondaire } = item
+  const nomsDestinataires = [destinataire, destinataireSecondaire]
+    .filter((p): p is NonNullable<typeof p> => !!p)
+    .map((p) => `${p.prenom} ${p.nom}`)
+    .join(' & ')
   const { session } = useProfileContext()
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -298,18 +303,27 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
     if (!session) return
     setEnCours(true)
     setErreur(null)
-    const reponse = await fetch('/api/admin/notifier', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({
-        destinataireProfileId: contrat.destinataire_profile_id,
-        type: 'rappel_contrat',
-        titre: `Rappel · signature attendue pour « ${contrat.titre} »`,
-        lien: contrat.destinataire_role === 'professeur' ? '/professeur/contrats' : '/mon-espace/contrats',
-      }),
-    })
+    const lien = contrat.destinataire_role === 'professeur' ? '/professeur/contrats' : '/mon-espace/contrats'
+    const titre = `Rappel · signature attendue pour « ${contrat.titre} »`
+    // DUO (0066) : rappelle chaque partie qui n'a PAS encore signé — jamais celle qui l'a déjà
+    // fait, contrairement au principal seul avant cette évolution.
+    const destinatairesARelancer = [
+      !contrat.signe_destinataire_at ? contrat.destinataire_profile_id : null,
+      contrat.destinataire_secondaire_profile_id && !contrat.signe_destinataire_secondaire_at ? contrat.destinataire_secondaire_profile_id : null,
+    ].filter((id): id is string => !!id)
+
+    const reponses = await Promise.all(
+      destinatairesARelancer.map((destinataireProfileId) =>
+        fetch('/api/admin/notifier', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ destinataireProfileId, type: 'rappel_contrat', titre, lien }),
+        }),
+      ),
+    )
     setEnCours(false)
-    if (!reponse.ok) {
+    const reponse = reponses.find((r) => !r.ok)
+    if (reponse) {
       const corps = await reponse.json().catch(() => null)
       setErreur(corps?.error ?? "L'envoi a échoué.")
       return
@@ -336,7 +350,7 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
           <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
             {contrat.titre}
           </span>
-          <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{destinataire ? `${destinataire.prenom} ${destinataire.nom}` : 'Destinataire inconnu'}</div>
+          <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{nomsDestinataires || 'Destinataire inconnu'}</div>
         </div>
         {contrat.statut === 'signe' ? (
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '4px 10px' }}>

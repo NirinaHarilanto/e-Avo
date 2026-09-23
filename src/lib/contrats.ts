@@ -32,6 +32,22 @@ export type SourceVariable =
   | 'lieu_naissance'
   | 'age'
   | 'taux_horaire'
+  /* Second membre d'un binôme DUO (0066, demande client du 2026-09-23 : « mettre étudiant 1 avec
+     ses informations et étudiant 2 avec ses informations, dans le même contrat »). Un contrat
+     étudiant DUO résout ces sources depuis le second profil transmis à `preparerVariables`, en
+     plus du premier via les sources ci-dessus — jamais utilisées pour un contrat professeur ou un
+     étudiant individuel, où aucun second destinataire n'existe. */
+  | 'prenom_2'
+  | 'nom_2'
+  | 'nom_complet_2'
+  | 'email_2'
+  | 'telephone_2'
+  | 'whatsapp_2'
+  | 'adresse_2'
+  | 'ville_2'
+  | 'date_naissance_2'
+  | 'lieu_naissance_2'
+  | 'age_2'
   | 'etablissement_nom'
   | 'etablissement_specialite'
   | 'date_du_jour'
@@ -64,6 +80,17 @@ export const SOURCES_VARIABLE: { valeur: SourceVariable; label: string; groupe: 
   { valeur: 'date_naissance', label: 'Date de naissance', groupe: 'Naissance' },
   { valeur: 'lieu_naissance', label: 'Lieu de naissance', groupe: 'Naissance' },
   { valeur: 'age', label: 'Âge', groupe: 'Naissance' },
+  { valeur: 'nom_complet_2', label: 'Prénom et nom (étudiant 2)', groupe: 'Second membre du duo' },
+  { valeur: 'prenom_2', label: 'Prénom (étudiant 2)', groupe: 'Second membre du duo' },
+  { valeur: 'nom_2', label: 'Nom (étudiant 2)', groupe: 'Second membre du duo' },
+  { valeur: 'email_2', label: 'E-mail (étudiant 2)', groupe: 'Second membre du duo' },
+  { valeur: 'telephone_2', label: 'Téléphone (étudiant 2)', groupe: 'Second membre du duo' },
+  { valeur: 'whatsapp_2', label: 'WhatsApp (étudiant 2)', groupe: 'Second membre du duo' },
+  { valeur: 'adresse_2', label: 'Adresse (étudiant 2)', groupe: 'Second membre du duo' },
+  { valeur: 'ville_2', label: 'Ville (étudiant 2)', groupe: 'Second membre du duo' },
+  { valeur: 'date_naissance_2', label: 'Date de naissance (étudiant 2)', groupe: 'Second membre du duo' },
+  { valeur: 'lieu_naissance_2', label: 'Lieu de naissance (étudiant 2)', groupe: 'Second membre du duo' },
+  { valeur: 'age_2', label: 'Âge (étudiant 2)', groupe: 'Second membre du duo' },
   { valeur: 'langue_programme', label: 'Langue visée / suivie', groupe: 'Programme (étudiant)' },
   { valeur: 'type_programme_label', label: 'Type de programme', groupe: 'Programme (étudiant)' },
   { valeur: 'heures_programme', label: "Nombre d'heures du programme", groupe: 'Programme (étudiant)' },
@@ -129,7 +156,16 @@ export function resoudreSource(
   destinataire: Profile,
   etablissement: Etablissement | null,
   contexte?: ContexteProgramme,
+  destinataireSecondaire?: Profile | null,
 ): string | null {
+  // Sources du second membre du duo (0066) : résolues depuis le profil secondaire, jamais celui
+  // du destinataire principal — `null` si le contrat n'en a pas (professeur, étudiant seul).
+  if (destinataireSecondaire && (source as SourceVariable).endsWith('_2')) {
+    const sourcePrincipale = (source as string).slice(0, -2)
+    return resoudreSource(sourcePrincipale, destinataireSecondaire, etablissement, contexte)
+  }
+  if (!destinataireSecondaire && (source as SourceVariable).endsWith('_2')) return null
+
   switch (source as SourceVariable) {
     case 'prenom':
       return destinataire.prenom
@@ -292,7 +328,15 @@ export function deduireSource(cle: string, label: string): SourceVariable | unde
 
   // Une donnée personnelle n'est reprise que si le libellé désigne bien la partie au contrat,
   // ou si la clé est le champ nu (`{{nom}}`, `{{adresse}}`), qui ne peut désigner qu'elle.
-  return nommeLaPersonne || CLES_NUES.includes(normaliser(cle)) ? champ : undefined
+  if (!(nommeLaPersonne || CLES_NUES.includes(normaliser(cle)))) return undefined
+
+  /* Second membre d'un binôme DUO (0066) : « Nom de l'étudiant 2 », « Email (second membre) »…
+     — le marqueur l'emporte sur le champ nu détecté ci-dessus. `taux_horaire` n'a pas de variante
+     _2 (seul un professeur en a un, jamais concerné par un contrat duo). */
+  const marqueurSecondMembre = mots.includes('2') || /deuxieme|second(e|aire)?\b/.test(texte)
+  if (marqueurSecondMembre && champ !== 'taux_horaire') return `${champ}_2` as SourceVariable
+
+  return champ
 }
 
 /* Valeurs courantes des clauses qu'aucune fiche/dossier ne peut renseigner : proposées
@@ -338,6 +382,9 @@ export function preparerVariables(
   destinataire: Profile | null,
   etablissement: Etablissement | null,
   contexte?: ContexteProgramme,
+  /* Second membre d'un binôme DUO (0066) — voir les sources `*_2` plus haut. `undefined`/`null`
+     pour tout contrat sans second destinataire (professeur, étudiant individuel). */
+  destinataireSecondaire?: Profile | null,
 ): VariableResolue[] {
   return extraireVariables(corpsTemplate).map((cle) => {
     const declaree = variablesModele.find((v) => v.cle === cle)
@@ -351,7 +398,7 @@ export function preparerVariables(
 
     const source = declaree?.source || deduireSource(cle, label)
     if (destinataire && source && source !== SOURCE_MANUELLE) {
-      const valeurAuto = resoudreSource(source, destinataire, etablissement, contexte)
+      const valeurAuto = resoudreSource(source, destinataire, etablissement, contexte, destinataireSecondaire)
       if (valeurAuto !== null) return { cle, label, valeurAuto, source }
     }
 

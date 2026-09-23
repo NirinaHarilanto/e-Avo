@@ -8,6 +8,9 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 export interface ContratAvecDestinataire {
   contrat: Contract
   destinataire: Profile | null
+  // Second membre d'un binôme DUO devant aussi signer ce contrat (0066) — `null` pour tout
+  // contrat individuel/professeur.
+  destinataireSecondaire: Profile | null
   // Profil de la personne qui a signé pour l'établissement (contrat.signe_etablissement_par) —
   // utilisé pour afficher son image de signature sur ContratImprimable.tsx (demande client du
   // 2026-09-17). Null tant que personne n'a encore signé côté établissement.
@@ -22,6 +25,7 @@ export function useContrats() {
     const profileIds = [
       ...new Set([
         ...(data ?? []).map((c) => c.destinataire_profile_id),
+        ...(data ?? []).map((c) => c.destinataire_secondaire_profile_id).filter((id): id is string => !!id),
         ...(data ?? []).map((c) => c.signe_etablissement_par).filter((id): id is string => !!id),
       ]),
     ]
@@ -34,6 +38,7 @@ export function useContrats() {
       (c): ContratAvecDestinataire => ({
         contrat: c,
         destinataire: profilParId.get(c.destinataire_profile_id) ?? null,
+        destinataireSecondaire: c.destinataire_secondaire_profile_id ? profilParId.get(c.destinataire_secondaire_profile_id) ?? null : null,
         signataireEtablissement: c.signe_etablissement_par ? profilParId.get(c.signe_etablissement_par) ?? null : null,
       }),
     )

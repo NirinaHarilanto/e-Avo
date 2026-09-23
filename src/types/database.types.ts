@@ -1031,6 +1031,9 @@ export interface Database {
           template_id: string | null
           destinataire_profile_id: string
           destinataire_role: Role
+          /* Second membre d'un binôme DUO devant aussi signer ce contrat (0066). Null pour tout
+             contrat individuel/professeur. */
+          destinataire_secondaire_profile_id: string | null
           titre: string
           corps_genere: string
           variables_valeurs: Record<string, string>
@@ -1045,6 +1048,9 @@ export interface Database {
           signe_destinataire_at: string | null
           ip_signature_destinataire: string | null
           user_agent_signature_destinataire: string | null
+          signe_destinataire_secondaire_at: string | null
+          ip_signature_destinataire_secondaire: string | null
+          user_agent_signature_destinataire_secondaire: string | null
           date_limite_signature: string | null
           created_by_profile_id: string
           created_at: string
@@ -1055,6 +1061,7 @@ export interface Database {
           template_id?: string | null
           destinataire_profile_id: string
           destinataire_role: Role
+          destinataire_secondaire_profile_id?: string | null
           titre: string
           corps_genere: string
           variables_valeurs?: Record<string, string>
@@ -1069,6 +1076,9 @@ export interface Database {
           signe_destinataire_at?: string | null
           ip_signature_destinataire?: string | null
           user_agent_signature_destinataire?: string | null
+          signe_destinataire_secondaire_at?: string | null
+          ip_signature_destinataire_secondaire?: string | null
+          user_agent_signature_destinataire_secondaire?: string | null
           date_limite_signature?: string | null
           created_by_profile_id: string
           created_at?: string

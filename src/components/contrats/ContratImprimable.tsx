@@ -10,6 +10,9 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 interface ContratImprimableProps {
   contrat: Contract
   destinataire: Profile | null
+  // Second membre d'un binôme DUO devant aussi signer ce contrat (0066) — `null`/absent pour
+  // tout contrat individuel/professeur.
+  destinataireSecondaire?: Profile | null
   // Profil ayant signé pour l'établissement (contrat.signe_etablissement_par) — optionnel :
   // les deux appelants actuels (ContratsAdmin.tsx, MesContrats.tsx) le passent via useContrats().
   signataireEtablissement?: Profile | null
@@ -100,8 +103,12 @@ function SignatureAffichee({ profil, signeLe }: { profil: Profile | null; signeL
    étiquette sur la ligne de contrat (voir ContratsAdmin.tsx, « Voir le contrat ») et l'ajout du
    statut de signature de chaque partie, jusqu'ici visible seulement dans la liste, jamais dans le
    document lui-même. */
-export function ContratImprimable({ contrat, destinataire, signataireEtablissement, onFermer }: ContratImprimableProps) {
+export function ContratImprimable({ contrat, destinataire, destinataireSecondaire, signataireEtablissement, onFermer }: ContratImprimableProps) {
   const etablissement = useEtablissement(contrat.etablissement_id)
+  const nomsDestinataires = [destinataire, destinataireSecondaire]
+    .filter((p): p is Profile => !!p)
+    .map((p) => `${p.prenom} ${p.nom}`)
+    .join(' & ')
 
   return (
     <OverlayImpression onFermer={onFermer}>
@@ -110,7 +117,7 @@ export function ContratImprimable({ contrat, destinataire, signataireEtablisseme
           <h1 style={{ fontSize: 20, margin: 0 }}>{etablissement?.nom ?? "Établissement"}</h1>
           <h2 style={{ fontSize: 17, margin: '16px 0 4px' }}>{contrat.titre}</h2>
           <p style={{ fontSize: 12, color: '#555', margin: 0 }}>
-            {destinataire ? `${destinataire.prenom} ${destinataire.nom}` : ''} — émis le {new Date(contrat.created_at).toLocaleDateString('fr-FR')}
+            {nomsDestinataires} — émis le {new Date(contrat.created_at).toLocaleDateString('fr-FR')}
           </p>
         </div>
         <span
@@ -130,7 +137,7 @@ export function ContratImprimable({ contrat, destinataire, signataireEtablisseme
 
       <div style={{ marginTop: 24, fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{contrat.corps_genere}</div>
 
-      <div style={{ marginTop: 48, display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+      <div style={{ marginTop: 48, display: 'flex', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap', fontSize: 12 }}>
         <div>
           <p style={{ margin: 0 }}>Fait pour {etablissement?.nom},</p>
           <p style={{ marginTop: 40, marginBottom: 0 }}>Signature</p>
@@ -141,6 +148,16 @@ export function ContratImprimable({ contrat, destinataire, signataireEtablisseme
           <p style={{ marginTop: 40, marginBottom: 0 }}>Signature</p>
           <SignatureAffichee profil={destinataire} signeLe={contrat.signe_destinataire_at} />
         </div>
+        {/* Second membre du binôme DUO (0066, demande client du 2026-09-23 : « les deux
+            personnes formant le duo doivent signer le même contrat ») — colonne de signature
+            supplémentaire, absente pour tout contrat sans second destinataire. */}
+        {destinataireSecondaire && (
+          <div>
+            <p style={{ margin: 0 }}>Fait pour {destinataireSecondaire.prenom} {destinataireSecondaire.nom},</p>
+            <p style={{ marginTop: 40, marginBottom: 0 }}>Signature</p>
+            <SignatureAffichee profil={destinataireSecondaire} signeLe={contrat.signe_destinataire_secondaire_at} />
+          </div>
+        )}
       </div>
     </OverlayImpression>
   )

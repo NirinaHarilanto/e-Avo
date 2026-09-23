@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
@@ -40,9 +40,26 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
-  const personnes = typeContrat === 'professeur' ? professeurs : etudiants
+  /* DUO (0066, demande client du 2026-09-23 : « quand je cherche des étudiants DUO, il faudrait
+     que dans la liste deux prénoms s'affichent sur la même ligne »). `etudiants` contient les
+     deux membres séparément (voir useEtudiants()) — on retire le second de la liste déroulante
+     et on affiche le binôme comme une seule entrée « Prénom1/Prénom2 », le premier (principal ou
+     secondaire, peu importe lequel) restant sélectionnable pour représenter les deux à la fois. */
+  const secondaireParPrincipal = useMemo(() => {
+    const table = new Map<string, (typeof etudiants)[number]>()
+    for (const e of etudiants) {
+      if (e.duo_partenaire_id) table.set(e.duo_partenaire_id, e)
+    }
+    return table
+  }, [etudiants])
+  const etudiantsGroupes = useMemo(() => etudiants.filter((e) => !e.duo_partenaire_id), [etudiants])
+
+  const personnes = typeContrat === 'professeur' ? professeurs : etudiantsGroupes
   const modelesDuType = modeles.filter((m) => m.public_cible === typeContrat)
   const destinataire = personnes.find((p) => p.id === destinataireId) ?? null
+  // Second membre du binôme DUO du destinataire choisi (0066) — `null` pour un professeur ou un
+  // étudiant individuel, qui n'a par définition personne dans cette table.
+  const destinataireSecondaire = typeContrat === 'etudiant' ? secondaireParPrincipal.get(destinataireId) ?? null : null
   const modele = modelesDuType.find((m) => m.id === templateId) ?? null
 
   /* Ce que la fiche du destinataire seule ne porte pas — forfait, vague, affectation pour un
@@ -75,7 +92,9 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
     }
   }
 
-  const variables = modele ? preparerVariables(modele.corps_template, modele.variables_disponibles, destinataire, etablissement, contexteProgramme) : []
+  const variables = modele
+    ? preparerVariables(modele.corps_template, modele.variables_disponibles, destinataire, etablissement, contexteProgramme, destinataireSecondaire)
+    : []
   /* Une variable résolue à vide (clause de minorité d'un étudiant majeur : il n'y a rien à
      insérer) disparaît du récapitulatif — la mentionner ne ferait qu'attirer l'attention sur un
      champ dont la réponse est « rien à faire ». Elle reste bien substituée par du vide dans le
@@ -106,12 +125,19 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
     setErreur(null)
 
     const aujourdhui = new Date().toISOString().slice(0, 10)
-    const titre = `${modele.nom} — ${[destinataire.prenom, destinataire.nom].filter(Boolean).join(' ')}`
+    // DUO (0066) : le titre nomme les deux personnes, pas seulement celle sélectionnée dans le
+    // menu déroulant — c'est bien un contrat commun aux deux, pas celui du seul destinataire.
+    const nomsDestinataires = [destinataire, destinataireSecondaire]
+      .filter((p): p is NonNullable<typeof p> => !!p)
+      .map((p) => [p.prenom, p.nom].filter(Boolean).join(' '))
+      .join(' & ')
+    const titre = `${modele.nom} — ${nomsDestinataires}`
 
     const { error } = await supabase.from('contracts').insert({
       etablissement_id: etablissementId,
       template_id: modele.id,
       destinataire_profile_id: destinataire.id,
+      destinataire_secondaire_profile_id: destinataireSecondaire?.id ?? null,
       destinataire_role: modele.public_cible,
       titre,
       corps_genere: corpsGenere,
@@ -131,18 +157,23 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
        si la notification échoue, l'approbation reste valide et la ligne du contrat propose
        « Envoyer un rappel ». On n'y bloque donc pas le lancement — ni sur l'échec (déjà le cas),
        ni sur la durée de l'appel : le insert ci-dessus a déjà réussi, il n'y a plus de raison de
-       faire attendre l'admin pour un envoi de notification, sans intérêt pour lui à cet instant. */
+       faire attendre l'admin pour un envoi de notification, sans intérêt pour lui à cet instant.
+       DUO (0066) : les deux membres du binôme reçoivent chacun leur propre notification — les
+       deux doivent signer le même contrat. */
     if (session) {
-      fetch('/api/admin/notifier', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({
-          destinataireProfileId: destinataire.id,
-          type: 'contrat_a_signer',
-          titre: `Contrat à signer · ${titre}`,
-          lien: modele.public_cible === 'professeur' ? '/professeur/contrats' : '/mon-espace/contrats',
-        }),
-      }).catch(() => undefined)
+      const lien = modele.public_cible === 'professeur' ? '/professeur/contrats' : '/mon-espace/contrats'
+      for (const destinataireANotifier of [destinataire, destinataireSecondaire].filter((p): p is NonNullable<typeof p> => !!p)) {
+        fetch('/api/admin/notifier', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({
+            destinataireProfileId: destinataireANotifier.id,
+            type: 'contrat_a_signer',
+            titre: `Contrat à signer · ${titre}`,
+            lien,
+          }),
+        }).catch(() => undefined)
+      }
     }
 
     setEnCours(false)
@@ -170,11 +201,14 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
         <Champ label={typeContrat === 'professeur' ? '2 · Professeur concerné' : '2 · Étudiant concerné'} obligatoire>
           <select required value={destinataireId} onChange={(e) => setDestinataireId(e.target.value)} style={champStyle}>
             <option value="">Sélectionner…</option>
-            {personnes.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.prenom} {p.nom}
-              </option>
-            ))}
+            {personnes.map((p) => {
+              const partenaire = secondaireParPrincipal.get(p.id)
+              return (
+                <option key={p.id} value={p.id}>
+                  {partenaire ? `${p.prenom}/${partenaire.prenom}` : `${p.prenom} ${p.nom}`}
+                </option>
+              )
+            })}
           </select>
         </Champ>
 
@@ -226,6 +260,13 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
             ))}
           </div>
         </div>
+      )}
+
+      {destinataireSecondaire && (
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--accent-gold, #e9cf94)', lineHeight: 1.5 }}>
+          Binôme DUO : ce contrat portera les informations de {destinataire?.prenom} {destinataire?.nom} et{' '}
+          {destinataireSecondaire.prenom} {destinataireSecondaire.nom}, qui devront tous deux le signer.
+        </p>
       )}
 
       {modele && destinataire && (

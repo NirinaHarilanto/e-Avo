@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
-import { useContrats } from '../../hooks/useContrats'
+import { useContrats, type ContratAvecDestinataire } from '../../hooks/useContrats'
 import { ContratImprimable } from '../contrats/ContratImprimable'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
@@ -58,7 +58,15 @@ export function MesContrats() {
     )
   }
 
-  const aSigner = contrats.filter((item) => item.contrat.statut === 'envoye' && !item.contrat.signe_destinataire_at).length
+  /* DUO (0066) : « vous » avez déjà signé (ou non) se lit sur des champs différents selon qu'on
+     est le destinataire principal ou le second membre du binôme — jamais sur signe_destinataire_at
+     à l'aveugle, qui ne concerne que le principal. */
+  function jaiSigne(item: ContratAvecDestinataire): boolean {
+    const estSecondaire = item.contrat.destinataire_secondaire_profile_id === session?.user.id
+    return estSecondaire ? !!item.contrat.signe_destinataire_secondaire_at : !!item.contrat.signe_destinataire_at
+  }
+
+  const aSigner = contrats.filter((item) => item.contrat.statut === 'envoye' && !jaiSigne(item)).length
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -87,8 +95,8 @@ export function MesContrats() {
       )}
 
       {contrats.map((item) => {
-        const { contrat } = item
-        const peutSigner = contrat.statut === 'envoye' && !contrat.signe_destinataire_at
+        const { contrat, destinataireSecondaire } = item
+        const peutSigner = contrat.statut === 'envoye' && !jaiSigne(item)
         const statut = styleStatut(contrat.statut)
         return (
           <div key={contrat.id} className="card card-lift" style={{ padding: '15px 18px', display: 'flex', flexDirection: 'column', gap: 11 }}>
@@ -119,23 +127,44 @@ export function MesContrats() {
               </button>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', paddingTop: 10, borderTop: '1px solid var(--border-soft)' }}>
-              <EtapeSignature
-                label="Établissement"
-                fait={!!contrat.signe_etablissement_at}
-                detail={contrat.signe_etablissement_at ? `signé le ${new Date(contrat.signe_etablissement_at).toLocaleDateString('fr-FR')}` : 'en attente'}
-              />
-              <EtapeSignature
-                label="Vous"
-                fait={!!contrat.signe_destinataire_at}
-                detail={contrat.signe_destinataire_at ? `signé le ${new Date(contrat.signe_destinataire_at).toLocaleDateString('fr-FR')}` : 'en attente'}
-              />
-              {contrat.date_limite_signature && (
-                <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>
-                  À signer avant le {new Date(contrat.date_limite_signature).toLocaleDateString('fr-FR')}
-                </span>
-              )}
-            </div>
+            {/* DUO (0066) : le viewer peut être l'un ou l'autre destinataire — « Vous » lit
+                toujours son propre champ, une troisième pastille nommée montre où en est le
+                partenaire. */}
+            {(() => {
+              const estSecondaire = contrat.destinataire_secondaire_profile_id === session?.user.id
+              const monSigneLe = estSecondaire ? contrat.signe_destinataire_secondaire_at : contrat.signe_destinataire_at
+              const signeLePartenaire = destinataireSecondaire
+                ? estSecondaire
+                  ? contrat.signe_destinataire_at
+                  : contrat.signe_destinataire_secondaire_at
+                : null
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', paddingTop: 10, borderTop: '1px solid var(--border-soft)' }}>
+                  <EtapeSignature
+                    label="Établissement"
+                    fait={!!contrat.signe_etablissement_at}
+                    detail={contrat.signe_etablissement_at ? `signé le ${new Date(contrat.signe_etablissement_at).toLocaleDateString('fr-FR')}` : 'en attente'}
+                  />
+                  <EtapeSignature
+                    label="Vous"
+                    fait={!!monSigneLe}
+                    detail={monSigneLe ? `signé le ${new Date(monSigneLe).toLocaleDateString('fr-FR')}` : 'en attente'}
+                  />
+                  {destinataireSecondaire && (
+                    <EtapeSignature
+                      label={destinataireSecondaire.prenom ?? 'Votre partenaire'}
+                      fait={!!signeLePartenaire}
+                      detail={signeLePartenaire ? `signé le ${new Date(signeLePartenaire).toLocaleDateString('fr-FR')}` : 'en attente'}
+                    />
+                  )}
+                  {contrat.date_limite_signature && (
+                    <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>
+                      À signer avant le {new Date(contrat.date_limite_signature).toLocaleDateString('fr-FR')}
+                    </span>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         )
       })}
@@ -144,6 +173,7 @@ export function MesContrats() {
         <ContratImprimable
           contrat={contratAImprimer.contrat}
           destinataire={contratAImprimer.destinataire}
+          destinataireSecondaire={contratAImprimer.destinataireSecondaire}
           signataireEtablissement={contratAImprimer.signataireEtablissement}
           onFermer={() => setContratAImprimer(null)}
         />

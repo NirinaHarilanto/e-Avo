@@ -53,45 +53,71 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Ce contrat doit être envoyé avant de pouvoir être signé.' }, { status: 409 })
     }
 
-    const estDestinataire = contrat.destinataire_profile_id === profile.id
-    if (!estAdmin && !estDestinataire) {
+    // Un contrat DUO (0066, demande client du 2026-09-23 : « les deux personnes formant le duo
+    // doivent signer le même contrat ») a deux destinataires distincts, chacun avec son propre
+    // jeu de champs de signature — ni l'un ni l'autre ne peut signer à la place de l'autre.
+    const estDestinatairePrincipal = contrat.destinataire_profile_id === profile.id
+    const estDestinataireSecondaire = !!contrat.destinataire_secondaire_profile_id && contrat.destinataire_secondaire_profile_id === profile.id
+    if (!estAdmin && !estDestinatairePrincipal && !estDestinataireSecondaire) {
       return Response.json({ error: "Vous n'êtes pas partie prenante de ce contrat." }, { status: 403 })
     }
 
     const maintenant = new Date().toISOString()
     const update: Database['public']['Tables']['contracts']['Update'] = {}
-    let notifierProfileId: string | null = null
-    let notifierLien = '/admin/contrats'
+    const notifications: { destinataireProfileId: string; lien: string; message: string }[] = []
+    const lienDestinataire = contrat.destinataire_role === 'professeur' ? '/professeur/contrats' : '/mon-espace/contrats'
 
     if (estAdmin) {
       if (contrat.signe_etablissement_at) return Response.json({ error: "Déjà signé pour l'établissement." }, { status: 409 })
       update.signe_etablissement_at = maintenant
       update.signe_etablissement_par = profile.id
+      const message = "L'établissement a signé, à votre tour."
       if (!contrat.signe_destinataire_at) {
-        notifierProfileId = contrat.destinataire_profile_id
-        notifierLien = contrat.destinataire_role === 'professeur' ? '/professeur/contrats' : '/mon-espace/contrats'
+        notifications.push({ destinataireProfileId: contrat.destinataire_profile_id, lien: lienDestinataire, message })
+      }
+      if (contrat.destinataire_secondaire_profile_id && !contrat.signe_destinataire_secondaire_at) {
+        notifications.push({ destinataireProfileId: contrat.destinataire_secondaire_profile_id, lien: lienDestinataire, message })
       }
     } else {
-      if (contrat.signe_destinataire_at) return Response.json({ error: 'Vous avez déjà signé ce contrat.' }, { status: 409 })
-      update.signe_destinataire_at = maintenant
-      update.ip_signature_destinataire = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null
-      update.user_agent_signature_destinataire = request.headers.get('user-agent')
+      const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null
+      const userAgent = request.headers.get('user-agent')
+
+      if (estDestinatairePrincipal) {
+        if (contrat.signe_destinataire_at) return Response.json({ error: 'Vous avez déjà signé ce contrat.' }, { status: 409 })
+        update.signe_destinataire_at = maintenant
+        update.ip_signature_destinataire = ip
+        update.user_agent_signature_destinataire = userAgent
+      } else {
+        if (contrat.signe_destinataire_secondaire_at) return Response.json({ error: 'Vous avez déjà signé ce contrat.' }, { status: 409 })
+        update.signe_destinataire_secondaire_at = maintenant
+        update.ip_signature_destinataire_secondaire = ip
+        update.user_agent_signature_destinataire_secondaire = userAgent
+      }
+
       if (!contrat.signe_etablissement_at) {
-        notifierProfileId = contrat.created_by_profile_id
+        notifications.push({ destinataireProfileId: contrat.created_by_profile_id, lien: '/admin/contrats', message: 'Le destinataire a signé, à votre tour.' })
+      }
+      // Le partenaire DUO qui n'a pas encore signé est invité à son tour, dans l'un ou l'autre
+      // sens (peu importe lequel des deux signe en premier).
+      if (estDestinatairePrincipal && contrat.destinataire_secondaire_profile_id && !contrat.signe_destinataire_secondaire_at) {
+        notifications.push({ destinataireProfileId: contrat.destinataire_secondaire_profile_id, lien: lienDestinataire, message: 'Votre partenaire a signé, à votre tour.' })
+      }
+      if (estDestinataireSecondaire && !contrat.signe_destinataire_at) {
+        notifications.push({ destinataireProfileId: contrat.destinataire_profile_id, lien: lienDestinataire, message: 'Votre partenaire a signé, à votre tour.' })
       }
     }
 
     const { error: updateError } = await serviceClient.from('contracts').update(update).eq('id', contrat.id)
     if (updateError) return Response.json({ error: updateError.message }, { status: 500 })
 
-    if (notifierProfileId) {
+    for (const notification of notifications) {
       await creerNotification(serviceClient, {
         etablissementId: profile.etablissement_id,
-        destinataireProfileId: notifierProfileId,
+        destinataireProfileId: notification.destinataireProfileId,
         type: 'contrat_signature',
         titre: `Signature en attente · ${contrat.titre}`,
-        message: estAdmin ? "L'établissement a signé, à votre tour." : 'Le destinataire a signé, à votre tour.',
-        lien: notifierLien,
+        message: notification.message,
+        lien: notification.lien,
       })
     }
 
