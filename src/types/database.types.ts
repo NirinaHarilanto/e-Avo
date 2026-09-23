@@ -4,7 +4,7 @@
 // À régénérer et remplacer dès que l'accès direct au projet Supabase est disponible.
 
 export type Role = 'etudiant' | 'professeur' | 'admin_etablissement'
-export type ProfileStatus = 'pending' | 'approved' | 'suspended'
+export type ProfileStatus = 'pending' | 'approved' | 'suspended' | 'en_pause'
 export type ProspectStatut = 'prospect' | 'diagnostic_planifie' | 'diagnostic_fait' | 'etudiant'
 export type TypeProgrammeProspect = 'individuel' | 'duo' | 'collectif'
 export type SessionType = 'individuel' | 'collectif'
@@ -97,6 +97,11 @@ export interface Database {
              paiements/contrats. Voir src/lib/duo.ts. */
           duo_partenaire_id: string | null
           duo_nom_groupe: string | null
+          /* Mise en pause (0063, demande client du 2026-09-23) : motif obligatoire à la pause,
+             conservé après une réactivation comme historique — jamais remis à null. */
+          motif_pause: string | null
+          pause_le: string | null
+          pause_par: string | null
           created_at: string
         }
         Insert: {
@@ -119,6 +124,9 @@ export interface Database {
           mot_de_passe_defini?: boolean
           duo_partenaire_id?: string | null
           duo_nom_groupe?: string | null
+          motif_pause?: string | null
+          pause_le?: string | null
+          pause_par?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>

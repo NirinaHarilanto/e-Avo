@@ -32,6 +32,8 @@ export type NomIcone =
   | 'oeil'
   | 'oeil_barre'
   | 'supprimer'
+  | 'pause'
+  | 'lecture'
 
 const CHEMINS: Record<NomIcone, ReactNode> = {
   prospects: <path d="M3 4h18l-7 8.2V19l-4 2v-8.8z" />,
@@ -175,6 +177,13 @@ const CHEMINS: Record<NomIcone, ReactNode> = {
       <path d="M10 11v6M14 11v6" />
     </>
   ),
+  pause: (
+    <>
+      <rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" />
+      <rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" />
+    </>
+  ),
+  lecture: <path d="M7 4.5v15l13-7.5z" fill="currentColor" stroke="none" />,
 }
 
 interface IconeProps extends Omit<SVGProps<SVGSVGElement>, 'children'> {

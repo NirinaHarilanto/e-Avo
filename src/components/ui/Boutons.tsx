@@ -22,6 +22,7 @@ const base: CSSProperties = {
 export const boutonSecondaireStyle: CSSProperties = { ...base, color: 'var(--accent-blue)' }
 export const boutonNeutreStyle: CSSProperties = { ...base, color: 'var(--ink-2)' }
 export const boutonDangerStyle: CSSProperties = { ...base, color: 'var(--danger)' }
+export const boutonAvertissementStyle: CSSProperties = { ...base, color: 'var(--warning)' }
 
 export const boutonPrimaireStyle: CSSProperties = {
   background: 'var(--accent-gradient)',

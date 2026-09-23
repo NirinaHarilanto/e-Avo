@@ -4,8 +4,12 @@ import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
+import { useSecondairesDuo } from '../../hooks/useSecondairesDuo'
+import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
+import { useTypesProgrammeEtudiants } from '../../hooks/useTypesProgrammeEtudiants'
 import { DossierEtudiantVue, initiales } from '../etudiants/DossierEtudiantVue'
-import { InformationsPersonnelles } from '../shared/InformationsPersonnelles'
+import { CarteListeEtudiant } from '../etudiants/CarteListeEtudiant'
+import { PanneauInformationsDuo, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { ChampRecherche } from '../ui/BarreOutils'
@@ -15,11 +19,14 @@ import { EtatChargement, MessageErreur } from '../ui/Etats'
 /* Équivalent, côté professeur, de EtudiantsAdmin.tsx : même agencement liste + dossier, mais
    scope réduit aux élèves actuellement assignés à ce professeur, et en lecture seule (aucun
    panneau d'action — DossierEtudiantVue est déjà conçu pour ça, voir son commentaire).
-   Informations personnelles et forfait sont désormais visibles ici (demande client du
-   2026-09-22, « exactement comme dans l'espace admin »), via les policies RLS étendues au
-   professeur sur `packages`/`hour_ledger` (0061). Restent hors de portée, volontairement : les
-   diagnostics et les paiements, qui ne concernent ni la préparation d'un cours ni le suivi
-   pédagogique. */
+   Bloc de liste et panneau d'informations personnelles PARTAGÉS avec EtudiantsAdmin.tsx
+   (CarteListeEtudiant / PanneauInformationsDuo) — demande client du 2026-09-23 : « il faut que
+   le bloc étudiant dans l'espace admin soit repris exactement » côté professeur, DUO compris.
+   Informations personnelles, forfait et statut de contrat sont désormais visibles ici (demande
+   client du 2026-09-22/23, « exactement comme dans l'espace admin »), via les policies RLS
+   étendues au professeur sur `packages`/`hour_ledger` (0061) et `contracts` (0063). Restent hors
+   de portée, volontairement : les diagnostics et les paiements, qui ne concernent ni la
+   préparation d'un cours ni le suivi pédagogique. */
 export function EtudiantsProfesseur() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -27,14 +34,29 @@ export function EtudiantsProfesseur() {
   const { etudiantsActifs, etudiantsAnciens, loading } = useCalendrierProfesseur(profile?.id)
   const [recherche, setRecherche] = useState('')
 
+  /* DUO (0058) : un binôme secondaire n'a ni séance ni affectation propre (voir la migration
+     0054 — son dossier est celui du principal), donc `etudiantsActifs` ne le contient jamais.
+     Il faut le retrouver par une requête dédiée plutôt que de le déduire de cette liste, comme
+     le fait EtudiantsAdmin.tsx à partir de la liste complète des étudiants de l'établissement
+     (dont un professeur n'a justement pas la vue). */
+  const idsActifs = useMemo(() => etudiantsActifs.map((e) => e.id), [etudiantsActifs])
+  const { secondaireParPrincipal } = useSecondairesDuo(idsActifs)
+
   const filtres = useMemo(
-    () => etudiantsActifs.filter((e) => `${e.prenom ?? ''} ${e.nom ?? ''}`.toLowerCase().includes(recherche.toLowerCase())),
-    [etudiantsActifs, recherche],
+    () =>
+      etudiantsActifs.filter((e) => {
+        const secondaire = secondaireParPrincipal.get(e.id)
+        const cible = `${e.prenom ?? ''} ${e.nom ?? ''} ${secondaire ? `${secondaire.prenom ?? ''} ${secondaire.nom ?? ''}` : ''}`
+        return cible.toLowerCase().includes(recherche.toLowerCase())
+      }),
+    [etudiantsActifs, recherche, secondaireParPrincipal],
   )
   const anciensFiltres = useMemo(
     () => etudiantsAnciens.filter((e) => `${e.profil.prenom ?? ''} ${e.profil.nom ?? ''}`.toLowerCase().includes(recherche.toLowerCase())),
     [etudiantsAnciens, recherche],
   )
+  const statutsContrats = useStatutsContratsSignature(idsActifs)
+  const programmes = useTypesProgrammeEtudiants(idsActifs)
 
   return (
     <ProfesseurLayout actif="Mes étudiants">
@@ -79,33 +101,21 @@ export function EtudiantsProfesseur() {
             <EtatVide compact icone="recherche" titre="Aucun résultat" description={`Aucun élève ne correspond à « ${recherche} ».`} />
           )}
 
-          {filtres.map((etudiant) => (
-            <button
-              key={etudiant.id}
-              onClick={() => navigate(`/professeur/etudiants/${etudiant.id}`)}
-              aria-current={etudiant.id === id ? 'true' : undefined}
-              className="carte-ligne"
-              style={{
-                textAlign: 'left',
-                borderRadius: 14,
-                border: etudiant.id === id ? '1px solid rgba(94,179,255,.5)' : '1px solid var(--border)',
-                background: 'var(--surface)',
-                padding: '13px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                cursor: 'pointer',
-                color: 'inherit',
-              }}
-            >
-              <span style={{ width: 38, height: 38, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
-                {initiales(etudiant)}
-              </span>
-              <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>
-                {etudiant.prenom} {etudiant.nom}
-              </span>
-            </button>
-          ))}
+          {filtres.map((etudiant) => {
+            const secondaire = secondaireParPrincipal.get(etudiant.id) ?? null
+            return (
+              <CarteListeEtudiant
+                key={etudiant.id}
+                principal={etudiant}
+                secondaire={secondaire}
+                selectionne={etudiant.id === id}
+                onClick={() => navigate(`/professeur/etudiants/${etudiant.id}`)}
+                programme={programmes[etudiant.id]}
+                statutContrat={statutsContrats[etudiant.id]}
+                dossierIncomplet={(secondaire ? [etudiant, secondaire] : [etudiant]).some((m) => !informationsPersonnellesCompletes(m))}
+              />
+            )
+          })}
 
           {anciensFiltres.length > 0 && (
             <>
@@ -135,8 +145,8 @@ export function EtudiantsProfesseur() {
                   <span style={{ width: 38, height: 38, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
                     {initiales(profil)}
                   </span>
-                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                    <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>
+                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {profil.prenom} {profil.nom}
                     </span>
                     <span style={{ fontSize: 10.5, color: 'var(--muted-2)' }}>Transféré le {new Date(transfereLe).toLocaleDateString('fr-FR')}</span>
@@ -172,7 +182,9 @@ function DossierPanel({ studentId }: { studentId: string }) {
   return (
     <DossierEtudiantVue
       dossier={dossier}
-      panneauInformations={<InformationsPersonnelles personne={dossier.etudiant} onChange={() => {}} carte={false} lectureSeule />}
+      panneauInformations={
+        <PanneauInformationsDuo etudiant={dossier.etudiant} duoPartenaire={dossier.duoPartenaire} onChange={() => {}} lectureSeule />
+      }
     />
   )
 }

@@ -3,6 +3,7 @@ import type { DossierEtudiant, PeriodeProfesseur, SeanceDuParcours } from '../..
 import { useNiveauxEtudiant } from '../../hooks/useNiveauxEtudiant'
 import { getJoinUrl } from '../../lib/visio'
 import { estRempli } from '../../lib/diagnostic'
+import { libelleStatutProfil, tonStatutProfil } from '../../lib/statutProfil'
 import { RecapitulatifDiagnostic } from '../prospects/FormulaireDiagnosticCall'
 import type { Database } from '../../types/database.types'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -65,6 +66,51 @@ function BlocDiagnostic({ diagnostic, tarifChoisi }: { diagnostic: NonNullable<D
       {estRempli(diagnostic.reponses ?? {}) && (
         <div style={{ background: 'rgba(0,0,0,.24)', borderRadius: 12, padding: '13px 15px' }}>
           <RecapitulatifDiagnostic reponses={diagnostic.reponses} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* Variante DUO de BlocDiagnostic (0065, demande client du 2026-09-23) : « pour les informations
+   qui diffèrent entre les deux personnes [profil, objectifs, niveau]... afficher les
+   informations des deux personnes formant le DUO ». Chaque membre a désormais son propre
+   diagnostic_calls (trame à deux vitesses, 0060) — les deux s'affichent l'un sous l'autre,
+   nommés, plutôt qu'un seul comme avant cette séparation. Retombe sur l'affichage simple si
+   l'étudiant n'est pas en duo. */
+function BlocDiagnosticDuo({
+  diagnostic,
+  diagnosticPartenaire,
+  etudiant,
+  duoPartenaire,
+  tarifChoisi,
+}: {
+  diagnostic: DossierEtudiant['diagnostic']
+  diagnosticPartenaire: DossierEtudiant['diagnosticPartenaire']
+  etudiant: Profile
+  duoPartenaire: Profile | null
+  tarifChoisi?: DossierEtudiant['tarifChoisi']
+}) {
+  if (!duoPartenaire) {
+    return diagnostic ? <BlocDiagnostic diagnostic={diagnostic} tarifChoisi={tarifChoisi} /> : null
+  }
+  if (!diagnostic && !diagnosticPartenaire) return null
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {diagnostic && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)' }}>
+            {etudiant.prenom} {etudiant.nom}
+          </span>
+          <BlocDiagnostic diagnostic={diagnostic} tarifChoisi={tarifChoisi} />
+        </div>
+      )}
+      {diagnosticPartenaire && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)' }}>
+            {duoPartenaire.prenom} {duoPartenaire.nom}
+          </span>
+          <BlocDiagnostic diagnostic={diagnosticPartenaire} />
         </div>
       )}
     </div>
@@ -383,7 +429,7 @@ export function DossierEtudiantVue({
   peutModifierPlanning,
   onDossierChange,
 }: DossierEtudiantVueProps) {
-  const { etudiant, periodes, periodeActuelle, diagnostic, packages, cohorte, heuresConsommees, prochaineSeance, tarifChoisi, duoPartenaire } = dossier
+  const { etudiant, periodes, periodeActuelle, diagnostic, diagnosticPartenaire, packages, cohorte, heuresConsommees, prochaineSeance, tarifChoisi, duoPartenaire } = dossier
   const forfait = packages[0] ?? null
   /* Restant et progression se calculent sur le CUMUL des forfaits, pas seulement le dernier
      souscrit — un ajout de forfait (0061) additionne des heures à un total déjà entamé, il ne
@@ -455,8 +501,8 @@ export function DossierEtudiantVue({
                   Duo{etudiant.duo_nom_groupe || duoPartenaire.duo_nom_groupe ? ` · ${etudiant.duo_nom_groupe || duoPartenaire.duo_nom_groupe}` : ''}
                 </span>
               )}
-              <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.32)', borderRadius: 999, padding: '4px 11px' }}>
-                {etudiant.status === 'approved' ? 'Étudiant actif' : etudiant.status}
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: tonStatutProfil(etudiant.status).color, background: tonStatutProfil(etudiant.status).bg, border: `1px solid ${tonStatutProfil(etudiant.status).border}`, borderRadius: 999, padding: '4px 11px' }}>
+                {libelleStatutProfil(etudiant.status)}
               </span>
               {(periodeActuelle ?? periodes[0])?.affectation.langue && (
                 <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-violet)', background: 'rgba(199,156,255,.12)', border: '1px solid rgba(199,156,255,.3)', borderRadius: 999, padding: '4px 11px' }}>
@@ -554,8 +600,16 @@ export function DossierEtudiantVue({
                 les séances du professeur concerné.
               </p>
             )}
-            {periodes.length === 0 && diagnostic && <BlocDiagnostic diagnostic={diagnostic} tarifChoisi={cohorte ? tarifChoisi : null} />}
-            {periodes.length === 0 && !diagnostic && (
+            {periodes.length === 0 && (diagnostic || diagnosticPartenaire) && (
+              <BlocDiagnosticDuo
+                diagnostic={diagnostic}
+                diagnosticPartenaire={diagnosticPartenaire}
+                etudiant={etudiant}
+                duoPartenaire={duoPartenaire}
+                tarifChoisi={cohorte ? tarifChoisi : null}
+              />
+            )}
+            {periodes.length === 0 && !diagnostic && !diagnosticPartenaire && (
               <EtatVide
                 icone="seances"
                 titre="Aucune séance enregistrée"
@@ -572,7 +626,15 @@ export function DossierEtudiantVue({
                     onModifierSeance={peutModifierPlanning ? setSeanceEnEdition : undefined}
                   />
                 ))}
-                {diagnostic && <BlocDiagnostic diagnostic={diagnostic} tarifChoisi={cohorte ? tarifChoisi : null} />}
+                {(diagnostic || diagnosticPartenaire) && (
+                  <BlocDiagnosticDuo
+                    diagnostic={diagnostic}
+                    diagnosticPartenaire={diagnosticPartenaire}
+                    etudiant={etudiant}
+                    duoPartenaire={duoPartenaire}
+                    tarifChoisi={cohorte ? tarifChoisi : null}
+                  />
+                )}
               </div>
             )}
           </div>

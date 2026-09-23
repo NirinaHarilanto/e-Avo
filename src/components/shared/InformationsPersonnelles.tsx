@@ -192,3 +192,41 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
     </Conteneur>
   )
 }
+
+/* Variante DUO de ce panneau (0058/0063) : les deux membres d'un binôme, chacun avec ses propres
+   informations personnelles — reprise à l'identique par l'espace admin (EtudiantsAdmin.tsx) ET
+   l'espace professeur (EtudiantsProfesseur.tsx, en lecture seule) plutôt que le même bloc à deux
+   colonnes recopié aux deux endroits, demande client du 2026-09-23 : « il faut que l'espace
+   professeur reprenne exactement les mêmes informations que l'espace admin ». Retombe sur le
+   panneau simple si l'étudiant n'a pas de partenaire. */
+export function PanneauInformationsDuo({
+  etudiant,
+  duoPartenaire,
+  onChange,
+  lectureSeule = false,
+}: {
+  etudiant: Profile
+  duoPartenaire: Profile | null
+  onChange: () => void
+  lectureSeule?: boolean
+}) {
+  if (!duoPartenaire) {
+    return <InformationsPersonnelles personne={etudiant} onChange={onChange} carte={false} lectureSeule={lectureSeule} />
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+      <div>
+        <span style={{ display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
+          {etudiant.prenom} {etudiant.nom} (principal·e du binôme)
+        </span>
+        <InformationsPersonnelles personne={etudiant} onChange={onChange} carte={false} lectureSeule={lectureSeule} />
+      </div>
+      <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 18 }}>
+        <span style={{ display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
+          {duoPartenaire.prenom} {duoPartenaire.nom} (second·e membre du duo)
+        </span>
+        <InformationsPersonnelles personne={duoPartenaire} onChange={onChange} carte={false} lectureSeule={lectureSeule} />
+      </div>
+    </div>
+  )
+}

@@ -12,10 +12,12 @@ import { DecisionHeureEssai } from './DecisionHeureEssai'
 import { AjouterForfaitModale } from './AjouterForfaitModale'
 import { useDemandesForfait } from '../../hooks/useDemandesForfait'
 import { PlanifierSeancesForfait } from './PlanifierSeancesForfait'
-import { DossierEtudiantVue, initiales } from './DossierEtudiantVue'
+import { DossierEtudiantVue } from './DossierEtudiantVue'
+import { CarteListeEtudiant } from './CarteListeEtudiant'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
-import { InformationsPersonnelles, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
+import { PanneauInformationsDuo, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
 import { SupprimerCompte } from '../shared/SupprimerCompte'
+import { MettreEnPauseCompte } from './MettreEnPauseCompte'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -26,7 +28,6 @@ import { boutonPrimaireStyle, boutonNeutreStyle, boutonDangerStyle } from '../ui
 import { Icone } from '../ui/Icones'
 import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
 import { useTypesProgrammeEtudiants } from '../../hooks/useTypesProgrammeEtudiants'
-import { BadgeStatutContrat } from '../shared/BadgeStatutContrat'
 
 export function EtudiantsAdmin() {
   const { id } = useParams<{ id: string }>()
@@ -167,66 +168,17 @@ export function EtudiantsAdmin() {
                bloc ». Le dossier ouvert au clic reste celui du principal : c'est lui qui porte le
                forfait, le planning et les heures partagés du binôme (voir migration 0054). */
             const secondaire = secondaireParPrincipal.get(etudiant.id) ?? null
-            const membres = secondaire ? [etudiant, secondaire] : [etudiant]
-            const nomGroupe =
-              etudiant.duo_nom_groupe || secondaire?.duo_nom_groupe || (secondaire ? `${etudiant.prenom} & ${secondaire.prenom}` : null)
             return (
-              <button
+              <CarteListeEtudiant
                 key={etudiant.id}
+                principal={etudiant}
+                secondaire={secondaire}
+                selectionne={etudiant.id === id}
                 onClick={() => navigate(`/admin/etudiants/${etudiant.id}`)}
-                aria-current={etudiant.id === id ? 'true' : undefined}
-                className="carte-ligne"
-                style={{
-                  textAlign: 'left',
-                  borderRadius: 12,
-                  border:
-                    etudiant.id === id
-                      ? '1px solid rgba(94,179,255,.5)'
-                      : secondaire
-                        ? '1px solid rgba(233,207,148,.32)'
-                        : '1px solid var(--border)',
-                  background: 'var(--surface)',
-                  padding: '9px 11px',
-                  display: 'flex',
-                  alignItems: secondaire ? 'stretch' : 'center',
-                  flexDirection: secondaire ? 'column' : 'row',
-                  gap: secondaire ? 6 : 10,
-                  cursor: 'pointer',
-                  color: 'inherit',
-                }}
-              >
-                {nomGroupe && (
-                  <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--accent-gold, #e9cf94)' }}>
-                    Duo · {nomGroupe}
-                  </span>
-                )}
-
-                {membres.map((membre) => (
-                  <div key={membre.id} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                    <span style={{ width: secondaire ? 26 : 30, height: secondaire ? 26 : 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: secondaire ? 10.5 : 11.5, fontWeight: 800, flexShrink: 0 }}>
-                      {initiales(membre)}
-                    </span>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                      <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
-                        {membre.prenom} {membre.nom}
-                      </span>
-                      <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{membre.status === 'approved' ? 'Actif' : membre.status}</span>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Badges du dossier — un seul jeu par bloc : forfait, contrat et heures sont
-                    communs au binôme, seules les informations personnelles restent propres à
-                    chacun (signalées ci-dessous pour l'un comme pour l'autre). */}
-                <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                  {!secondaire && programmes[etudiant.id] && <TagProgramme programme={programmes[etudiant.id]} />}
-                  {statutsContrats[etudiant.id] && <BadgeStatutContrat statut={statutsContrats[etudiant.id]} compact />}
-                  {/* Téléphone, adresse, ville, date et lieu de naissance : tant qu'un de ces
-                      champs manque, le dossier ne peut pas servir de base à un contrat ou à une
-                      facture complets — voir informationsPersonnellesCompletes. */}
-                  {membres.some((m) => !informationsPersonnellesCompletes(m)) && <TagDossierIncomplet />}
-                </span>
-              </button>
+                programme={programmes[etudiant.id]}
+                statutContrat={statutsContrats[etudiant.id]}
+                dossierIncomplet={(secondaire ? [etudiant, secondaire] : [etudiant]).some((m) => !informationsPersonnellesCompletes(m))}
+              />
             )
           })}
         </aside>
@@ -270,27 +222,13 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
       panneauProfesseur={
         <AttribuerProfesseur studentId={etudiant.id} affectationActuelle={affectationActuelle} onTermine={recharger} />
       }
-      panneauInformations={
-        dossier.duoPartenaire ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-            <div>
-              <span style={{ display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
-                {etudiant.prenom} {etudiant.nom} (principal·e du binôme)
-              </span>
-              <InformationsPersonnelles personne={etudiant} onChange={recharger} carte={false} />
-            </div>
-            <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 18 }}>
-              <span style={{ display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
-                {dossier.duoPartenaire.prenom} {dossier.duoPartenaire.nom} (second·e membre du duo)
-              </span>
-              <InformationsPersonnelles personne={dossier.duoPartenaire} onChange={recharger} carte={false} />
-            </div>
-          </div>
-        ) : (
-          <InformationsPersonnelles personne={etudiant} onChange={recharger} carte={false} />
-        )
+      panneauInformations={<PanneauInformationsDuo etudiant={etudiant} duoPartenaire={dossier.duoPartenaire} onChange={recharger} />}
+      panneauSuppression={
+        <div style={{ display: 'flex', gap: 8 }}>
+          <MettreEnPauseCompte personne={etudiant} onChange={recharger} />
+          <SupprimerCompte personne={etudiant} onSupprime={onSupprime} />
+        </div>
       }
-      panneauSuppression={<SupprimerCompte personne={etudiant} onSupprime={onSupprime} />}
       panneauChoixInitial={
         <ChoixProgrammeInitial studentId={etudiant.id} etablissementId={etudiant.etablissement_id} onCree={recharger} />
       }
@@ -346,14 +284,6 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
   )
 }
 
-const FOND_TON: Record<'teal' | 'bleu' | 'or', { color: string; bg: string; border: string }> = {
-  teal: { color: 'var(--accent-teal)', bg: 'rgba(111,227,192,.14)', border: 'rgba(111,227,192,.3)' },
-  bleu: { color: 'var(--accent-blue)', bg: 'rgba(94,179,255,.14)', border: 'rgba(94,179,255,.3)' },
-  or: { color: 'var(--accent-gold, #e9cf94)', bg: 'rgba(233,207,148,.14)', border: 'rgba(233,207,148,.32)' },
-}
-
-/* Petit tag discret indiquant si l'étudiant suit des cours particuliers (individuel/duo) ou un
-   cours collectif, et dans ce cas laquelle vague — demande client du 2026-09-21. */
 /* Ajout de forfait (0061) : bouton toujours disponible, précédé d'un bandeau si l'élève a une
    demande en attente — la traiter pré-remplit les heures et referme la demande une fois le
    forfait créé. */
@@ -451,35 +381,3 @@ function PanneauAjoutForfait({
   )
 }
 
-function TagProgramme({ programme }: { programme: { libelle: string; ton: 'teal' | 'bleu' | 'or' } }) {
-  const style = FOND_TON[programme.ton]
-  return (
-    <span style={{ fontSize: 10, fontWeight: 700, color: style.color, background: style.bg, border: `1px solid ${style.border}`, borderRadius: 999, padding: '2px 8px', whiteSpace: 'nowrap' }}>
-      {programme.libelle}
-    </span>
-  )
-}
-
-/* Signale, dans la liste de gauche, un étudiant dont les informations personnelles (téléphone,
-   adresse, ville, date et lieu de naissance — voir informationsPersonnellesCompletes) sont
-   encore incomplètes. Même vocabulaire de couleur que BadgeStatutContrat côté « en attente » :
-   ambre, pas rouge — ce n'est pas bloquant, seulement à surveiller avant de générer un contrat
-   ou une facture. */
-function TagDossierIncomplet() {
-  return (
-    <span
-      style={{
-        fontSize: 10,
-        fontWeight: 700,
-        color: 'var(--warning)',
-        background: 'rgba(233,207,148,.12)',
-        border: '1px solid rgba(233,207,148,.32)',
-        borderRadius: 999,
-        padding: '2px 8px',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      Dossier à compléter
-    </span>
-  )
-}

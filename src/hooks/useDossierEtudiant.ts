@@ -33,6 +33,11 @@ export interface DossierEtudiant {
      ne garantit aucun ordre. La migration 0039 garantit qu'il y en a au plus une active. */
   periodeActuelle: PeriodeProfesseur | null
   diagnostic: DiagnosticCall | null
+  /* Diagnostic du partenaire DUO (0065, demande client du 2026-09-23) : « pour les informations
+     qui diffèrent entre les deux personnes... afficher les informations des deux personnes »
+     dans le parcours pédagogique. Chaque membre a désormais son propre diagnostic_calls (0060) —
+     `null` si l'étudiant n'est pas en duo, ou si son partenaire n'a pas encore de diagnostic. */
+  diagnosticPartenaire: DiagnosticCall | null
   packages: Package[]
   /* Vague (cohorte) collectif de l'étudiant, s'il en a une — sinon il est individuel/duo via
      `packages`. Pas de colonne dédiée : la présence d'une inscription à une cohorte suffit à
@@ -92,7 +97,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
     // Vague 2 : chacune de ces 5 requêtes dépend d'un résultat de la vague 1 (inscriptionCohorte,
     // sessionIds, teacherIds ou etudiant.prospect_id), mais JAMAIS du résultat d'une autre requête
     // de cette même vague — elles peuvent donc toutes partir ensemble plutôt qu'en cascade.
-    const [{ data: cohorte }, { data: sessions }, { data: videos }, { data: professeurs }, { data: diagnostic }, { data: prospectTarifRef }] = await Promise.all([
+    const [{ data: cohorte }, { data: sessions }, { data: videos }, { data: professeurs }, { data: diagnostic }, { data: diagnosticPartenaire }, { data: prospectTarifRef }] = await Promise.all([
       inscriptionCohorte
         ? supabase.from('cohorts').select('*').eq('id', inscriptionCohorte.cohort_id).maybeSingle()
         : Promise.resolve({ data: null as Cohort | null }),
@@ -101,6 +106,9 @@ export function useDossierEtudiant(studentId: string | undefined) {
       teacherIds.length > 0 ? supabase.from('profiles').select('*').in('id', teacherIds) : Promise.resolve({ data: [] as Profile[] }),
       etudiant.prospect_id
         ? supabase.from('diagnostic_calls').select('*').eq('prospect_id', etudiant.prospect_id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+        : Promise.resolve({ data: null as DiagnosticCall | null }),
+      duoPartenaire?.prospect_id
+        ? supabase.from('diagnostic_calls').select('*').eq('prospect_id', duoPartenaire.prospect_id).order('created_at', { ascending: false }).limit(1).maybeSingle()
         : Promise.resolve({ data: null as DiagnosticCall | null }),
       etudiant.prospect_id
         ? supabase.from('prospects').select('tarif_choisi_id').eq('id', etudiant.prospect_id).maybeSingle()
@@ -144,6 +152,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
       periodes,
       periodeActuelle: periodes.find((p) => !p.affectation.date_fin) ?? null,
       diagnostic,
+      diagnosticPartenaire: diagnosticPartenaire ?? null,
       packages: packages ?? [],
       cohorte: cohorte ?? null,
       heuresConsommees: resume?.heures_consommees ?? 0,
