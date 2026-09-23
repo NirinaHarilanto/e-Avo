@@ -58,6 +58,10 @@ export interface Database {
           couleur_accent: string | null
           logo_url: string | null
           calendly_url: string | null
+          /* Forfait d'heures par défaut d'un étudiant en cours collectif (0069). */
+          heures_forfait_collectif: number
+          /* Nombre de jours avant une échéance à partir duquel la relance part (0070). */
+          relance_echeance_jours: number
           created_at: string
         }
         Insert: {
@@ -68,6 +72,8 @@ export interface Database {
           couleur_accent?: string | null
           logo_url?: string | null
           calendly_url?: string | null
+          heures_forfait_collectif?: number
+          relance_echeance_jours?: number
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['etablissements']['Insert']>
@@ -268,6 +274,9 @@ export interface Database {
           debut: string
           duree_minutes: number
           statut: SessionStatut
+          /* Vague à laquelle la séance appartient (0069) : planning commun au groupe, et
+             décompte d'heures appliqué à tous ses inscrits à la clôture. */
+          cohort_id: string | null
           created_at: string
         }
         Insert: {
@@ -278,6 +287,7 @@ export interface Database {
           debut: string
           duree_minutes: number
           statut?: SessionStatut
+          cohort_id?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['sessions']['Insert']>
@@ -409,6 +419,10 @@ export interface Database {
           date_fin: string
           capacite_max: number | null
           statut: StatutCohorte
+          /* Professeur qui accompagne la vague (0069). */
+          teacher_id: string | null
+          /* Surcharge du forfait d'heures de l'établissement pour cette vague (0069). */
+          heures_forfait: number | null
           created_by_profile_id: string
           created_at: string
         }
@@ -421,6 +435,8 @@ export interface Database {
           date_fin: string
           capacite_max?: number | null
           statut?: StatutCohorte
+          teacher_id?: string | null
+          heures_forfait?: number | null
           created_by_profile_id: string
           created_at?: string
         }
@@ -881,6 +897,34 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['paiement_versements']['Insert']>
+        Relationships: []
+      }
+      paiement_echeances: {
+        Row: {
+          id: string
+          etablissement_id: string
+          student_payment_id: string
+          libelle: string | null
+          montant: number
+          date_echeance: string
+          relance_envoyee_le: string | null
+          reglee_le: string | null
+          created_by_profile_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          student_payment_id: string
+          libelle?: string | null
+          montant: number
+          date_echeance: string
+          relance_envoyee_le?: string | null
+          reglee_le?: string | null
+          created_by_profile_id: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['paiement_echeances']['Insert']>
         Relationships: []
       }
       quotes: {

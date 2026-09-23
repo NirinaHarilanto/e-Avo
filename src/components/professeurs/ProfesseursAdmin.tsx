@@ -15,6 +15,7 @@ import { BarreOutils, ChampRecherche } from '../ui/BarreOutils'
 import { champStyle } from '../ui/Champ'
 import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
 import { BadgeStatutContrat } from '../shared/BadgeStatutContrat'
+import { formaterHeures } from '../../lib/heures'
 
 type FiltreCharge = 'tous' | 'sans' | 'leger' | 'charge'
 
@@ -147,7 +148,7 @@ export function ProfesseursAdmin() {
           <GrilleStats min={160} compact>
             <Stat compact libelle="Professeurs" valeur={professeurs.length} ton="or" />
             <Stat compact libelle="Élèves attribués" valeur={totalEleves} ton="teal" aide="Attributions en cours, tous professeurs confondus" />
-            <Stat compact libelle="Heures enseignées" valeur={totalHeures} unite="h" ton="bleu" aide="Depuis l’ouverture de l’établissement" />
+            <Stat compact libelle="Heures enseignées" valeur={formaterHeures(totalHeures)} ton="bleu" aide="Depuis l’ouverture de l’établissement" />
             <Stat
               compact
               libelle="Sans élève attribué"
@@ -215,7 +216,7 @@ export function ProfesseursAdmin() {
                   <span style={{ fontSize: 11, color: 'var(--muted)' }}>
                     {comptes[prof.id] ?? 0} élève{(comptes[prof.id] ?? 0) > 1 ? 's' : ''} actif{(comptes[prof.id] ?? 0) > 1 ? 's' : ''}
                   </span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>{heures[prof.id] ?? 0} h enseignées</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>{formaterHeures(heures[prof.id] ?? 0)} enseignées</span>
                 </div>
                 {statutsContrats[prof.id] && (
                   <div>

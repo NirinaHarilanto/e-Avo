@@ -7,6 +7,7 @@ import { GrilleStats, Stat } from '../ui/Stat'
 import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, EtatChargementStats } from '../ui/Etats'
+import { formaterHeures } from '../../lib/heures'
 
 export function HeuresAdmin() {
   const { etudiants, professeurs, loading } = useHeuresAdmin()
@@ -51,8 +52,8 @@ export function HeuresAdmin() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <GrilleStats min={160} compact>
-            <Stat compact libelle="Heures suivies" valeur={totalConsommees} unite="h" ton="or" aide="Cumul côté étudiants" />
-            <Stat compact libelle="Heures enseignées" valeur={totalEnseignees} unite="h" ton="bleu" aide="Cumul côté professeurs" />
+            <Stat compact libelle="Heures suivies" valeur={formaterHeures(totalConsommees)} ton="or" aide="Cumul côté étudiants" />
+            <Stat compact libelle="Heures enseignées" valeur={formaterHeures(totalEnseignees)} ton="bleu" aide="Cumul côté professeurs" />
             <Stat
               compact
               libelle="Étudiants ayant démarré"
@@ -75,7 +76,7 @@ export function HeuresAdmin() {
               titre="Étudiants"
               description="Heures consommées sur leur forfait ou leur vague, du plus avancé au moins avancé."
               lignes={etudiants}
-              etiquette="h suivies"
+              etiquette="suivies"
               messageVide="Aucun étudiant n’a encore de séance clôturée. Les compteurs démarreront dès la première séance terminée."
             />
             <TableauHeures
@@ -83,7 +84,7 @@ export function HeuresAdmin() {
               titre="Professeurs"
               description="Heures effectivement enseignées, base de calcul des rémunérations."
               lignes={professeurs}
-              etiquette="h enseignées"
+              etiquette="enseignées"
               messageVide="Aucun professeur n’a encore de séance clôturée."
             />
           </div>
@@ -142,7 +143,7 @@ function TableauHeures({
                 </span>
               </div>
               <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)', flexShrink: 0 }}>
-                {heures} {etiquette}
+                {formaterHeures(heures)} {etiquette}
               </span>
             </div>
           ))}

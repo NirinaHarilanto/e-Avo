@@ -9,6 +9,7 @@ interface Corps {
   type?: 'individuel' | 'collectif'
   debut?: string
   dureeMinutes?: number
+  cohortId?: string
 }
 
 // Planification d'une séance. `session_enrollments` n'a aucune policy d'insert pour
@@ -61,6 +62,22 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Un ou plusieurs étudiants sont invalides pour cet établissement.' }, { status: 400 })
     }
 
+    /* Une vague ne se rattache pas sur parole : c'est ce lien qui fera décompter l'heure à tous
+       ses inscrits à la clôture (point 10), il doit donc désigner une vague réelle du même
+       établissement. */
+    let cohortId: string | null = null
+    if (body.cohortId) {
+      const { data: cohorte } = await serviceClient
+        .from('cohorts')
+        .select('id, etablissement_id')
+        .eq('id', body.cohortId)
+        .maybeSingle()
+      if (!cohorte || cohorte.etablissement_id !== etablissementId) {
+        return Response.json({ error: 'Vague invalide pour cet établissement.' }, { status: 400 })
+      }
+      cohortId = cohorte.id
+    }
+
     const resultat = await creerSeanceAvecInscriptions(serviceClient, {
       etablissementId,
       teacherId,
@@ -68,6 +85,7 @@ export default async function handler(request: Request): Promise<Response> {
       debut: body.debut,
       dureeMinutes: body.dureeMinutes,
       studentIds: body.studentIds,
+      cohortId,
     })
     if ('error' in resultat) {
       return Response.json({ error: resultat.error }, { status: 500 })

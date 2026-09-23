@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur, type SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
+import { useVagues } from '../../hooks/useVagues'
+import { etudiantsSelectionnables, vaguesSelectionnables } from '../../lib/invitations'
+import type { Database } from '../../types/database.types'
 import { getJoinUrl } from '../../lib/visio'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
 import { nomsElevesInscrits } from '../../lib/seances'
@@ -23,7 +26,9 @@ import { CompteRenduSeance } from './CompteRenduSeance'
 import { PlanningPrevisionnelProfesseur } from './PlanningPrevisionnelProfesseur'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
 import { champStyle } from '../ui/Champ'
+import { formaterHeures } from '../../lib/heures'
 
+type Profile = Database['public']['Tables']['profiles']['Row']
 type VueCalendrier = 'agenda' | 'liste' | 'previsionnel'
 
 /* `sessions.type` ne distingue que 'individuel'/'collectif' (0008) : une séance à deux élèves
@@ -182,7 +187,7 @@ export function CalendrierProfesseur() {
         {!loading && (
           <GrilleStats>
             <Stat libelle="Élèves actifs" valeur={etudiantsActifs.length} ton="bleu" aide="Actuellement attribués" />
-            <Stat libelle="Heures enseignées" valeur={heuresEnseignees} unite="h" ton="or" aide="Séances clôturées uniquement" />
+            <Stat libelle="Heures enseignées" valeur={formaterHeures(heuresEnseignees)} ton="or" aide="Séances clôturées uniquement" />
             <Stat libelle="Séances à venir" valeur={aVenir.length} ton="teal" />
             <Stat
               libelle="À clôturer"
@@ -277,17 +282,33 @@ function FormulairePlanification({
   onAnnuler,
   onCree,
 }: {
-  etudiantsActifs: { id: string; prenom: string | null; nom: string | null }[]
+  etudiantsActifs: Profile[]
   debutInitial?: string
   onAnnuler: () => void
   onCree: () => void
 }) {
   const { session } = useProfileContext()
+  const { vagues } = useVagues()
   const [studentIds, setStudentIds] = useState<string[]>([])
   const [debut, setDebut] = useState(debutInitial ?? '')
   const [dureeMinutes, setDureeMinutes] = useState(60)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+
+  const candidats = useMemo(
+    () => [...etudiantsSelectionnables(etudiantsActifs), ...vaguesSelectionnables(vagues)],
+    [etudiantsActifs, vagues],
+  )
+
+  /* Une séance n'est rattachée à une vague que si toute la vague y est, et elle seule : c'est
+     cette appartenance qui fait décompter l'heure à tous ses inscrits (0069, point 10). Une
+     séance avec trois élèves d'une vague de dix reste une séance ordinaire. */
+  const vagueDeLaSeance = useMemo(() => {
+    const choisis = new Set(studentIds)
+    return vagues.find(
+      (v) => v.membreIds.length === choisis.size && v.membreIds.every((id) => choisis.has(id)),
+    )
+  }, [studentIds, vagues])
 
   async function creer() {
     if (!session || studentIds.length === 0 || !debut) return
@@ -301,6 +322,7 @@ function FormulairePlanification({
         type: studentIds.length > 1 ? 'collectif' : 'individuel',
         debut: new Date(debut).toISOString(),
         dureeMinutes,
+        cohortId: vagueDeLaSeance?.cohorte.id,
       }),
     })
     setEnCours(false)
@@ -329,11 +351,18 @@ function FormulairePlanification({
         // choisit dans les suggestions, la personne devient une pastille amovible.
         <SelecteurPersonnes
           etiquette="Élève(s)"
-          placeholder="Rechercher un élève…"
-          candidats={etudiantsActifs}
+          placeholder="Rechercher un élève ou une vague…"
+          candidats={candidats}
           selectionnes={studentIds}
           onChange={setStudentIds}
         />
+      )}
+
+      {vagueDeLaSeance && (
+        <p style={{ fontSize: 12, color: 'var(--accent-violet)', margin: 0, lineHeight: 1.5 }}>
+          Séance de la vague « {vagueDeLaSeance.cohorte.nom} » : une fois clôturée, l’heure sera décomptée du forfait de
+          ses {vagueDeLaSeance.membreIds.length} inscrits, présents ou non.
+        </p>
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 14 }}>

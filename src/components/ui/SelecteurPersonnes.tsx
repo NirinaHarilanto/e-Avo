@@ -1,14 +1,6 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { normaliserNom } from '../../lib/nomDuplique'
-
-export interface PersonneSelectionnable {
-  id: string
-  nom: string | null
-  prenom: string | null
-  /* Étiquette facultative affichée à côté du nom dans la liste de suggestions (ex. « Étudiant »,
-     « Professeur ») — purement indicative, aucune logique n'en dépend ici. */
-  role?: string
-}
+import type { PersonneSelectionnable } from '../../lib/invitations'
 
 interface SelecteurPersonnesProps {
   etiquette: string
@@ -45,12 +37,33 @@ export function SelecteurPersonnes({ etiquette, placeholder, candidats, selectio
   const suggestions = useMemo(() => {
     if (!recherche) return []
     return candidats
-      .filter((c) => !selectionnes.includes(c.id) && !exclure.includes(c.id) && normaliserNom(nomComplet(c)).includes(recherche))
+      .filter((c) => {
+        if (exclure.includes(c.id) || !normaliserNom(nomComplet(c)).includes(recherche)) return false
+        // Un groupe reste proposable tant qu'un de ses membres manque à l'appel.
+        if (c.membres) return c.membres.some((m) => !selectionnes.includes(m))
+        return !selectionnes.includes(c.id)
+      })
       .slice(0, LIMITE_SUGGESTIONS)
   }, [candidats, recherche, selectionnes, exclure])
 
+  /* Binômes dont un seul membre est pour l'instant convié. Recalculé à chaque rendu plutôt que
+     mémorisé au moment du clic : retirer une pastille doit faire réapparaître la proposition. */
+  const binomesProposes = useMemo(() => {
+    const manquants = new Map<string, { binome: PersonneSelectionnable; via: PersonneSelectionnable }>()
+    for (const id of selectionnes) {
+      const personne = candidatParId.get(id)
+      const binomeId = personne?.binomeId
+      if (!binomeId || selectionnes.includes(binomeId) || exclure.includes(binomeId)) continue
+      const binome = candidatParId.get(binomeId)
+      if (binome) manquants.set(binomeId, { binome, via: personne })
+    }
+    return [...manquants.values()]
+  }, [selectionnes, candidatParId, exclure])
+
   function ajouter(id: string) {
-    onChange([...selectionnes, id])
+    const candidat = candidatParId.get(id)
+    const aAjouter = candidat?.membres ?? [id]
+    onChange([...selectionnes, ...aAjouter.filter((v) => !selectionnes.includes(v))])
     setSaisie('')
     setSurligne(0)
     champRef.current?.focus()
@@ -167,6 +180,46 @@ export function SelecteurPersonnes({ etiquette, placeholder, candidats, selectio
           }}
         />
       </div>
+
+      {binomesProposes.map(({ binome, via }) => (
+        <div
+          key={binome.id}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+            fontSize: 12,
+            color: 'var(--ink-2)',
+            background: 'rgba(233,207,148,.1)',
+            border: '1px solid rgba(233,207,148,.28)',
+            borderRadius: 10,
+            padding: '7px 10px',
+          }}
+        >
+          <span style={{ flexGrow: 1, minWidth: 180 }}>
+            {nomComplet(via)} suit un programme en duo avec <strong>{nomComplet(binome)}</strong>. Souhaitez-vous ajouter
+            son binôme ?
+          </span>
+          <button
+            type="button"
+            onClick={() => onChange([...selectionnes, binome.id])}
+            style={{
+              border: '1px solid rgba(233,207,148,.42)',
+              background: 'rgba(233,207,148,.16)',
+              color: 'var(--accent-gold, #e9cf94)',
+              borderRadius: 999,
+              padding: '4px 12px',
+              fontSize: 11.5,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Ajouter {nomComplet(binome)}
+          </button>
+        </div>
+      ))}
 
       {ouvert && suggestions.length > 0 && (
         <div

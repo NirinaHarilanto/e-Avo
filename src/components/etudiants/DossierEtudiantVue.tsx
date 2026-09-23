@@ -4,6 +4,7 @@ import { useNiveauxEtudiant } from '../../hooks/useNiveauxEtudiant'
 import { getJoinUrl } from '../../lib/visio'
 import { estRempli } from '../../lib/diagnostic'
 import { libelleStatutProfil, tonStatutProfil } from '../../lib/statutProfil'
+import { formaterHeures } from '../../lib/heures'
 import { RecapitulatifDiagnostic } from '../prospects/FormulaireDiagnosticCall'
 import type { Database } from '../../types/database.types'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -147,7 +148,7 @@ function HistoriqueForfaits({ packages }: { packages: DossierEtudiant['packages'
               }}
             >
               <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1 }}>
-                {p.type_programme === 'duo' ? 'Duo' : 'Individuel'} · {p.total_heures} h
+                {p.type_programme === 'duo' ? 'Duo' : 'Individuel'} · {formaterHeures(p.total_heures)}
                 {p.essai && (
                   <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(233,207,148,.14)', border: '1px solid rgba(233,207,148,.32)', borderRadius: 999, padding: '2px 7px' }}>
                     Essai {p.essai_resultat === 'poursuivi' ? '· poursuivi' : p.essai_resultat === 'arrete' ? '· arrêté' : ''}
@@ -313,7 +314,7 @@ function BlocPeriode({
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
             <span className="brand-font" style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>
-              {heures} h
+              {formaterHeures(heures)}
             </span>
             <span style={{ fontSize: 10, color: 'var(--muted)' }}>enseignées</span>
           </div>
@@ -540,10 +541,10 @@ export function DossierEtudiantVue({
         <Stat
           compact
           libelle="Heures suivies"
-          valeur={heuresConsommees}
-          unite={forfait ? `h / ${forfait.total_heures} h` : 'h'}
+          valeur={formaterHeures(heuresConsommees)}
+          unite={forfait ? `/ ${formaterHeures(forfait.total_heures)}` : undefined}
           ton="or"
-          aide={forfait ? `Forfait de ${forfait.total_heures} h` : 'Aucun forfait rattaché'}
+          aide={forfait ? `Forfait de ${formaterHeures(forfait.total_heures)}` : 'Aucun forfait rattaché'}
         />
         <Stat
           compact
@@ -707,10 +708,10 @@ export function DossierEtudiantVue({
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <LigneInfo label="Programme" valeur={forfait.type_programme === 'duo' ? 'Duo' : 'Individuel'} />
-                  <LigneInfo label="Formule en cours" valeur={`${forfait.total_heures} h`} />
+                  <LigneInfo label="Formule en cours" valeur={formaterHeures(forfait.total_heures)} />
                   <LigneInfo label="Montant" valeur={forfait.montant !== null ? `${forfait.montant.toLocaleString('fr-FR')} Ar` : '—'} />
-                  <LigneInfo label="Consommées" valeur={`${heuresConsommees} h`} />
-                  <LigneInfo label="Restantes (tous forfaits cumulés)" valeur={`${heuresRestantes} h`} />
+                  <LigneInfo label="Consommées" valeur={formaterHeures(heuresConsommees)} />
+                  <LigneInfo label="Restantes (tous forfaits cumulés)" valeur={formaterHeures(heuresRestantes)} />
                   <LigneInfo label="Échéance" valeur={forfait.echeance ? new Date(forfait.echeance).toLocaleDateString('fr-FR') : '—'} />
                 </div>
                 <div>

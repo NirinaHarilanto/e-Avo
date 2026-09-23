@@ -57,6 +57,8 @@ const etablissement: Etablissement = {
   couleur_accent: null,
   logo_url: null,
   calendly_url: null,
+  heures_forfait_collectif: 32,
+  relance_echeance_jours: 3,
   created_at: '2026-01-01T00:00:00Z',
 }
 

@@ -67,6 +67,14 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const heures = session.duree_minutes / 60
+    /* Séance de vague : tous les inscrits sont débités, présents ou non — demande client du
+       2026-09-23 (point 10), « le rythme de déduction des forfaits sera le même pour tous les
+       étudiants ». Le programme collectif avance au rythme du groupe : une absence ne fait pas
+       gagner une heure, elle fait manquer un cours. Hors vague, seul le présent est débité. */
+    const debites = session.cohort_id
+      ? body.presences.map((p) => p.studentId)
+      : body.presences.filter((p) => p.present).map((p) => p.studentId)
+
     const ecritures = [
       {
         etablissement_id: etablissementId,
@@ -75,15 +83,13 @@ export default async function handler(request: Request): Promise<Response> {
         type_ecriture: 'credit_professeur' as const,
         heures,
       },
-      ...body.presences
-        .filter((p) => p.present)
-        .map((p) => ({
-          etablissement_id: etablissementId,
-          session_id: session.id,
-          student_id: p.studentId,
-          type_ecriture: 'debit_etudiant' as const,
-          heures,
-        })),
+      ...debites.map((studentId) => ({
+        etablissement_id: etablissementId,
+        session_id: session.id,
+        student_id: studentId,
+        type_ecriture: 'debit_etudiant' as const,
+        heures,
+      })),
     ]
     const { error: ledgerError } = await serviceClient.from('hour_ledger').insert(ecritures)
     if (ledgerError) {

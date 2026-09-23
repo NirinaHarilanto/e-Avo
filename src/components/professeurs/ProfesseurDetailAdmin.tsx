@@ -9,6 +9,7 @@ import { GrilleStats, Stat } from '../ui/Stat'
 import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
+import { formaterHeures } from '../../lib/heures'
 
 export function ProfesseurDetailAdmin() {
   const { id } = useParams<{ id: string }>()
@@ -99,7 +100,7 @@ function LigneEleve({ eleveDuProfesseur }: { eleveDuProfesseur: EleveDuProfesseu
             {affectation.langue ?? 'Langue non précisée'} · depuis le {new Date(affectation.date_debut).toLocaleDateString('fr-FR')}
           </div>
         </div>
-        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>{heuresEnseignees} h enseignées</span>
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>{formaterHeures(heuresEnseignees)} enseignées</span>
       </div>
       {packages.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, borderTop: '1px solid var(--border-soft)', paddingTop: 8 }}>

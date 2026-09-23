@@ -5,8 +5,10 @@ import { useRendezVous } from '../../hooks/useRendezVous'
 import { useEvenementsAdmin } from '../../hooks/useEvenementsAdmin'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
+import { useVagues } from '../../hooks/useVagues'
 import { lundiDeLaSemaine } from '../../lib/agenda'
 import { agendaAdminComplet } from '../../lib/agendaEvenements'
+import { etudiantsSelectionnables, vaguesSelectionnables } from '../../lib/invitations'
 import { PopupEvenementAdmin, CarteRendezVous } from '../shared/PopupEvenementAdmin'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -23,6 +25,65 @@ import { Icone } from '../ui/Icones'
 import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 
 type VueRendezVous = 'agenda' | 'liste'
+
+/* Deux natures de réservation, demande client du 2026-09-23 (point 3). La distinction n'est pas
+   cosmétique : une séance de cours crée une vraie `sessions`, dont la clôture retire l'heure du
+   forfait de l'élève et la crédite au professeur ; tout le reste crée un `evenements_admin`, qui
+   n'a aucun effet sur les compteurs d'heures. */
+type NatureRendezVous = 'seance_cours' | 'autre'
+
+const NATURES: { valeur: NatureRendezVous; titre: string; detail: string }[] = [
+  {
+    valeur: 'seance_cours',
+    titre: 'Une séance de cours',
+    detail: 'L’heure est déduite du forfait des élèves et comptée au professeur.',
+  },
+  {
+    valeur: 'autre',
+    titre: 'Autre',
+    detail: 'Réunion, point de suivi, entretien… sans effet sur les forfaits d’heures.',
+  },
+]
+
+function ChoixNatureRendezVous({ valeur, onChange }: { valeur: NatureRendezVous; onChange: (v: NatureRendezVous) => void }) {
+  return (
+    <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <legend style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', padding: 0, marginBottom: 2 }}>
+        Nature du rendez-vous
+      </legend>
+      {NATURES.map((nature) => {
+        const actif = valeur === nature.valeur
+        return (
+          <label
+            key={nature.valeur}
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 9,
+              padding: '9px 11px',
+              borderRadius: 10,
+              cursor: 'pointer',
+              border: actif ? '1px solid rgba(94,179,255,.42)' : '1px solid var(--border)',
+              background: actif ? 'rgba(94,179,255,.1)' : 'transparent',
+            }}
+          >
+            <input
+              type="radio"
+              name="nature-rendez-vous"
+              checked={actif}
+              onChange={() => onChange(nature.valeur)}
+              style={{ marginTop: 2, accentColor: 'var(--accent-blue)' }}
+            />
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>{nature.titre}</span>
+              <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.45 }}>{nature.detail}</span>
+            </span>
+          </label>
+        )
+      })}
+    </fieldset>
+  )
+}
 
 function versDatetimeLocal(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -221,7 +282,9 @@ function FormulaireCreerEvenement({
 }) {
   const { etudiants } = useEtudiants()
   const { professeurs } = useProfesseurs()
+  const { vagues } = useVagues()
   const [titre, setTitre] = useState('')
+  const [nature, setNature] = useState<NatureRendezVous>('autre')
   const [debut, setDebut] = useState(versDatetimeLocal(debutInitial))
   const [dureeMinutes, setDureeMinutes] = useState(60)
   const [obligatoiresIds, setObligatoiresIds] = useState<string[]>([])
@@ -233,35 +296,67 @@ function FormulaireCreerEvenement({
   /* Un seul vivier, étudiants et professeurs mélangés — demande client du 2026-09-16 :
      « toutes les personnes de l'application devraient être retrouvables dans ces zones de
      recherche ». L'étiquette de rôle affichée dans les suggestions (voir SelecteurPersonnes)
-     permet de les distinguer sans les séparer en deux listes. */
+     permet de les distinguer sans les séparer en deux listes. Depuis le 2026-09-23 s'y ajoutent
+     les vagues, qui convient tous leurs inscrits d'un coup. */
   const toutLeMonde = useMemo(
     () => [
-      ...etudiants.map((e) => ({ ...e, role: 'Étudiant' })),
+      ...etudiantsSelectionnables(etudiants),
       ...professeurs.map((p) => ({ ...p, role: 'Professeur' })),
+      ...vaguesSelectionnables(vagues),
     ],
-    [etudiants, professeurs],
+    [etudiants, professeurs, vagues],
   )
+
+  const professeurIds = useMemo(() => new Set(professeurs.map((p) => p.id)), [professeurs])
+  const tousParticipants = [...obligatoiresIds, ...optionnelsIds]
+  const professeursConvies = tousParticipants.filter((id) => professeurIds.has(id))
+  const etudiantsConvies = tousParticipants.filter((id) => !professeurIds.has(id))
 
   async function creer(e: FormEvent) {
     e.preventDefault()
-    if (!titre.trim() || !debut || (obligatoiresIds.length === 0 && optionnelsIds.length === 0)) {
-      setErreur('Le titre, la date et au moins un participant sont obligatoires.')
+    if (!debut || (obligatoiresIds.length === 0 && optionnelsIds.length === 0)) {
+      setErreur('La date et au moins un participant sont obligatoires.')
+      return
+    }
+    if (nature === 'autre' && !titre.trim()) {
+      setErreur('Le titre est obligatoire.')
+      return
+    }
+    /* Une séance de cours n'est pas un événement d'agenda : c'est une vraie `sessions`, seul
+       objet dont la clôture décompte les heures du forfait de l'élève et crédite celles du
+       professeur (api/professeur/cloturer-seance.ts). D'où deux points d'entrée distincts selon
+       la case cochée — demande client du 2026-09-23, point 3. */
+    if (nature === 'seance_cours' && (professeursConvies.length !== 1 || etudiantsConvies.length === 0)) {
+      setErreur('Une séance de cours demande exactement un professeur et au moins un élève.')
       return
     }
     setEnCours(true)
     setErreur(null)
-    const reponse = await fetch('/api/admin/creer-evenement', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({
-        titre: titre.trim(),
-        debut: new Date(debut).toISOString(),
-        dureeMinutes,
-        obligatoiresIds,
-        optionnelsIds,
-        notes: notes.trim() || undefined,
-      }),
-    })
+    const reponse = await fetch(
+      nature === 'seance_cours' ? '/api/professeur/planifier-seance' : '/api/admin/creer-evenement',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify(
+          nature === 'seance_cours'
+            ? {
+                teacherId: professeursConvies[0],
+                studentIds: etudiantsConvies,
+                type: etudiantsConvies.length > 1 ? 'collectif' : 'individuel',
+                debut: new Date(debut).toISOString(),
+                dureeMinutes,
+              }
+            : {
+                titre: titre.trim(),
+                debut: new Date(debut).toISOString(),
+                dureeMinutes,
+                obligatoiresIds,
+                optionnelsIds,
+                notes: notes.trim() || undefined,
+              },
+        ),
+      },
+    )
       .then((r) => r.json())
       .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
     setEnCours(false)
@@ -275,7 +370,14 @@ function FormulaireCreerEvenement({
   return (
     <Modale titre="Créer un rendez-vous" onFermer={onFermer} largeurMax={480}>
       <form onSubmit={creer} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <input required placeholder="Titre (ex. Point de mi-parcours)" value={titre} onChange={(e) => setTitre(e.target.value)} style={champStyle} />
+        <ChoixNatureRendezVous valeur={nature} onChange={setNature} />
+        <input
+          required={nature === 'autre'}
+          placeholder={nature === 'seance_cours' ? 'Intitulé du cours (facultatif)' : 'Titre (ex. Point de mi-parcours)'}
+          value={titre}
+          onChange={(e) => setTitre(e.target.value)}
+          style={champStyle}
+        />
         <div style={{ display: 'flex', gap: 10 }}>
           <input required type="datetime-local" value={debut} onChange={(e) => setDebut(e.target.value)} style={{ ...champStyle, flex: 1 }} />
           <input
@@ -294,33 +396,39 @@ function FormulaireCreerEvenement({
             avoir le même principe que Outlook lors de la réservation d'un point ». Une même
             personne ne peut pas se retrouver dans les deux à la fois (`exclure`). */}
         <SelecteurPersonnes
-          etiquette="Participants obligatoires"
-          placeholder="Rechercher un nom…"
+          etiquette={nature === 'seance_cours' ? 'Professeur et élèves' : 'Participants obligatoires'}
+          placeholder="Rechercher un nom ou une vague…"
           candidats={toutLeMonde}
           selectionnes={obligatoiresIds}
           onChange={setObligatoiresIds}
           exclure={optionnelsIds}
         />
-        <SelecteurPersonnes
-          etiquette="Participants optionnels"
-          placeholder="Rechercher un nom…"
-          candidats={toutLeMonde}
-          selectionnes={optionnelsIds}
-          onChange={setOptionnelsIds}
-          exclure={obligatoiresIds}
-        />
+        {/* Une séance de cours n'a pas d'invité facultatif : on y est inscrit ou on ne l'est pas,
+            et c'est cette inscription qui décompte les heures. */}
+        {nature === 'autre' && (
+          <SelecteurPersonnes
+            etiquette="Participants optionnels"
+            placeholder="Rechercher un nom ou une vague…"
+            candidats={toutLeMonde}
+            selectionnes={optionnelsIds}
+            onChange={setOptionnelsIds}
+            exclure={obligatoiresIds}
+          />
+        )}
 
-        <textarea
-          placeholder="Notes (facultatif)"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={3}
-          style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
-        />
+        {nature === 'autre' && (
+          <textarea
+            placeholder="Notes (facultatif)"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
+          />
+        )}
 
         {erreur && <p style={{ color: 'var(--danger)', fontSize: 12.5 }}>{erreur}</p>}
         <button type="submit" disabled={enCours} className="btn-shine" style={{ ...boutonPrimaireStyle, opacity: enCours ? 0.7 : 1 }}>
-          {enCours ? 'Création…' : 'Créer le rendez-vous'}
+          {enCours ? 'Création…' : nature === 'seance_cours' ? 'Planifier la séance' : 'Créer le rendez-vous'}
         </button>
       </form>
     </Modale>

@@ -12,6 +12,9 @@ interface ParamsSeance {
   debut: string
   dureeMinutes: number
   studentIds: string[]
+  /* Vague à laquelle rattacher la séance (0069) — présent seulement quand toute la vague, et
+     elle seule, est inscrite. */
+  cohortId?: string | null
 }
 
 /**
@@ -35,6 +38,7 @@ export async function creerSeanceAvecInscriptions(
       debut: params.debut,
       duree_minutes: params.dureeMinutes,
       statut: 'planifiee',
+      cohort_id: params.cohortId ?? null,
     })
     .select('id')
     .single()

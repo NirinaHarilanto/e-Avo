@@ -8,6 +8,7 @@ import { GrilleStats, Stat } from '../ui/Stat'
 import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, EtatChargementStats } from '../ui/Etats'
+import { formaterHeures } from '../../lib/heures'
 
 export function HeuresProfesseur() {
   const { profile } = useProfileContext()
@@ -66,7 +67,7 @@ export function HeuresProfesseur() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
           <GrilleStats>
-            <Stat libelle="Total heures enseignées" valeur={heuresEnseignees} unite="h" ton="or" />
+            <Stat libelle="Total heures enseignées" valeur={formaterHeures(heuresEnseignees)} ton="or" />
             <Stat libelle="Séances clôturées" valeur={seancesCloturees} ton="teal" />
             <Stat
               libelle="Séances passées à clôturer"
@@ -113,7 +114,7 @@ export function HeuresProfesseur() {
                     <span style={{ fontSize: 11.5, color: 'var(--muted)', flexShrink: 0 }}>
                       {ligne.seances} séance{ligne.seances > 1 ? 's' : ''}
                     </span>
-                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)', flexShrink: 0 }}>{ligne.heures} h</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)', flexShrink: 0 }}>{formaterHeures(ligne.heures)}</span>
                   </div>
                 ))}
               </div>
