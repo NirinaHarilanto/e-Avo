@@ -2,11 +2,14 @@ import { useMemo, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur, type SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { useVagues } from '../../hooks/useVagues'
+import { useEvenementsProfesseur } from '../../hooks/useEvenementsAdmin'
 import { etudiantsSelectionnables, vaguesSelectionnables } from '../../lib/invitations'
 import type { Database } from '../../types/database.types'
 import { getJoinUrl } from '../../lib/visio'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
 import { nomsElevesInscrits } from '../../lib/seances'
+import { versEvenementAdmin } from '../../lib/agendaEvenements'
+import { type NatureRendezVous } from '../../lib/natureRendezVous'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -22,6 +25,8 @@ import { AgendaHebdo } from '../ui/AgendaHebdo'
 import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { AvertissementDureeMeet } from '../shared/AvertissementDureeMeet'
+import { ChoixNatureRendezVous } from '../shared/ChoixNatureRendezVous'
+import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
 import { CompteRenduSeance } from './CompteRenduSeance'
 import { PlanningPrevisionnelProfesseur } from './PlanningPrevisionnelProfesseur'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
@@ -98,8 +103,13 @@ function versDatetimeLocal(date: Date): string {
 }
 
 export function CalendrierProfesseur() {
-  const { profile } = useProfileContext()
+  const { profile, session } = useProfileContext()
   const { seances, etudiantsActifs, vagues, heuresEnseignees, loading, erreur, recharger } = useCalendrierProfesseur(profile?.id)
+  /* Rendez-vous « autre » (entretien, séance d'information…) créés par le professeur lui-même ou
+     où il est participant — demande client du 2026-09-23, même mécanisme que RendezVousAdmin.tsx.
+     Distinct des séances : ils vivent dans `evenements_admin`, pas `sessions`, et n'affectent
+     jamais les heures. */
+  const { evenements: evenementsAutres, loading: chargementEvenements, recharger: rechargerEvenements } = useEvenementsProfesseur()
   const [vue, setVue] = useState<VueCalendrier>('agenda')
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
@@ -108,6 +118,7 @@ export function CalendrierProfesseur() {
      une reprogrammation, `recharger()` remplace l'objet et la fiche doit afficher la version à
      jour, pas celle capturée au moment du clic. */
   const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
+  const [elementOuvertId, setElementOuvertId] = useState<string | null>(null)
 
   const maintenant = new Date().toISOString()
   const aVenir = seances
@@ -118,7 +129,10 @@ export function CalendrierProfesseur() {
     .filter((s) => s.session.statut !== 'planifiee')
     .sort((a, b) => a.session.debut.localeCompare(b.session.debut))
 
-  const evenements = useMemo(() => seances.map(versEvenement), [seances])
+  const evenements = useMemo(
+    () => [...seances.map(versEvenement), ...evenementsAutres.map(versEvenementAdmin)],
+    [seances, evenementsAutres],
+  )
   const seanceOuverte = seances.find((s) => s.session.id === seanceOuverteId) ?? null
 
   function ouvrirPlanification(debut?: Date) {
@@ -145,7 +159,7 @@ export function CalendrierProfesseur() {
             />
             <button onClick={() => ouvrirPlanification()} className="btn-shine" style={boutonPrimaireStyle}>
               <Icone nom="plus" taille={15} />
-              Planifier une séance
+              Créer un rendez-vous
             </button>
           </div>
         }
@@ -156,11 +170,13 @@ export function CalendrierProfesseur() {
         etapes={[
           <>
             L’<strong>agenda</strong> affiche votre semaine comme un agenda professionnel. Cliquez un{' '}
-            <strong>créneau libre</strong> pour y planifier un cours, ou un cours existant pour l’ouvrir.
+            <strong>créneau libre</strong> pour y créer un rendez-vous, ou un événement existant pour l’ouvrir.
           </>,
           <>
-            <strong>Planifier une séance</strong> : choisissez un ou plusieurs élèves, une date et une durée. Plusieurs
-            élèves sélectionnés créent une séance collective.
+            <strong>Créer un rendez-vous</strong> : choisissez d’abord sa nature — une <strong>séance de cours</strong>{' '}
+            (décompte les heures) ou <strong>autre</strong> (entretien, séance d’information… sans effet sur les
+            heures) — puis un ou plusieurs élèves, une date et une durée. Plusieurs élèves sélectionnés pour une
+            séance de cours créent une séance collective.
           </>,
           <>
             Après le cours, ouvrez la séance et notez la <strong>présence</strong> de chaque élève, puis clôturez-la.
@@ -210,14 +226,14 @@ export function CalendrierProfesseur() {
           />
         )}
 
-        {loading ? (
+        {loading || chargementEvenements ? (
           <EtatChargement lignes={3} hauteur={110} />
         ) : vue === 'agenda' ? (
           <AgendaHebdo
             evenements={evenements}
             semaineDebut={semaineDebut}
             onSemaineChange={setSemaineDebut}
-            onSelectionner={(evenement) => setSeanceOuverteId(evenement.id)}
+            onSelectionner={(evenement) => (estEvenementAdmin(evenement.id) ? setElementOuvertId(evenement.id) : setSeanceOuverteId(evenement.id))}
             onCreneauLibre={etudiantsActifs.length > 0 ? ouvrirPlanification : undefined}
             legende={<LegendeTypeSeance />}
             videMessage={
@@ -272,6 +288,19 @@ export function CalendrierProfesseur() {
           <CarteSeance seance={seanceOuverte} maintenant={maintenant} onChange={recharger} sansCadre />
         </Modale>
       )}
+
+      {/* Fiche d'un rendez-vous « autre » (entretien, séance d'information…) — même composant que
+          l'espace admin, restreint à sa propre annulation (api/professeur/annuler-evenement.ts). */}
+      <PopupEvenementAdmin
+        elementOuvertId={elementOuvertId}
+        onFermer={() => setElementOuvertId(null)}
+        rendezVous={[]}
+        evenementsAdmin={evenementsAutres}
+        profile={profile}
+        session={session}
+        onChange={rechargerEvenements}
+        urlAnnulation="/api/professeur/annuler-evenement"
+      />
     </ProfesseurLayout>
   )
 }
@@ -289,7 +318,12 @@ function FormulairePlanification({
 }) {
   const { session } = useProfileContext()
   const { vagues } = useVagues()
+  const [nature, setNature] = useState<NatureRendezVous>('seance_cours')
+  const [titre, setTitre] = useState('')
+  const [notes, setNotes] = useState('')
   const [studentIds, setStudentIds] = useState<string[]>([])
+  const [obligatoiresIds, setObligatoiresIds] = useState<string[]>([])
+  const [optionnelsIds, setOptionnelsIds] = useState<string[]>([])
   const [debut, setDebut] = useState(debutInitial ?? '')
   const [dureeMinutes, setDureeMinutes] = useState(60)
   const [enCours, setEnCours] = useState(false)
@@ -310,25 +344,48 @@ function FormulairePlanification({
     )
   }, [studentIds, vagues])
 
+  const participantsManquants = nature === 'seance_cours' ? studentIds.length === 0 : obligatoiresIds.length === 0 && optionnelsIds.length === 0
+
   async function creer() {
-    if (!session || studentIds.length === 0 || !debut) return
+    if (!session || !debut || participantsManquants) return
+    if (nature === 'autre' && !titre.trim()) {
+      setErreur('Le titre est obligatoire.')
+      return
+    }
     setEnCours(true)
     setErreur(null)
-    const reponse = await fetch('/api/professeur/planifier-seance', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({
-        studentIds,
-        type: studentIds.length > 1 ? 'collectif' : 'individuel',
-        debut: new Date(debut).toISOString(),
-        dureeMinutes,
-        cohortId: vagueDeLaSeance?.cohorte.id,
-      }),
-    })
+    // Une séance de cours crée une vraie `sessions` (heures décomptées à la clôture) ; « autre »
+    // crée un `evenements_admin`, sans effet sur les heures — demande client du 2026-09-23,
+    // « exactement comme dans l'espace admin » (voir api/professeur/creer-evenement.ts).
+    const reponse = await fetch(
+      nature === 'seance_cours' ? '/api/professeur/planifier-seance' : '/api/professeur/creer-evenement',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify(
+          nature === 'seance_cours'
+            ? {
+                studentIds,
+                type: studentIds.length > 1 ? 'collectif' : 'individuel',
+                debut: new Date(debut).toISOString(),
+                dureeMinutes,
+                cohortId: vagueDeLaSeance?.cohorte.id,
+              }
+            : {
+                titre: titre.trim(),
+                debut: new Date(debut).toISOString(),
+                dureeMinutes,
+                obligatoiresIds,
+                optionnelsIds,
+                notes: notes.trim() || undefined,
+              },
+        ),
+      },
+    )
     setEnCours(false)
     if (!reponse.ok) {
       const corps = await reponse.json().catch(() => null)
-      setErreur(corps?.error ?? 'La planification a échoué.')
+      setErreur(corps?.error ?? (nature === 'seance_cours' ? 'La planification a échoué.' : "La création a échoué."))
       return
     }
     onCree()
@@ -340,12 +397,24 @@ function FormulairePlanification({
      passait hors écran dès que le professeur avait fait défiler l'agenda : le clic semblait
      sans effet. */
   return (
-    <Modale titre="Nouvelle séance" onFermer={onAnnuler} largeurMax={480}>
+    <Modale titre="Nouveau rendez-vous" onFermer={onAnnuler} largeurMax={480}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+      <ChoixNatureRendezVous valeur={nature} onChange={setNature} />
+
+      {nature === 'autre' && (
+        <input
+          required
+          placeholder="Titre (ex. Entretien de suivi)"
+          value={titre}
+          onChange={(e) => setTitre(e.target.value)}
+          style={champStyle}
+        />
+      )}
 
       {etudiantsActifs.length === 0 ? (
         <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>Aucun élève ne vous est actuellement attribué.</p>
-      ) : (
+      ) : nature === 'seance_cours' ? (
         // Recherche façon Outlook, même principe que la création de rendez-vous côté admin
         // (demande client du 2026-09-16, voir SelecteurPersonnes.tsx) : on tape un nom, on
         // choisit dans les suggestions, la personne devient une pastille amovible.
@@ -356,9 +425,28 @@ function FormulairePlanification({
           selectionnes={studentIds}
           onChange={setStudentIds}
         />
+      ) : (
+        <>
+          <SelecteurPersonnes
+            etiquette="Participants obligatoires"
+            placeholder="Rechercher un élève ou une vague…"
+            candidats={candidats}
+            selectionnes={obligatoiresIds}
+            onChange={setObligatoiresIds}
+            exclure={optionnelsIds}
+          />
+          <SelecteurPersonnes
+            etiquette="Participants optionnels"
+            placeholder="Rechercher un élève ou une vague…"
+            candidats={candidats}
+            selectionnes={optionnelsIds}
+            onChange={setOptionnelsIds}
+            exclure={obligatoiresIds}
+          />
+        </>
       )}
 
-      {vagueDeLaSeance && (
+      {nature === 'seance_cours' && vagueDeLaSeance && (
         <p style={{ fontSize: 12, color: 'var(--accent-violet)', margin: 0, lineHeight: 1.5 }}>
           Séance de la vague « {vagueDeLaSeance.cohorte.nom} » : une fois clôturée, l’heure sera décomptée du forfait de
           ses {vagueDeLaSeance.membreIds.length} inscrits, présents ou non.
@@ -376,7 +464,17 @@ function FormulairePlanification({
         </div>
       </div>
 
-      <AvertissementDureeMeet dureeMinutes={dureeMinutes} nombreEleves={studentIds.length} />
+      {nature === 'seance_cours' && <AvertissementDureeMeet dureeMinutes={dureeMinutes} nombreEleves={studentIds.length} />}
+
+      {nature === 'autre' && (
+        <textarea
+          placeholder="Notes (facultatif)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
+        />
+      )}
 
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{erreur}</p>}
 
@@ -386,11 +484,11 @@ function FormulairePlanification({
         </button>
         <button
           onClick={creer}
-          disabled={enCours || studentIds.length === 0 || !debut}
+          disabled={enCours || !debut || participantsManquants}
           className="btn-shine"
-          style={{ flexGrow: 1, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours || studentIds.length === 0 || !debut ? 0.6 : 1 }}
+          style={{ flexGrow: 1, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours || !debut || participantsManquants ? 0.6 : 1 }}
         >
-          {enCours ? 'Création…' : 'Planifier'}
+          {enCours ? 'Création…' : nature === 'seance_cours' ? 'Planifier' : 'Créer le rendez-vous'}
         </button>
       </div>
       </div>

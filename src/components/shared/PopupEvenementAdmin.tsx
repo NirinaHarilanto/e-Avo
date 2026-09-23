@@ -214,10 +214,16 @@ export function CarteEvenementAdmin({
   evenement,
   session,
   onChange,
+  urlAnnulation = '/api/admin/annuler-evenement',
 }: {
   evenement: EvenementAdminAvecParticipants
   session: { access_token: string } | null
   onChange: () => void
+  /* Un professeur annule via sa propre route, restreinte à ses événements (voir
+     api/professeur/annuler-evenement.ts) — demande client du 2026-09-23, « exactement comme dans
+     l'espace admin » côté mécanisme, mais pas côté droits : il ne peut pas annuler le rendez-vous
+     d'un autre. */
+  urlAnnulation?: string
 }) {
   const [enCours, setEnCours] = useState(false)
   const [echec, setEchec] = useState<string | null>(null)
@@ -227,7 +233,7 @@ export function CarteEvenementAdmin({
     if (!session) return
     setEnCours(true)
     setEchec(null)
-    const reponse = await fetch('/api/admin/annuler-evenement', {
+    const reponse = await fetch(urlAnnulation, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ evenementId: evenement.id }),
@@ -311,6 +317,7 @@ export function PopupEvenementAdmin({
   profile,
   session,
   onChange,
+  urlAnnulation,
 }: {
   elementOuvertId: string | null
   onFermer: () => void
@@ -319,6 +326,7 @@ export function PopupEvenementAdmin({
   profile: { id: string } | null
   session: { access_token: string } | null
   onChange: () => void
+  urlAnnulation?: string
 }) {
   const rdvOuvert = elementOuvertId?.startsWith(PREFIXE_PROSPECT)
     ? rendezVous.find((r) => r.id === elementOuvertId!.slice(PREFIXE_PROSPECT.length))
@@ -337,7 +345,7 @@ export function PopupEvenementAdmin({
   if (evenementOuvert) {
     return (
       <Modale titre={evenementOuvert.titre} onFermer={onFermer} largeurMax={480}>
-        <CarteEvenementAdmin evenement={evenementOuvert} session={session} onChange={onChange} />
+        <CarteEvenementAdmin evenement={evenementOuvert} session={session} onChange={onChange} urlAnnulation={urlAnnulation} />
       </Modale>
     )
   }

@@ -23,67 +23,10 @@ import { Modale } from '../ui/Modale'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
 import { Icone } from '../ui/Icones'
 import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
+import { ChoixNatureRendezVous } from '../shared/ChoixNatureRendezVous'
+import type { NatureRendezVous } from '../../lib/natureRendezVous'
 
 type VueRendezVous = 'agenda' | 'liste'
-
-/* Deux natures de réservation, demande client du 2026-09-23 (point 3). La distinction n'est pas
-   cosmétique : une séance de cours crée une vraie `sessions`, dont la clôture retire l'heure du
-   forfait de l'élève et la crédite au professeur ; tout le reste crée un `evenements_admin`, qui
-   n'a aucun effet sur les compteurs d'heures. */
-type NatureRendezVous = 'seance_cours' | 'autre'
-
-const NATURES: { valeur: NatureRendezVous; titre: string; detail: string }[] = [
-  {
-    valeur: 'seance_cours',
-    titre: 'Une séance de cours',
-    detail: 'L’heure est déduite du forfait des élèves et comptée au professeur.',
-  },
-  {
-    valeur: 'autre',
-    titre: 'Autre',
-    detail: 'Réunion, point de suivi, entretien… sans effet sur les forfaits d’heures.',
-  },
-]
-
-function ChoixNatureRendezVous({ valeur, onChange }: { valeur: NatureRendezVous; onChange: (v: NatureRendezVous) => void }) {
-  return (
-    <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
-      <legend style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', padding: 0, marginBottom: 2 }}>
-        Nature du rendez-vous
-      </legend>
-      {NATURES.map((nature) => {
-        const actif = valeur === nature.valeur
-        return (
-          <label
-            key={nature.valeur}
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 9,
-              padding: '9px 11px',
-              borderRadius: 10,
-              cursor: 'pointer',
-              border: actif ? '1px solid rgba(94,179,255,.42)' : '1px solid var(--border)',
-              background: actif ? 'rgba(94,179,255,.1)' : 'transparent',
-            }}
-          >
-            <input
-              type="radio"
-              name="nature-rendez-vous"
-              checked={actif}
-              onChange={() => onChange(nature.valeur)}
-              style={{ marginTop: 2, accentColor: 'var(--accent-blue)' }}
-            />
-            <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>{nature.titre}</span>
-              <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.45 }}>{nature.detail}</span>
-            </span>
-          </label>
-        )
-      })}
-    </fieldset>
-  )
-}
 
 function versDatetimeLocal(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
