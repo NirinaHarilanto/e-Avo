@@ -104,6 +104,7 @@ export function ReserverAppel({
   const [nom2, setNom2] = useState('')
   const [email2, setEmail2] = useState('')
   const [telephone2, setTelephone2] = useState('')
+  const [objectif2, setObjectif2] = useState('')
   const [nomGroupe, setNomGroupe] = useState('')
   const [consent, setConsent] = useState(false)
   const [envoi, setEnvoi] = useState(false)
@@ -181,7 +182,16 @@ export function ReserverAppel({
         typeProgramme,
         message,
         ...(typeProgramme === 'duo'
-          ? { duo: { prenom: prenom2, nom: nom2, email: email2, telephone: telephone2, nomGroupe: nomGroupe.trim() || undefined } }
+          ? {
+              duo: {
+                prenom: prenom2,
+                nom: nom2,
+                email: email2,
+                telephone: telephone2,
+                objectif: objectif2,
+                nomGroupe: nomGroupe.trim() || undefined,
+              },
+            }
           : {}),
       }),
     })
@@ -400,7 +410,12 @@ export function ReserverAppel({
             <Champ label={typeProgramme === 'duo' ? 'Nom (personne 1)' : 'Nom'} obligatoire valeur={nom} onChange={setNom} />
             <Champ label="E-mail" obligatoire type="email" valeur={email} onChange={setEmail} placeholder="vous@exemple.fr" />
             <Champ label="Téléphone" valeur={telephone} onChange={setTelephone} placeholder="+261 ..." />
-            <Champ label="Votre objectif" valeur={objectif} onChange={setObjectif} placeholder="Entretien, expatriation…" />
+            <Champ
+              label={typeProgramme === 'duo' ? 'Votre objectif (personne 1)' : 'Votre objectif'}
+              valeur={objectif}
+              onChange={setObjectif}
+              placeholder="Entretien, expatriation…"
+            />
           </div>
 
           {typeProgramme === 'duo' && (
@@ -411,6 +426,9 @@ export function ReserverAppel({
                 <Champ label="Nom (personne 2)" obligatoire valeur={nom2} onChange={setNom2} />
                 <Champ label="E-mail (personne 2)" obligatoire type="email" valeur={email2} onChange={setEmail2} placeholder="elle-ou-lui@exemple.fr" />
                 <Champ label="Téléphone (personne 2)" valeur={telephone2} onChange={setTelephone2} placeholder="+261 ..." />
+                {/* Chaque membre du duo garde son propre objectif, toujours rattaché à sa
+                    personne — demande client du 2026-09-23, exactement comme pour la première. */}
+                <Champ label="Objectif (personne 2)" valeur={objectif2} onChange={setObjectif2} placeholder="Entretien, expatriation…" />
               </div>
               <Champ
                 label="Nom du binôme (facultatif)"

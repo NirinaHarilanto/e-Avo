@@ -13,6 +13,7 @@ import {
   type ReponsesDiagnostic,
 } from '../../lib/diagnostic'
 import { FormulaireDiagnosticCall } from '../prospects/FormulaireDiagnosticCall'
+import { SupprimerProspect } from '../prospects/SupprimerProspect'
 import { PlanifierAppelDiagnosticModale } from '../admin/PlanifierAppelDiagnosticModale'
 import { DetailPaiementModale } from '../paiements/DetailPaiementModale'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
@@ -1024,6 +1025,18 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
                 </button>
               </div>
             )}
+
+            {/* Disponible depuis n'importe quelle colonne du pipeline — demande client du
+                2026-09-23 : « la possibilité de supprimer un prospect à chaque étape ». */}
+            <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
+              <SupprimerProspect
+                prospects={[prospect]}
+                onSupprime={() => {
+                  setOuvert(false)
+                  onChange()
+                }}
+              />
+            </div>
           </div>
         </Modale>
       )}
@@ -1247,19 +1260,16 @@ function CarteDuo({
                     {p.telephone}
                   </a>
                 )}
+                {/* Chaque membre du duo garde son propre objectif, toujours rattaché à sa
+                    personne — demande client du 2026-09-23, jamais mélangé ni réduit à celui
+                    du porteur. */}
+                {p.objectif && (
+                  <p style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 8, padding: '7px 10px', margin: '2px 0 0' }}>
+                    « {p.objectif} »
+                  </p>
+                )}
               </div>
             ))}
-
-            {porteur.objectif && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Objectif indiqué à la réservation
-                </span>
-                <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
-                  « {porteur.objectif} »
-                </p>
-              </div>
-            )}
 
             {porteur.statut === 'diagnostic_planifie' && (
               <PostItRendezVous prospect={porteur} validationEnCours={a.validationEnCours} onValider={a.validerRendezVous} />
@@ -1414,6 +1424,19 @@ function CarteDuo({
                 </button>
               </div>
             )}
+
+            {/* Disponible depuis n'importe quelle colonne du pipeline — demande client du
+                2026-09-23. Les deux membres du duo sont toujours supprimés ensemble, comme
+                toutes les autres actions de cette carte. */}
+            <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
+              <SupprimerProspect
+                prospects={[porteur, autre]}
+                onSupprime={() => {
+                  a.setOuvert(false)
+                  onChange()
+                }}
+              />
+            </div>
           </div>
         </Modale>
       )}

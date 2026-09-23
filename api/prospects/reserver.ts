@@ -14,6 +14,7 @@ interface CorpsDuo {
   nom?: string
   email?: string
   telephone?: string
+  objectif?: string
   nomGroupe?: string
 }
 
@@ -140,6 +141,9 @@ export default async function handler(request: Request): Promise<Response> {
           email: email2,
           telephone: corps.duo?.telephone?.trim() || null,
           langue_visee: corps.langueVisee?.trim() || null,
+          // Chaque membre du duo a son propre objectif (demande client du 2026-09-23) — le champ
+          // manquait ici, la première personne étant seule à l'avoir jusque-là.
+          objectif: corps.duo?.objectif?.trim() || null,
           type_programme: 'duo',
           statut: 'diagnostic_planifie',
           duo_partenaire_id: prospect.id,
