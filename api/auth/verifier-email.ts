@@ -31,15 +31,22 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const serviceClient = createClient<Database>(url, serviceKey)
+    /* `.neq('status', 'suspended')` AVANT `.maybeSingle()`, pas après : un compte supprimé garde
+       (gardait, voir le correctif de api/admin/supprimer-utilisateur.ts) le même e-mail que le
+       compte réel qui le remplace après une nouvelle inscription — deux lignes `profiles` pour
+       la même adresse font échouer `.maybeSingle()` (qui n'accepte qu'au plus une ligne), pas
+       juste renvoyer une valeur inattendue. Filtrer en amont retombe alors sur une seule ligne
+       (l'e-mail Auth d'un compte actif est unique) au lieu de casser la recherche entière — bug
+       réel rencontré le 2026-09-23, l'écran de connexion répondait « adresse inconnue » à un
+       compte pourtant bien réel. */
     const { data: profil } = await serviceClient
       .from('profiles')
       .select('mot_de_passe_defini, status')
       .eq('email', email)
+      .neq('status', 'suspended')
       .maybeSingle()
 
-    // Un compte supprimé (status = 'suspended', voir api/admin/supprimer-utilisateur.ts) se
-    // comporte comme s'il n'existait pas : ni connexion, ni réinitialisation possible.
-    if (!profil || profil.status === 'suspended') {
+    if (!profil) {
       return Response.json({ statut: 'inconnu' })
     }
     return Response.json({ statut: profil.mot_de_passe_defini ? 'pret' : 'sans_mot_de_passe' })

@@ -43,9 +43,18 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Seuls les comptes étudiant ou professeur peuvent être supprimés ici.' }, { status: 403 })
     }
 
+    /* `email` remis à null en même temps que le statut — pas seulement l'e-mail Auth (anonymisé
+       plus bas par `deleteUser(..., true)`, ce qui libère bien l'adresse pour un nouveau compte
+       Auth). `profiles.email` n'a aucune contrainte d'unicité et n'est jamais touché par ce
+       soft-delete : sans ce correctif, un ré-enregistrement avec la même adresse (exactement le
+       scénario prévu par cette suppression — « supprimer puis se réinscrire ») laissait DEUX
+       lignes `profiles` portant le même e-mail. Bug réel rencontré le 2026-09-23 :
+       `api/auth/verifier-email.ts` (`.maybeSingle()`) échouait silencieusement dès qu'une
+       recherche par e-mail retombait sur ces deux lignes, et l'écran de connexion répondait
+       « adresse inconnue » à un compte pourtant bien réel. */
     const { error: erreurStatut } = await serviceClient
       .from('profiles')
-      .update({ status: 'suspended' })
+      .update({ status: 'suspended', email: null })
       .eq('id', body.profileId)
     if (erreurStatut) {
       return Response.json({ error: erreurStatut.message }, { status: 500 })

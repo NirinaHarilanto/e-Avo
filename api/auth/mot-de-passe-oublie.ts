@@ -33,15 +33,18 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const serviceClient = createClient<Database>(url, serviceKey)
+    /* `.neq('status', 'suspended')` AVANT `.maybeSingle()` — même correctif que
+       api/auth/verifier-email.ts : un compte supprimé partageant encore le même e-mail qu'un
+       compte réel plus récent faisait échouer `.maybeSingle()` (plus d'une ligne trouvée), pas
+       juste répondre « non reconnue » proprement. */
     const { data: profil } = await serviceClient
       .from('profiles')
       .select('mot_de_passe_defini, status')
       .eq('email', email)
+      .neq('status', 'suspended')
       .maybeSingle()
 
-    // Compte supprimé (voir api/admin/supprimer-utilisateur.ts) : aucun lien à envoyer, comme
-    // s'il n'existait pas.
-    if (!profil || profil.status === 'suspended') {
+    if (!profil) {
       return Response.json({ error: 'Adresse e-mail non reconnue.' }, { status: 404 })
     }
 
