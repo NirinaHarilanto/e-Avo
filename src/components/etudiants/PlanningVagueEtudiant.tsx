@@ -1,7 +1,6 @@
 import { useVagueEtudiant } from '../../hooks/useVagueEtudiant'
 import { formaterMinutes } from '../../lib/heures'
 import { Section } from '../ui/Section'
-import { EtatChargement } from '../ui/Etats'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 
 /* Planning de la vague, visible par chacun de ses élèves (0069, demande client du 2026-09-23).
