@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCohortes } from '../../hooks/useCohortes'
 import { useCohortClasses } from '../../hooks/useCohortClasses'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useEtablissement } from '../../hooks/useEtablissement'
+import { useEtudiants } from '../../hooks/useEtudiants'
 import { supabase } from '../../lib/supabaseClient'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import type { Database, StatutCohorte, NiveauClasse, CreneauClasse } from '../../types/database.types'
@@ -18,6 +19,8 @@ import { boutonPrimaireStyle, boutonSecondaireStyle, boutonDangerStyle } from '.
 import { Icone } from '../ui/Icones'
 import { champStyle } from '../ui/Champ'
 import { Onglets } from '../ui/Onglets'
+import { Modale } from '../ui/Modale'
+import { ChampRecherche } from '../ui/BarreOutils'
 import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
 import { formaterHeures } from '../../lib/heures'
 import { CreneauxTestVague } from './CreneauxTestVague'
@@ -130,6 +133,10 @@ export function CohortesAdmin() {
           <>
             Une classe compte <strong>3 à 7 élèves</strong>. En dessous de 3, ne démarrez pas ses cours. À 7, les
             inscriptions supplémentaires sont refusées : créez une seconde classe du même niveau pour les accueillir.
+          </>,
+          <>
+            Le bouton <strong>+ Élèves</strong> sur une classe permet d'y ajouter directement un élève déjà dans la
+            promotion sans classe, ou n'importe quel autre élève de l'établissement — sans repasser par son dossier.
           </>,
         ]}
       />
@@ -502,31 +509,28 @@ function ClassesVague({
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [classeEnEdition, setClasseEnEdition] = useState<CohortClassRow | null>(null)
   const [classeDepliee, setClasseDepliee] = useState<string | null>(null)
+  const [classePourAjout, setClassePourAjout] = useState<CohortClassRow | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
 
-  useEffect(() => {
-    let annule = false
-    async function charger() {
-      if (classes.length === 0) {
-        setEffectifs(new Map())
-        return
-      }
-      const { data } = await supabase.from('cohort_enrollments').select('student_id, cohort_class_id').eq('cohort_id', cohorte.id)
-      if (annule) return
-      const map = new Map<string, string[]>()
-      for (const row of data ?? []) {
-        if (!row.cohort_class_id) continue
-        const liste = map.get(row.cohort_class_id) ?? []
-        liste.push(row.student_id)
-        map.set(row.cohort_class_id, liste)
-      }
-      setEffectifs(map)
+  const chargerEffectifs = useCallback(async () => {
+    if (classes.length === 0) {
+      setEffectifs(new Map())
+      return
     }
-    charger()
-    return () => {
-      annule = true
+    const { data } = await supabase.from('cohort_enrollments').select('student_id, cohort_class_id').eq('cohort_id', cohorte.id)
+    const map = new Map<string, string[]>()
+    for (const row of data ?? []) {
+      if (!row.cohort_class_id) continue
+      const liste = map.get(row.cohort_class_id) ?? []
+      liste.push(row.student_id)
+      map.set(row.cohort_class_id, liste)
     }
+    setEffectifs(map)
   }, [classes, cohorte.id])
+
+  useEffect(() => {
+    chargerEffectifs()
+  }, [chargerEffectifs])
 
   async function supprimer(classe: CohortClassRow) {
     if (
@@ -603,6 +607,13 @@ function ClassesVague({
                 {effectif} / {CAPACITE_MAX_CLASSE} élève{effectif > 1 ? 's' : ''}
                 {effectif < CAPACITE_MIN_CLASSE ? ' · pas assez pour démarrer' : effectif >= CAPACITE_MAX_CLASSE ? ' · complet' : ''}
               </span>
+              <button
+                onClick={() => setClassePourAjout(classe)}
+                disabled={effectif >= CAPACITE_MAX_CLASSE}
+                style={{ ...boutonSecondaireStyle, opacity: effectif >= CAPACITE_MAX_CLASSE ? 0.5 : 1 }}
+              >
+                + Élèves
+              </button>
               <button onClick={() => setClasseEnEdition(classe)} style={boutonSecondaireStyle}>
                 Modifier
               </button>
@@ -645,6 +656,163 @@ function ClassesVague({
           }}
         />
       )}
+
+      {classePourAjout && (
+        <AjouterEtudiantsClasse
+          cohorte={cohorte}
+          classe={classePourAjout}
+          idsDejaDansClasse={effectifs.get(classePourAjout.id) ?? []}
+          onFermer={() => setClassePourAjout(null)}
+          onAjoute={chargerEffectifs}
+        />
+      )}
+    </div>
+  )
+}
+
+/* Ajout d'élèves à une classe depuis sa fiche (demande client du 2026-09-24), plutôt que
+   seulement depuis le dossier de chaque élève (AssignerVague.tsx) : deux listes, les élèves déjà
+   dans la promotion mais pas encore affectés à une classe (cas courant après une conversion sans
+   classe disponible), et une recherche pour en ajouter n'importe quel autre. Le trigger de
+   capacité (migration 0074) reste la garde ultime si deux admins agissent en même temps. */
+function AjouterEtudiantsClasse({
+  cohorte,
+  classe,
+  idsDejaDansClasse,
+  onFermer,
+  onAjoute,
+}: {
+  cohorte: Cohort
+  classe: CohortClassRow
+  idsDejaDansClasse: string[]
+  onFermer: () => void
+  onAjoute: () => void
+}) {
+  const { etudiants } = useEtudiants()
+  const [sansClasse, setSansClasse] = useState<Profile[] | null>(null)
+  const [recherche, setRecherche] = useState('')
+  const [idEnCours, setIdEnCours] = useState<string | null>(null)
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  const chargerSansClasse = useCallback(async () => {
+    const { data: enrollments } = await supabase
+      .from('cohort_enrollments')
+      .select('student_id')
+      .eq('cohort_id', cohorte.id)
+      .is('cohort_class_id', null)
+    const ids = (enrollments ?? []).map((e) => e.student_id)
+    if (ids.length === 0) {
+      setSansClasse([])
+      return
+    }
+    const { data: profils } = await supabase.from('profiles').select('*').in('id', ids).neq('status', 'suspended')
+    setSansClasse(profils ?? [])
+  }, [cohorte.id])
+
+  useEffect(() => {
+    chargerSansClasse()
+  }, [chargerSansClasse])
+
+  const rechercheNormalisee = recherche.trim().toLowerCase()
+  const idsExclus = new Set([...idsDejaDansClasse, ...(sansClasse ?? []).map((e) => e.id)])
+  const resultatsRecherche =
+    rechercheNormalisee.length < 2
+      ? []
+      : etudiants
+          .filter((e) => !idsExclus.has(e.id))
+          .filter((e) => `${e.prenom ?? ''} ${e.nom ?? ''}`.toLowerCase().includes(rechercheNormalisee))
+          .slice(0, 8)
+
+  async function ajouter(etudiant: Profile) {
+    setIdEnCours(etudiant.id)
+    setErreur(null)
+
+    // Une ligne cohort_enrollments par élève au plus : on met à jour la sienne si elle existe
+    // déjà (même logique qu'AssignerVague.tsx — l'élève peut venir d'une autre promotion, le
+    // trigger de garde bloque alors le changement s'il a déjà consommé des heures), sinon on en
+    // crée une nouvelle.
+    const { data: existant } = await supabase
+      .from('cohort_enrollments')
+      .select('cohort_id')
+      .eq('student_id', etudiant.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const champs = { cohort_id: cohorte.id, cohort_class_id: classe.id }
+    const { error } = existant
+      ? await supabase.from('cohort_enrollments').update(champs).eq('cohort_id', existant.cohort_id).eq('student_id', etudiant.id)
+      : await supabase
+          .from('cohort_enrollments')
+          .insert({ etablissement_id: cohorte.etablissement_id, student_id: etudiant.id, ...champs })
+
+    setIdEnCours(null)
+    if (error) {
+      setErreur(`${etudiant.prenom} ${etudiant.nom} : ${error.message}`)
+      return
+    }
+    setSansClasse((liste) => (liste ?? []).filter((e) => e.id !== etudiant.id))
+    onAjoute()
+  }
+
+  return (
+    <Modale
+      titre={`Ajouter des élèves · ${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` — ${classe.nom}` : ''}`}
+      onFermer={onFermer}
+      largeurMax={520}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {erreur && <MessageErreur>{erreur}</MessageErreur>}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)' }}>
+            Déjà dans cette promotion, sans classe
+          </span>
+          {sansClasse === null ? (
+            <EtatChargement lignes={1} hauteur={30} />
+          ) : sansClasse.length === 0 ? (
+            <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun élève en attente d'affectation.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {sansClasse.map((etudiant) => (
+                <LigneEtudiantAAjouter key={etudiant.id} etudiant={etudiant} enCours={idEnCours === etudiant.id} onAjouter={() => ajouter(etudiant)} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)' }}>
+            Rechercher un autre élève
+          </span>
+          <p style={{ fontSize: 11, color: 'var(--muted-2)', margin: 0, lineHeight: 1.5 }}>
+            S'il suit déjà une autre promotion et n'a pas encore consommé d'heures dans celle-ci, il en sera retiré
+            pour rejoindre celle-ci.
+          </p>
+          <ChampRecherche valeur={recherche} onChange={setRecherche} placeholder="Nom de l'élève…" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {resultatsRecherche.map((etudiant) => (
+              <LigneEtudiantAAjouter key={etudiant.id} etudiant={etudiant} enCours={idEnCours === etudiant.id} onAjouter={() => ajouter(etudiant)} />
+            ))}
+            {rechercheNormalisee.length >= 2 && resultatsRecherche.length === 0 && (
+              <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun élève trouvé.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </Modale>
+  )
+}
+
+function LigneEtudiantAAjouter({ etudiant, enCours, onAjouter }: { etudiant: Profile; enCours: boolean; onAjouter: () => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,.03)' }}>
+      <span style={{ fontSize: 12.5, color: 'var(--ink)', flexGrow: 1 }}>
+        {etudiant.prenom} {etudiant.nom}
+      </span>
+      <button onClick={onAjouter} disabled={enCours} style={{ ...boutonSecondaireStyle, opacity: enCours ? 0.6 : 1 }}>
+        {enCours ? 'Ajout…' : 'Ajouter'}
+      </button>
     </div>
   )
 }
