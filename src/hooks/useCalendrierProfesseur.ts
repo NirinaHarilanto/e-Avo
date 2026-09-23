@@ -86,6 +86,36 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
       parEtudiant.set(a.student_id, entree)
     }
 
+    /* Le partenaire DUO d'un élève actuellement actif (ou de vague) du professeur — demande
+       client du 2026-09-23 : « tous les étudiants formant un DUO devraient être retrouvables »
+       lors de la recherche pour planifier une séance, avec le même mécanisme de proposition
+       automatique que l'agenda admin (voir SelecteurPersonnes.tsx / lib/invitations.ts). Un
+       secondaire DUO n'a ni affectation ni séance propre (tout vit sur le principal, 0054) :
+       sans cette résolution, il n'apparaît JAMAIS dans `etudiantsActifs` et reste donc
+       introuvable même tapé lettre à lettre — pas seulement « non proposé en second ». Bornée
+       aux élèves ACTIFS/de vague (pas tout `studentIds`, qui inclut aussi d'anciens élèves) :
+       le partenaire d'un ancien élève n'a pas sa place dans le formulaire de planification
+       actuel. Les deux sens du lien DUO sont couverts (0054 : lien asymétrique). */
+    const idsActifsEtVague = [
+      ...[...parEtudiant.entries()].filter(([, e]) => e.actif).map(([id]) => id),
+      ...(inscriptionsVagues ?? []).map((i) => i.student_id),
+    ]
+    const idsSecondairesConnus = idsActifsEtVague
+      .map((id) => etudiantParId.get(id)?.duo_partenaire_id)
+      .filter((id): id is string => !!id)
+    const [{ data: principauxManquants }, { data: secondairesManquants }] = await Promise.all([
+      idsSecondairesConnus.length
+        ? supabase.from('profiles').select('*').in('id', idsSecondairesConnus).neq('status', 'suspended')
+        : Promise.resolve({ data: [] as Profile[] }),
+      idsActifsEtVague.length
+        ? supabase.from('profiles').select('*').in('duo_partenaire_id', idsActifsEtVague).neq('status', 'suspended')
+        : Promise.resolve({ data: [] as Profile[] }),
+    ])
+    const partenairesDuo = [...(principauxManquants ?? []), ...(secondairesManquants ?? [])]
+    for (const p of partenairesDuo) {
+      if (!etudiantParId.has(p.id)) etudiantParId.set(p.id, p)
+    }
+
     return {
       seances: (sessions ?? []).flatMap((session) => {
         const inscriptions = (enrollments ?? [])
@@ -109,6 +139,7 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
               .filter(([, e]) => e.actif)
               .map(([studentId]) => etudiantParId.get(studentId)),
             ...(inscriptionsVagues ?? []).map((i) => etudiantParId.get(i.student_id)),
+            ...partenairesDuo,
           ]
             .filter((e): e is Profile => !!e)
             .map((e) => [e.id, e]),
