@@ -130,9 +130,9 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
           className={`barre-laterale${tiroirOuvert ? ' tiroir-ouvert' : ''}`}
           aria-label={`Navigation ${LIBELLE_ESPACE[roleAttendu].toLowerCase()}`}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 6px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 6px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <Logo taille={30} />
+              <Logo taille={26} />
               <button
                 type="button"
                 onClick={() => setTiroirOuvert(false)}
@@ -150,11 +150,11 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
             </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flexGrow: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flexGrow: 1 }}>
             {navGroups.map((groupe, index) => (
-              <div key={groupe.titre ?? index} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div key={groupe.titre ?? index} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {groupe.titre && (
-                  <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.9, padding: '0 12px 5px' }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.9, padding: '0 12px 3px' }}>
                     {groupe.titre}
                   </span>
                 )}
@@ -165,14 +165,14 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
             ))}
           </div>
 
-          <div style={{ padding: '12px 12px 0', borderTop: '1px solid var(--border-soft)' }}>
-            <span style={{ display: 'block', fontSize: 11, color: 'var(--muted-2)', lineHeight: 1.5 }}>
+          <div style={{ padding: '8px 12px 0', borderTop: '1px solid var(--border-soft)' }}>
+            <span style={{ display: 'block', fontSize: 10.5, color: 'var(--muted-2)', lineHeight: 1.3 }}>
               Connecté en tant que
             </span>
-            <span className="brand-font" style={{ display: 'block', fontSize: 12.5, color: 'var(--accent-gold, #e9cf94)', marginTop: 2 }}>
+            <span className="brand-font" style={{ display: 'block', fontSize: 12.5, color: 'var(--accent-gold, #e9cf94)', marginTop: 1 }}>
               {profile.prenom} {profile.nom}
             </span>
-            <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)' }}>{roleLabel}</span>
+            <span style={{ display: 'block', fontSize: 10.5, color: 'var(--muted)' }}>{roleLabel}</span>
           </div>
         </nav>
 
@@ -272,7 +272,7 @@ function LienNav({ item, actif }: { item: NavItem; actif: boolean }) {
     display: 'flex',
     alignItems: 'center',
     gap: 11,
-    padding: '10px 12px',
+    padding: '7.5px 12px',
     borderRadius: 11,
     fontSize: 13.5,
     fontWeight: actif ? 800 : 600,

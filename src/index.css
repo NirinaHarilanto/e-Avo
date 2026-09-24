@@ -506,11 +506,34 @@ select { color-scheme: dark; }
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 18px 14px 20px;
+  gap: 12px;
+  padding: 14px 14px 12px;
   border-right: 1px solid var(--border-soft);
   background: linear-gradient(180deg, rgba(10, 21, 48, 0.92), rgba(5, 10, 22, 0.92));
   backdrop-filter: blur(8px);
+}
+
+/* Le nombre d'entrées de navigation (jusqu'à 14 côté admin) dépasse la hauteur d'un écran de
+   portable standard avec les espacements confortables ci-dessus — la barre latérale se
+   retrouvait alors à défiler verticalement, coupant les derniers liens de la vue. En dessous de
+   ~820px de hauteur, resserre encore les liens, groupes et pied de page pour que tout tienne en
+   une seule vue plutôt que de compter sur ce défilement interne. */
+@media (max-height: 820px) {
+  .barre-laterale {
+    gap: 8px;
+    padding: 10px 14px 8px;
+  }
+  .barre-laterale .nav-item {
+    padding-top: 6px !important;
+    padding-bottom: 6px !important;
+  }
+}
+@media (max-height: 700px) {
+  .barre-laterale .nav-item {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+    font-size: 12.5px !important;
+  }
 }
 .zone-contenu {
   flex-grow: 1;
