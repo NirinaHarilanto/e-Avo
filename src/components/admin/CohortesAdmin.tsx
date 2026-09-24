@@ -358,16 +358,26 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
     const { data: profiles } = await supabase.from('profiles').select('*').in('id', studentIds).neq('status', 'suspended')
     setInscrits(profiles ?? [])
 
-    // Même calcul que DossierEtudiantVue.tsx (niveauDefinitif) — demande client du 2026-09-24 :
-    // un niveau différent entre « Étudiants » et « Cours collectifs » pour le même élève. Le quiz
-    // écrit (test_positionnement_inscriptions.niveau_estime) n'entre PLUS dans ce calcul : c'est
-    // une estimation automatique, jamais validée par l'admin, elle ne doit pas se faire passer
-    // pour le niveau définitif.
+    // Même calcul que DossierEtudiantVue.tsx/useDossierEtudiant.ts (niveauDefinitif) — demande
+    // client du 2026-09-24 : un niveau différent entre « Étudiants » et « Cours collectifs » pour
+    // le même élève. Le quiz écrit (test_positionnement_inscriptions.niveau_estime) n'entre PLUS
+    // dans ce calcul : c'est une estimation automatique, jamais validée par l'admin, elle ne doit
+    // pas se faire passer pour le niveau définitif.
+    //
+    // Trié par `created_at`, PAS par `date_appel` : l'inscription à un créneau de test oral crée
+    // automatiquement un diagnostic_calls « provisoire » (niveau du quiz écrit, date_appel = date
+    // du créneau — potentiellement future) AVANT même que l'oral n'ait eu lieu. Si l'admin fait
+    // ensuite l'oral et convertit plus tôt que la date du créneau initialement réservé (candidat
+    // reçu en avance, créneau annulé...), trier par date_appel ferait gagner à tort ce niveau
+    // provisoire sur celui réellement déterminé à l'oral — bug constaté le 2026-09-24 sur un
+    // élève converti avant la date de son créneau. `created_at`, lui, reflète l'ordre réel des
+    // événements : la conversion (donc l'entrée de l'admin) arrive toujours après l'inscription
+    // au créneau qui l'a précédée.
     const prospectIds = [...new Set((profiles ?? []).map((p) => p.prospect_id).filter((id): id is string => !!id))]
     const [{ data: diagnostics }, { data: reevaluations }] = await Promise.all([
       prospectIds.length > 0
-        ? supabase.from('diagnostic_calls').select('prospect_id, niveau_evalue, date_appel').in('prospect_id', prospectIds).order('date_appel', { ascending: false })
-        : Promise.resolve({ data: [] as { prospect_id: string; niveau_evalue: string | null; date_appel: string }[] }),
+        ? supabase.from('diagnostic_calls').select('prospect_id, niveau_evalue, created_at').in('prospect_id', prospectIds).order('created_at', { ascending: false })
+        : Promise.resolve({ data: [] as { prospect_id: string; niveau_evalue: string | null; created_at: string }[] }),
       supabase.from('niveau_evaluations').select('student_id, niveau, date_evaluation').in('student_id', studentIds).order('date_evaluation', { ascending: true }),
     ])
     const diagParProspect = new Map<string, string>()
