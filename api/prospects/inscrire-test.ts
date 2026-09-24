@@ -6,6 +6,7 @@ import { creerNotification } from '../_lib/notifications.js'
 import { adminsDeLEtablissement } from '../_lib/reservation.js'
 import { envoyerEmail, modeleTestPositionnementInscrit } from '../_lib/email.js'
 import { creneauxTestOuverts } from './test-positionnement.js'
+import { trouverHomonymeProspect, messageHomonymeProspect } from '../_lib/nomDuplique.js'
 
 export const config = { runtime: 'edge' }
 
@@ -73,6 +74,13 @@ export default async function handler(request: Request): Promise<Response> {
         { error: 'Ce créneau n’est plus disponible. Choisissez-en un autre.' },
         { status: 409 },
       )
+    }
+
+    // Une même personne ne doit pas pouvoir ouvrir un second dossier sous un autre programme
+    // (prospect déjà en cours, ou déjà étudiant/professeur) — demande client du 2026-09-24.
+    const homonyme = await trouverHomonymeProspect(serviceClient, { etablissementId: etablissement.id, nom, prenom })
+    if (homonyme) {
+      return Response.json({ error: messageHomonymeProspect(homonyme) }, { status: 409 })
     }
 
     const { data: questions } = await serviceClient

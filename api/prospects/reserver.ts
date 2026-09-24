@@ -4,6 +4,7 @@ import type { Database, TypeProgrammeProspect } from '../../src/types/database.t
 import { creerNotification } from '../_lib/notifications.js'
 import { adminsDeLEtablissement, creneauxLibres } from '../_lib/reservation.js'
 import { envoyerEmail, modeleDemandeRecue } from '../_lib/email.js'
+import { trouverHomonymeProspect, messageHomonymeProspect } from '../_lib/nomDuplique.js'
 
 export const config = { runtime: 'edge' }
 
@@ -103,6 +104,19 @@ export default async function handler(request: Request): Promise<Response> {
         { error: "Ce créneau vient d'être pris ou n'est plus proposé. Choisissez-en un autre." },
         { status: 409 },
       )
+    }
+
+    // Une même personne ne doit pas pouvoir ouvrir un second dossier sous un autre programme
+    // (prospect déjà en cours, ou déjà étudiant/professeur) — demande client du 2026-09-24.
+    const homonyme = await trouverHomonymeProspect(serviceClient, { etablissementId: etablissement.id, nom, prenom })
+    if (homonyme) {
+      return Response.json({ error: messageHomonymeProspect(homonyme) }, { status: 409 })
+    }
+    if (estDuo && nom2 && prenom2) {
+      const homonyme2 = await trouverHomonymeProspect(serviceClient, { etablissementId: etablissement.id, nom: nom2, prenom: prenom2 })
+      if (homonyme2) {
+        return Response.json({ error: messageHomonymeProspect(homonyme2) }, { status: 409 })
+      }
     }
 
     const { data: prospect, error: erreurProspect } = await serviceClient
