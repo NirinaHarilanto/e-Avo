@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import type { Database, StatutCohorte, NiveauClasse, CreneauClasse } from '../../types/database.types'
 import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, CAPACITE_MIN_CLASSE, CAPACITE_MAX_CLASSE } from '../../lib/classesCollectif'
+import { niveauDefinitif } from '../../lib/niveauEtudiant'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -357,28 +358,32 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
     const { data: profiles } = await supabase.from('profiles').select('*').in('id', studentIds).neq('status', 'suspended')
     setInscrits(profiles ?? [])
 
+    // Même calcul que DossierEtudiantVue.tsx (niveauDefinitif) — demande client du 2026-09-24 :
+    // un niveau différent entre « Étudiants » et « Cours collectifs » pour le même élève. Le quiz
+    // écrit (test_positionnement_inscriptions.niveau_estime) n'entre PLUS dans ce calcul : c'est
+    // une estimation automatique, jamais validée par l'admin, elle ne doit pas se faire passer
+    // pour le niveau définitif.
     const prospectIds = [...new Set((profiles ?? []).map((p) => p.prospect_id).filter((id): id is string => !!id))]
-    if (prospectIds.length === 0) return
-    const [{ data: diagnostics }, { data: inscriptions }] = await Promise.all([
-      supabase.from('diagnostic_calls').select('prospect_id, niveau_evalue, date_appel').in('prospect_id', prospectIds).order('date_appel', { ascending: false }),
-      supabase
-        .from('test_positionnement_inscriptions')
-        .select('prospect_id, niveau_estime, created_at')
-        .in('prospect_id', prospectIds)
-        .order('created_at', { ascending: false }),
+    const [{ data: diagnostics }, { data: reevaluations }] = await Promise.all([
+      prospectIds.length > 0
+        ? supabase.from('diagnostic_calls').select('prospect_id, niveau_evalue, date_appel').in('prospect_id', prospectIds).order('date_appel', { ascending: false })
+        : Promise.resolve({ data: [] as { prospect_id: string; niveau_evalue: string | null; date_appel: string }[] }),
+      supabase.from('niveau_evaluations').select('student_id, niveau, date_evaluation').in('student_id', studentIds).order('date_evaluation', { ascending: true }),
     ])
-    const quizParProspect = new Map<string, string>()
-    for (const inscription of inscriptions ?? []) {
-      if (inscription.niveau_estime && !quizParProspect.has(inscription.prospect_id)) quizParProspect.set(inscription.prospect_id, inscription.niveau_estime)
-    }
     const diagParProspect = new Map<string, string>()
     for (const diagnostic of diagnostics ?? []) {
       if (diagnostic.niveau_evalue && !diagParProspect.has(diagnostic.prospect_id)) diagParProspect.set(diagnostic.prospect_id, diagnostic.niveau_evalue)
     }
+    const reevaluationsParEtudiant = new Map<string, { niveau: string }[]>()
+    for (const reevaluation of reevaluations ?? []) {
+      const liste = reevaluationsParEtudiant.get(reevaluation.student_id) ?? []
+      liste.push({ niveau: reevaluation.niveau })
+      reevaluationsParEtudiant.set(reevaluation.student_id, liste)
+    }
     const niveauParEtudiant = new Map<string, string>()
     for (const p of profiles ?? []) {
-      if (!p.prospect_id) continue
-      const niveau = diagParProspect.get(p.prospect_id) ?? quizParProspect.get(p.prospect_id)
+      const diagnostic = p.prospect_id ? { niveau_evalue: diagParProspect.get(p.prospect_id) ?? null } : null
+      const niveau = niveauDefinitif(diagnostic, reevaluationsParEtudiant.get(p.id))
       if (niveau) niveauParEtudiant.set(p.id, niveau)
     }
     setNiveauxInscrits(niveauParEtudiant)

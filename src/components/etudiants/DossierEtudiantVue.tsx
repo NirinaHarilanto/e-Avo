@@ -8,6 +8,7 @@ import { formaterHeures, formaterMinutes } from '../../lib/heures'
 import { RecapitulatifDiagnostic } from '../prospects/FormulaireDiagnosticCall'
 import type { Database } from '../../types/database.types'
 import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE } from '../../lib/classesCollectif'
+import { niveauDefinitif } from '../../lib/niveauEtudiant'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
@@ -482,16 +483,14 @@ export function DossierEtudiantVue({
   const [seanceEnEdition, setSeanceEnEdition] = useState<SeanceDuParcours | null>(null)
   const [ongletDemande, setOngletDemande] = useState<OngletDossier>('parcours')
   const { evaluations: niveaux } = useNiveauxEtudiant(etudiant.id)
-  const niveauActuel = niveaux[niveaux.length - 1]?.niveau ?? diagnostic?.niveau_evalue ?? null
+  const niveauActuel = niveauDefinitif(diagnostic, niveaux)
   /* Pour un binôme DUO, chaque personne a son propre niveau — jamais un seul niveau fondu pour
      les deux (demande client du 2026-09-23 : « il faut afficher les deux niveaux des deux
      personnes formant le DUO »). `duoPartenaire` peut être `null` (pas de duo), d'où le hook
      appelé avec un id éventuellement `undefined` — comportement déjà prévu par
      useNiveauxEtudiant (retourne un tableau vide tant qu'aucun id n'est fourni). */
   const { evaluations: niveauxPartenaire } = useNiveauxEtudiant(duoPartenaire?.id)
-  const niveauActuelPartenaire = duoPartenaire
-    ? (niveauxPartenaire[niveauxPartenaire.length - 1]?.niveau ?? diagnosticPartenaire?.niveau_evalue ?? null)
-    : null
+  const niveauActuelPartenaire = duoPartenaire ? niveauDefinitif(diagnosticPartenaire, niveauxPartenaire) : null
   const seancesTerminees = periodes.flatMap((p) => p.seances).filter((s) => s.session.statut === 'terminee')
   const assiduite =
     seancesTerminees.length > 0
