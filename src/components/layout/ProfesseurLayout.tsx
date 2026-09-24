@@ -7,6 +7,7 @@ const PROFESSEUR_NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Calendrier', href: '/professeur/calendrier', disponible: true, icone: 'seances', description: 'Vos séances à venir et passées' },
       { label: 'Mes étudiants', href: '/professeur/etudiants', disponible: true, icone: 'etudiants', description: 'Les élèves qui vous sont attribués' },
+      { label: 'Cours collectifs', href: '/professeur/cours-collectifs', disponible: true, icone: 'vagues', description: 'Vos classes de niveau et leurs élèves' },
       { label: 'Mes heures', href: '/professeur/heures', disponible: true, icone: 'heures', description: 'Heures enseignées par élève' },
       { label: 'Documents', href: '/professeur/documents', disponible: true, icone: 'documents', description: 'Vos pièces et celles de vos élèves' },
     ],

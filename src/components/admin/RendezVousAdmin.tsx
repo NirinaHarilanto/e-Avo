@@ -6,9 +6,11 @@ import { useEvenementsAdmin } from '../../hooks/useEvenementsAdmin'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useVagues } from '../../hooks/useVagues'
+import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { lundiDeLaSemaine } from '../../lib/agenda'
 import { agendaAdminComplet } from '../../lib/agendaEvenements'
-import { etudiantsSelectionnables, vaguesSelectionnables } from '../../lib/invitations'
+import { etudiantsSelectionnables, vaguesSelectionnables, classesSelectionnables } from '../../lib/invitations'
+import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import { PopupEvenementAdmin, CarteRendezVous } from '../shared/PopupEvenementAdmin'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -226,6 +228,7 @@ function FormulaireCreerEvenement({
   const { etudiants } = useEtudiants()
   const { professeurs } = useProfesseurs()
   const { vagues } = useVagues()
+  const { classes } = useClassesAvecMembres()
   const [titre, setTitre] = useState('')
   const [nature, setNature] = useState<NatureRendezVous>('autre')
   const [debut, setDebut] = useState(versDatetimeLocal(debutInitial))
@@ -246,14 +249,30 @@ function FormulaireCreerEvenement({
       ...etudiantsSelectionnables(etudiants),
       ...professeurs.map((p) => ({ ...p, role: 'Professeur' })),
       ...vaguesSelectionnables(vagues),
+      ...classesSelectionnables(classes),
     ],
-    [etudiants, professeurs, vagues],
+    [etudiants, professeurs, vagues, classes],
   )
 
   const professeurIds = useMemo(() => new Set(professeurs.map((p) => p.id)), [professeurs])
   const tousParticipants = [...obligatoiresIds, ...optionnelsIds]
   const professeursConvies = tousParticipants.filter((id) => professeurIds.has(id))
   const etudiantsConvies = tousParticipants.filter((id) => !professeurIds.has(id))
+
+  /* Une séance n'est rattachée à une classe/vague que si tout son effectif y est, et lui seul :
+     c'est cette appartenance qui fait décompter l'heure à tous ses inscrits, présents ou non
+     (0069, point 10 ; 0074 pour les classes). Une classe est plus spécifique qu'une vague
+     entière : testée en premier. */
+  const classeDeLaSeance = useMemo(() => {
+    const choisis = new Set(etudiantsConvies)
+    return classes.find((c) => c.membreIds.length === choisis.size && c.membreIds.every((id) => choisis.has(id)))
+  }, [etudiantsConvies, classes])
+
+  const vagueDeLaSeance = useMemo(() => {
+    if (classeDeLaSeance) return undefined
+    const choisis = new Set(etudiantsConvies)
+    return vagues.find((v) => v.membreIds.length === choisis.size && v.membreIds.every((id) => choisis.has(id)))
+  }, [etudiantsConvies, vagues, classeDeLaSeance])
 
   async function creer(e: FormEvent) {
     e.preventDefault()
@@ -288,6 +307,8 @@ function FormulaireCreerEvenement({
                 type: etudiantsConvies.length > 1 ? 'collectif' : 'individuel',
                 debut: new Date(debut).toISOString(),
                 dureeMinutes,
+                cohortId: classeDeLaSeance?.cohorte?.id ?? vagueDeLaSeance?.cohorte.id,
+                cohortClassId: classeDeLaSeance?.classe.id,
               }
             : {
                 titre: titre.trim(),
@@ -340,7 +361,7 @@ function FormulaireCreerEvenement({
             personne ne peut pas se retrouver dans les deux à la fois (`exclure`). */}
         <SelecteurPersonnes
           etiquette={nature === 'seance_cours' ? 'Professeur et élèves' : 'Participants obligatoires'}
-          placeholder="Rechercher un nom ou une vague…"
+          placeholder="Rechercher un nom, une classe ou une vague…"
           candidats={toutLeMonde}
           selectionnes={obligatoiresIds}
           onChange={setObligatoiresIds}
@@ -351,12 +372,26 @@ function FormulaireCreerEvenement({
         {nature === 'autre' && (
           <SelecteurPersonnes
             etiquette="Participants optionnels"
-            placeholder="Rechercher un nom ou une vague…"
+            placeholder="Rechercher un nom, une classe ou une vague…"
             candidats={toutLeMonde}
             selectionnes={optionnelsIds}
             onChange={setOptionnelsIds}
             exclure={obligatoiresIds}
           />
+        )}
+
+        {nature === 'seance_cours' && classeDeLaSeance && (
+          <p style={{ fontSize: 12, color: 'var(--accent-violet)', margin: 0, lineHeight: 1.5 }}>
+            Séance de la classe « {LABEL_NIVEAU_CLASSE[classeDeLaSeance.classe.niveau]}
+            {classeDeLaSeance.classe.nom ? ` — ${classeDeLaSeance.classe.nom}` : ''} » : une fois clôturée, l’heure sera
+            décomptée du forfait de ses {classeDeLaSeance.membreIds.length} inscrits, présents ou non.
+          </p>
+        )}
+        {nature === 'seance_cours' && !classeDeLaSeance && vagueDeLaSeance && (
+          <p style={{ fontSize: 12, color: 'var(--accent-violet)', margin: 0, lineHeight: 1.5 }}>
+            Séance de la vague « {vagueDeLaSeance.cohorte.nom} » : une fois clôturée, l’heure sera décomptée du forfait
+            de ses {vagueDeLaSeance.membreIds.length} inscrits, présents ou non.
+          </p>
         )}
 
         {nature === 'autre' && (

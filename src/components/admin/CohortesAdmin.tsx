@@ -326,6 +326,10 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
   const [ouverte, setOuverte] = useState(false)
   const [edition, setEdition] = useState(false)
   const [inscrits, setInscrits] = useState<Profile[] | null>(null)
+  // Niveau à afficher à côté de chaque inscrit (demande client du 2026-09-24) : celui déterminé
+  // à l'oral (diagnostic_calls.niveau_evalue, saisi à la conversion) prime sur celui du quiz
+  // écrit (test_positionnement_inscriptions.niveau_estime) s'il existe, sinon on retombe dessus.
+  const [niveauxInscrits, setNiveauxInscrits] = useState<Map<string, string>>(new Map())
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -352,6 +356,32 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
     // dans le détail d'une cohorte (demande client du 2026-09-23).
     const { data: profiles } = await supabase.from('profiles').select('*').in('id', studentIds).neq('status', 'suspended')
     setInscrits(profiles ?? [])
+
+    const prospectIds = [...new Set((profiles ?? []).map((p) => p.prospect_id).filter((id): id is string => !!id))]
+    if (prospectIds.length === 0) return
+    const [{ data: diagnostics }, { data: inscriptions }] = await Promise.all([
+      supabase.from('diagnostic_calls').select('prospect_id, niveau_evalue, date_appel').in('prospect_id', prospectIds).order('date_appel', { ascending: false }),
+      supabase
+        .from('test_positionnement_inscriptions')
+        .select('prospect_id, niveau_estime, created_at')
+        .in('prospect_id', prospectIds)
+        .order('created_at', { ascending: false }),
+    ])
+    const quizParProspect = new Map<string, string>()
+    for (const inscription of inscriptions ?? []) {
+      if (inscription.niveau_estime && !quizParProspect.has(inscription.prospect_id)) quizParProspect.set(inscription.prospect_id, inscription.niveau_estime)
+    }
+    const diagParProspect = new Map<string, string>()
+    for (const diagnostic of diagnostics ?? []) {
+      if (diagnostic.niveau_evalue && !diagParProspect.has(diagnostic.prospect_id)) diagParProspect.set(diagnostic.prospect_id, diagnostic.niveau_evalue)
+    }
+    const niveauParEtudiant = new Map<string, string>()
+    for (const p of profiles ?? []) {
+      if (!p.prospect_id) continue
+      const niveau = diagParProspect.get(p.prospect_id) ?? quizParProspect.get(p.prospect_id)
+      if (niveau) niveauParEtudiant.set(p.id, niveau)
+    }
+    setNiveauxInscrits(niveauParEtudiant)
   }
 
   async function changerStatut(statut: StatutCohorte) {
@@ -453,6 +483,21 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
                 <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>
                   {etudiant.prenom} {etudiant.nom}
                 </span>
+                {niveauxInscrits.get(etudiant.id) && (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: 'var(--accent-blue)',
+                      background: 'rgba(94,179,255,.14)',
+                      border: '1px solid rgba(94,179,255,.3)',
+                      borderRadius: 999,
+                      padding: '2px 9px',
+                    }}
+                  >
+                    {niveauxInscrits.get(etudiant.id)}
+                  </span>
+                )}
               </div>
             ))
           )}

@@ -34,6 +34,7 @@ const ParametresAdmin = lazy(() => import('./components/admin/ParametresAdmin').
 const TarifsAdmin = lazy(() => import('./components/admin/TarifsAdmin').then((m) => ({ default: m.TarifsAdmin })))
 const CalendrierProfesseur = lazy(() => import('./components/professeurs/CalendrierProfesseur').then((m) => ({ default: m.CalendrierProfesseur })))
 const EtudiantsProfesseur = lazy(() => import('./components/professeurs/EtudiantsProfesseur').then((m) => ({ default: m.EtudiantsProfesseur })))
+const CoursCollectifsProfesseur = lazy(() => import('./components/professeurs/CoursCollectifsProfesseur').then((m) => ({ default: m.CoursCollectifsProfesseur })))
 const HeuresProfesseur = lazy(() => import('./components/professeurs/HeuresProfesseur').then((m) => ({ default: m.HeuresProfesseur })))
 const DocumentsProfesseur = lazy(() => import('./components/professeurs/DocumentsProfesseur').then((m) => ({ default: m.DocumentsProfesseur })))
 const FacturesProfesseur = lazy(() => import('./components/professeurs/FacturesProfesseur').then((m) => ({ default: m.FacturesProfesseur })))
@@ -89,6 +90,7 @@ export default function App() {
             <Route path="/professeur/calendrier" element={<CalendrierProfesseur />} />
             <Route path="/professeur/etudiants" element={<EtudiantsProfesseur />} />
             <Route path="/professeur/etudiants/:id" element={<EtudiantsProfesseur />} />
+            <Route path="/professeur/cours-collectifs" element={<CoursCollectifsProfesseur />} />
             <Route path="/professeur/heures" element={<HeuresProfesseur />} />
             <Route path="/professeur/documents" element={<DocumentsProfesseur />} />
             <Route path="/professeur/factures" element={<FacturesProfesseur />} />

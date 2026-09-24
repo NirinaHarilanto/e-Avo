@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur, type SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { useVagues } from '../../hooks/useVagues'
+import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { useEvenementsProfesseur } from '../../hooks/useEvenementsAdmin'
-import { etudiantsSelectionnables, vaguesSelectionnables } from '../../lib/invitations'
+import { etudiantsSelectionnables, vaguesSelectionnables, classesSelectionnables } from '../../lib/invitations'
+import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import type { Database } from '../../types/database.types'
 import { getJoinUrl } from '../../lib/visio'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
@@ -318,6 +320,7 @@ function FormulairePlanification({
 }) {
   const { session } = useProfileContext()
   const { vagues } = useVagues()
+  const { classes } = useClassesAvecMembres()
   const [nature, setNature] = useState<NatureRendezVous>('seance_cours')
   const [titre, setTitre] = useState('')
   const [notes, setNotes] = useState('')
@@ -330,19 +333,26 @@ function FormulairePlanification({
   const [erreur, setErreur] = useState<string | null>(null)
 
   const candidats = useMemo(
-    () => [...etudiantsSelectionnables(etudiantsActifs), ...vaguesSelectionnables(vagues)],
-    [etudiantsActifs, vagues],
+    () => [...etudiantsSelectionnables(etudiantsActifs), ...vaguesSelectionnables(vagues), ...classesSelectionnables(classes)],
+    [etudiantsActifs, vagues, classes],
   )
 
-  /* Une séance n'est rattachée à une vague que si toute la vague y est, et elle seule : c'est
-     cette appartenance qui fait décompter l'heure à tous ses inscrits (0069, point 10). Une
-     séance avec trois élèves d'une vague de dix reste une séance ordinaire. */
+  /* Une séance n'est rattachée à une classe/vague que si tout son effectif y est, et lui seul :
+     c'est cette appartenance qui fait décompter l'heure à tous ses inscrits (0069, point 10). Une
+     classe est plus spécifique qu'une vague entière (0074) : testée en premier, une promotion
+     scindée en classes ne « retombe » sur la vague que si la sélection dépasse une seule classe. */
+  const classeDeLaSeance = useMemo(() => {
+    const choisis = new Set(studentIds)
+    return classes.find((c) => c.membreIds.length === choisis.size && c.membreIds.every((id) => choisis.has(id)))
+  }, [studentIds, classes])
+
   const vagueDeLaSeance = useMemo(() => {
+    if (classeDeLaSeance) return undefined
     const choisis = new Set(studentIds)
     return vagues.find(
       (v) => v.membreIds.length === choisis.size && v.membreIds.every((id) => choisis.has(id)),
     )
-  }, [studentIds, vagues])
+  }, [studentIds, vagues, classeDeLaSeance])
 
   const participantsManquants = nature === 'seance_cours' ? studentIds.length === 0 : obligatoiresIds.length === 0 && optionnelsIds.length === 0
 
@@ -369,7 +379,8 @@ function FormulairePlanification({
                 type: studentIds.length > 1 ? 'collectif' : 'individuel',
                 debut: new Date(debut).toISOString(),
                 dureeMinutes,
-                cohortId: vagueDeLaSeance?.cohorte.id,
+                cohortId: classeDeLaSeance?.cohorte?.id ?? vagueDeLaSeance?.cohorte.id,
+                cohortClassId: classeDeLaSeance?.classe.id,
               }
             : {
                 titre: titre.trim(),
@@ -420,7 +431,7 @@ function FormulairePlanification({
         // choisit dans les suggestions, la personne devient une pastille amovible.
         <SelecteurPersonnes
           etiquette="Élève(s)"
-          placeholder="Rechercher un élève ou une vague…"
+          placeholder="Rechercher un élève, une classe ou une vague…"
           candidats={candidats}
           selectionnes={studentIds}
           onChange={setStudentIds}
@@ -429,7 +440,7 @@ function FormulairePlanification({
         <>
           <SelecteurPersonnes
             etiquette="Participants obligatoires"
-            placeholder="Rechercher un élève ou une vague…"
+            placeholder="Rechercher un élève, une classe ou une vague…"
             candidats={candidats}
             selectionnes={obligatoiresIds}
             onChange={setObligatoiresIds}
@@ -437,7 +448,7 @@ function FormulairePlanification({
           />
           <SelecteurPersonnes
             etiquette="Participants optionnels"
-            placeholder="Rechercher un élève ou une vague…"
+            placeholder="Rechercher un élève, une classe ou une vague…"
             candidats={candidats}
             selectionnes={optionnelsIds}
             onChange={setOptionnelsIds}
@@ -446,7 +457,14 @@ function FormulairePlanification({
         </>
       )}
 
-      {nature === 'seance_cours' && vagueDeLaSeance && (
+      {nature === 'seance_cours' && classeDeLaSeance && (
+        <p style={{ fontSize: 12, color: 'var(--accent-violet)', margin: 0, lineHeight: 1.5 }}>
+          Séance de la classe « {LABEL_NIVEAU_CLASSE[classeDeLaSeance.classe.niveau]}
+          {classeDeLaSeance.classe.nom ? ` — ${classeDeLaSeance.classe.nom}` : ''} » : une fois clôturée, l’heure sera
+          décomptée du forfait de ses {classeDeLaSeance.membreIds.length} inscrits, présents ou non.
+        </p>
+      )}
+      {nature === 'seance_cours' && !classeDeLaSeance && vagueDeLaSeance && (
         <p style={{ fontSize: 12, color: 'var(--accent-violet)', margin: 0, lineHeight: 1.5 }}>
           Séance de la vague « {vagueDeLaSeance.cohorte.nom} » : une fois clôturée, l’heure sera décomptée du forfait de
           ses {vagueDeLaSeance.membreIds.length} inscrits, présents ou non.

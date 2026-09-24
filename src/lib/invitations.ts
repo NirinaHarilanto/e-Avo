@@ -1,8 +1,10 @@
 import type { Database } from '../types/database.types'
 import { nomGroupeDuo } from './duo'
+import { LABEL_NIVEAU_CLASSE } from './classesCollectif'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type Cohort = Database['public']['Tables']['cohorts']['Row']
+type CohortClass = Database['public']['Tables']['cohort_classes']['Row']
 
 export interface PersonneSelectionnable {
   id: string
@@ -51,6 +53,22 @@ export function vaguesSelectionnables(vagues: { cohorte: Cohort; membreIds: stri
       prenom: cohorte.nom,
       nom: null,
       role: `Vague · ${membreIds.length} élève${membreIds.length > 1 ? 's' : ''}`,
+      membres: membreIds,
+    }))
+}
+
+/* Une classe de niveau (0074) se présente elle aussi comme une personne de plus dans le champ de
+   recherche, même principe que `vaguesSelectionnables` : on tape le niveau ou le nom de la
+   promotion, on la choisit, et tous ses inscrits deviennent des pastilles individuelles. Une
+   classe sans inscrit n'est pas proposée. */
+export function classesSelectionnables(classes: { classe: CohortClass; cohorte: Cohort | null; membreIds: string[] }[]): PersonneSelectionnable[] {
+  return classes
+    .filter((c) => c.membreIds.length > 0)
+    .map(({ classe, cohorte, membreIds }) => ({
+      id: `classe:${classe.id}`,
+      prenom: `${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` — ${classe.nom}` : ''}`,
+      nom: cohorte ? `· ${cohorte.nom}` : null,
+      role: `Classe · ${membreIds.length} élève${membreIds.length > 1 ? 's' : ''}`,
       membres: membreIds,
     }))
 }

@@ -1,5 +1,6 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { creerSeanceAvecInscriptions } from '../_lib/creerSeance.js'
+import { CAPACITE_MIN_CLASSE } from '../../src/lib/classesCollectif.js'
 
 export const config = { runtime: 'edge' }
 
@@ -10,6 +11,11 @@ interface Corps {
   debut?: string
   dureeMinutes?: number
   cohortId?: string
+  /* Classe de niveau (0074) dont `studentIds` est exactement l'effectif — détecté côté client
+     (RendezVousAdmin.tsx/CalendrierProfesseur.tsx) quand la sélection façon Outlook correspond
+     pile à une classe. Prioritaire sur `cohortId` : le `cohort_id` de la séance est alors
+     toujours redérivé de la classe, jamais pris tel quel du client. */
+  cohortClassId?: string
 }
 
 // Planification d'une séance. `session_enrollments` n'a aucune policy d'insert pour
@@ -62,11 +68,29 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Un ou plusieurs étudiants sont invalides pour cet établissement.' }, { status: 400 })
     }
 
-    /* Une vague ne se rattache pas sur parole : c'est ce lien qui fera décompter l'heure à tous
-       ses inscrits à la clôture (point 10), il doit donc désigner une vague réelle du même
-       établissement. */
+    /* Une vague ou une classe ne se rattache pas sur parole : c'est ce lien qui fera décompter
+       l'heure à tous ses inscrits à la clôture (point 10), il doit donc désigner une vague/classe
+       réelle du même établissement. */
     let cohortId: string | null = null
-    if (body.cohortId) {
+    let cohortClassId: string | null = null
+    if (body.cohortClassId) {
+      const { data: classe } = await serviceClient
+        .from('cohort_classes')
+        .select('id, etablissement_id, cohort_id')
+        .eq('id', body.cohortClassId)
+        .maybeSingle()
+      if (!classe || classe.etablissement_id !== etablissementId) {
+        return Response.json({ error: 'Classe invalide pour cet établissement.' }, { status: 400 })
+      }
+      if (body.studentIds.length < CAPACITE_MIN_CLASSE) {
+        return Response.json(
+          { error: `Cette classe compte moins de ${CAPACITE_MIN_CLASSE} élèves, les cours ne peuvent pas encore commencer.` },
+          { status: 400 },
+        )
+      }
+      cohortClassId = classe.id
+      cohortId = classe.cohort_id
+    } else if (body.cohortId) {
       const { data: cohorte } = await serviceClient
         .from('cohorts')
         .select('id, etablissement_id')
@@ -86,6 +110,7 @@ export default async function handler(request: Request): Promise<Response> {
       dureeMinutes: body.dureeMinutes,
       studentIds: body.studentIds,
       cohortId,
+      cohortClassId,
     })
     if ('error' in resultat) {
       return Response.json({ error: resultat.error }, { status: 500 })
