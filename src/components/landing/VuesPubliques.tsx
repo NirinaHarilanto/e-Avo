@@ -98,7 +98,7 @@ export function VueProgrammes({
       sousTitre="Choisissez la formule qui correspond à votre rythme et à votre budget."
       theme="violet"
     >
-      <div className="grille-vue">
+      <div className="grille-vue grille-cours">
         {PROGRAMMES.map((programme) => (
           <article key={programme.titre} className="carte-hoc carte-cours">
             {/* Photo en tête de carte, comme sur le visuel de référence (demande client du

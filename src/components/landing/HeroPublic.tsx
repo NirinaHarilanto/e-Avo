@@ -134,9 +134,8 @@ export function HeroPublic({
                   <span />
                 </span>
               </span>
-              <span className="hero-progression-fleche" aria-hidden="true">
-                →
-              </span>
+              {/* Plus de flèche ronde à droite (demande client du 2026-09-29) : sur certains
+                  écrans, elle recouvrait « Progression » et « Level B1 ». */}
             </div>
 
             <ul className="hero-flottant hero-piliers">

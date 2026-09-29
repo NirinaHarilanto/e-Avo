@@ -1310,6 +1310,10 @@ body.sans-defilement {
   right: -9%;
   top: 19.5%;
   width: 39%;
+  /* Jamais plus étroite que son texte : sur un écran agrandi (zoom du navigateur, mise à
+     l'échelle Windows), « Progression » et « Level B1 » étaient coupés (signalé le 2026-09-29).
+     La carte s'élargit alors vers la gauche, par-dessus l'illustration. */
+  min-width: max-content;
   /* Recouvre entièrement la carte « Progression » dessinée dans l'illustration. */
   min-height: 19.5%;
   display: flex;
@@ -1374,18 +1378,7 @@ body.sans-defilement {
   background: linear-gradient(90deg, var(--hoc-violet-clair), var(--hoc-violet));
   animation: heroProgression 2.4s 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-.hero-progression-fleche {
-  flex: 0 0 auto;
-  width: clamp(17px, 4.6cqw, 24px);
-  height: clamp(17px, 4.6cqw, 24px);
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: clamp(9.5px, 2.4cqw, 12.5px);
-  color: #fff;
-  background: var(--hoc-violet);
-}
+
 
 .hero-piliers {
   right: -12%;
@@ -1581,7 +1574,7 @@ body.sans-defilement {
   display: flex;
   flex-direction: column;
   /* L'en-tête flotte par-dessus le contenu : on réserve sa hauteur en haut. */
-  padding: 82px 34px 8px;
+  padding: 92px 34px 8px;
   overflow: hidden;
   isolation: isolate;
 }
@@ -1680,16 +1673,61 @@ body.sans-defilement {
   box-shadow: 0 26px 50px rgba(20, 8, 45, 0.5), 0 0 0 1px rgba(240, 184, 91, 0.45);
 }
 
+/* Section Cours : les photos prennent toute la hauteur que l'écran laisse libre (demande client
+   du 2026-09-29 : « les images ne sont pas vraiment visibles »). La grille remplit la hauteur de
+   la vue — plafonnée pour ne pas étirer les cartes sur un très grand écran — et, dans chaque
+   carte, le texte garde sa taille naturelle tandis que la photo prend tout le reste
+   (`flex: 1`). Résultat : la photo est aussi grande que possible SANS jamais créer de barre de
+   défilement. */
+.grille-cours {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-width: 1240px;
+  max-height: 600px;
+  grid-template-rows: minmax(0, 1fr);
+  align-self: center;
+}
+/* Alignement des trois cartes (demande client du 2026-09-29 : « bien aligné ») : la carte
+   « Cours particuliers » porte un paragraphe de plus que les deux autres, si bien que sa photo
+   était plus courte et que titres et boutons ne tombaient pas à la même hauteur. Chaque carte
+   devient une sous-grille (`subgrid`) de deux rangées PARTAGÉES par les trois cartes : une rangée
+   photo (même hauteur pour toutes) et une rangée texte (hauteur du texte le plus long), dans
+   laquelle le bouton est poussé en bas — titres, textes et boutons s'alignent donc d'une carte à
+   l'autre. Sur mobile, les cartes sont empilées : rien à aligner, on garde la colonne simple. */
+@media (min-width: 821px) {
+  .grille-cours {
+    grid-template-rows: minmax(0, 1fr) auto;
+    row-gap: 0;
+  }
+  .grille-cours .carte-cours {
+    display: grid;
+    grid-row: span 2;
+    grid-template-rows: subgrid;
+    row-gap: 0;
+  }
+  .grille-cours .carte-cours-visuel {
+    min-height: 120px;
+  }
+  .grille-cours .carte-cours-corps .bouton-or {
+    margin-top: auto;
+  }
+}
 .carte-cours {
-  padding: 14px;
+  min-height: 0;
+  padding: 12px;
   gap: 0;
 }
 .carte-cours-visuel {
   position: relative;
-  height: clamp(84px, 19vh, 180px);
+  flex: 1 1 auto;
+  min-height: 120px;
   border-radius: 2px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.08);
+}
+.carte-cours-visuel img {
+  position: absolute;
+  inset: 0;
 }
 .carte-cours-visuel img {
   display: block;
@@ -1711,11 +1749,26 @@ body.sans-defilement {
   top: 10px;
 }
 .carte-cours-corps {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding: 12px 2px 0;
+  gap: 5px;
+  padding: 10px 2px 0;
+}
+/* Textes des cartes Cours un cran plus petits, pour laisser la place aux photos. */
+.page-claire .carte-cours .titre-carte-hoc {
+  font-size: 15.5px;
+}
+.carte-cours .texte-carte-hoc {
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.carte-cours .detail-carte-hoc {
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+.carte-cours .bouton-or {
+  margin-top: 4px;
 }
 
 .etiquette-programme {
@@ -2027,6 +2080,54 @@ body.sans-defilement {
   }
 }
 
+/* Barre de navigation sur UNE seule ligne, sur toutes les vues (demande client du 2026-09-29) :
+   les vues secondaires portent un bouton de plus que l'accueil (« Réserver mon appel »), qui la
+   faisait passer sur deux lignes dès ~1100 px de large. Sur ordinateur, on interdit le retour à
+   la ligne et on laisse textes, marges et espacements se resserrer avec la largeur de l'écran
+   (`vw`), jusqu'au passage en mise en page mobile sous 820 px. */
+@media (min-width: 821px) {
+  .page-unique .en-tete-public {
+    flex-wrap: nowrap;
+    column-gap: clamp(6px, 1.3vw, 20px);
+    padding-left: clamp(12px, 1.5vw, 22px);
+    padding-right: clamp(8px, 1vw, 14px);
+  }
+  .bloc-logo img {
+    height: clamp(32px, 3vw, 42px) !important;
+  }
+  .nav-publique {
+    flex-wrap: nowrap;
+    gap: clamp(0px, 0.4vw, 6px);
+  }
+  .lien-nav-public {
+    white-space: nowrap;
+    font-size: clamp(11.5px, 1.05vw, 14px);
+    padding: 8px clamp(4px, 0.75vw, 14px);
+  }
+  .actions-publiques {
+    flex-wrap: nowrap;
+    gap: clamp(4px, 0.7vw, 10px);
+  }
+  .page-claire .lien-rejoindre {
+    font-size: clamp(11px, 1vw, 13.5px);
+    padding: 8px clamp(2px, 0.6vw, 12px);
+  }
+  .page-claire .bouton-connexion {
+    font-size: clamp(11px, 1vw, 13.5px);
+    padding: 4px clamp(10px, 1.3vw, 20px) 4px 4px;
+    gap: clamp(6px, 0.6vw, 9px);
+  }
+  .bouton-connexion-avatar {
+    width: clamp(24px, 2.2vw, 30px);
+    height: clamp(24px, 2.2vw, 30px);
+  }
+  .bouton-reserver-public {
+    white-space: nowrap;
+    font-size: clamp(11px, 0.95vw, 13px);
+    padding: 9px clamp(10px, 1.2vw, 18px);
+  }
+}
+
 /* Écrans peu hauts (portable 1366 × 768 ou 1280 × 720, une fois retirées les barres du
    navigateur) : les vues Cours / Tarifs / Professeurs / À propos se resserrent encore d'un cran
    pour tenir entièrement dans l'écran, sans barre de défilement (demande client du 2026-09-29).
@@ -2197,6 +2298,14 @@ body.sans-defilement {
   .panneau-photo img {
     max-height: 320px;
   }
+  .grille-cours {
+    max-height: none;
+    grid-template-rows: none;
+  }
+  .carte-cours-visuel {
+    flex: none;
+    height: 200px;
+  }
 }
 
 @media (max-width: 520px) {
@@ -2208,8 +2317,7 @@ body.sans-defilement {
     padding: 8px;
     gap: 6px;
   }
-  .hero-progression-icone,
-  .hero-progression-fleche {
+  .hero-progression-icone {
     display: none;
   }
   .hero-piliers li {
