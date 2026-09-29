@@ -92,9 +92,9 @@ describe('deduireSource', () => {
 
   it('distingue la date de signature des autres dates du contrat', () => {
     expect(deduireSource('date_signature', 'Date de signature')).toBe('date_du_jour')
-    // La date de naissance se remplit désormais seule (elle est sur la fiche depuis la
-    // migration 0034) — seule une date sans source connue (début de cours, non stockée) reste
-    // manuelle.
+    // Toujours reconnue comme source (0086) — mais `resoudreSource` la résout désormais en
+    // chaîne vide plutôt qu'en valeur de fiche, voir la description « preparerVariables — date
+    // et lieu de naissance retirés » plus bas.
     expect(deduireSource('date_naissance_etudiant', "Date de naissance de l'étudiant")).toBe('date_naissance')
     // Idem pour la date de début des cours : dérivée de l'affectation professeur ou de la
     // vague en cours (voir `date_debut_programme`, résolu via le contexte de programme).
@@ -143,9 +143,18 @@ describe('preparerVariables', () => {
     const resolues = preparerVariables(corps, declarees, etudiant, etablissement)
     const parCle = Object.fromEntries(resolues.map((v) => [v.cle, v]))
 
-    expect(parCle.date_naissance_etudiant.valeurAuto).toBeUndefined()
     expect(parCle.modalites_paiement.valeurAuto).toBeUndefined()
     expect(parCle.modalites_paiement.defaut).toMatch(/paiement/i)
+  })
+
+  // 0086, demande client du 2026-09-30 : « enlève les zones date de naissance et lieu de
+  // naissance... on en aura pas besoin » — jamais présentée comme « à saisir », jamais visible
+  // dans le contrat généré (chaîne vide, pas le `{{cle}}` brut).
+  it('résout la date de naissance en chaîne vide plutôt que de la demander', () => {
+    const resolues = preparerVariables(corps, declarees, etudiant, etablissement)
+    const clause = resolues.find((v) => v.cle === 'date_naissance_etudiant')
+    expect(clause?.valeurAuto).toBe('')
+    expect(clause?.defaut).toBeUndefined()
   })
 
   it('fait primer une source explicite du modèle sur la déduction', () => {
@@ -164,42 +173,26 @@ describe('preparerVariables', () => {
   })
 })
 
-describe('preparerVariables — âge et clause de minorité', () => {
+/* 0086, demande client du 2026-09-30 : la fiche ne recueille plus la date de naissance, donc
+   plus aucun moyen de savoir si un élève est mineur — « quand l'étudiant est majeur, il faut
+   masquer cette partie [...] sinon laisser ce champ vide ». Faute de pouvoir distinguer les deux
+   cas, la clause est désormais TOUJOURS masquée (résolue en chaîne vide), que le profil porte ou
+   non une ancienne date de naissance — un éventuel mineur reste à traiter à la main par l'admin. */
+describe('preparerVariables — âge et clause de minorité retirés', () => {
   const modele = [
     { cle: 'age_etudiant', label: "Âge de l'étudiant" },
     { cle: 'mention_mineur', label: "Si l'étudiant est mineur, coller : « Représenté(e) par [Nom]… »" },
   ]
   const corps = '{{age_etudiant}} {{mention_mineur}}'
 
-  it("calcule l'âge à partir de la date de naissance", () => {
-    const majeur = { ...etudiant, date_naissance: dateNaissanceIlYA(20) }
-    const resolues = preparerVariables(corps, modele, majeur, etablissement)
-    expect(resolues.find((v) => v.cle === 'age_etudiant')?.valeurAuto).toBe('20')
-  })
-
-  it('un étudiant majeur ne demande plus la clause de minorité — elle se vide toute seule', () => {
-    const majeur = { ...etudiant, date_naissance: dateNaissanceIlYA(20) }
-    const resolues = preparerVariables(corps, modele, majeur, etablissement)
-    const clause = resolues.find((v) => v.cle === 'mention_mineur')
-    expect(clause?.valeurAuto).toBe('')
-    expect(clause?.defaut).toBeUndefined()
-  })
-
-  it('un étudiant mineur reçoit une suggestion à vérifier plutôt qu’un remplissage silencieux', () => {
-    const mineur = { ...etudiant, date_naissance: dateNaissanceIlYA(15) }
-    const resolues = preparerVariables(corps, modele, mineur, etablissement)
-    const clause = resolues.find((v) => v.cle === 'mention_mineur')
-    // Le nom du représentant légal n'est connu d'aucune fiche : pas de valeurAuto (une mention à
-    // portée juridique reste soumise à relecture), seulement une suggestion de départ éditable.
-    expect(clause?.valeurAuto).toBeUndefined()
-    expect(clause?.defaut).toMatch(/représentant légal/i)
-  })
-
-  it("sans date de naissance connue, la clause de minorité reste entièrement manuelle (comportement inchangé)", () => {
-    const resolues = preparerVariables(corps, modele, etudiant, etablissement)
-    const clause = resolues.find((v) => v.cle === 'mention_mineur')
-    expect(clause?.valeurAuto).toBeUndefined()
-    expect(clause?.defaut).toBeUndefined()
+  it('résout toujours en chaîne vide, avec ou sans ancienne date de naissance sur le profil', () => {
+    for (const profil of [etudiant, { ...etudiant, date_naissance: dateNaissanceIlYA(15) }, { ...etudiant, date_naissance: dateNaissanceIlYA(20) }]) {
+      const resolues = preparerVariables(corps, modele, profil, etablissement)
+      const parCle = Object.fromEntries(resolues.map((v) => [v.cle, v]))
+      expect(parCle.age_etudiant.valeurAuto).toBe('')
+      expect(parCle.mention_mineur.valeurAuto).toBe('')
+      expect(parCle.mention_mineur.defaut).toBeUndefined()
+    }
   })
 })
 

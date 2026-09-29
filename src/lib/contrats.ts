@@ -101,8 +101,12 @@ export const SOURCES_VARIABLE: { valeur: SourceVariable; label: string; groupe: 
   { valeur: 'annee', label: 'Année en cours', groupe: 'Date' },
 ]
 
-/* Retirées du sélecteur (la fiche ne porte plus ces champs depuis le 2026-09-29) mais encore
-   résolues pour les modèles qui les utilisaient déjà. */
+/* Retirées du sélecteur (la fiche ne porte plus ces champs depuis le 2026-09-29). Demande client
+   du 2026-09-30, plus radicale encore : « on en aura pas besoin » — un modèle qui les utilise
+   toujours (comme celui déjà en place, avec ses `{{date_naissance_etudiant}}`/`{{lieu_naissance}}`
+   dans le corps du texte) ne doit plus jamais les présenter à l'admin comme « reste à saisir »
+   NI les faire apparaître dans le contrat généré. `resoudreSource` (plus bas) les résout donc
+   désormais toujours en chaîne vide, jamais en `null` — voir son commentaire. */
 const SOURCES_RETIREES: Record<string, string> = {
   date_naissance: 'Date de naissance',
   lieu_naissance: 'Lieu de naissance',
@@ -138,17 +142,6 @@ const LABELS_TYPE_PROGRAMME = { individuel: 'Individuel', duo: 'Duo', collectif:
 
 export function libelleTypeProgramme(type: keyof typeof LABELS_TYPE_PROGRAMME): string {
   return LABELS_TYPE_PROGRAMME[type]
-}
-
-function calculerAge(dateNaissance: string): number {
-  const naissance = new Date(dateNaissance)
-  const aujourdhui = new Date()
-  let age = aujourdhui.getFullYear() - naissance.getFullYear()
-  const anniversairePasAtteint =
-    aujourdhui.getMonth() < naissance.getMonth() ||
-    (aujourdhui.getMonth() === naissance.getMonth() && aujourdhui.getDate() < naissance.getDate())
-  if (anniversairePasAtteint) age -= 1
-  return age
 }
 
 /* Ce que le profil du destinataire seul ne porte pas : dérivé de son dossier pédagogique
@@ -206,12 +199,17 @@ export function resoudreSource(
       return destinataire.adresse
     case 'ville':
       return destinataire.ville
+    /* Chaîne vide, jamais `null` (0086, demande client du 2026-09-30 : « enlève les zones date
+       de naissance et lieu de naissance... on en aura pas besoin ») — `null` signifierait
+       « non résolu », ce qui rouvrirait un champ à saisir manuellement (voir preparerVariables) ;
+       la fiche ne recueille plus ces informations, mais un modèle qui porte encore
+       `{{date_naissance_etudiant}}`/`{{lieu_naissance}}` dans son texte ne doit plus jamais les
+       demander à l'admin ni les faire apparaître dans le contrat généré, même pour un profil
+       qui aurait gardé une ancienne valeur. */
     case 'date_naissance':
-      return destinataire.date_naissance ? new Date(destinataire.date_naissance).toLocaleDateString('fr-FR') : null
     case 'lieu_naissance':
-      return destinataire.lieu_naissance
     case 'age':
-      return destinataire.date_naissance ? String(calculerAge(destinataire.date_naissance)) : null
+      return ''
     case 'taux_horaire':
       return destinataire.taux_horaire === null ? null : String(destinataire.taux_horaire)
     case 'etablissement_nom':
@@ -377,12 +375,6 @@ export function deduireValeurDefaut(cle: string, label: string): string | undefi
   return DEFAUTS_COURANTS.find((d) => d.motif.test(texte))?.valeur
 }
 
-/* Suggestion (éditable) collée quand l'étudiant est mineur : le nom du représentant légal n'est
-   connu d'aucune fiche, une révision humaine reste nécessaire sur une mention à portée
-   juridique — voir le traitement dédié dans `preparerVariables`. */
-const MENTION_MINEUR_DEFAUT =
-  'Représenté(e) par [Nom du représentant légal], en qualité de représentant légal, qui consent à la présente inscription et s’engage solidairement à son exécution.'
-
 export interface VariableResolue {
   cle: string
   label: string
@@ -442,10 +434,15 @@ export function preparerVariables(
     const declaree = variablesModele.find((v) => v.cle === cle)
     const label = declaree?.label || cle
 
-    if (!declaree?.source && destinataire?.date_naissance && /\bmineur\b/.test(normaliser(`${cle} ${label}`))) {
-      const majeur = calculerAge(destinataire.date_naissance) >= 18
-      if (majeur) return { cle, label, valeurAuto: '', source: 'age' }
-      return { cle, label, defaut: MENTION_MINEUR_DEFAUT }
+    /* Clause de minorité (0086, demande client du 2026-09-30 : « quand l'étudiant est majeur, il
+       faut masquer cette partie... sinon laisser ce champ vide ») — la fiche ne recueille plus
+       la date de naissance, donc plus aucun moyen de savoir si un élève est mineur : la clause
+       est désormais TOUJOURS masquée (résolue en chaîne vide, jamais présentée comme « à
+       saisir »), l'établissement étant réputé n'accueillir que des élèves majeurs. Le cas rare
+       d'un véritable mineur reste à traiter à la main par l'admin, en éditant directement le
+       texte du contrat généré. */
+    if (!declaree?.source && /\bmineur\b/.test(normaliser(`${cle} ${label}`))) {
+      return { cle, label, valeurAuto: '', source: 'age' }
     }
 
     const source = declaree?.source || deduireSource(cle, label)
