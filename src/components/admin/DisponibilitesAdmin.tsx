@@ -7,6 +7,7 @@ import { EtatChargement, MessageErreur, MessageInfo, MessageSucces } from '../ui
 import { boutonPrimaireStyle } from '../ui/Boutons'
 import { Champ, champStyle } from '../ui/Champ'
 import { Icone } from '../ui/Icones'
+import { ChampDate } from '../ui/ChampDate'
 
 const JOURS = [
   { valeur: 1, libelle: 'Lundi' },
@@ -177,10 +178,10 @@ export function DisponibilitesAdmin() {
           </select>
         </Champ>
         <Champ label="De" style={{ minWidth: 120 }}>
-          <input type="time" value={nouveauDebut} onChange={(e) => setNouveauDebut(e.target.value)} style={champStyle} />
+          <ChampDate type="time" value={nouveauDebut} onChange={(e) => setNouveauDebut(e.target.value)} style={champStyle} />
         </Champ>
         <Champ label="À" style={{ minWidth: 120 }}>
-          <input type="time" value={nouveauFin} onChange={(e) => setNouveauFin(e.target.value)} style={champStyle} />
+          <ChampDate type="time" value={nouveauFin} onChange={(e) => setNouveauFin(e.target.value)} style={champStyle} />
         </Champ>
         <button type="button" onClick={ajouterPlage} className="btn-shine" style={boutonPrimaireStyle}>
           <Icone nom="plus" taille={15} />

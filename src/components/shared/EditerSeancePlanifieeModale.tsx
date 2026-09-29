@@ -7,6 +7,7 @@ import { Modale } from '../ui/Modale'
 import { Champ, champStyle } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
+import { ChampDate } from '../ui/ChampDate'
 
 type Session = Database['public']['Tables']['sessions']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -144,7 +145,7 @@ export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre, e
         )}
 
         <Champ label="Date et heure de début" obligatoire>
-          <input type="datetime-local" value={debut} onChange={(e) => setDebut(e.target.value)} style={champStyle} />
+          <ChampDate type="datetime-local" value={debut} onChange={(e) => setDebut(e.target.value)} style={champStyle} />
         </Champ>
         <Champ label="Durée (minutes)" obligatoire>
           <input type="number" min={15} step={15} value={dureeMinutes} onChange={(e) => setDureeMinutes(Number(e.target.value))} style={champStyle} />

@@ -6,7 +6,7 @@ type RendezVous = Database['public']['Tables']['rendez_vous']['Row']
 type Prospect = Database['public']['Tables']['prospects']['Row']
 
 export interface RendezVousAvecProspect extends RendezVous {
-  prospects: Pick<Prospect, 'nom' | 'prenom' | 'email' | 'telephone' | 'langue_visee' | 'objectif' | 'type_programme'> | null
+  prospects: Pick<Prospect, 'nom' | 'prenom' | 'email' | 'telephone' | 'langue_visee' | 'objectif' | 'type_programme' | 'statut'> | null
 }
 
 /** Demandes d'appel diagnostic, les plus proches d'abord — c'est l'ordre dans lequel l'admin doit
@@ -16,7 +16,7 @@ export function useRendezVous() {
   const { valeur, loading, erreur, recharger } = useCacheRequete('rendez-vous', async () => {
     const { data, error } = await supabase
       .from('rendez_vous')
-      .select('*, prospects(nom, prenom, email, telephone, langue_visee, objectif, type_programme)')
+      .select('*, prospects(nom, prenom, email, telephone, langue_visee, objectif, type_programme, statut)')
       .order('debut', { ascending: true })
     if (error) throw new Error(error.message)
     return (data ?? []) as unknown as RendezVousAvecProspect[]

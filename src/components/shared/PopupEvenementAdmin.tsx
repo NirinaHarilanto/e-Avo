@@ -1,4 +1,8 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useEtudiants } from '../../hooks/useEtudiants'
+import { useProfesseurs } from '../../hooks/useProfesseurs'
+import { etudiantsSelectionnables, type PersonneSelectionnable } from '../../lib/invitations'
+import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 import { supabase } from '../../lib/supabaseClient'
 import type { RendezVousAvecProspect } from '../../hooks/useRendezVous'
 import type { EvenementAdminAvecParticipants } from '../../hooks/useEvenementsAdmin'
@@ -8,6 +12,7 @@ import type { StatutRendezVous } from '../../types/database.types'
 import { Modale } from '../ui/Modale'
 import { MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonPrimaireStyle } from '../ui/Boutons'
+import { ChampDate } from '../ui/ChampDate'
 
 /* Fiche affichée au clic d'un créneau sur N'IMPORTE QUEL agenda de l'espace admin (page Agenda
    elle-même, fenêtre « Planifier un appel diagnostic », filtre « Admin » de Séances & visio) —
@@ -170,8 +175,26 @@ export function CarteRendezVous({
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>
-            {prospect ? `${prospect.prenom} ${prospect.nom}` : 'Prospect supprimé'}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>
+              {prospect ? `${prospect.prenom} ${prospect.nom}` : 'Prospect supprimé'}
+            </span>
+            {/* Statut à côté du nom (demande client du 2026-09-29, capture annotée) : il flottait
+                jusqu'ici au milieu de la fiche, à distance de tout ce qu'il qualifie. */}
+            <span
+              style={{
+                fontSize: 10.5,
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: 0.6,
+                color: COULEUR_STATUT[rdv.statut],
+                border: `1px solid ${COULEUR_STATUT[rdv.statut]}`,
+                borderRadius: 999,
+                padding: '3px 10px',
+              }}
+            >
+              {LIBELLE_STATUT[rdv.statut]}
+            </span>
           </span>
           <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>{quand} · {rdv.duree_minutes} min</span>
           {prospect && (
@@ -200,18 +223,6 @@ export function CarteRendezVous({
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 800,
-              textTransform: 'uppercase',
-              letterSpacing: 0.6,
-              color: COULEUR_STATUT[rdv.statut],
-            }}
-          >
-            {LIBELLE_STATUT[rdv.statut]}
-          </span>
-
           {rdv.statut === 'en_attente' && profile && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
               {refusEnCours ? (
@@ -269,7 +280,7 @@ export function CarteRendezVous({
               {modificationEnCours ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <input
+                    <ChampDate
                       type="datetime-local"
                       value={nouveauDebut}
                       onChange={(e) => setNouveauDebut(e.target.value)}
@@ -367,6 +378,8 @@ export function CarteEvenementAdmin({
   const [nouveauDebut, setNouveauDebut] = useState(() => versDatetimeLocal(new Date(evenement.debut)))
   const [nouvelleDuree, setNouvelleDuree] = useState(evenement.duree_minutes)
   const [notes, setNotes] = useState(evenement.notes ?? '')
+  const [obligatoiresIds, setObligatoiresIds] = useState(() => evenement.obligatoires.map((p) => p.id))
+  const [optionnelsIds, setOptionnelsIds] = useState(() => evenement.optionnels.map((p) => p.id))
   const quand = formaterDansFuseauEtablissement(evenement.debut)
 
   async function annuler() {
@@ -395,6 +408,10 @@ export function CarteEvenementAdmin({
      lui-même chaque invité du changement (`sendUpdates=all`, voir modifierEvenementMeet). */
   async function modifier() {
     if (!session || !titre.trim() || !nouveauDebut) return
+    if (obligatoiresIds.length + optionnelsIds.length === 0) {
+      setEchec('Gardez au moins un participant.')
+      return
+    }
     setEnCours(true)
     setEchec(null)
     const reponse = await fetch(urlModification, {
@@ -406,6 +423,8 @@ export function CarteEvenementAdmin({
         debut: new Date(nouveauDebut).toISOString(),
         dureeMinutes: nouvelleDuree,
         notes: notes.trim(),
+        obligatoiresIds,
+        optionnelsIds,
       }),
     })
       .then((r) => r.json())
@@ -442,11 +461,12 @@ export function CarteEvenementAdmin({
           <input
             value={titre}
             onChange={(e) => setTitre(e.target.value)}
-            placeholder="Titre"
+            placeholder="Motif du rendez-vous"
+            aria-label="Motif du rendez-vous"
             style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '9px 12px', fontSize: 13, color: 'var(--ink)', background: 'var(--surface-alt)', fontFamily: 'inherit' }}
           />
           <div style={{ display: 'flex', gap: 8 }}>
-            <input
+            <ChampDate
               type="datetime-local"
               value={nouveauDebut}
               onChange={(e) => setNouveauDebut(e.target.value)}
@@ -468,6 +488,17 @@ export function CarteEvenementAdmin({
             placeholder="Notes (facultatif)"
             rows={2}
             style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '9px 12px', fontSize: 13, color: 'var(--ink)', background: 'var(--surface-alt)', fontFamily: 'inherit', resize: 'vertical' }}
+          />
+          {/* Ajouter ou retirer des participants (demande client du 2026-09-29) : les personnes
+              retirées reçoivent une notification d'annulation et l'événement quitte leur agenda,
+              les nouvelles une invitation, celles qui restent la mise à jour des informations
+              (voir notifierModificationEvenement côté serveur). */}
+          <EditeurParticipants
+            obligatoiresIds={obligatoiresIds}
+            optionnelsIds={optionnelsIds}
+            onObligatoires={setObligatoiresIds}
+            onOptionnels={setOptionnelsIds}
+            participantsActuels={[...evenement.obligatoires, ...evenement.optionnels]}
           />
         </div>
       ) : (
@@ -535,6 +566,58 @@ export function CarteEvenementAdmin({
         </span>
       )}
     </div>
+  )
+}
+
+/* Zones « obligatoires » et « optionnelles » façon Outlook, comme à la création (voir
+   FormulaireCreerEvenement dans RendezVousAdmin.tsx). Le vivier vient des hooks habituels, donc
+   filtré par RLS selon l'appelant (tout l'établissement pour l'admin, ses seuls élèves pour un
+   professeur) ; les participants déjà présents y sont toujours ajoutés, même hors vivier, pour
+   pouvoir être retirés. Monté seulement en mode édition : les hooks ne chargent rien avant. */
+function EditeurParticipants({
+  obligatoiresIds,
+  optionnelsIds,
+  onObligatoires,
+  onOptionnels,
+  participantsActuels,
+}: {
+  obligatoiresIds: string[]
+  optionnelsIds: string[]
+  onObligatoires: (ids: string[]) => void
+  onOptionnels: (ids: string[]) => void
+  participantsActuels: { id: string; nom: string | null; prenom: string | null; role: string }[]
+}) {
+  const { etudiants } = useEtudiants()
+  const { professeurs } = useProfesseurs()
+  const candidats = useMemo(() => {
+    const parId = new Map<string, PersonneSelectionnable>()
+    for (const p of participantsActuels) {
+      parId.set(p.id, { ...(p as unknown as PersonneSelectionnable), role: p.role === 'professeur' ? 'Professeur' : 'Étudiant' })
+    }
+    for (const e of etudiantsSelectionnables(etudiants)) parId.set(e.id, e)
+    for (const p of professeurs) parId.set(p.id, { ...p, role: 'Professeur' } as PersonneSelectionnable)
+    return [...parId.values()]
+  }, [etudiants, professeurs, participantsActuels])
+
+  return (
+    <>
+      <SelecteurPersonnes
+        etiquette="Participants obligatoires"
+        placeholder="Rechercher un nom…"
+        candidats={candidats}
+        selectionnes={obligatoiresIds}
+        onChange={onObligatoires}
+        exclure={optionnelsIds}
+      />
+      <SelecteurPersonnes
+        etiquette="Participants optionnels"
+        placeholder="Rechercher un nom…"
+        candidats={candidats}
+        selectionnes={optionnelsIds}
+        onChange={onOptionnels}
+        exclure={obligatoiresIds}
+      />
+    </>
   )
 }
 

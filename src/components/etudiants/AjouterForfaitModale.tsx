@@ -4,6 +4,7 @@ import { Modale } from '../ui/Modale'
 import { Champ, champStyle, LigneInfo } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
 import { boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
+import { ChampDate } from '../ui/ChampDate'
 
 /* Ajout d'un forfait à un élève qui en a déjà un — demande client du 2026-09-22 : les heures se
    cumulent (nouveau forfait, jamais une correction du précédent, voir HistoriqueForfaits). La
@@ -85,7 +86,7 @@ export function AjouterForfaitModale({
             <input type="number" min={0.5} step="0.5" value={heures} onChange={(e) => setHeures(e.target.value)} style={champStyle} />
           </Champ>
           <Champ label="Échéance (facultatif)">
-            <input type="date" value={echeance} onChange={(e) => setEcheance(e.target.value)} style={champStyle} />
+            <ChampDate type="date" value={echeance} onChange={(e) => setEcheance(e.target.value)} style={champStyle} />
           </Champ>
         </div>
 

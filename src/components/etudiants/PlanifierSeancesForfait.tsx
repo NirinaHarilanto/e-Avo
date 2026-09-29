@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { champStyle } from '../ui/Champ'
 import { AvertissementDureeMeet } from '../shared/AvertissementDureeMeet'
+import { ChampDate } from '../ui/ChampDate'
 
 const JOURS = [
   { valeur: 1, label: 'Lun' },
@@ -187,7 +188,7 @@ export function PlanifierSeancesForfait({
                 </option>
               ))}
             </select>
-            <input type="time" value={c.heure} onChange={(e) => majCreneau(index, { heure: e.target.value })} style={{ ...champStyle, width: 110 }} />
+            <ChampDate type="time" value={c.heure} onChange={(e) => majCreneau(index, { heure: e.target.value })} style={{ ...champStyle, width: 110 }} />
             {creneaux.length > 1 && (
               <button
                 onClick={() => retirerCreneau(index)}
@@ -211,11 +212,11 @@ export function PlanifierSeancesForfait({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 110px', gap: 14 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Du</label>
-          <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} style={champStyle} />
+          <ChampDate type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} style={champStyle} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Au (échéance du forfait)</label>
-          <input
+          <ChampDate
             type="date"
             value={dateFin}
             onChange={(e) => {

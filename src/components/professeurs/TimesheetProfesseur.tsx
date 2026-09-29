@@ -10,6 +10,7 @@ import { EtatChargement, MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { OverlayImpression, type ActionImpression } from '../facturation/OverlayImpression'
 import { LABEL_STATUT_TIMESHEET, TimesheetDocument } from '../timesheets/TimesheetDocument'
+import { ChampDate } from '../ui/ChampDate'
 
 const jourLocal = (d: Date) => new Intl.DateTimeFormat('fr-CA', { timeZone: FUSEAU_ETABLISSEMENT }).format(d)
 
@@ -87,10 +88,10 @@ export function TimesheetProfesseur() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <Champ label="Du">
-              <input type="date" value={debut} max={fin} onChange={(e) => setDebut(e.target.value)} style={champStyle} />
+              <ChampDate type="date" value={debut} max={fin} onChange={(e) => setDebut(e.target.value)} style={champStyle} />
             </Champ>
             <Champ label="Au">
-              <input type="date" value={fin} min={debut} onChange={(e) => setFin(e.target.value)} style={champStyle} />
+              <ChampDate type="date" value={fin} min={debut} onChange={(e) => setFin(e.target.value)} style={champStyle} />
             </Champ>
           </div>
 

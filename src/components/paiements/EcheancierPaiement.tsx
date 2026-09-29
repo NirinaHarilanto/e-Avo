@@ -6,6 +6,7 @@ import type { Database } from '../../types/database.types'
 import { champStyle } from '../ui/Champ'
 import { boutonSecondaireStyle } from '../ui/Boutons'
 import { MessageErreur } from '../ui/Etats'
+import { ChampDate } from '../ui/ChampDate'
 
 type Echeance = Database['public']['Tables']['paiement_echeances']['Row']
 
@@ -176,7 +177,7 @@ export function EcheancierPaiement({
           onChange={(e) => setMontant(e.target.value)}
           style={{ ...champStyle, width: 120 }}
         />
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...champStyle, width: 155 }} />
+        <ChampDate type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...champStyle, width: 155 }} />
         <input
           placeholder="Libellé (facultatif)"
           value={libelle}

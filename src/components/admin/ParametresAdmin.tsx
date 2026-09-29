@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { IntegrationGoogleMeet } from './IntegrationGoogleMeet'
 import { DisponibilitesAdmin } from './DisponibilitesAdmin'
 import type { Database } from '../../types/database.types'
+import { ChampDate } from '../ui/ChampDate'
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
 
@@ -141,15 +142,15 @@ export function ParametresAdmin() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Matin</span>
-                <input type="time" value={creneauMatin} onChange={(e) => setCreneauMatin(e.target.value)} style={champStyle} />
+                <ChampDate type="time" value={creneauMatin} onChange={(e) => setCreneauMatin(e.target.value)} style={champStyle} />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Midi</span>
-                <input type="time" value={creneauMidi} onChange={(e) => setCreneauMidi(e.target.value)} style={champStyle} />
+                <ChampDate type="time" value={creneauMidi} onChange={(e) => setCreneauMidi(e.target.value)} style={champStyle} />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Soir</span>
-                <input type="time" value={creneauSoir} onChange={(e) => setCreneauSoir(e.target.value)} style={champStyle} />
+                <ChampDate type="time" value={creneauSoir} onChange={(e) => setCreneauSoir(e.target.value)} style={champStyle} />
               </div>
             </div>
           </Champ>

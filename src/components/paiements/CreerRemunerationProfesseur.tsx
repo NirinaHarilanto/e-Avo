@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { formaterHeures } from '../../lib/heures'
 import { champStyle } from '../ui/Champ'
 import { EtatChargement } from '../ui/Etats'
+import { ChampDate } from '../ui/ChampDate'
 
 interface CreerRemunerationProfesseurProps {
   etablissementId: string
@@ -140,15 +141,15 @@ export function CreerRemunerationProfesseur({ etablissementId, onCree, onAnnuler
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 150 }}>
               <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Période du</label>
-              <input type="date" value={periodeDebut} onChange={(e) => setPeriodeDebut(e.target.value)} style={champStyle} />
+              <ChampDate type="date" value={periodeDebut} onChange={(e) => setPeriodeDebut(e.target.value)} style={champStyle} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 150 }}>
               <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>au</label>
-              <input type="date" value={periodeFin} onChange={(e) => setPeriodeFin(e.target.value)} style={champStyle} />
+              <ChampDate type="date" value={periodeFin} onChange={(e) => setPeriodeFin(e.target.value)} style={champStyle} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 160 }}>
               <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Échéance</label>
-              <input type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} style={champStyle} />
+              <ChampDate type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} style={champStyle} />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 160 }}>
               <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Référence</label>

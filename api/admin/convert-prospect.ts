@@ -1,5 +1,6 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { creerCompteSansEmail } from '../_lib/creerCompte.js'
+import { notifierBienvenueEtudiant } from '../_lib/notifications.js'
 import { trouverProfilHomonyme, messageHomonyme } from '../_lib/nomDuplique.js'
 import { nomGroupeDuo } from '../../src/lib/duo.js'
 import { categorieDepuisNiveauEstime, CAPACITE_MAX_CLASSE } from '../../src/lib/classesCollectif.js'
@@ -263,6 +264,8 @@ export default async function handler(request: Request): Promise<Response> {
           )
       }
     }
+
+    await notifierBienvenueEtudiant(serviceClient, { etablissementId, etudiantId: invited.user.id, prenom: prospect.prenom })
 
     return Response.json({ profileId: invited.user.id, niveauDetecte, classeAssignee })
   } catch (error) {

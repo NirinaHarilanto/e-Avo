@@ -15,6 +15,7 @@ import { Modale } from '../ui/Modale'
 import { Champ, champStyle, LigneInfo } from '../ui/Champ'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
+import { ChampDate } from '../ui/ChampDate'
 
 type StudentPayment = Database['public']['Tables']['student_payments']['Row']
 type TeacherPayment = Database['public']['Tables']['teacher_payments']['Row']
@@ -540,7 +541,7 @@ function CreationLignePaiement({
           <input type="number" min={0} step="0.01" value={montant} onChange={(e) => setMontant(e.target.value)} style={champStyle} />
         </Champ>
         <Champ label="Échéance">
-          <input type="date" value={echeance} onChange={(e) => setEcheance(e.target.value)} style={champStyle} />
+          <ChampDate type="date" value={echeance} onChange={(e) => setEcheance(e.target.value)} style={champStyle} />
         </Champ>
       </div>
       <button
@@ -676,7 +677,7 @@ function FormulaireAcompte({
           />
         </Champ>
         <Champ label="Date">
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={champStyle} />
+          <ChampDate type="date" value={date} onChange={(e) => setDate(e.target.value)} style={champStyle} />
         </Champ>
         <Champ label="Moyen">
           <input value={moyen} onChange={(e) => setMoyen(e.target.value)} placeholder="Espèces, Mvola…" style={champStyle} />

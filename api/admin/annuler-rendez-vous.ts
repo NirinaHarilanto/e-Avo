@@ -2,6 +2,7 @@
 import { AdminAuthError, requireAdmin } from '../_lib/adminAuth.js'
 import { integrationDeLEtablissement, supprimerEvenement } from '../_lib/google.js'
 import { envoyerEmail, modeleRendezVousAnnule } from '../_lib/email.js'
+import { creerNotification } from '../_lib/notifications.js'
 
 export const config = { runtime: 'edge' }
 
@@ -75,6 +76,20 @@ export default async function handler(request: Request): Promise<Response> {
         sujet: `Votre rendez-vous avec ${etablissement?.nom ?? 'Hari Online Club'} est annulé`,
         html: modeleRendezVousAnnule({ prenom: prospect.prenom, etablissement: etablissement?.nom ?? 'Hari Online Club', quand }),
       })
+
+      // Même prévenance qu'au déplacement (voir planifier-rendez-vous.ts) pour un prospect déjà
+      // converti en étudiant : son agenda affichait ce rendez-vous.
+      const { data: compteEtudiant } = await serviceClient.from('profiles').select('id').eq('prospect_id', rendezVous.prospect_id).maybeSingle()
+      if (compteEtudiant) {
+        await creerNotification(serviceClient, {
+          etablissementId,
+          destinataireProfileId: compteEtudiant.id,
+          type: 'rendez_vous_annule',
+          titre: 'Rendez-vous annulé',
+          message: `Votre appel diagnostic du ${quand} est annulé.`,
+          lien: '/mon-espace/agenda',
+        })
+      }
     }
 
     return Response.json({ ok: true })

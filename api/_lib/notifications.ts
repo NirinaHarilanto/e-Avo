@@ -30,6 +30,28 @@ export async function creerNotification(
 }
 
 /**
+ * Message de bienvenue d'un nouvel étudiant — demande client du 2026-09-29 : « le message de
+ * bienvenue du nouvel étudiant sous forme de pop-up avec la notification associée dans son espace
+ * personnel ». La notification (type `bienvenue_etudiant`) est créée ici, côté serveur, comme
+ * toutes les autres ; c'est BienvenueEtudiant.tsx qui l'affiche en pop-up à la première connexion,
+ * puis la marque lue — elle reste ensuite consultable dans la cloche.
+ */
+export async function notifierBienvenueEtudiant(
+  serviceClient: ServiceClient,
+  params: { etablissementId: string; etudiantId: string; prenom: string },
+) {
+  await creerNotification(serviceClient, {
+    etablissementId: params.etablissementId,
+    destinataireProfileId: params.etudiantId,
+    type: 'bienvenue_etudiant',
+    titre: `Bienvenue chez Hari Online Club, ${params.prenom} !`,
+    message:
+      'Votre espace étudiant est prêt. Vous y retrouvez votre professeur, votre programme, vos séances et votre compteur d’heures, mis à jour après chaque cours. Vos prochains cours et rendez-vous apparaissent dans « Mon agenda ».',
+    lien: '/mon-espace',
+  })
+}
+
+/**
  * Notifie les personnes CONCERNÉES par une séance (son professeur et les élèves qui y sont
  * inscrits) quand elle est reprogrammée ou annulée — jamais l'admin, sauf s'il fait partie de
  * ces personnes (demande client du 2026-09-17 : la validation admin disparaît, remplacée par une
@@ -65,6 +87,64 @@ export async function notifierParticipantsSeance(
         titre: params.titre,
         message: params.message ?? null,
         lien: roleParId.get(destinataireProfileId) === 'professeur' ? '/professeur/calendrier' : '/mon-espace/agenda',
+      }),
+    ),
+  )
+}
+
+/**
+ * Prévient les personnes concernées par la modification d'un événement « autre » (demande client du
+ * 2026-09-29) :
+ *  - RETIRÉES : notification d'annulation — l'événement disparaît de leur agenda, puisqu'elles ne
+ *    figurent plus dans ses participants (voir useEvenementsAdmin.ts) ;
+ *  - AJOUTÉES : nouvelle invitation ;
+ *  - déjà PRÉSENTES : mise à jour des informations, seulement si quelque chose a réellement changé.
+ * L'auteur de la modification n'est jamais notifié de sa propre action. Google Calendar envoie de
+ * son côté ses propres e-mails aux invités (`sendUpdates=all`, voir modifierEvenementMeet) ; ces
+ * notifications sont le pendant interne, celui qui compte pour qui n'a pas d'adresse ou de Google.
+ */
+export async function notifierModificationEvenement(
+  serviceClient: ServiceClient,
+  params: {
+    etablissementId: string
+    acteurId: string
+    titre: string
+    debut: string
+    anciensIds: string[]
+    nouveauxIds: string[]
+    contenuChange: boolean
+  },
+) {
+  const anciens = new Set(params.anciensIds)
+  const nouveaux = new Set(params.nouveauxIds)
+  const retires = params.anciensIds.filter((id) => !nouveaux.has(id))
+  const ajoutes = params.nouveauxIds.filter((id) => !anciens.has(id))
+  const restants = params.nouveauxIds.filter((id) => anciens.has(id))
+  const concernes = [...new Set([...retires, ...ajoutes, ...(params.contenuChange ? restants : [])])].filter((id) => id !== params.acteurId)
+  if (concernes.length === 0) return
+
+  const { data: profils } = await serviceClient.from('profiles').select('id, role').in('id', concernes)
+  const roleParId = new Map((profils ?? []).map((p) => [p.id, p.role]))
+  const quand = formaterDateSeance(params.debut)
+  const lienDe = (id: string) => (roleParId.get(id) === 'professeur' ? '/professeur/calendrier' : '/mon-espace/agenda')
+
+  const notifications = [
+    ...retires.map((id) => ({ id, type: 'evenement_annule', titre: 'Rendez-vous annulé', message: `Vous ne participez plus à « ${params.titre} » du ${quand}.` })),
+    ...ajoutes.map((id) => ({ id, type: 'evenement_invitation', titre: 'Nouvelle invitation', message: `Vous êtes invité(e) à « ${params.titre} » le ${quand}.` })),
+    ...(params.contenuChange
+      ? restants.map((id) => ({ id, type: 'evenement_modifie', titre: 'Rendez-vous modifié', message: `« ${params.titre} » : nouvelles informations, rendez-vous le ${quand}.` }))
+      : []),
+  ].filter((n) => n.id !== params.acteurId)
+
+  await Promise.all(
+    notifications.map((n) =>
+      creerNotification(serviceClient, {
+        etablissementId: params.etablissementId,
+        destinataireProfileId: n.id,
+        type: n.type,
+        titre: n.titre,
+        message: n.message,
+        lien: n.type === 'evenement_annule' ? lienDe(n.id) : lienDe(n.id),
       }),
     ),
   )

@@ -4,6 +4,7 @@ import { useEtudiants } from '../../hooks/useEtudiants'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { champStyle } from '../ui/Champ'
+import { ChampDate } from '../ui/ChampDate'
 
 type Package = Database['public']['Tables']['packages']['Row']
 
@@ -110,7 +111,7 @@ export function CreerPaiementEtudiant({ etablissementId, onCree, onAnnuler }: Cr
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 160 }}>
         <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Échéance</label>
-        <input type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} style={champStyle} />
+        <ChampDate type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} style={champStyle} />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 160 }}>
         <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Moyen de paiement</label>

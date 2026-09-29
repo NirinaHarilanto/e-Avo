@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabaseClient'
 import type { LigneFacturation } from '../../types/database.types'
 import { EditeurLignes, calculerTotaux } from './EditeurLignes'
 import { champStyle } from '../ui/Champ'
+import { ChampDate } from '../ui/ChampDate'
 
 interface CreerDevisProps {
   etablissementId: string
@@ -71,7 +72,7 @@ export function CreerDevis({ etablissementId, onCree, onAnnuler }: CreerDevisPro
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 160 }}>
           <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Validité jusqu'au</label>
-          <input type="date" value={dateValidite} onChange={(e) => setDateValidite(e.target.value)} style={champStyle} />
+          <ChampDate type="date" value={dateValidite} onChange={(e) => setDateValidite(e.target.value)} style={champStyle} />
         </div>
       </div>
 

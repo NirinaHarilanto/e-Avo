@@ -35,6 +35,7 @@ import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModa
 import { champStyle } from '../ui/Champ'
 import { formaterHeures } from '../../lib/heures'
 import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
+import { ChampDate } from '../ui/ChampDate'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type VueCalendrier = 'agenda' | 'liste' | 'previsionnel'
@@ -119,6 +120,7 @@ export function CalendrierProfesseur() {
      Distinct des séances : ils vivent dans `evenements_admin`, pas `sessions`, et n'affectent
      jamais les heures. */
   const { evenements: evenementsAutres, loading: chargementEvenements, recharger: rechargerEvenements } = useEvenementsProfesseur()
+  useRafraichirSurNotification(derniereNotification, ['evenement_annule', 'evenement_invitation', 'evenement_modifie'], rechargerEvenements)
   const [vue, setVue] = useState<VueCalendrier>('agenda')
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
@@ -482,7 +484,7 @@ function FormulairePlanification({
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 14 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Date et heure</label>
-          <input type="datetime-local" value={debut} onChange={(e) => setDebut(e.target.value)} style={champStyle} />
+          <ChampDate type="datetime-local" value={debut} onChange={(e) => setDebut(e.target.value)} style={champStyle} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Durée (min)</label>

@@ -1,5 +1,6 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { creerCompteSansEmail } from '../_lib/creerCompte.js'
+import { notifierBienvenueEtudiant } from '../_lib/notifications.js'
 import { trouverProfilHomonyme, messageHomonyme } from '../_lib/nomDuplique.js'
 
 export const config = { runtime: 'edge' }
@@ -50,6 +51,8 @@ export default async function handler(request: Request): Promise<Response> {
     if (updateError) {
       return Response.json({ error: updateError.message }, { status: 500 })
     }
+
+    await notifierBienvenueEtudiant(serviceClient, { etablissementId, etudiantId: invited.user.id, prenom: body.prenom })
 
     return Response.json({ profileId: invited.user.id })
   } catch (error) {

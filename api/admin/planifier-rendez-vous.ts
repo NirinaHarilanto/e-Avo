@@ -2,6 +2,7 @@
 import { AdminAuthError, requireAdmin } from '../_lib/adminAuth.js'
 import { creerEvenementMeet, deplacerEvenement, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
 import { envoyerEmail, modeleRendezVousConfirme, modeleRendezVousDeplace } from '../_lib/email.js'
+import { creerNotification } from '../_lib/notifications.js'
 
 export const config = { runtime: 'edge' }
 
@@ -133,6 +134,22 @@ export default async function handler(request: Request): Promise<Response> {
 
       if (prospect.statut === 'prospect') {
         await serviceClient.from('prospects').update({ statut: 'diagnostic_planifie' }).eq('id', prospect.id)
+      }
+
+      /* Un prospect déjà converti en étudiant a un compte (profiles.prospect_id) : son agenda
+         affiche ce rendez-vous (api/etudiant/mon-rendez-vous.ts), il doit donc être prévenu du
+         déplacement comme n'importe quel autre changement de planning — demande client du
+         2026-09-29. Sans compte (prospect pur), l'e-mail ci-dessus reste le seul canal. */
+      const { data: compteEtudiant } = await serviceClient.from('profiles').select('id').eq('prospect_id', prospect.id).maybeSingle()
+      if (compteEtudiant) {
+        await creerNotification(serviceClient, {
+          etablissementId,
+          destinataireProfileId: compteEtudiant.id,
+          type: 'rendez_vous_deplace',
+          titre: 'Rendez-vous déplacé',
+          message: `Votre appel diagnostic est déplacé au ${quand}.`,
+          lien: '/mon-espace/agenda',
+        })
       }
 
       return Response.json({ ok: true, deplace: true, lienMeet: ligne?.lien_meet ?? null })

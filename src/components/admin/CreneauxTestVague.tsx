@@ -10,6 +10,7 @@ import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import { Modale } from '../ui/Modale'
 import { Icone } from '../ui/Icones'
+import { ChampDate } from '../ui/ChampDate'
 
 type CreneauTest = Database['public']['Tables']['creneaux_test_positionnement']['Row']
 type Inscription = Database['public']['Tables']['test_positionnement_inscriptions']['Row']
@@ -413,7 +414,7 @@ function FormulaireCreneau({
           questionnaire de positionnement pour valider leur place. Le lien Google Meet se génère automatiquement.
         </p>
         <Champ label="Date et heure" obligatoire aide="Heure d’Antananarivo, convertie automatiquement chez le candidat.">
-          <input type="datetime-local" value={debut} onChange={(e) => setDebut(e.target.value)} style={champStyle} />
+          <ChampDate type="datetime-local" value={debut} onChange={(e) => setDebut(e.target.value)} style={champStyle} />
         </Champ>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Champ label="Durée (min)">

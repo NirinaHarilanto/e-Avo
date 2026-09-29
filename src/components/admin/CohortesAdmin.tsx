@@ -26,6 +26,7 @@ import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
 import { formaterHeures } from '../../lib/heures'
 import { CreneauxTestVague } from './CreneauxTestVague'
 import { QuizPositionnementAdmin } from './QuizPositionnementAdmin'
+import { ChampDate } from '../ui/ChampDate'
 
 type Cohort = Database['public']['Tables']['cohorts']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -255,11 +256,11 @@ function CreerVague({ etablissementId, onAnnuler, onEnregistre, vague }: CreerVa
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Date de début</label>
-          <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} style={champStyle} />
+          <ChampDate type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} style={champStyle} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Date de fin</label>
-          <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} style={champStyle} />
+          <ChampDate type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} style={champStyle} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Capacité max (optionnel)</label>

@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { supabase } from '../../lib/supabaseClient'
+import { Modale } from '../ui/Modale'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { usePaiementsEtudiants, type ForfaitAPayer, type PaiementEtudiant } from '../../hooks/usePaiementsEtudiants'
@@ -17,7 +19,7 @@ import { ChampRecherche } from '../ui/BarreOutils'
 import { Champ, champStyle } from '../ui/Champ'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
-import { boutonPrimaireStyle, boutonNeutreStyle } from '../ui/Boutons'
+import { boutonPrimaireStyle, boutonNeutreStyle, boutonDangerStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { useTimesheets } from '../../hooks/useTimesheets'
 import { TimesheetsAdmin } from './TimesheetsAdmin'
@@ -61,6 +63,7 @@ export function PaiementsAdmin() {
   const [onglet, setOnglet] = useState<Onglet>('etudiants')
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [detail, setDetail] = useState<CiblePaiement | null>(null)
+  const [aSupprimer, setASupprimer] = useState<PaiementASupprimer | null>(null)
   const [filtres, setFiltres] = useState<Filtres>({ recherche: '', statut: 'tous', montantMin: '', montantMax: '' })
   const filtresActifs = !!filtres.recherche || filtres.statut !== 'tous' || !!filtres.montantMin || !!filtres.montantMax
 
@@ -218,6 +221,7 @@ export function PaiementsAdmin() {
           loading={paiementsEtudiants.loading}
           erreur={paiementsEtudiants.erreur}
           onOuvrir={setDetail}
+          onSupprimer={setASupprimer}
           filtresActifs={filtresActifs}
         />
       ) : (
@@ -228,11 +232,23 @@ export function PaiementsAdmin() {
           loading={remunerationsProfs.loading}
           erreur={remunerationsProfs.erreur}
           onOuvrir={setDetail}
+          onSupprimer={setASupprimer}
           filtresActifs={filtresActifs}
         />
       )}
 
       {detail && <DetailPaiementModale cible={detail} onFermer={() => setDetail(null)} onChange={rechargerTout} />}
+      {aSupprimer && profile && (
+        <SupprimerPaiementModale
+          paiement={aSupprimer}
+          profileId={profile.id}
+          onFermer={() => setASupprimer(null)}
+          onSupprime={() => {
+            setASupprimer(null)
+            rechargerTout()
+          }}
+        />
+      )}
     </AdminLayout>
   )
 }
@@ -293,6 +309,7 @@ function ListePaiementsEtudiants({
   loading,
   erreur,
   onOuvrir,
+  onSupprimer,
   filtresActifs,
 }: {
   paiements: PaiementEtudiant[]
@@ -300,6 +317,7 @@ function ListePaiementsEtudiants({
   loading: boolean
   erreur: string | null
   onOuvrir: (cible: CiblePaiement) => void
+  onSupprimer: (paiement: PaiementASupprimer) => void
   filtresActifs: boolean
 }) {
   if (loading) return <EtatChargement lignes={4} hauteur={70} />
@@ -359,6 +377,9 @@ function ListePaiementsEtudiants({
           devise={paiement.devise}
           dateEcheance={paiement.date_echeance}
           onOuvrir={() => onOuvrir({ type: 'etudiant', paiement, personne: etudiant, forfait, professeur, duoPartenaire })}
+          onSupprimer={() =>
+            onSupprimer({ table: 'student_payments', id: paiement.id, libelle: `${etudiant ? nomAvecDuo(etudiant, duoPartenaire) : 'Étudiant inconnu'} · ${formaterMontant(paiement.montant, paiement.devise)}` })
+          }
         />
       ))}
     </div>
@@ -370,12 +391,14 @@ function ListeRemunerationsProfesseurs({
   loading,
   erreur,
   onOuvrir,
+  onSupprimer,
   filtresActifs,
 }: {
   remunerations: RemunerationProfesseur[]
   loading: boolean
   erreur: string | null
   onOuvrir: (cible: CiblePaiement) => void
+  onSupprimer: (paiement: PaiementASupprimer) => void
   filtresActifs: boolean
 }) {
   if (loading) return <EtatChargement lignes={4} hauteur={70} />
@@ -411,6 +434,9 @@ function ListeRemunerationsProfesseurs({
           devise={paiement.devise}
           dateEcheance={paiement.date_echeance}
           onOuvrir={() => onOuvrir({ type: 'professeur', paiement, personne: professeur })}
+          onSupprimer={() =>
+            onSupprimer({ table: 'teacher_payments', id: paiement.id, libelle: `${professeur ? `${professeur.prenom} ${professeur.nom}` : 'Professeur inconnu'} · ${formaterMontant(paiement.montant, paiement.devise)}` })
+          }
         />
       ))}
     </div>
@@ -426,6 +452,7 @@ function LigneFinanciere({
   devise,
   dateEcheance,
   onOuvrir,
+  onSupprimer,
 }: {
   nomPersonne: string
   sousTitre?: string
@@ -435,12 +462,17 @@ function LigneFinanciere({
   devise: string
   dateEcheance: string | null
   onOuvrir: () => void
+  /* Corbeille en bout de ligne (demande client du 2026-09-29) : jusqu'ici la suppression n'était
+     accessible qu'en ouvrant la fiche détail. Absente pour un forfait sans ligne de paiement —
+     il n'y a alors rien à supprimer. */
+  onSupprimer?: () => void
 }) {
   const ligne: LignePayable = { montant, montant_regle: montantRegle, statut: statutBase }
   const statut = statutReglement(ligne)
   const reste = resteAPayer(ligne)
 
   return (
+    <div style={{ display: 'flex', alignItems: 'stretch', gap: 8 }}>
     <button
       type="button"
       onClick={onOuvrir}
@@ -477,5 +509,82 @@ function LigneFinanciere({
       <BadgeStatutPaiement statut={statut} />
       <Icone nom="chevron" taille={15} />
     </button>
+    {onSupprimer && (
+      <button
+        type="button"
+        onClick={onSupprimer}
+        aria-label={`Supprimer le paiement de ${nomPersonne}`}
+        title="Supprimer ce paiement"
+        className="card"
+        style={{ flexShrink: 0, width: 46, cursor: 'pointer', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}
+      >
+        <Icone nom="supprimer" taille={16} />
+      </button>
+    )}
+    </div>
+  )
+}
+
+/* Suppression d'un paiement depuis la liste (demande client du 2026-09-29) — même mécanisme que la
+   fiche détail (DetailPaiementModale.tsx) : suppression DOUCE avec motif obligatoire, la ligne
+   sort des listes mais reste en base avec son auteur et son motif. Un vrai DELETE ferait
+   disparaître sans trace un mouvement financier et casserait les factures qui le référencent. */
+interface PaiementASupprimer {
+  table: 'student_payments' | 'teacher_payments'
+  id: string
+  libelle: string
+}
+
+function SupprimerPaiementModale({
+  paiement,
+  profileId,
+  onFermer,
+  onSupprime,
+}: {
+  paiement: PaiementASupprimer
+  profileId: string
+  onFermer: () => void
+  onSupprime: () => void
+}) {
+  const [motif, setMotif] = useState('')
+  const [enCours, setEnCours] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  async function supprimer() {
+    setEnCours(true)
+    setErreur(null)
+    const champs = { supprime_le: new Date().toISOString(), supprime_par: profileId, motif_suppression: motif.trim() }
+    const { error } =
+      paiement.table === 'teacher_payments'
+        ? await supabase.from('teacher_payments').update(champs).eq('id', paiement.id)
+        : await supabase.from('student_payments').update(champs).eq('id', paiement.id)
+    setEnCours(false)
+    if (error) {
+      setErreur(error.message)
+      return
+    }
+    onSupprime()
+  }
+
+  return (
+    <Modale titre="Supprimer ce paiement" onFermer={onFermer} largeurMax={440}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <p style={{ fontSize: 13, color: 'var(--ink-2)', margin: 0 }}>
+          <strong>{paiement.libelle}</strong>
+        </p>
+        <Champ label="Motif de la suppression" obligatoire aide="Conservé avec la ligne supprimée, pour justifier la correction plus tard.">
+          <input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Doublon, erreur de saisie…" style={champStyle} />
+        </Champ>
+        {erreur && <MessageErreur>{erreur}</MessageErreur>}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onFermer} style={{ ...boutonNeutreStyle, flexGrow: 1 }}>
+            Annuler
+          </button>
+          <button onClick={supprimer} disabled={enCours || motif.trim().length === 0} style={{ ...boutonDangerStyle, flexGrow: 1, opacity: enCours || !motif.trim() ? 0.6 : 1 }}>
+            {enCours ? 'Suppression…' : 'Confirmer la suppression'}
+          </button>
+        </div>
+      </div>
+    </Modale>
   )
 }

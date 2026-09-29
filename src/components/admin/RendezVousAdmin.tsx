@@ -28,6 +28,7 @@ import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 import { ChoixNatureRendezVous } from '../shared/ChoixNatureRendezVous'
 import type { NatureRendezVous } from '../../lib/natureRendezVous'
 import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
+import { ChampDate } from '../ui/ChampDate'
 
 type VueRendezVous = 'agenda' | 'liste'
 
@@ -347,7 +348,7 @@ function FormulaireCreerEvenement({
           style={champStyle}
         />
         <div style={{ display: 'flex', gap: 10 }}>
-          <input required type="datetime-local" value={debut} onChange={(e) => setDebut(e.target.value)} style={{ ...champStyle, flex: 1 }} />
+          <ChampDate required type="datetime-local" value={debut} onChange={(e) => setDebut(e.target.value)} style={{ ...champStyle, flex: 1 }} />
           <input
             required
             type="number"

@@ -22,6 +22,17 @@ import { Icone } from '../ui/Icones'
 
 type Onglet = 'devis' | 'factures'
 
+/* Intitulé au-dessus de chaque zone d'information d'une ligne de devis (demande client du
+   2026-09-29) : numéro/étudiant, objet, montant et statut s'affichaient sans aucun libellé. */
+function ZoneDevis({ intitule, children, grandit = false }: { intitule: string; children: React.ReactNode; grandit?: boolean }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexGrow: grandit ? 1 : 0, minWidth: grandit ? 180 : undefined }}>
+      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'var(--muted-2)' }}>{intitule}</span>
+      {children}
+    </div>
+  )
+}
+
 const LABELS_DEVIS: Record<StatutDevis, string> = { brouillon: 'Brouillon', envoye: 'Envoyé', accepte: 'Accepté', refuse: 'Refusé', expire: 'Expiré' }
 const LABELS_FACTURE: Record<StatutFacture, string> = { emise: 'Émise', envoyee: 'Envoyée', payee: 'Payée', en_retard: 'En retard', annulee: 'Annulée' }
 
@@ -35,7 +46,7 @@ async function supprimerLigne(table: 'quotes' | 'invoices', id: string, accessTo
 
 export function FacturationAdmin() {
   const { profile, session } = useProfileContext()
-  const [onglet, setOnglet] = useState<Onglet>('devis')
+  const [onglet, setOnglet] = useState<Onglet>('factures')
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [devisAImprimer, setDevisAImprimer] = useState<DevisAvecEtudiant | null>(null)
   const [factureAImprimer, setFactureAImprimer] = useState<FactureAvecDestinataire | null>(null)
@@ -91,8 +102,8 @@ export function FacturationAdmin() {
             setFormulaireOuvert(false)
           }}
           onglets={[
-            { value: 'devis', label: 'Devis', compteur: devis.length },
             { value: 'factures', label: 'Factures', compteur: factures.length },
+            { value: 'devis', label: 'Devis', compteur: devis.length },
           ]}
         />
       </div>
@@ -280,15 +291,20 @@ function LigneDevis({
 
   return (
     <div className="card card-lift" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-      <div style={{ flexGrow: 1, minWidth: 200 }}>
+      <ZoneDevis intitule="Devis · Étudiant" grandit>
         <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
           {devis.numero} — {etudiant ? `${etudiant.prenom} ${etudiant.nom}` : 'Étudiant inconnu'}
         </span>
-        <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{devis.objet}</div>
-      </div>
-      <span className="brand-font" style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)', flexShrink: 0 }}>
-        {devis.montant_ttc.toFixed(2)} Ar
-      </span>
+      </ZoneDevis>
+      <ZoneDevis intitule="Objet" grandit>
+        <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{devis.objet || '—'}</span>
+      </ZoneDevis>
+      <ZoneDevis intitule="Montant TTC">
+        <span className="brand-font" style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)', flexShrink: 0 }}>
+          {devis.montant_ttc.toFixed(2)} Ar
+        </span>
+      </ZoneDevis>
+      <ZoneDevis intitule="Statut">
       <select
         value={devis.statut}
         disabled={enCours}
@@ -301,10 +317,17 @@ function LigneDevis({
           </option>
         ))}
       </select>
-      <ActionsDocument onAction={onImprimer} />
-      <button onClick={supprimer} disabled={enCours} style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
-        Supprimer
-      </button>
+      </ZoneDevis>
+      <ZoneDevis intitule="Document">
+        <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <ActionsDocument onAction={onImprimer} />
+        </span>
+      </ZoneDevis>
+      <ZoneDevis intitule="Suppression">
+        <button onClick={supprimer} disabled={enCours} style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
+          Supprimer
+        </button>
+      </ZoneDevis>
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 11.5, width: '100%' }}>{erreur}</p>}
     </div>
   )

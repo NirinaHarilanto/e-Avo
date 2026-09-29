@@ -29,6 +29,7 @@ import { Modale } from '../ui/Modale'
 import { Champ, LigneInfo, champStyle } from '../ui/Champ'
 import { MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
+import { ChampDate } from '../ui/ChampDate'
 
 const ORDRE: StatutCandidature[] = ['recue', 'preselection', 'tests', 'simulation', 'integration', 'integre']
 
@@ -275,7 +276,7 @@ export function FicheCandidat({
                       }
                     />
                     <span style={{ flexGrow: 1 }}>{item.libelle}</span>
-                    <input
+                    <ChampDate
                       type="date"
                       value={integration[item.cle]?.date ?? ''}
                       disabled={c.statut === 'integre'}

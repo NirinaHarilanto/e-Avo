@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useTarifs } from '../../hooks/useTarifs'
 import type { Database, TypeProgrammeProspect } from '../../types/database.types'
+import { ChampDate } from '../ui/ChampDate'
 
 type Package = Database['public']['Tables']['packages']['Row']
 
@@ -181,7 +182,7 @@ export function CreerForfait({ studentId, etablissementId, forfaitExistant, type
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Échéance (optionnel)</label>
-        <input
+        <ChampDate
           type="date"
           value={echeance}
           onChange={(e) => setEcheance(e.target.value)}

@@ -35,10 +35,10 @@ const PAS_MINUTES = 15
    haut et son libellé serait tronqué au point d'être illisible. On lui impose donc une hauteur
    plancher — elle déborde alors légèrement sur le créneau suivant, ce qui est sans conséquence
    puisque les chevauchements sont de toute façon répartis en colonnes. */
-const HAUTEUR_MIN_EVENEMENT = 46
+const HAUTEUR_MIN_EVENEMENT = 62
 /* En dessous de cette hauteur, la pastille n'a la place que d'une seule ligne : le sous-titre
    est retiré plutôt qu'affiché coupé. */
-const HAUTEUR_SOUS_TITRE = 58
+const HAUTEUR_SOUS_TITRE = 84
 
 const JOURS_COURTS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
@@ -291,7 +291,7 @@ export function AgendaHebdo({
                           left: `calc(${place.colonne * largeur}% + 3px)`,
                           width: `calc(${largeur}% - 6px)`,
                           textAlign: 'left',
-                          padding: '4px 8px',
+                          padding: '3px 7px',
                           borderRadius: 8,
                           border: `1px solid ${ton.bordure}`,
                           borderLeft: `4px solid ${ton.bordure}`,
@@ -307,16 +307,26 @@ export function AgendaHebdo({
                           gap: 1,
                         }}
                       >
-                        <span style={{ fontSize: 11, fontWeight: 800, color: ton.texte, fontVariantNumeric: 'tabular-nums' }}>
+                        {/* Polices resserrées et pastille plus haute (demande client du 2026-09-29 : « les
+                            informations [...] sont visuellement coupées et non visibles ») : un nom
+                            de deux mots passait à la ligne et sa seconde moitié tombait sous le
+                            bord de la pastille. Titre limité à deux lignes, statut toujours en
+                            dernière ligne, sous-titre seulement s'il reste de la place. */}
+                        <span style={{ fontSize: 10, fontWeight: 800, color: ton.texte, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
                           {new Date(place.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                           {place.marqueur ? ` · ${place.marqueur}` : ''}
                         </span>
-                        <span style={{ fontSize: 12, fontWeight: 750, lineHeight: 1.25, color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <span style={{ fontSize: 11, fontWeight: 750, lineHeight: 1.2, color: '#ffffff', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                           {place.titre}
                         </span>
                         {place.sousTitre && hauteur >= HAUTEUR_SOUS_TITRE && (
-                          <span style={{ fontSize: 10.5, color: 'rgba(255,255,255,.82)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,.82)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {place.sousTitre}
+                          </span>
+                        )}
+                        {place.statut && (
+                          <span style={{ marginTop: 'auto', fontSize: 9, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: ton.texte, opacity: 0.95, whiteSpace: 'nowrap' }}>
+                            ● {place.statut}
                           </span>
                         )}
                       </button>

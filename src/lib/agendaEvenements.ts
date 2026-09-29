@@ -19,18 +19,30 @@ export const PREFIXE_EVENEMENT = 'evt:'
    les prospects, bleu pour les étudiants, vert pour les professeurs, violet pour mixte étudiants
    et professeurs ». Le statut (à valider / annulé) reste lisible via `attenue` et `marqueur`,
    déjà pris en charge par AgendaHebdo, sans avoir besoin d'une cinquième teinte. */
+const LIBELLE_STATUT_RDV: Record<RendezVousAvecProspect['statut'], string> = {
+  en_attente: 'À valider',
+  confirme: 'Confirmé',
+  refuse: 'Refusé',
+  annule: 'Annulé',
+}
+
 export function versEvenementProspect(rdv: RendezVousAvecProspect): EvenementAgenda {
   const prospect = rdv.prospects
+  /* Un prospect converti en étudiant change de catégorie : son rendez-vous passe du jaune (prospect)
+     au bleu (étudiant) — demande client du 2026-09-29, « Sandra est passée de prospect à étudiant,
+     donc l'agenda devrait se mettre à jour ». Le statut vient de la même requête que le rendez-vous
+     (voir useRendezVous), donc de la donnée courante et non d'une copie figée. */
+  const converti = prospect?.statut === 'etudiant'
   const nomProspect = prospect ? `${prospect.prenom} ${prospect.nom}` : 'Prospect supprimé'
   return {
     id: PREFIXE_PROSPECT + rdv.id,
     debut: rdv.debut,
     dureeMinutes: rdv.duree_minutes,
     titre: nomProspect,
-    sousTitre: `Appel diagnostic${prospect?.langue_visee ? ` · ${prospect.langue_visee}` : ''}`,
-    ton: 'or',
+    sousTitre: `Appel diagnostic${converti ? ' · Étudiant' : ''}${prospect?.langue_visee ? ` · ${prospect.langue_visee}` : ''}`,
+    ton: converti ? 'bleu' : 'or',
     attenue: rdv.statut === 'refuse' || rdv.statut === 'annule',
-    marqueur: rdv.statut === 'en_attente' ? 'à valider' : undefined,
+    statut: LIBELLE_STATUT_RDV[rdv.statut],
   }
 }
 

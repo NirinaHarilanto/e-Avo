@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { integrationDeLEtablissement, modifierEvenementMeet } from '../_lib/google.js'
+import { notifierModificationEvenement } from '../_lib/notifications.js'
 import type { Database } from '../../src/types/database.types.js'
 
 export const config = { runtime: 'edge' }
@@ -40,7 +41,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: evenement } = await serviceClient
       .from('evenements_admin')
-      .select('id, etablissement_id, cree_par, google_event_id, annule, debut, duree_minutes')
+      .select('id, etablissement_id, cree_par, google_event_id, annule, debut, duree_minutes, titre, notes, participants_obligatoires, participants_optionnels')
       .eq('id', corps.evenementId)
       .maybeSingle()
     if (!evenement || evenement.etablissement_id !== etablissementId || evenement.cree_par !== profileId) {
@@ -119,6 +120,28 @@ export default async function handler(request: Request): Promise<Response> {
         }).catch(() => {})
       }
     }
+
+    // Prévient retirés / ajoutés / restants (voir notifierModificationEvenement) : les participants
+    // ne sont réécrits que si le corps de la requête en fournit une nouvelle liste.
+    const anciensIds = [...evenement.participants_obligatoires, ...evenement.participants_optionnels]
+    const nouveauxIds =
+      obligatoiresIds !== undefined || optionnelsIds !== undefined
+        ? [...(obligatoiresIds ?? evenement.participants_obligatoires), ...(optionnelsIds ?? evenement.participants_optionnels)]
+        : anciensIds
+    const contenuChange =
+      (titre !== undefined && titre !== evenement.titre) ||
+      (corps.debut !== undefined && new Date(corps.debut).getTime() !== new Date(evenement.debut).getTime()) ||
+      (corps.dureeMinutes !== undefined && corps.dureeMinutes !== evenement.duree_minutes) ||
+      (corps.notes !== undefined && (corps.notes.trim() || null) !== (evenement.notes ?? null))
+    await notifierModificationEvenement(serviceClient, {
+      etablissementId,
+      acteurId: profileId,
+      titre: titre ?? evenement.titre,
+      debut: corps.debut !== undefined ? new Date(corps.debut).toISOString() : evenement.debut,
+      anciensIds,
+      nouveauxIds,
+      contenuChange,
+    })
 
     return Response.json({ ok: true })
   } catch (erreur) {

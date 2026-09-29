@@ -17,6 +17,9 @@ export interface EvenementAgenda {
   attenue?: boolean
   /* Pastille discrète en coin (ex. changement d'horaire en attente de validation). */
   marqueur?: string
+  /* Statut du rendez-vous (« Confirmé », « À valider »…), affiché en bas de la pastille — demande
+     client du 2026-09-29, avec capture annotée : le statut n'était lisible qu'en ouvrant la fiche. */
+  statut?: string
 }
 
 export interface EvenementPlace extends EvenementAgenda {

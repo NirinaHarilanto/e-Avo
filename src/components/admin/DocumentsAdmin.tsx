@@ -23,6 +23,7 @@ import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
 import { boutonSecondaireStyle } from '../ui/Boutons'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { Icone } from '../ui/Icones'
+import { ChampDate } from '../ui/ChampDate'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type Document = Database['public']['Tables']['documents']['Row']
@@ -290,11 +291,11 @@ function PanneauComptesRendus() {
         </div>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <span style={etiquetteStyle}>Du</span>
-          <input type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} style={champStyle} />
+          <ChampDate type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} style={champStyle} />
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
           <span style={etiquetteStyle}>Au</span>
-          <input type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} style={champStyle} />
+          <ChampDate type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} style={champStyle} />
         </label>
         {filtresActifs && (
           <button

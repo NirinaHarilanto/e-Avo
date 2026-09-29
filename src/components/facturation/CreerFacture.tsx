@@ -7,6 +7,7 @@ import type { DevisAvecEtudiant } from '../../hooks/useDevis'
 import type { LigneFacturation } from '../../types/database.types'
 import { EditeurLignes, calculerTotaux } from './EditeurLignes'
 import { champStyle } from '../ui/Champ'
+import { ChampDate } from '../ui/ChampDate'
 
 interface CreerFactureProps {
   etablissementId: string
@@ -139,7 +140,7 @@ export function CreerFacture({ etablissementId, devisAcceptes, onCree, onAnnuler
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 160 }}>
           <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Échéance</label>
-          <input type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} style={champStyle} />
+          <ChampDate type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} style={champStyle} />
         </div>
       </div>
 
