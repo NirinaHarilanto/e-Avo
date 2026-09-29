@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabaseClient'
 import type { SeanceDuParcours } from '../../hooks/useDossierEtudiant'
 import { Modale } from '../ui/Modale'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
-import { champStyle } from '../ui/Champ'
+import { champStyle, LigneInfo } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
 import { Icone } from '../ui/Icones'
 
@@ -75,11 +75,18 @@ export function BadgeSatisfaction({ satisfactions }: { satisfactions: SeanceDuPa
 export function PopupSatisfaction({
   seance,
   studentId,
+  professeur,
   onFermer,
   onEnregistre,
 }: {
   seance: SeanceDuParcours
   studentId: string
+  /* Nom du professeur de cette séance — la fiche n'a pas cette information elle-même
+     (SeanceDuParcours ne porte que la séance, le professeur vit au niveau de la période dans
+     le dossier, voir PeriodeProfesseur) ; fourni par l'appelant, qui l'a déjà sous la main.
+     Demande client du 2026-09-30 : « il faut mentionner les informations concernant la séance
+     [...] la date et heure, les participants ». */
+  professeur?: string | null
   onFermer: () => void
   onEnregistre: () => void
 }) {
@@ -111,6 +118,17 @@ export function PopupSatisfaction({
   return (
     <Modale titre="Votre avis sur cette séance" onFermer={onFermer} largeurMax={420}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Rappel du contexte — demande client du 2026-09-30 : « il faut mentionner les
+            informations concernant la séance dont on parle : la date et heure, les
+            participants » (l'enquête pouvant s'ouvrir automatiquement, loin dans le temps de la
+            séance elle-même, rien ne garantit que l'élève se souvienne de laquelle il s'agit). */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, borderBottom: '1px solid var(--border-soft, var(--border))', paddingBottom: 12 }}>
+          <LigneInfo
+            label="Séance"
+            valeur={new Date(seance.session.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
+          />
+          <LigneInfo label="Participants" valeur={[professeur, 'Vous'].filter(Boolean).join(', ')} />
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Note globale (obligatoire)</label>
           <Etoiles valeur={noteGlobale} onChange={setNoteGlobale} taille={22} />
@@ -154,10 +172,12 @@ export function PopupSatisfaction({
 export function SatisfactionSeance({
   seance,
   studentId,
+  professeur,
   onEnregistre,
 }: {
   seance: SeanceDuParcours
   studentId: string
+  professeur?: string | null
   onEnregistre: () => void
 }) {
   const [ouverte, setOuverte] = useState(false)
@@ -172,6 +192,13 @@ export function SatisfactionSeance({
       </span>
     )
   }
+
+  /* Un élève absent n'a rien à évaluer — demande client du 2026-09-30 : « quand l'étudiant est
+     absent, il est inutile de lancer une enquête de satisfaction ». `present` reste `null` tant
+     qu'une séance individuel/duo n'est pas encore clôturée, mais cette carte n'est de toute façon
+     montrée que pour une séance « terminée » (voir DossierEtudiantVue.tsx) — un `false` ici est
+     donc bien une absence constatée à la clôture, jamais une valeur simplement pas encore posée. */
+  if (seance.enrollment.present === false) return null
 
   return (
     <>
@@ -190,6 +217,7 @@ export function SatisfactionSeance({
         <PopupSatisfaction
           seance={seance}
           studentId={studentId}
+          professeur={professeur}
           onFermer={() => setOuverte(false)}
           onEnregistre={() => {
             setOuverte(false)

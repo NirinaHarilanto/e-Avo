@@ -373,7 +373,12 @@ function BlocPeriode({
                       n'a pas répondu, badge en lecture seule pour l'admin/le professeur qui
                       consultent ce même dossier. */}
                   {seance.session.statut === 'terminee' && satisfactionEtudiantId && (
-                    <SatisfactionSeance seance={seance} studentId={satisfactionEtudiantId} onEnregistre={() => onSatisfactionEnregistree?.()} />
+                    <SatisfactionSeance
+                      seance={seance}
+                      studentId={satisfactionEtudiantId}
+                      professeur={periode.professeur ? `${periode.professeur.prenom} ${periode.professeur.nom}` : null}
+                      onEnregistre={() => onSatisfactionEnregistree?.()}
+                    />
                   )}
                   {seance.session.statut === 'terminee' && !satisfactionEtudiantId && <BadgeSatisfaction satisfactions={seance.satisfactions} />}
                 </span>

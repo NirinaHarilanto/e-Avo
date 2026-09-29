@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
-import { useDossierEtudiant, type SeanceDuParcours } from '../../hooks/useDossierEtudiant'
+import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { PopupSatisfaction } from './SatisfactionSeance'
 
 /* Ouvre automatiquement l'enquête de satisfaction dès qu'une séance vient d'être clôturée sans
@@ -35,15 +35,18 @@ export function EnqueteSatisfactionAuto() {
     if (!dossier || !profile) return null
     const seuil = Date.now() - FENETRE_JOURS * 86_400_000
     const candidates = dossier.periodes
-      .flatMap((p) => p.seances)
+      .flatMap((p) => p.seances.map((s) => ({ seance: s, professeur: p.professeur })))
       .filter(
-        (s): s is SeanceDuParcours =>
-          s.session.statut === 'terminee' &&
-          new Date(s.session.debut).getTime() >= seuil &&
-          !s.satisfactions.some((sat) => sat.student_id === profile.id) &&
-          !ignoreesRef.current.has(s.session.id),
+        (c) =>
+          c.seance.session.statut === 'terminee' &&
+          new Date(c.seance.session.debut).getTime() >= seuil &&
+          !c.seance.satisfactions.some((sat) => sat.student_id === profile.id) &&
+          !ignoreesRef.current.has(c.seance.session.id) &&
+          // Rien à évaluer pour une absence constatée à la clôture — demande client du
+          // 2026-09-30 : « quand l'étudiant est absent, il est inutile de lancer une enquête ».
+          c.seance.enrollment.present !== false,
       )
-      .sort((a, b) => b.session.debut.localeCompare(a.session.debut))
+      .sort((a, b) => b.seance.session.debut.localeCompare(a.seance.session.debut))
     return candidates[0] ?? null
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dossier, profile])
@@ -51,14 +54,15 @@ export function EnqueteSatisfactionAuto() {
   if (!cible || !profile) return null
 
   function fermer() {
-    ignoreesRef.current.add(cible!.session.id)
+    ignoreesRef.current.add(cible!.seance.session.id)
     forcerRendu((n) => n + 1)
   }
 
   return (
     <PopupSatisfaction
-      seance={cible}
+      seance={cible.seance}
       studentId={profile.id}
+      professeur={cible.professeur ? `${cible.professeur.prenom} ${cible.professeur.nom}` : null}
       onFermer={fermer}
       onEnregistre={() => {
         recharger()
