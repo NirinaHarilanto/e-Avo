@@ -5,6 +5,7 @@ import { useProfile } from '../hooks/useProfile'
 import { useEtablissement } from '../hooks/useEtablissement'
 import { usePlatformAdmin } from '../hooks/usePlatformAdmin'
 import { useNotificationsTempsReel } from '../hooks/useNotificationsTempsReel'
+import { useSynchroEtablissement } from '../hooks/useSynchroEtablissement'
 import type { Database } from '../types/database.types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -62,6 +63,9 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     marquerLue: marquerNotificationLue,
     dernierEvenement: derniereNotification,
   } = useNotificationsTempsReel(profile?.id)
+  /* Synchronisation instantanée des espaces (agendas admin / professeur / étudiant...) : un seul
+     canal par session, voir src/lib/synchro.ts. */
+  useSynchroEtablissement(profile?.etablissement_id)
 
   const value: ProfileContextValue = {
     session,

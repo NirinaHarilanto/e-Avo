@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../types/database.types'
+import { fetchAvecSynchro } from './synchro'
 
 const url = import.meta.env.VITE_SUPABASE_URL
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -11,4 +12,5 @@ if (!url || !anonKey) {
   )
 }
 
-export const supabase = createClient<Database>(url, anonKey)
+// fetchAvecSynchro : toute écriture réussie prévient les autres espaces ouverts (voir synchro.ts).
+export const supabase = createClient<Database>(url, anonKey, { global: { fetch: fetchAvecSynchro } })

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { surSynchro } from '../lib/synchro'
 
 /* Cache mémoire partagé par tous les hooks de données de l'app, à la durée de vie de l'onglet
    (jamais persisté, jamais partagé entre onglets — vidé à l'actualisation du navigateur).
@@ -125,6 +126,16 @@ export function useCacheRequete<T>(
   }, [executer])
 
   useSondagePeriodique(executer, options?.intervalleSondageMs)
+
+  /* Signal « un autre espace vient de modifier des données » (synchro.ts) : toute requête
+     montée — donc seulement celles de la page affichée — se relance en silence, la donnée
+     actuelle reste à l'écran le temps de la réponse. C'est ce qui garde l'agenda de l'admin, du
+     professeur et de l'étudiant alignés sans rechargement manuel. */
+  const executerRef = useRef(executer)
+  useEffect(() => {
+    executerRef.current = executer
+  })
+  useEffect(() => surSynchro(() => executerRef.current()), [])
 
   return { valeur, loading, erreur, recharger: executer }
 }

@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import type { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
+import { signalerSynchro } from './synchro.js'
 
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
@@ -27,6 +28,8 @@ export async function creerNotification(
     message: params.message ?? null,
     lien: params.lien ?? null,
   })
+  // Tout événement métier notifié prévient aussi les espaces ouverts (agendas, listes...).
+  await signalerSynchro(params.etablissementId)
 }
 
 /**

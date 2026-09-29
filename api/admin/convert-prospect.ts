@@ -65,9 +65,15 @@ export default async function handler(request: Request): Promise<Response> {
     // autres informations de prospects (langue visée, objectif) n'ont pas d'équivalent sur
     // profiles — elles restent lisibles via `prospect_id`, déjà exploité par le dossier étudiant
     // pour retrouver le compte rendu de l'appel diagnostic.
+    /* `status: 'approved'` + `role: 'etudiant'` : même état qu'à l'invitation directe
+       (inviter-etudiant.ts). Manquait jusqu'au 2026-09-29 — tout étudiant converti restait
+       « En attente d'activation » : refusé par les routes exigeant un compte approuvé (dont
+       l'agenda étudiant, api/etudiant/mon-rendez-vous.ts, d'où « Sandra ne voit pas ses
+       rendez-vous »), et pris pour une invitation jamais activée — donc supprimable — par
+       l'auto-nettoyage de creerCompte.ts. */
     await serviceClient
       .from('profiles')
-      .update({ prospect_id: prospect.id, telephone: prospect.telephone })
+      .update({ prospect_id: prospect.id, telephone: prospect.telephone, role: 'etudiant', status: 'approved' })
       .eq('id', invited.user.id)
     await serviceClient.from('prospects').update({ statut: 'etudiant' }).eq('id', prospect.id)
 

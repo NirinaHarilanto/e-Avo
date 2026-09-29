@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { surSynchro } from '../lib/synchro'
 import type { Database } from '../types/database.types'
 
 type Notification = Database['public']['Tables']['notifications']['Row']
@@ -42,6 +43,32 @@ export function useNotificationsTempsReel(profileId: string | undefined) {
   useEffect(() => {
     charger()
   }, [charger])
+
+  /* Relais par le signal de synchronisation (src/lib/synchro.ts) : tant que la migration 0083
+     n'est pas appliquée, l'abonnement `postgres_changes` ci-dessous ne reçoit rien. Chaque
+     notification créée côté serveur émet aussi ce signal (api/_lib/synchro.ts) : on relit la
+     liste et, si une notification inconnue est apparue, elle devient `dernierEvenement` — la
+     couche 2 (useRafraichirSurNotification) fonctionne ainsi avec ou sans la migration. */
+  const connuesRef = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    connuesRef.current = new Set(notifications.map((n) => n.id))
+  }, [notifications])
+  useEffect(() => {
+    if (!profileId) return
+    return surSynchro(async () => {
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('destinataire_profile_id', profileId)
+        .order('created_at', { ascending: false })
+        .limit(LIMITE)
+      if (!data) return
+      const connues = connuesRef.current ?? new Set<string>()
+      const nouvelle = data.find((n) => !connues.has(n.id))
+      setNotifications(data)
+      if (nouvelle) setDernierEvenement(nouvelle)
+    })
+  }, [profileId])
 
   useEffect(() => {
     if (!profileId) return

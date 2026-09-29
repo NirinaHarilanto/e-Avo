@@ -47,10 +47,13 @@ export async function creerCompteSansEmail(
 
   const { data: existant } = await serviceClient
     .from('profiles')
-    .select('id, status')
+    .select('id, status, prospect_id')
     .eq('email', infos.email)
     .maybeSingle()
-  if (!existant || existant.status !== 'pending') {
+  /* `prospect_id` renseigné = étudiant issu d'une conversion, jamais une invitation abandonnée :
+     avant le correctif du 2026-09-29 (convert-prospect.ts), ces comptes restaient à tort en
+     'pending' — ne jamais les supprimer ici, même si l'un d'eux avait échappé à la régularisation. */
+  if (!existant || existant.status !== 'pending' || existant.prospect_id) {
     return essai
   }
 
