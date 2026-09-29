@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { CreerDevis } from '../facturation/CreerDevis'
 import { CreerFacture } from '../facturation/CreerFacture'
 import { DevisImprimable } from '../facturation/DevisImprimable'
+import type { ActionImpression } from '../facturation/OverlayImpression'
 import { FactureImprimable } from '../facturation/FactureImprimable'
 import type { StatutDevis, StatutFacture } from '../../types/database.types'
 import { EnTetePage } from '../ui/EnTetePage'
@@ -38,6 +39,7 @@ export function FacturationAdmin() {
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [devisAImprimer, setDevisAImprimer] = useState<DevisAvecEtudiant | null>(null)
   const [factureAImprimer, setFactureAImprimer] = useState<FactureAvecDestinataire | null>(null)
+  const [actionImpression, setActionImpression] = useState<ActionImpression>('voir')
 
   const { devis, loading: chargementDevis, erreur: erreurDevis, recharger: rechargerDevis } = useDevis()
   const { factures, loading: chargementFactures, erreur: erreurFactures, recharger: rechargerFactures } = useFactures()
@@ -174,7 +176,10 @@ export function FacturationAdmin() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {devis.map((d) => (
-              <LigneDevis key={d.devis.id} item={d} onImprimer={() => setDevisAImprimer(d)} onChange={rechargerDevis} accessToken={session?.access_token} />
+              <LigneDevis key={d.devis.id} item={d} onImprimer={(action) => {
+                  setActionImpression(action)
+                  setDevisAImprimer(d)
+                }} onChange={rechargerDevis} accessToken={session?.access_token} />
             ))}
           </div>
         )
@@ -195,7 +200,10 @@ export function FacturationAdmin() {
               key={f.facture.id}
               item={f}
               paiementsEtudiant={paiements.filter((p) => p.paiement.student_id === f.facture.student_id)}
-              onImprimer={() => setFactureAImprimer(f)}
+              onImprimer={(action) => {
+                setActionImpression(action)
+                setFactureAImprimer(f)
+              }}
               onChange={rechargerFactures}
               accessToken={session?.access_token}
             />
@@ -203,9 +211,28 @@ export function FacturationAdmin() {
         </div>
       )}
 
-      {devisAImprimer && <DevisImprimable devis={devisAImprimer.devis} etudiant={devisAImprimer.etudiant} onFermer={() => setDevisAImprimer(null)} />}
-      {factureAImprimer && <FactureImprimable facture={factureAImprimer.facture} destinataire={factureAImprimer.destinataire} onFermer={() => setFactureAImprimer(null)} />}
+      {devisAImprimer && <DevisImprimable devis={devisAImprimer.devis} etudiant={devisAImprimer.etudiant} action={actionImpression} onFermer={() => setDevisAImprimer(null)} />}
+      {factureAImprimer && <FactureImprimable facture={factureAImprimer.facture} destinataire={factureAImprimer.destinataire} action={actionImpression} onFermer={() => setFactureAImprimer(null)} />}
     </AdminLayout>
+  )
+}
+
+const styleActionDocument = { fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' } as const
+
+/* Voir, imprimer ou télécharger en PDF — les trois ouvrent la même vue imprimable. */
+function ActionsDocument({ onAction }: { onAction: (action: ActionImpression) => void }) {
+  return (
+    <>
+      <button onClick={() => onAction('voir')} style={styleActionDocument}>
+        Voir
+      </button>
+      <button onClick={() => onAction('imprimer')} style={styleActionDocument}>
+        Imprimer
+      </button>
+      <button onClick={() => onAction('telecharger')} style={styleActionDocument}>
+        Télécharger
+      </button>
+    </>
   )
 }
 
@@ -216,7 +243,7 @@ function LigneDevis({
   accessToken,
 }: {
   item: DevisAvecEtudiant
-  onImprimer: () => void
+  onImprimer: (action: ActionImpression) => void
   onChange: () => void
   accessToken: string | undefined
 }) {
@@ -274,9 +301,7 @@ function LigneDevis({
           </option>
         ))}
       </select>
-      <button onClick={onImprimer} style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
-        Imprimer
-      </button>
+      <ActionsDocument onAction={onImprimer} />
       <button onClick={supprimer} disabled={enCours} style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
         Supprimer
       </button>
@@ -294,7 +319,7 @@ function LigneFacture({
 }: {
   item: FactureAvecDestinataire
   paiementsEtudiant: ReturnType<typeof usePaiementsEtudiants>['paiements']
-  onImprimer: () => void
+  onImprimer: (action: ActionImpression) => void
   onChange: () => void
   accessToken: string | undefined
 }) {
@@ -416,9 +441,7 @@ function LigneFacture({
       >
         {envoyee ? 'Envoyée ✓' : 'Envoyer'}
       </button>
-      <button onClick={onImprimer} style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
-        Imprimer
-      </button>
+      <ActionsDocument onAction={onImprimer} />
       <button onClick={supprimer} disabled={enCours} style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
         Supprimer
       </button>

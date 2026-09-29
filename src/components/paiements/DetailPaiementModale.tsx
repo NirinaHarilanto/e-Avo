@@ -6,6 +6,8 @@ import { useEtablissement } from '../../hooks/useEtablissement'
 import { formaterHeures } from '../../lib/heures'
 import { nomAvecDuo } from '../../lib/duo'
 import { EcheancierPaiement } from './EcheancierPaiement'
+import { FactureImprimable, estRecu } from '../facturation/FactureImprimable'
+import type { ActionImpression } from '../facturation/OverlayImpression'
 import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 import type { Database } from '../../types/database.types'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
@@ -89,7 +91,10 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
   )
   const [versements, setVersements] = useState<Versement[] | null>(null)
   const [heures, setHeures] = useState<HeureEnseignee[]>([])
-  const [facture, setFacture] = useState<Invoice | null>(null)
+  const [documents, setDocuments] = useState<Invoice[]>([])
+  const [documentOuvert, setDocumentOuvert] = useState<{ facture: Invoice; action: ActionImpression } | null>(null)
+  const facture = documents.find((d) => !estRecu(d)) ?? null
+  const recus = documents.filter(estRecu)
   const [erreur, setErreur] = useState<string | null>(null)
   const [enCours, setEnCours] = useState(false)
 
@@ -123,10 +128,10 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
         .from('invoices')
         .select('*')
         .eq(estProfesseur ? 'teacher_payment_id' : 'payment_id', paiement.id)
-        .limit(1),
+        .order('created_at'),
     ])
     setVersements(lignes ?? [])
-    setFacture(factures?.[0] ?? null)
+    setDocuments(factures ?? [])
 
     if (estProfesseur) {
       const { data: ecritures } = await supabase
@@ -248,14 +253,14 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
     onFermer()
   }
 
-  async function genererFacture() {
+  async function genererFacture(type: 'facture' | 'recu' = 'facture') {
     if (!session || !paiement) return
     setEnCours(true)
     setErreur(null)
     const reponse = await fetch('/api/admin/generer-facture', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ table: estProfesseur ? 'teacher_payments' : 'student_payments', id: paiement.id }),
+      body: JSON.stringify({ table: estProfesseur ? 'teacher_payments' : 'student_payments', id: paiement.id, type }),
     })
       .then((r) => r.json())
       .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
@@ -382,17 +387,103 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
                 />
               )}
 
+              <BlocDocuments
+                facture={facture}
+                recus={recus}
+                estProfesseur={estProfesseur}
+                enCours={enCours}
+                recuPossible={
+                  !estProfesseur &&
+                  !!(paiement as StudentPayment).student_id &&
+                  Number(paiement.montant_regle) > recus.reduce((t, r) => t + Number(r.montant_ttc), 0)
+                }
+                onGenerer={genererFacture}
+                onOuvrir={(doc, action) => setDocumentOuvert({ facture: doc, action })}
+              />
+
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
-                <button onClick={genererFacture} disabled={enCours || !!facture} style={boutonSecondaireStyle}>
-                  {facture ? `Facture ${facture.numero} générée` : estProfesseur ? 'Générer la facture de rémunération' : 'Générer une facture'}
-                </button>
                 <SuppressionPaiement enCours={enCours} onSupprimer={supprimerPaiement} />
               </div>
             </>
           )
         )}
       </div>
+      {documentOuvert && (
+        <FactureImprimable
+          facture={documentOuvert.facture}
+          destinataire={cible.type === 'prospect' ? null : cible.personne}
+          action={documentOuvert.action}
+          onFermer={() => setDocumentOuvert(null)}
+        />
+      )}
     </Modale>
+  )
+}
+
+/* Facture et reçus du paiement, chacun avec ses trois actions (demande client du 2026-09-29 :
+   « activer tous les boutons liés aux factures : imprimer, télécharger, voir, générer une
+   facture ou un reçu »). */
+function BlocDocuments({
+  facture,
+  recus,
+  estProfesseur,
+  enCours,
+  recuPossible,
+  onGenerer,
+  onOuvrir,
+}: {
+  facture: Invoice | null
+  recus: Invoice[]
+  estProfesseur: boolean
+  enCours: boolean
+  recuPossible: boolean
+  onGenerer: (type: 'facture' | 'recu') => void
+  onOuvrir: (document: Invoice, action: ActionImpression) => void
+}) {
+  const petit = { ...boutonSecondaireStyle, fontSize: 11.5, padding: '5px 11px' }
+  const ligneDocument = (doc: Invoice) => (
+    <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,.03)' }}>
+      <span style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 700, flexGrow: 1, minWidth: 0 }}>
+        {estRecu(doc) ? 'Reçu' : 'Facture'} {doc.numero}
+        <span style={{ fontWeight: 400, color: 'var(--muted)' }}> · {formaterMontant(doc.montant_ttc)}</span>
+      </span>
+      <button onClick={() => onOuvrir(doc, 'voir')} style={petit}>
+        Voir
+      </button>
+      <button onClick={() => onOuvrir(doc, 'imprimer')} style={petit}>
+        Imprimer
+      </button>
+      <button onClick={() => onOuvrir(doc, 'telecharger')} style={petit}>
+        Télécharger
+      </button>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
+      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        {estProfesseur ? 'Facture' : 'Facture et reçus'}
+      </span>
+      {facture && ligneDocument(facture)}
+      {recus.map(ligneDocument)}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        {!facture && (
+          <button onClick={() => onGenerer('facture')} disabled={enCours} style={boutonSecondaireStyle}>
+            {estProfesseur ? 'Générer la facture de rémunération' : 'Générer une facture'}
+          </button>
+        )}
+        {!estProfesseur && (
+          <button onClick={() => onGenerer('recu')} disabled={enCours || !recuPossible} style={{ ...boutonSecondaireStyle, opacity: recuPossible ? 1 : 0.55 }}>
+            Générer un reçu
+          </button>
+        )}
+      </div>
+      {!estProfesseur && !recuPossible && (
+        <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
+          Un reçu couvre ce qui a été encaissé depuis le dernier reçu : enregistrez d’abord un paiement.
+        </span>
+      )}
+    </div>
   )
 }
 

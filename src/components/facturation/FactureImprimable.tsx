@@ -1,6 +1,6 @@
 import { useEtablissement } from '../../hooks/useEtablissement'
 import type { Database } from '../../types/database.types'
-import { OverlayImpression } from './OverlayImpression'
+import { OverlayImpression, type ActionImpression } from './OverlayImpression'
 import { TableauLignesImprimable } from './TableauLignesImprimable'
 
 type Invoice = Database['public']['Tables']['invoices']['Row']
@@ -10,20 +10,28 @@ interface FactureImprimableProps {
   facture: Invoice
   destinataire: Profile | null
   onFermer: () => void
+  action?: ActionImpression
 }
 
-export function FactureImprimable({ facture, destinataire, onFermer }: FactureImprimableProps) {
+/* Un reçu (numéro REC-…, 0030/0080) partage la table `invoices` avec les factures : seul son
+   intitulé change à l'écran. */
+export function estRecu(facture: Pick<Invoice, 'numero'>): boolean {
+  return facture.numero.startsWith('REC-')
+}
+
+export function FactureImprimable({ facture, destinataire, onFermer, action }: FactureImprimableProps) {
   const etablissement = useEtablissement(facture.etablissement_id)
+  const intitule = estRecu(facture) ? 'Reçu' : 'Facture'
 
   return (
-    <OverlayImpression onFermer={onFermer}>
+    <OverlayImpression onFermer={onFermer} nomFichier={`${intitule} ${facture.numero}`} actionInitiale={action}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 style={{ fontSize: 20, margin: 0 }}>{etablissement?.nom ?? "Établissement"}</h1>
           <p style={{ fontSize: 12, color: '#555', margin: '4px 0 0' }}>{etablissement?.specialite}</p>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <h2 style={{ fontSize: 18, margin: 0 }}>Facture {facture.numero}</h2>
+          <h2 style={{ fontSize: 18, margin: 0 }}>{intitule} {facture.numero}</h2>
           <p style={{ fontSize: 12, color: '#555', margin: '4px 0 0' }}>Émise le {new Date(facture.date_emission).toLocaleDateString('fr-FR')}</p>
           {facture.date_echeance && <p style={{ fontSize: 12, color: '#555', margin: 0 }}>Échéance le {new Date(facture.date_echeance).toLocaleDateString('fr-FR')}</p>}
         </div>

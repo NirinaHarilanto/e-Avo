@@ -111,7 +111,7 @@ export function ContratImprimable({ contrat, destinataire, destinataireSecondair
     .join(' & ')
 
   return (
-    <OverlayImpression onFermer={onFermer}>
+    <OverlayImpression onFermer={onFermer} nomFichier={contrat.titre}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 20, margin: 0 }}>{etablissement?.nom ?? "Établissement"}</h1>

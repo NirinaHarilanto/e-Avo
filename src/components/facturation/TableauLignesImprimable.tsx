@@ -7,7 +7,20 @@ interface TableauLignesImprimableProps {
   montant_ttc: number
 }
 
-export function TableauLignesImprimable({ lignes, montant_ht, montant_tva, montant_ttc }: TableauLignesImprimableProps) {
+/* Les reçus automatiques émis avant 0080 enregistraient `libelle`/`prix_unitaire` au lieu de
+   `description`/`prix_unitaire_ht` : sans ce repli, « Voir » plantait sur `undefined.toFixed`. */
+function normaliser(ligne: LigneFacturation): LigneFacturation {
+  const brute = ligne as LigneFacturation & { libelle?: string; prix_unitaire?: number }
+  return {
+    description: brute.description ?? brute.libelle ?? '',
+    quantite: Number(brute.quantite ?? 1),
+    prix_unitaire_ht: Number(brute.prix_unitaire_ht ?? brute.prix_unitaire ?? 0),
+    tva_pct: Number(brute.tva_pct ?? 0),
+  }
+}
+
+export function TableauLignesImprimable({ lignes: lignesBrutes, montant_ht, montant_tva, montant_ttc }: TableauLignesImprimableProps) {
+  const lignes = (lignesBrutes ?? []).map(normaliser)
   return (
     <>
       <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 24 }}>
@@ -33,9 +46,9 @@ export function TableauLignesImprimable({ lignes, montant_ht, montant_tva, monta
         </tbody>
       </table>
       <div style={{ marginTop: 16, textAlign: 'right', fontSize: 14 }}>
-        <div>Total HT : {montant_ht.toFixed(2)} Ar</div>
-        <div>Total TVA : {montant_tva.toFixed(2)} Ar</div>
-        <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>Total TTC : {montant_ttc.toFixed(2)} Ar</div>
+        <div>Total HT : {Number(montant_ht).toFixed(2)} Ar</div>
+        <div>Total TVA : {Number(montant_tva).toFixed(2)} Ar</div>
+        <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>Total TTC : {Number(montant_ttc).toFixed(2)} Ar</div>
       </div>
     </>
   )

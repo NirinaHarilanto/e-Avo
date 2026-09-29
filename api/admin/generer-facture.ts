@@ -6,6 +6,8 @@ export const config = { runtime: 'edge' }
 interface Corps {
   table?: 'student_payments' | 'teacher_payments'
   id?: string
+  /* 'recu' (élève seulement) : reçu de ce qui a été encaissé depuis le dernier reçu (0080). */
+  type?: 'facture' | 'recu'
 }
 
 /**
@@ -45,6 +47,13 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Ce paiement a été supprimé.' }, { status: 400 })
     }
 
+    if (corps.type === 'recu') {
+      if (estProfesseur) {
+        return Response.json({ error: 'Les reçus concernent les paiements des élèves.' }, { status: 400 })
+      }
+      return genererRecu(serviceClient, { paiement: paiement as StudentPayment, profileId, etablissementId })
+    }
+
     const destinataireId = estProfesseur
       ? (paiement as { teacher_id: string }).teacher_id
       : (paiement as { student_id: string }).student_id
@@ -53,6 +62,8 @@ export default async function handler(request: Request): Promise<Response> {
       .from('invoices')
       .select('id, numero')
       .eq(estProfesseur ? 'teacher_payment_id' : 'payment_id', paiement.id)
+      .not('numero', 'like', 'REC-%')
+      .limit(1)
       .maybeSingle()
     if (existante) {
       return Response.json({ factureId: existante.id, numero: existante.numero, deja: true })
@@ -127,11 +138,88 @@ export default async function handler(request: Request): Promise<Response> {
   }
 }
 
+type ServiceClient = Awaited<ReturnType<typeof requireAdmin>>['serviceClient']
+type StudentPayment = {
+  id: string
+  etablissement_id: string
+  student_id: string | null
+  package_id: string | null
+  montant: number
+  montant_regle: number
+  date_paiement: string | null
+}
+
+/* Reçu d'un paiement élève : couvre l'encaissé non encore couvert par un reçu précédent, pour
+   que le cumul des reçus égale toujours ce que l'élève a versé. */
+async function genererRecu(
+  serviceClient: ServiceClient,
+  { paiement, profileId, etablissementId }: { paiement: StudentPayment; profileId: string; etablissementId: string },
+): Promise<Response> {
+  if (!paiement.student_id) {
+    return Response.json({ error: 'Le reçu sera disponible une fois le prospect converti en étudiant.' }, { status: 400 })
+  }
+  const { data: recus } = await serviceClient
+    .from('invoices')
+    .select('id, numero, montant_ttc')
+    .eq('payment_id', paiement.id)
+    .like('numero', 'REC-%')
+  const couvert = (recus ?? []).reduce((t, r) => t + Number(r.montant_ttc), 0)
+  const montant = Math.round((Number(paiement.montant_regle) - couvert) * 100) / 100
+  if (montant <= 0) {
+    return Response.json(
+      { error: Number(paiement.montant_regle) > 0 ? 'Tout ce qui a été encaissé est déjà couvert par un reçu.' : 'Aucun encaissement à couvrir : enregistrez d’abord un paiement.' },
+      { status: 400 },
+    )
+  }
+
+  let objet = 'Reçu de paiement'
+  if (paiement.package_id) {
+    const { data: forfait } = await serviceClient.from('packages').select('type_programme, total_heures').eq('id', paiement.package_id).maybeSingle()
+    if (forfait) objet = `Reçu — forfait ${forfait.type_programme} (${forfait.total_heures} h)`
+  }
+  const solde = Number(paiement.montant_regle) >= Number(paiement.montant)
+  objet += solde ? (couvert > 0 ? ' — solde' : '') : ' — acompte'
+
+  const { data: numero } = await serviceClient.rpc('numero_prochain_recu', { p_payment_id: paiement.id })
+  const { data: recu, error } = await serviceClient
+    .from('invoices')
+    .insert({
+      etablissement_id: etablissementId,
+      student_id: paiement.student_id,
+      payment_id: paiement.id,
+      numero: (numero as string | null) ?? `REC-${new Date().getFullYear()}-${paiement.id.slice(0, 8)}-${(recus ?? []).length + 1}`,
+      statut: 'payee',
+      objet,
+      lignes: [{ description: objet, quantite: 1, prix_unitaire_ht: montant, tva_pct: 0 }],
+      montant_ht: montant,
+      montant_tva: 0,
+      montant_ttc: montant,
+      date_paiement: paiement.date_paiement ?? new Date().toISOString().slice(0, 10),
+      created_by_profile_id: profileId,
+    })
+    .select('id, numero')
+    .single()
+  if (error || !recu) {
+    return Response.json({ error: error?.message ?? 'Le reçu n’a pas pu être créé.' }, { status: 500 })
+  }
+
+  await creerNotification(serviceClient, {
+    etablissementId,
+    destinataireProfileId: paiement.student_id,
+    type: 'recu_paiement',
+    titre: `Nouveau reçu · ${recu.numero}`,
+    message: objet,
+    lien: '/mon-espace/paiements',
+  })
+
+  return Response.json({ factureId: recu.id, numero: recu.numero })
+}
+
 /* Numérotation FAC-<année>-<rang>, continue sur l'année civile. Le rang se déduit des factures
    déjà émises cette année plutôt que d'un compteur séparé : une séquence en base resterait
    désynchronisée des reçus créés par le trigger 0030, qui ne passent pas par ici. */
 async function numeroFacture(
-  serviceClient: Awaited<ReturnType<typeof requireAdmin>>['serviceClient'],
+  serviceClient: ServiceClient,
   etablissementId: string,
 ): Promise<string> {
   const annee = new Date().getFullYear()

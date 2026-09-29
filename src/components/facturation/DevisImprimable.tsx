@@ -1,6 +1,6 @@
 import { useEtablissement } from '../../hooks/useEtablissement'
 import type { Database } from '../../types/database.types'
-import { OverlayImpression } from './OverlayImpression'
+import { OverlayImpression, type ActionImpression } from './OverlayImpression'
 import { TableauLignesImprimable } from './TableauLignesImprimable'
 
 type Quote = Database['public']['Tables']['quotes']['Row']
@@ -10,13 +10,14 @@ interface DevisImprimableProps {
   devis: Quote
   etudiant: Profile | null
   onFermer: () => void
+  action?: ActionImpression
 }
 
-export function DevisImprimable({ devis, etudiant, onFermer }: DevisImprimableProps) {
+export function DevisImprimable({ devis, etudiant, onFermer, action }: DevisImprimableProps) {
   const etablissement = useEtablissement(devis.etablissement_id)
 
   return (
-    <OverlayImpression onFermer={onFermer}>
+    <OverlayImpression onFermer={onFermer} nomFichier={`Devis ${devis.numero}`} actionInitiale={action}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 style={{ fontSize: 20, margin: 0 }}>{etablissement?.nom ?? "Établissement"}</h1>

@@ -19,8 +19,7 @@ export function PaiementsEtudiant() {
             attente.
           </>,
           <>
-            Le bouton <strong>Voir / Imprimer</strong> ouvre le document complet. Depuis cette vue, la fonction
-            d’impression de votre navigateur permet aussi de l’enregistrer en PDF.
+            Chaque document se <strong>voit</strong>, s’<strong>imprime</strong> ou se <strong>télécharge</strong> en PDF d’un clic.
           </>,
           <>
             Les règlements se font directement auprès de votre établissement, selon les modalités convenues avec lui.{' '}

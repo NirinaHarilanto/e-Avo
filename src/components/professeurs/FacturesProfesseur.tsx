@@ -18,8 +18,7 @@ export function FacturesProfesseur() {
             Une facture apparaît ici dès que l’établissement enregistre le versement d’une de vos rémunérations.
           </>,
           <>
-            Le bouton <strong>Voir / Imprimer</strong> ouvre le document complet. Depuis cette vue, la fonction
-            d’impression de votre navigateur permet aussi de l’enregistrer en PDF.
+            Chaque document se <strong>voit</strong>, s’<strong>imprime</strong> ou se <strong>télécharge</strong> en PDF d’un clic.
           </>,
           <>
             Le montant dépend de votre <strong>taux horaire</strong> et de vos heures enseignées. Si un chiffre vous

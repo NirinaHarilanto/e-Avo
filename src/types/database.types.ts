@@ -1415,6 +1415,10 @@ export interface Database {
         Args: Record<string, never>
         Returns: boolean
       }
+      numero_prochain_recu: {
+        Args: { p_payment_id: string }
+        Returns: string
+      }
     }
   }
 }

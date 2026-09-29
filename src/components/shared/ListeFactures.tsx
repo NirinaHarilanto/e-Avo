@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
-import { FactureImprimable } from '../facturation/FactureImprimable'
+import { FactureImprimable, estRecu } from '../facturation/FactureImprimable'
+import type { ActionImpression } from '../facturation/OverlayImpression'
 import { BadgeStatutFacture } from './BadgeStatutFacture'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { EtatVide } from '../ui/EtatVide'
@@ -32,6 +33,7 @@ export function ListeFactures({ colonne, titreVide, descriptionVide }: ListeFact
   const [profilCible, setProfilCible] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [factureAImprimer, setFactureAImprimer] = useState<Invoice | null>(null)
+  const [action, setAction] = useState<ActionImpression>('voir')
 
   const charger = useCallback(async () => {
     if (!idCible) return
@@ -69,7 +71,7 @@ export function ListeFactures({ colonne, titreVide, descriptionVide }: ListeFact
           <div key={f.id} className="card card-lift" style={{ padding: '15px 18px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ flexGrow: 1, minWidth: 200 }}>
               <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
-                {f.numero}
+                {estRecu(f) ? 'Reçu' : 'Facture'} {f.numero}
               </span>
               <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                 {f.objet}
@@ -80,14 +82,23 @@ export function ListeFactures({ colonne, titreVide, descriptionVide }: ListeFact
               {f.montant_ttc.toFixed(2)} Ar
             </span>
             <BadgeStatutFacture statut={f.statut} />
-            <button onClick={() => setFactureAImprimer(f)} style={boutonSecondaireStyle}>
-              Voir / Imprimer
-            </button>
+            {(['voir', 'imprimer', 'telecharger'] as const).map((a) => (
+              <button
+                key={a}
+                onClick={() => {
+                  setAction(a)
+                  setFactureAImprimer(f)
+                }}
+                style={{ ...boutonSecondaireStyle, fontSize: 12, padding: '7px 13px' }}
+              >
+                {a === 'voir' ? 'Voir' : a === 'imprimer' ? 'Imprimer' : 'Télécharger'}
+              </button>
+            ))}
           </div>
         ))}
       </div>
 
-      {factureAImprimer && <FactureImprimable facture={factureAImprimer} destinataire={profilCible} onFermer={() => setFactureAImprimer(null)} />}
+      {factureAImprimer && <FactureImprimable facture={factureAImprimer} destinataire={profilCible} action={action} onFermer={() => setFactureAImprimer(null)} />}
     </div>
   )
 }
