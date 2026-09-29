@@ -59,6 +59,18 @@ export default async function handler(request: Request): Promise<Response> {
       ? (paiement as { teacher_id: string }).teacher_id
       : (paiement as { student_id: string }).student_id
 
+    /* Un paiement élève peut encore être rattaché à un simple PROSPECT (student_id vide,
+       prospect_id renseigné) tant que la conversion en étudiant n'a pas eu lieu — la ligne
+       elle-même est enregistrable dès la réservation (voir student_payments.prospect_id, 0056),
+       une facture non. Sans ce garde-fou, l'insertion plus bas partait avec student_id ET
+       teacher_id tous deux à null, ce que la contrainte `invoices_destinataire_unique` (0029,
+       exactement l'un des deux) rejette avec un message Postgres brut au lieu d'une erreur
+       compréhensible — bug signalé par le client le 2026-09-29. Même garde déjà en place pour le
+       reçu (genererRecu, plus bas), reprise ici pour la facture. */
+    if (!estProfesseur && !destinataireId) {
+      return Response.json({ error: 'La facture sera disponible une fois le prospect converti en étudiant.' }, { status: 400 })
+    }
+
     const { data: existante } = await serviceClient
       .from('invoices')
       .select('id, numero')

@@ -114,7 +114,9 @@ export const SECTIONS_DIAGNOSTIC: SectionDiagnostic[] = [
         cle: 'heures_par_semaine',
         libelle: 'Combien d’heures par semaine souhaitez-vous consacrer aux cours ?',
         type: 'choix',
-        options: ['1h', '2h', '3h', '4h', '5h'],
+        // '>5h' ajouté (demande client du 2026-09-29) pour les élèves très disponibles, plutôt
+        // que de les forcer à cocher '5h' faute de mieux.
+        options: ['1h', '2h', '3h', '4h', '5h', '>5h'],
         partageDuo: true,
       },
       {

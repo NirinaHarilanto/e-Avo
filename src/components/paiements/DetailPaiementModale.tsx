@@ -392,6 +392,14 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
                 recus={recus}
                 estProfesseur={estProfesseur}
                 enCours={enCours}
+                /* Une facture (comme un reçu) suppose un destinataire identifié : côté élève,
+                   `student_id` — vide tant qu'un prospect n'est pas converti (student_payments
+                   peut être créé dès la réservation, avant toute conversion, voir 0056). Sans
+                   ce garde-fou, cliquer « Générer une facture » pour un tel paiement renvoyait
+                   l'erreur brute de la contrainte `invoices_destinataire_unique` (signalé par le
+                   client le 2026-09-29) au lieu d'un bouton désactivé et expliqué, comme pour le
+                   reçu juste en dessous. */
+                facturePossible={estProfesseur || !!(paiement as StudentPayment).student_id}
                 recuPossible={
                   !estProfesseur &&
                   !!(paiement as StudentPayment).student_id &&
@@ -428,6 +436,7 @@ function BlocDocuments({
   recus,
   estProfesseur,
   enCours,
+  facturePossible,
   recuPossible,
   onGenerer,
   onOuvrir,
@@ -436,6 +445,7 @@ function BlocDocuments({
   recus: Invoice[]
   estProfesseur: boolean
   enCours: boolean
+  facturePossible: boolean
   recuPossible: boolean
   onGenerer: (type: 'facture' | 'recu') => void
   onOuvrir: (document: Invoice, action: ActionImpression) => void
@@ -468,7 +478,11 @@ function BlocDocuments({
       {recus.map(ligneDocument)}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {!facture && (
-          <button onClick={() => onGenerer('facture')} disabled={enCours} style={boutonSecondaireStyle}>
+          <button
+            onClick={() => onGenerer('facture')}
+            disabled={enCours || !facturePossible}
+            style={{ ...boutonSecondaireStyle, opacity: facturePossible ? 1 : 0.55 }}
+          >
             {estProfesseur ? 'Générer la facture de rémunération' : 'Générer une facture'}
           </button>
         )}
@@ -478,6 +492,11 @@ function BlocDocuments({
           </button>
         )}
       </div>
+      {!facture && !facturePossible && (
+        <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
+          La facture sera disponible une fois le prospect converti en étudiant.
+        </span>
+      )}
       {!estProfesseur && !recuPossible && (
         <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
           Un reçu couvre ce qui a été encaissé depuis le dernier reçu : enregistrez d’abord un paiement.
