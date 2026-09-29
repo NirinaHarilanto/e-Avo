@@ -38,7 +38,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: lignes } = await serviceClient
       .from('hour_ledger')
-      .select('id, heures, teacher_id, etablissement_id, type_ecriture, teacher_payment_id')
+      .select('id, heures, teacher_id, etablissement_id, type_ecriture, teacher_payment_id, timesheet_id')
       .in('id', body.hourLedgerIds)
 
     const lignesValides = (lignes ?? []).filter(
@@ -46,10 +46,11 @@ export default async function handler(request: Request): Promise<Response> {
         l.teacher_id === body.teacherId &&
         l.etablissement_id === etablissementId &&
         l.type_ecriture === 'credit_professeur' &&
-        l.teacher_payment_id === null,
+        l.teacher_payment_id === null &&
+        l.timesheet_id === null,
     )
     if (lignesValides.length !== body.hourLedgerIds.length) {
-      return Response.json({ error: 'Une ou plusieurs écritures sont invalides ou déjà payées.' }, { status: 400 })
+      return Response.json({ error: 'Une ou plusieurs écritures sont invalides, déjà payées ou déclarées sur un TimeSheet en attente.' }, { status: 400 })
     }
 
     const heures = lignesValides.reduce((total, l) => total + l.heures, 0)

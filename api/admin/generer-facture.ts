@@ -1,5 +1,6 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { creerNotification } from '../_lib/notifications.js'
+import { numeroSuivant } from '../_lib/numerotation.js'
 
 export const config = { runtime: 'edge' }
 
@@ -90,7 +91,7 @@ export default async function handler(request: Request): Promise<Response> {
             : 'Rémunération'
     }
 
-    const numero = await numeroFacture(serviceClient, etablissementId)
+    const numero = await numeroSuivant(serviceClient, 'invoices', 'FAC', etablissementId)
 
     const { data: facture, error } = await serviceClient
       .from('invoices')
@@ -213,26 +214,4 @@ async function genererRecu(
   })
 
   return Response.json({ factureId: recu.id, numero: recu.numero })
-}
-
-/* Numérotation FAC-<année>-<rang>, continue sur l'année civile. Le rang se déduit des factures
-   déjà émises cette année plutôt que d'un compteur séparé : une séquence en base resterait
-   désynchronisée des reçus créés par le trigger 0030, qui ne passent pas par ici. */
-async function numeroFacture(
-  serviceClient: ServiceClient,
-  etablissementId: string,
-): Promise<string> {
-  const annee = new Date().getFullYear()
-  const prefixe = `FAC-${annee}-`
-  const { data } = await serviceClient
-    .from('invoices')
-    .select('numero')
-    .eq('etablissement_id', etablissementId)
-    .like('numero', `${prefixe}%`)
-
-  const dernier = (data ?? []).reduce((max, ligne) => {
-    const rang = Number(ligne.numero.slice(prefixe.length))
-    return Number.isFinite(rang) && rang > max ? rang : max
-  }, 0)
-  return `${prefixe}${String(dernier + 1).padStart(4, '0')}`
 }

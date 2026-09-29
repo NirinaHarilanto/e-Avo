@@ -18,6 +18,8 @@ export function useHeuresNonPayeesProfesseur(teacherId: string | undefined) {
       .eq('teacher_id', teacherId as string)
       .eq('type_ecriture', 'credit_professeur')
       .is('teacher_payment_id', null)
+      // Heures déjà déclarées sur un TimeSheet en attente : payées par sa validation (0081).
+      .is('timesheet_id', null)
 
     const sessionIds = [...new Set((ecritures ?? []).map((e) => e.session_id))]
     const { data: sessions } = sessionIds.length

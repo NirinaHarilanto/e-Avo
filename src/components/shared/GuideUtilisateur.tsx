@@ -104,7 +104,7 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
       lien: '/professeur/heures',
       points: [
         <>Vos heures enseignées, élève par élève.</>,
-        <>L’onglet <strong>TimeSheet</strong> rassemble les heures clôturées et non encore payées sur une période : vérifiez-les, puis cliquez sur <strong>Envoyer pour validation</strong>.</>,
+        <>La section <strong>TimeSheet</strong> rassemble les heures clôturées et non encore payées sur une période : vérifiez-les, puis cliquez sur <strong>Envoyer pour validation</strong>.</>,
         <>L’administration reçoit votre TimeSheet sous forme de facture. Une fois validé, il devient votre facture de rémunération, visible dans « Mes factures ».</>,
       ],
     },

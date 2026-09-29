@@ -19,8 +19,10 @@ import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { boutonPrimaireStyle, boutonNeutreStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
+import { useTimesheets } from '../../hooks/useTimesheets'
+import { TimesheetsAdmin } from './TimesheetsAdmin'
 
-type Onglet = 'etudiants' | 'professeurs'
+type Onglet = 'etudiants' | 'professeurs' | 'timesheets'
 type FiltreStatut = StatutReglement | 'tous'
 
 /* Filtres (demande client du 2026-09-22) : statut de règlement, nom de la personne, et
@@ -64,6 +66,8 @@ export function PaiementsAdmin() {
 
   const paiementsEtudiants = usePaiementsEtudiants()
   const remunerationsProfs = useRemunerationsProfesseurs()
+  const timesheets = useTimesheets('admin')
+  const timesheetsAValider = timesheets.timesheets.filter((t) => t.timesheet.statut === 'soumis').length
 
   /* Un forfait souscrit sans ligne de paiement compte comme entièrement dû : c'est justement
      ce que la demande client veut rendre visible. */
@@ -79,6 +83,7 @@ export function PaiementsAdmin() {
   function rechargerTout() {
     paiementsEtudiants.recharger()
     remunerationsProfs.recharger()
+    timesheets.recharger()
   }
 
   return (
@@ -87,10 +92,12 @@ export function PaiementsAdmin() {
         titre="Paiements"
         description="Le suivi financier de l’établissement dans les deux sens : ce que les étudiants règlent, et ce que vous versez aux professeurs. La saisie est manuelle, aucun prélèvement n’est automatisé."
         actions={
-          <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
-            <Icone nom="plus" taille={15} />
-            {formulaireOuvert ? 'Fermer' : onglet === 'etudiants' ? 'Enregistrer un paiement' : 'Enregistrer une rémunération'}
-          </button>
+          onglet !== 'timesheets' ? (
+            <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
+              <Icone nom="plus" taille={15} />
+              {formulaireOuvert ? 'Fermer' : onglet === 'etudiants' ? 'Enregistrer un paiement' : 'Enregistrer une rémunération'}
+            </button>
+          ) : undefined
         }
       />
 
@@ -111,8 +118,17 @@ export function PaiementsAdmin() {
             payé partiellement, puis payé.
           </>,
           <>
-            Depuis ce même détail, <strong>générez la facture</strong> correspondante, ou supprimez la ligne en indiquant
-            un motif — la trace de la suppression est conservée.
+            Depuis ce même détail, <strong>générez la facture ou un reçu</strong>, voyez-les, imprimez-les ou
+            téléchargez-les en PDF, ou supprimez la ligne en indiquant un motif — la trace de la suppression est conservée.
+          </>,
+          <>
+            Le paiement en plusieurs fois (acomptes, échéancier) n’est possible que pour les <strong>forfaits de 40 heures et
+            plus</strong> ; en dessous, le forfait se règle en une seule fois.
+          </>,
+          <>
+            L’onglet <strong>TimeSheets</strong> reçoit les relevés d’heures envoyés par les professeurs. Ouvrez-en un pour
+            le voir sous forme de facture, puis validez-le (la rémunération et la facture sont créées) ou refusez-le avec un
+            motif.
           </>,
         ]}
       />
@@ -128,6 +144,7 @@ export function PaiementsAdmin() {
           onglets={[
             { value: 'etudiants', label: 'Étudiants', compteur: lignesEtudiants.length },
             { value: 'professeurs', label: 'Professeurs', compteur: lignesProfesseurs.length },
+            { value: 'timesheets', label: 'TimeSheets', compteur: timesheetsAValider },
           ]}
         />
       </div>
@@ -186,9 +203,13 @@ export function PaiementsAdmin() {
         />
       )}
 
-      <BarreFiltres filtres={filtres} onChange={setFiltres} placeholderNom={onglet === 'etudiants' ? 'Rechercher un étudiant…' : 'Rechercher un professeur…'} />
+      {onglet !== 'timesheets' && (
+        <BarreFiltres filtres={filtres} onChange={setFiltres} placeholderNom={onglet === 'etudiants' ? 'Rechercher un étudiant…' : 'Rechercher un professeur…'} />
+      )}
 
-      {onglet === 'etudiants' ? (
+      {onglet === 'timesheets' ? (
+        <TimesheetsAdmin timesheets={timesheets.timesheets} loading={timesheets.loading} erreur={timesheets.erreur} onChange={rechargerTout} />
+      ) : onglet === 'etudiants' ? (
         <ListePaiementsEtudiants
           paiements={paiementsEtudiants.paiements.filter((p) => correspond(p.etudiant ? nomAvecDuo(p.etudiant, p.duoPartenaire) : '', p.paiement.montant, p.paiement, filtres))}
           forfaitsAPayer={paiementsEtudiants.forfaitsAPayer.filter((f) =>

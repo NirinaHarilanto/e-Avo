@@ -33,6 +33,17 @@ export type NiveauClasse = 'beginner' | 'intermediate' | 'advanced'
 export type CreneauClasse = 'matin' | 'midi' | 'soir'
 export type StatutRendezVous = 'en_attente' | 'confirme' | 'refuse' | 'annule'
 
+export type StatutTimesheet = 'soumis' | 'valide' | 'refuse'
+
+/* Une séance déclarée sur un TimeSheet (0081), figée au moment de l'envoi. */
+export interface LigneTimesheet {
+  hour_ledger_id: string
+  session_id: string
+  debut: string | null
+  eleves: string
+  heures: number
+}
+
 export interface LigneFacturation {
   description: string
   quantite: number
@@ -609,6 +620,8 @@ export interface Database {
           type_ecriture: LedgerType
           heures: number
           teacher_payment_id: string | null
+          /* TimeSheet sur lequel ce crédit a été déclaré (0081). */
+          timesheet_id: string | null
           created_at: string
         }
         Insert: {
@@ -620,9 +633,56 @@ export interface Database {
           type_ecriture: LedgerType
           heures: number
           teacher_payment_id?: string | null
+          timesheet_id?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['hour_ledger']['Insert']>
+        Relationships: []
+      }
+      timesheets: {
+        Row: {
+          id: string
+          etablissement_id: string
+          teacher_id: string
+          numero: string
+          periode_debut: string
+          periode_fin: string
+          total_heures: number
+          taux_horaire: number | null
+          montant: number | null
+          lignes: LigneTimesheet[]
+          commentaire: string | null
+          statut: StatutTimesheet
+          motif_refus: string | null
+          soumis_le: string
+          traite_le: string | null
+          traite_par: string | null
+          teacher_payment_id: string | null
+          invoice_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          teacher_id: string
+          numero: string
+          periode_debut: string
+          periode_fin: string
+          total_heures: number
+          taux_horaire?: number | null
+          montant?: number | null
+          lignes?: LigneTimesheet[]
+          commentaire?: string | null
+          statut?: StatutTimesheet
+          motif_refus?: string | null
+          soumis_le?: string
+          traite_le?: string | null
+          traite_par?: string | null
+          teacher_payment_id?: string | null
+          invoice_id?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['timesheets']['Insert']>
         Relationships: []
       }
       google_integrations: {

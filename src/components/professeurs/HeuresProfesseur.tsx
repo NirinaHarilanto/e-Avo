@@ -10,6 +10,7 @@ import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, EtatChargementStats } from '../ui/Etats'
 import { formaterHeures } from '../../lib/heures'
 import { KpiSatisfaction } from './KpiSatisfaction'
+import { TimesheetProfesseur } from './TimesheetProfesseur'
 
 export function HeuresProfesseur() {
   const { profile } = useProfileContext()
@@ -39,7 +40,7 @@ export function HeuresProfesseur() {
     <ProfesseurLayout actif="Mes heures">
       <EnTetePage
         titre="Mes heures"
-        description="Le décompte de vos heures enseignées, élève par élève. C’est ce total qui sert de base au calcul de votre rémunération par l’établissement."
+        description="Le décompte de vos heures enseignées, et votre TimeSheet : les heures à faire valider par l’établissement pour votre rémunération."
       />
 
       <GuidePage
@@ -77,6 +78,8 @@ export function HeuresProfesseur() {
               aide={aCloturer > 0 ? 'Elles ne sont pas encore comptées dans votre total' : 'Vous êtes à jour'}
             />
           </GrilleStats>
+
+          <TimesheetProfesseur />
 
           <Section
             titre="Répartition par élève"
