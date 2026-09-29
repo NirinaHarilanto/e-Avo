@@ -100,9 +100,10 @@ export function LandingEtablissement() {
   /* Refonte visuelle du 2026-09-29 : l'accueil n'est plus une image qui dessinait sa propre barre
      de navigation, mais une page HTML (voir HeroPublic.tsx). L'en-tête ci-dessous s'affiche donc
      désormais sur TOUTES les vues, avec exactement les entrées qu'avait la barre dessinée : logo,
-     cinq liens, « Rejoignez-nous ! » et « Se connecter ». Le bouton « Réserver mon appel » reste
-     réservé aux vues secondaires, comme avant — sur l'accueil, « Commencer maintenant » en tient
-     lieu. Le pied de page légal reste, lui aussi, propre aux vues secondaires. */
+     cinq liens, « Devenir professeur chez HOC » et « Se connecter ». Le bouton « Réserver mon
+     appel » reste réservé aux vues secondaires, comme avant — sur l'accueil, « Commencer
+     maintenant » en tient lieu. Le pied de page légal reste, lui aussi, propre aux vues
+     secondaires. */
   const accueil = vue === 'accueil'
 
   return (
@@ -128,8 +129,10 @@ export function LandingEtablissement() {
         </nav>
 
         <div className="actions-publiques">
+          {/* Libellé explicite plutôt que « Rejoignez-nous ! » (demande client du 2026-09-29) :
+              la destination (candidature formateur) est la même, seul le texte change. */}
           <a href="/rejoignez-nous" className="lien-rejoindre">
-            Rejoignez-nous !
+            Devenir professeur chez HOC
           </a>
           <a href="/connexion" className="bouton-connexion">
             <span className="bouton-connexion-avatar" aria-hidden="true">
@@ -150,7 +153,11 @@ export function LandingEtablissement() {
 
       <main className="corps-unique">
         {vue === 'accueil' && (
-          <HeroPublic nomEtablissement={etablissement.nom} onReserver={() => ouvrirReservation()} />
+          <HeroPublic
+            nomEtablissement={etablissement.nom}
+            onReserver={() => ouvrirReservation()}
+            onNaviguer={(cible) => setVue(cible)}
+          />
         )}
         {vue === 'programmes' && <VueProgrammes accent={accent} onReserver={ouvrirReservation} />}
         {vue === 'tarifs' && <VueTarifs tarifs={tarifs} accent={accent} onReserver={ouvrirReservation} />}

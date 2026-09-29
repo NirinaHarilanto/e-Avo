@@ -12,7 +12,11 @@ import { Scene3DHero } from './Scene3DHero'
    (public/hero-illustration.webp).
 
    La barre de navigation n'est plus dessinée ici : c'est celle de LandingEtablissement.tsx,
-   commune à toutes les vues, qui s'affiche désormais aussi sur l'accueil. */
+   commune à toutes les vues, qui s'affiche désormais aussi sur l'accueil.
+
+   Les quatre cartes de bénéfices (demande client du 2026-09-29) renvoient chacune quelque part :
+   Cours interactifs → Cours, Professeurs natifs → Professeurs, Une communauté → À propos, Un
+   suivi personnalisé → la même fenêtre de réservation que « Commencer maintenant ». */
 
 const GARANTIES = ['100% en ligne', 'Professeurs certifiés', 'Accès 24/7']
 
@@ -24,14 +28,33 @@ const PILIERS: { libelle: string; icone: 'groupe' | 'mallette' | 'globe' }[] = [
 
 const COMPETENCES = ['Speaking', 'Listening', 'Reading', 'Writing']
 
-const BENEFICES: { titre: string; texte: string; icone: 'bulle' | 'groupe' | 'cible' | 'etoile' }[] = [
-  { titre: 'Cours interactifs', texte: 'et pratiques', icone: 'bulle' },
-  { titre: 'Professeurs natifs', texte: 'et expérimentés', icone: 'groupe' },
-  { titre: 'Un suivi personnalisé', texte: 'pour progresser vite', icone: 'cible' },
-  { titre: 'Une communauté', texte: 'motivée et bienveillante', icone: 'etoile' },
+/* Vue secondaire vers laquelle une carte de bénéfice renvoie, ou réservation (même fenêtre que
+   « Commencer maintenant ») — demande client du 2026-09-29 : chaque carte doit mener quelque
+   part plutôt que de rester décorative. */
+type VueCible = 'programmes' | 'professeurs' | 'avis'
+type ActionBenefice = { type: 'vue'; vue: VueCible } | { type: 'reserver' }
+
+const BENEFICES: { titre: string; texte: string; icone: 'bulle' | 'groupe' | 'cible' | 'etoile'; action: ActionBenefice }[] = [
+  { titre: 'Cours interactifs', texte: 'et pratiques', icone: 'bulle', action: { type: 'vue', vue: 'programmes' } },
+  { titre: 'Professeurs natifs', texte: 'et expérimentés', icone: 'groupe', action: { type: 'vue', vue: 'professeurs' } },
+  { titre: 'Un suivi personnalisé', texte: 'pour progresser vite', icone: 'cible', action: { type: 'reserver' } },
+  { titre: 'Une communauté', texte: 'motivée et bienveillante', icone: 'etoile', action: { type: 'vue', vue: 'avis' } },
 ]
 
-export function HeroPublic({ nomEtablissement, onReserver }: { nomEtablissement: string; onReserver: () => void }) {
+export function HeroPublic({
+  nomEtablissement,
+  onReserver,
+  onNaviguer,
+}: {
+  nomEtablissement: string
+  onReserver: () => void
+  onNaviguer: (vue: VueCible) => void
+}) {
+  function activerBenefice(action: ActionBenefice) {
+    if (action.type === 'reserver') onReserver()
+    else onNaviguer(action.vue)
+  }
+
   const visuelRef = useRef<HTMLDivElement>(null)
 
   /* Inclinaison 3D du cadre sous la souris : écrite directement en variables CSS, sans passer par
@@ -134,9 +157,11 @@ export function HeroPublic({ nomEtablissement, onReserver }: { nomEtablissement:
         </div>
       </div>
 
-      <ul className="hero-benefices">
+      {/* Chaque carte est un vrai bouton de navigation (demande client du 2026-09-29), pas une
+          simple liste décorative : d'où <div>/<button> plutôt que <ul>/<li>. */}
+      <div className="hero-benefices">
         {BENEFICES.map((benefice) => (
-          <li key={benefice.titre}>
+          <button key={benefice.titre} type="button" className="hero-benefice" onClick={() => activerBenefice(benefice.action)}>
             <span className="hero-benefice-icone">
               <Icone nom={benefice.icone} />
             </span>
@@ -144,9 +169,9 @@ export function HeroPublic({ nomEtablissement, onReserver }: { nomEtablissement:
               <strong>{benefice.titre}</strong>
               <small>{benefice.texte}</small>
             </span>
-          </li>
+          </button>
         ))}
-      </ul>
+      </div>
     </div>
   )
 }

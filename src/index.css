@@ -1125,7 +1125,7 @@ body.sans-defilement {
   background: var(--hoc-violet);
 }
 .hero-accroche .mention-manuscrite {
-  font-size: clamp(22px, min(2.2cqw, 4.2cqh), 32px);
+  font-size: clamp(20px, min(2cqw, 3.8cqh), 28px);
   color: var(--hoc-violet-fonce);
 }
 
@@ -1133,8 +1133,8 @@ body.sans-defilement {
   margin: 0;
   font-family: 'Poppins', 'Inter', sans-serif;
   font-weight: 800;
-  font-size: clamp(34px, min(4.6cqw, 8.6cqh), 72px);
-  line-height: 1.04;
+  font-size: clamp(32px, min(4.1cqw, 7.6cqh), 62px);
+  line-height: 1.05;
   letter-spacing: -1.5px;
   color: var(--hoc-encre);
 }
@@ -1148,9 +1148,9 @@ body.sans-defilement {
 
 .hero-intro {
   margin: 0;
-  max-width: 520px;
-  font-size: clamp(14px, min(1.25cqw, 2.3cqh), 17px);
-  line-height: 1.65;
+  max-width: 500px;
+  font-size: clamp(13px, min(1.1cqw, 2.1cqh), 15.5px);
+  line-height: 1.6;
   color: var(--hoc-texte);
 }
 
@@ -1159,12 +1159,12 @@ body.sans-defilement {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  padding: clamp(12px, 2cqh, 16px) 26px;
+  padding: clamp(11px, 1.8cqh, 14px) 22px;
   border: none;
   border-radius: 10px;
   cursor: pointer;
   font-family: 'Poppins', 'Inter', sans-serif;
-  font-size: clamp(14px, min(1.2cqw, 2.2cqh), 16px);
+  font-size: clamp(13px, min(1.1cqw, 2cqh), 15px);
   font-weight: 700;
   color: #fff;
   background: linear-gradient(135deg, var(--hoc-violet-clair) 0%, var(--hoc-violet) 50%, var(--hoc-violet-fonce) 100%);
@@ -1200,14 +1200,14 @@ body.sans-defilement {
 .hero-garanties li {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-size: 13px;
+  gap: 6px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--hoc-encre);
 }
 .hero-garanties .icone-hero {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   padding: 4px;
   border-radius: 50%;
   color: #fff;
@@ -1298,16 +1298,24 @@ body.sans-defilement {
   font-family: 'Poppins', 'Inter', sans-serif;
 }
 
+/* Carte « Progression » : ses pièces intérieures (icône, textes, flèche) sont dimensionnées en
+   unités de conteneur (cqw), PAS en pixels fixes. La carte elle-même est une part fixe (%) de
+   `.hero-cadre-3d`, qui rétrécit avec l'écran (voir sa formule `min(74cqw, 72cqh * 1.235)`) — des
+   pièces intérieures en pixels fixes ne rétrécissaient pas avec elle, si bien qu'à certaines
+   largeurs (~1024 px) « Level B1 » débordait de son espace et se retrouvait recouvert par la
+   flèche ronde à sa droite (signalé par le client le 2026-09-29). En cqw, tout rétrécit à la même
+   vitesse que la carte : le rapport texte / espace disponible reste constant, donc plus jamais de
+   recouvrement, à n'importe quelle taille d'écran. */
 .hero-progression {
   right: -9%;
   top: 19.5%;
-  width: 36%;
+  width: 39%;
   /* Recouvre entièrement la carte « Progression » dessinée dans l'illustration. */
   min-height: 19.5%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 12px 12px 14px;
+  gap: clamp(5px, 1.5cqw, 10px);
+  padding: clamp(7px, 1.7cqw, 12px) clamp(7px, 1.7cqw, 12px) clamp(7px, 1.7cqw, 12px) clamp(9px, 2cqw, 14px);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 20px 44px rgba(38, 20, 90, 0.22);
@@ -1316,24 +1324,24 @@ body.sans-defilement {
 }
 .hero-progression-icone {
   flex: 0 0 auto;
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+  width: clamp(20px, 5.4cqw, 34px);
+  height: clamp(20px, 5.4cqw, 34px);
+  border-radius: 10px;
   display: inline-flex;
   align-items: flex-end;
   justify-content: center;
   gap: 3px;
-  padding-bottom: 10px;
+  padding-bottom: clamp(4px, 1.3cqw, 9px);
   background: #eaf8ee;
 }
 .hero-progression-icone i {
-  width: 5px;
+  width: 4px;
   border-radius: 2px;
   background: #2fbf71;
 }
-.hero-progression-icone i:nth-child(1) { height: 7px; }
-.hero-progression-icone i:nth-child(2) { height: 12px; }
-.hero-progression-icone i:nth-child(3) { height: 17px; }
+.hero-progression-icone i:nth-child(1) { height: 40%; }
+.hero-progression-icone i:nth-child(2) { height: 65%; }
+.hero-progression-icone i:nth-child(3) { height: 92%; }
 .hero-progression-texte {
   flex: 1 1 auto;
   min-width: 0;
@@ -1342,17 +1350,17 @@ body.sans-defilement {
   gap: 2px;
 }
 .hero-progression-texte small {
-  font-size: 10.5px;
+  font-size: clamp(8px, 2cqw, 10px);
   color: var(--hoc-texte);
 }
 .hero-progression-texte strong {
   white-space: nowrap;
-  font-size: 13px;
+  font-size: clamp(9.5px, 2.6cqw, 12.5px);
   color: var(--hoc-encre);
 }
 .hero-progression-barre {
   display: block;
-  height: 6px;
+  height: 5px;
   margin-top: 4px;
   border-radius: 6px;
   background: var(--hoc-lavande);
@@ -1368,13 +1376,13 @@ body.sans-defilement {
 }
 .hero-progression-fleche {
   flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
+  width: clamp(17px, 4.6cqw, 24px);
+  height: clamp(17px, 4.6cqw, 24px);
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: clamp(9.5px, 2.4cqw, 12.5px);
   color: #fff;
   background: var(--hoc-violet);
 }
@@ -1384,17 +1392,17 @@ body.sans-defilement {
   top: 47%;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: clamp(5px, 1.3cqw, 8px);
   transform: translateZ(90px);
   animation: heroFlotte 7s 0.8s ease-in-out infinite;
 }
 .hero-piliers li {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 8px 16px 8px 8px;
+  gap: clamp(6px, 1.5cqw, 9px);
+  padding: clamp(5px, 1.3cqw, 8px) clamp(10px, 2.6cqw, 16px) clamp(5px, 1.3cqw, 8px) clamp(5px, 1.3cqw, 8px);
   border-radius: 999px;
-  font-size: 13px;
+  font-size: clamp(10.5px, 2.1cqw, 12.5px);
   font-weight: 600;
   color: #fff;
   white-space: nowrap;
@@ -1404,8 +1412,8 @@ body.sans-defilement {
 .hero-piliers li:nth-child(2) { margin-left: -10px; }
 .hero-piliers li:nth-child(3) { margin-left: -20px; }
 .hero-piliers .icone-hero {
-  width: 26px;
-  height: 26px;
+  width: clamp(18px, 4.2cqw, 24px);
+  height: clamp(18px, 4.2cqw, 24px);
   padding: 5px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.2);
@@ -1424,9 +1432,9 @@ body.sans-defilement {
 }
 .hero-livres li {
   position: relative;
-  padding: 7px 14px;
+  padding: clamp(5px, 1.2cqw, 7px) clamp(10px, 2.4cqw, 14px);
   border-radius: 6px 10px 10px 6px;
-  font-size: 13px;
+  font-size: clamp(10.5px, 2.1cqw, 12.5px);
   font-weight: 700;
   color: #fff;
   letter-spacing: 0.2px;
@@ -1460,35 +1468,43 @@ body.sans-defilement {
   list-style: none;
   animation: heroEntree 0.8s 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-.hero-benefices li {
+/* Chaque carte est désormais un <button> (voir HeroPublic.tsx, demande client du 2026-09-29 :
+   elles renvoient chacune vers une section) — reset des styles de bouton, mise en page inchangée. */
+.hero-benefice {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: clamp(10px, 1.8cqh, 16px) 16px;
+  gap: 10px;
+  width: 100%;
+  padding: clamp(8px, 1.5cqh, 13px) 14px;
+  border: none;
   border-radius: 14px;
   background: #fff;
   box-shadow: 0 16px 36px rgba(38, 20, 90, 0.1);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
   transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, color 0.25s ease;
 }
-.hero-benefices li > span:last-child {
+.hero-benefice > span:last-child {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
-.hero-benefices strong {
+.hero-benefice strong {
+  display: block;
   font-family: 'Poppins', 'Inter', sans-serif;
-  font-size: 13.5px;
+  font-size: 13px;
   color: var(--hoc-encre);
 }
-.hero-benefices small {
-  font-size: 12px;
+.hero-benefice small {
+  font-size: 11.5px;
   color: var(--hoc-texte);
 }
 .hero-benefice-icone {
   flex: 0 0 auto;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -1497,35 +1513,35 @@ body.sans-defilement {
   background: var(--hoc-lavande);
 }
 .hero-benefice-icone .icone-hero {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
-.hero-benefices li:nth-child(2),
-.hero-benefices li:hover {
+.hero-benefices .hero-benefice:nth-child(2),
+.hero-benefice:hover {
   transform: translateY(-4px);
   background: linear-gradient(135deg, var(--hoc-violet-clair), var(--hoc-violet));
   box-shadow: 0 20px 40px rgba(85, 54, 201, 0.3);
 }
-.hero-benefices li:nth-child(2) strong,
-.hero-benefices li:nth-child(2) small,
-.hero-benefices li:hover strong,
-.hero-benefices li:hover small {
+.hero-benefices .hero-benefice:nth-child(2) strong,
+.hero-benefices .hero-benefice:nth-child(2) small,
+.hero-benefice:hover strong,
+.hero-benefice:hover small {
   color: #fff;
 }
-.hero-benefices li:nth-child(2) .hero-benefice-icone,
-.hero-benefices li:hover .hero-benefice-icone {
+.hero-benefices .hero-benefice:nth-child(2) .hero-benefice-icone,
+.hero-benefice:hover .hero-benefice-icone {
   color: #fff;
   background: rgba(255, 255, 255, 0.2);
 }
 /* Au survol d'une autre carte, la deuxième redevient blanche : une seule carte violette à la fois. */
-.hero-benefices:has(li:hover) li:nth-child(2):not(:hover) {
+.hero-benefices:has(.hero-benefice:hover) .hero-benefice:nth-child(2):not(:hover) {
   transform: none;
   background: #fff;
   box-shadow: 0 16px 36px rgba(38, 20, 90, 0.1);
 }
-.hero-benefices:has(li:hover) li:nth-child(2):not(:hover) strong { color: var(--hoc-encre); }
-.hero-benefices:has(li:hover) li:nth-child(2):not(:hover) small { color: var(--hoc-texte); }
-.hero-benefices:has(li:hover) li:nth-child(2):not(:hover) .hero-benefice-icone {
+.hero-benefices:has(.hero-benefice:hover) .hero-benefice:nth-child(2):not(:hover) strong { color: var(--hoc-encre); }
+.hero-benefices:has(.hero-benefice:hover) .hero-benefice:nth-child(2):not(:hover) small { color: var(--hoc-texte); }
+.hero-benefices:has(.hero-benefice:hover) .hero-benefice:nth-child(2):not(:hover) .hero-benefice-icone {
   color: var(--hoc-violet);
   background: var(--hoc-lavande);
 }
