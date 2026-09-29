@@ -1648,6 +1648,53 @@ body.sans-defilement {
   max-width: 1000px;
   margin: 0 auto;
 }
+/* Section Professeurs sans barre de défilement (demande client du 2026-09-29), quelle que soit
+   la hauteur de l'écran : au lieu d'une hauteur de photo fixée à l'avance (qui pouvait dépasser
+   la place disponible sur certains écrans), les deux cartes partagent deux rangées — photo, puis
+   texte — et la rangée photo prend exactement la place que le texte laisse libre. La photo s'y
+   inscrit en entier, sans recadrage ni déformation, grâce aux unités de conteneur (`cqw`/`cqh`)
+   mesurées sur son cadre : le liseré doré continue d'épouser exactement ses bords. */
+.texte-prof {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+@media (min-width: 821px) {
+  .grille-professeurs {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 660px;
+    grid-template-rows: minmax(0, 1fr) auto;
+    row-gap: 0;
+    align-self: center;
+  }
+  .grille-professeurs .carte-professeur {
+    display: grid;
+    grid-row: span 2;
+    grid-template-rows: subgrid;
+    row-gap: 0;
+    justify-items: center;
+    /* La carte hérite d'un `align-items: center` (mise en page mobile en colonne) : sans ce
+       retour à `stretch`, le cadre photo ne s'étire pas sur sa rangée et la photo tombe à 0 px. */
+    align-items: stretch;
+    min-height: 0;
+  }
+  .cadre-photo-prof {
+    container-type: size;
+    width: 100%;
+    min-height: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 14px 0 12px;
+  }
+  /* 10 px : les 5 px de liseré doré de chaque côté. */
+  .cadre-photo-prof .panneau-photo img {
+    max-width: calc(100cqw - 10px);
+    max-height: calc(100cqh - 10px);
+  }
+}
 
 /* Thème « violet » (visuel de référence n° 2) : fond prune, halos discrets, cartes #63438e. */
 .vue-theme-violet {
@@ -1682,8 +1729,8 @@ body.sans-defilement {
 .grille-cours {
   flex: 1 1 auto;
   min-height: 0;
-  max-width: 1240px;
-  max-height: 600px;
+  max-width: 1320px;
+  max-height: 720px;
   grid-template-rows: minmax(0, 1fr);
   align-self: center;
 }
@@ -1705,8 +1752,11 @@ body.sans-defilement {
     grid-template-rows: subgrid;
     row-gap: 0;
   }
+  /* Aucune hauteur minimale imposée à la photo : une hauteur minimale plus grande que sa rangée
+     la faisait déborder SUR le texte en dessous dans une fenêtre peu haute (signalé le
+     2026-09-29). La photo prend exactement la place que le texte laisse libre, ni plus ni moins. */
   .grille-cours .carte-cours-visuel {
-    min-height: 120px;
+    min-height: 0;
   }
   .grille-cours .carte-cours-corps .bouton-or {
     margin-top: auto;
@@ -1757,15 +1807,15 @@ body.sans-defilement {
 }
 /* Textes des cartes Cours un cran plus petits, pour laisser la place aux photos. */
 .page-claire .carte-cours .titre-carte-hoc {
-  font-size: 15.5px;
+  font-size: 14.5px;
 }
 .carte-cours .texte-carte-hoc {
-  font-size: 11.5px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.4;
 }
 .carte-cours .detail-carte-hoc {
-  font-size: 10.5px;
-  line-height: 1.4;
+  font-size: 10px;
+  line-height: 1.35;
 }
 .carte-cours .bouton-or {
   margin-top: 4px;

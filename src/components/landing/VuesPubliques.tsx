@@ -234,45 +234,56 @@ export function VueProfesseurs({
       theme="nuit"
     >
       <div className="grille-professeurs">
+        {/* Deux blocs par carte — la photo, puis le texte — pour que les deux cartes partagent
+            leurs rangées (voir .grille-professeurs dans index.css) : la photo occupe la place
+            laissée libre par le texte, sans jamais créer de barre de défilement. */}
         <article className="carte-professeur">
-          <div className="panneau-photo">
-            <img
-              src={`${dossierAssets}/Directrice.jpg`}
-              alt={`Directrice de ${nomEtablissement}`}
-              onError={(e) => {
-                ;(e.currentTarget.parentElement as HTMLDivElement).style.display = 'none'
-              }}
-            />
+          <div className="cadre-photo-prof">
+            <div className="panneau-photo">
+              <img
+                src={`${dossierAssets}/Directrice.jpg`}
+                alt={`Directrice de ${nomEtablissement}`}
+                onError={(e) => {
+                  ;(e.currentTarget.parentElement as HTMLDivElement).style.display = 'none'
+                }}
+              />
+            </div>
           </div>
-          <span className="nom-professeur">Notre directrice</span>
-          <h3 className="role-professeur">Une pédagogie pensée pour des résultats réels</h3>
-          <p className="texte-professeur">
-            Persuadée qu’aucune application ne remplace le regard d’un professeur qui croit en vous, notre directrice
-            a fondé {nomEtablissement} pour redonner sa juste place à la relation humaine dans l’apprentissage des
-            langues. Son exigence : un accompagnement sur-mesure, taillé pour votre objectif, votre rythme et votre
-            vie. Chaque élève qui progresse ici en est la preuve vivante.
-          </p>
+          <div className="texte-prof">
+            <span className="nom-professeur">Notre directrice</span>
+            <h3 className="role-professeur">Une pédagogie pensée pour des résultats réels</h3>
+            <p className="texte-professeur">
+              Persuadée qu’aucune application ne remplace le regard d’un professeur qui croit en vous, notre
+              directrice a fondé {nomEtablissement} pour redonner sa juste place à la relation humaine dans
+              l’apprentissage des langues. Son exigence : un accompagnement sur-mesure, taillé pour votre objectif,
+              votre rythme et votre vie. Chaque élève qui progresse ici en est la preuve vivante.
+            </p>
+          </div>
         </article>
 
         <article className="carte-professeur">
-          <div className="panneau-photo">
-            <img
-              src={`${dossierAssets}/equipe.jpg`}
-              alt={`L’équipe de ${nomEtablissement}`}
-              onError={(e) => {
-                ;(e.currentTarget.parentElement as HTMLDivElement).style.display = 'none'
-              }}
-            />
+          <div className="cadre-photo-prof">
+            <div className="panneau-photo">
+              <img
+                src={`${dossierAssets}/equipe.jpg`}
+                alt={`L’équipe de ${nomEtablissement}`}
+                onError={(e) => {
+                  ;(e.currentTarget.parentElement as HTMLDivElement).style.display = 'none'
+                }}
+              />
+            </div>
           </div>
-          <span className="nom-professeur">Notre équipe</span>
-          <h3 className="role-professeur">Des professeurs choisis pour votre objectif</h3>
-          <p className="texte-professeur">
-            Une équipe soudée, choisie pour sa pédagogie autant que pour sa passion des langues — la même exigence
-            bienveillante à chaque cours, quel que soit le professeur qui vous accompagne.
-          </p>
-          <button type="button" onClick={onReserver} className="btn-shine bouton-or bouton-or--pilule">
-            Rencontrer un professeur →
-          </button>
+          <div className="texte-prof">
+            <span className="nom-professeur">Notre équipe</span>
+            <h3 className="role-professeur">Des professeurs choisis pour votre objectif</h3>
+            <p className="texte-professeur">
+              Une équipe soudée, choisie pour sa pédagogie autant que pour sa passion des langues — la même exigence
+              bienveillante à chaque cours, quel que soit le professeur qui vous accompagne.
+            </p>
+            <button type="button" onClick={onReserver} className="btn-shine bouton-or bouton-or--pilule">
+              Rencontrer un professeur →
+            </button>
+          </div>
         </article>
       </div>
     </CadreVue>

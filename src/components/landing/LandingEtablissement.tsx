@@ -100,10 +100,9 @@ export function LandingEtablissement() {
   /* Refonte visuelle du 2026-09-29 : l'accueil n'est plus une image qui dessinait sa propre barre
      de navigation, mais une page HTML (voir HeroPublic.tsx). L'en-tête ci-dessous s'affiche donc
      désormais sur TOUTES les vues, avec exactement les entrées qu'avait la barre dessinée : logo,
-     cinq liens, « Devenir professeur chez HOC » et « Se connecter ». Le bouton « Réserver mon
-     appel » reste réservé aux vues secondaires, comme avant — sur l'accueil, « Commencer
-     maintenant » en tient lieu. Le pied de page légal reste, lui aussi, propre aux vues
-     secondaires. */
+     cinq liens, « Devenir professeur chez HOC », « Se connecter » et « Réserver mon appel » —
+     le même contenu partout, pour que rien ne bouge d'une vue à l'autre. Le pied de page légal
+     reste propre aux vues secondaires. */
   const accueil = vue === 'accueil'
 
   return (
@@ -143,11 +142,12 @@ export function LandingEtablissement() {
             </span>
             Se connecter
           </a>
-          {!accueil && (
-            <button type="button" onClick={() => ouvrirReservation()} className="btn-shine bouton-reserver-public">
-              Réserver mon appel →
-            </button>
-          )}
+          {/* Présent sur TOUTES les vues, accueil compris (demande client du 2026-09-29) : absent
+              de l'accueil, il faisait bouger tous les éléments de la barre au passage d'une vue
+              à l'autre. Même fenêtre que « Commencer maintenant ». */}
+          <button type="button" onClick={() => ouvrirReservation()} className="btn-shine bouton-reserver-public">
+            Réserver mon appel →
+          </button>
         </div>
       </header>
 
