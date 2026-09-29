@@ -10,6 +10,15 @@ export type ParticipantEvenement = Pick<Profile, 'id' | 'nom' | 'prenom' | 'role
 export interface EvenementAdminAvecParticipants extends EvenementAdmin {
   obligatoires: ParticipantEvenement[]
   optionnels: ParticipantEvenement[]
+  /* L'admin qui a créé le rendez-vous n'est jamais lui-même dans obligatoires/optionnels (le
+     vivier de FormulaireCreerEvenement ne propose que des élèves/professeurs, jamais un autre
+     admin, voir RendezVousAdmin.tsx) — pourtant demande client du 2026-09-29 : « il faut
+     mentionner Admin HOC dans la liste des participants » quand c'est l'admin qui invite. Dérivé
+     de `cree_par` plutôt qu'ajouté en base : approximatif pour un administrateur PLATEFORME
+     (platform_admins, 0022), dont la policy RLS ne permet pas à un élève/professeur de lire le
+     statut — seul `profiles.role === 'admin_etablissement'` est donc détecté ici (le cas courant :
+     l'admin de l'établissement, pas l'admin plateforme). Voir agendaEvenements.ts pour l'affichage. */
+  creeParAdmin: boolean
 }
 
 /* Requête partagée par useEvenementsAdmin et useEvenementsProfesseur : c'est le RLS qui filtre
@@ -21,19 +30,29 @@ async function chargerEvenements(): Promise<EvenementAdminAvecParticipants[]> {
   const { data: evenements, error } = await supabase.from('evenements_admin').select('*').order('debut', { ascending: true })
   if (error) throw new Error(error.message)
 
-  const tousLesIds = [...new Set((evenements ?? []).flatMap((e) => [...e.participants_obligatoires, ...e.participants_optionnels]))]
+  // cree_par (voir le commentaire de creeParAdmin) résolu dans le même aller-retour que les
+  // participants — pas de statut filtré dessus : un admin qui a quitté reste l'organisateur
+  // historique du rendez-vous, contrairement à un participant supprimé (voir plus bas).
+  const idsCreateurs = new Set((evenements ?? []).map((e) => e.cree_par).filter((id): id is string => !!id))
+  const tousLesIds = [...new Set([...(evenements ?? []).flatMap((e) => [...e.participants_obligatoires, ...e.participants_optionnels]), ...idsCreateurs])]
   // Un participant supprimé disparaît du rendez-vous (demande client du 2026-09-23) —
-  // passé compris : la ligne reste en base, réversible si la personne se réinscrit.
+  // passé compris : la ligne reste en base, réversible si la personne se réinscrit. `status`
+  // sert uniquement à ce filtre ci-dessous, jamais renvoyé (ParticipantEvenement ne le porte pas).
   const { data: profils } = tousLesIds.length
-    ? await supabase.from('profiles').select('id, nom, prenom, role').in('id', tousLesIds).neq('status', 'suspended')
-    : { data: [] as ParticipantEvenement[] }
+    ? await supabase.from('profiles').select('id, nom, prenom, role, status').in('id', tousLesIds)
+    : { data: [] as (ParticipantEvenement & { status: string })[] }
   const profilParId = new Map((profils ?? []).map((p) => [p.id, p]))
 
   return (evenements ?? [])
     .map((e): EvenementAdminAvecParticipants => ({
       ...e,
-      obligatoires: e.participants_obligatoires.map((id) => profilParId.get(id)).filter((p): p is ParticipantEvenement => !!p),
-      optionnels: e.participants_optionnels.map((id) => profilParId.get(id)).filter((p): p is ParticipantEvenement => !!p),
+      obligatoires: e.participants_obligatoires
+        .map((id) => profilParId.get(id))
+        .filter((p): p is ParticipantEvenement & { status: string } => !!p && p.status !== 'suspended'),
+      optionnels: e.participants_optionnels
+        .map((id) => profilParId.get(id))
+        .filter((p): p is ParticipantEvenement & { status: string } => !!p && p.status !== 'suspended'),
+      creeParAdmin: profilParId.get(e.cree_par ?? '')?.role === 'admin_etablissement',
     }))
     // Un rendez-vous qui n'a plus personne (tous les participants supprimés) n'a plus rien à
     // montrer — il disparaît de l'agenda plutôt que d'apparaître vide.

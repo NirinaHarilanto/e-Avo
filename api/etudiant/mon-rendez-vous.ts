@@ -28,10 +28,18 @@ interface ParticipantResolu {
  *  - un événement « autre » (evenements_admin) expose désormais ses participants obligatoires/
  *    optionnels résolus en {id, prenom, nom, role} — même forme que côté admin (voir
  *    useEvenementsAdmin.ts, ParticipantEvenement), pour réutiliser le même rendu — et ses notes ;
- *  - un rendez-vous d'appel diagnostic expose son interlocuteur (`valide_par`, l'admin qui l'a
- *    confirmé — seule personne de l'établissement réellement associée à CE rendez-vous, `rendez_vous`
- *    ne portant pas de liste d'invités comme `evenements_admin`) et le message laissé à la
+ *  - un rendez-vous d'appel diagnostic expose `avecAdmin` (toujours vrai une fois confirmé,
+ *    `valide_par` n'étant posé que par des routes `requireAdmin`) et le message laissé à la
  *    réservation.
+ *
+ * Même demande, reformulée le 2026-09-30 : « quand c'est l'admin qui invite... il faut
+ * mentionner "Admin HOC" dans la liste des participants ». Jamais le nom personnel de l'admin
+ * (`cree_par`/`valide_par` restent internes) — voir LIBELLE_ADMIN côté client
+ * (src/lib/agendaEvenements.ts), dont `creeParAdmin`/`avecAdmin` ci-dessous ne sont que le
+ * signal booléen. `creeParAdmin` distingue précisément l'admin de l'ÉTABLISSEMENT (role) de
+ * l'admin PLATEFORME (platform_admins, 0022) — contrairement à la version admin/professeur de ce
+ * calcul (useEvenementsAdmin.ts), qui ne peut pas lire platform_admins par RLS pour un tiers et
+ * se limite donc à `role`. Ici, clé service_role : les deux cas sont couverts.
  */
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'GET' && request.method !== 'POST') {
@@ -47,12 +55,12 @@ export default async function handler(request: Request): Promise<Response> {
     const [{ data: obligatoiresBruts }, { data: optionnelsBruts }] = await Promise.all([
       serviceClient
         .from('evenements_admin')
-        .select('id, titre, debut, duree_minutes, lien_meet, notes, participants_obligatoires, participants_optionnels')
+        .select('id, titre, debut, duree_minutes, lien_meet, notes, participants_obligatoires, participants_optionnels, cree_par')
         .eq('annule', false)
         .contains('participants_obligatoires', [profileId]),
       serviceClient
         .from('evenements_admin')
-        .select('id, titre, debut, duree_minutes, lien_meet, notes, participants_obligatoires, participants_optionnels')
+        .select('id, titre, debut, duree_minutes, lien_meet, notes, participants_obligatoires, participants_optionnels, cree_par')
         .eq('annule', false)
         .contains('participants_optionnels', [profileId]),
     ])
@@ -75,28 +83,34 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     /* Un seul aller-retour pour résoudre tous les profils cités, événements comme rendez-vous
-       (participants + interlocuteur) — plutôt qu'une requête par ligne. */
+       (participants + créateur/interlocuteur) — plutôt qu'une requête par ligne. */
     const idsAResoudre = new Set<string>()
     for (const e of evenementsBruts) {
       for (const id of [...e.participants_obligatoires, ...e.participants_optionnels]) idsAResoudre.add(id)
+      if (e.cree_par) idsAResoudre.add(e.cree_par)
     }
     for (const r of rendezVousBruts) {
       if (r.valide_par) idsAResoudre.add(r.valide_par)
     }
-    const { data: profils } = idsAResoudre.size
-      ? await serviceClient.from('profiles').select('id, prenom, nom, role').in('id', [...idsAResoudre])
-      : { data: [] as ParticipantResolu[] }
+    const [{ data: profils }, { data: platformAdmins }] = idsAResoudre.size
+      ? await Promise.all([
+          serviceClient.from('profiles').select('id, prenom, nom, role').in('id', [...idsAResoudre]),
+          serviceClient.from('platform_admins').select('id').in('id', [...idsAResoudre]),
+        ])
+      : [{ data: [] as ParticipantResolu[] }, { data: [] as { id: string }[] }]
     const profilParId = new Map((profils ?? []).map((p) => [p.id, p]))
+    const estAdmin = (id: string | null) => !!id && (profilParId.get(id)?.role === 'admin_etablissement' || (platformAdmins ?? []).some((a) => a.id === id))
 
-    const evenements = evenementsBruts.map(({ participants_obligatoires, participants_optionnels, ...e }) => ({
+    const evenements = evenementsBruts.map(({ participants_obligatoires, participants_optionnels, cree_par, ...e }) => ({
       ...e,
       obligatoires: participants_obligatoires.map((id) => profilParId.get(id)).filter((p): p is ParticipantResolu => !!p),
       optionnels: participants_optionnels.map((id) => profilParId.get(id)).filter((p): p is ParticipantResolu => !!p),
+      creeParAdmin: estAdmin(cree_par),
     }))
 
     const rendezVous = rendezVousBruts.map(({ valide_par, ...r }) => ({
       ...r,
-      interlocuteur: valide_par ? (profilParId.get(valide_par) ?? null) : null,
+      avecAdmin: !!valide_par,
     }))
 
     return Response.json({ rendezVous, evenements })

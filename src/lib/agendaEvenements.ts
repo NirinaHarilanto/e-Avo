@@ -15,6 +15,13 @@ import type { EvenementAgenda } from './agenda'
 export const PREFIXE_PROSPECT = 'rdv:'
 export const PREFIXE_EVENEMENT = 'evt:'
 
+/* Demande client du 2026-09-29 : « quand c'est l'admin qui invite un étudiant ou un professeur,
+   il faut mentionner "Admin HOC" dans la liste des participants ». Un label institutionnel
+   plutôt que le nom personnel de l'admin qui a cliqué « Créer » — ni le composant d'édition ni
+   la personne invitée n'ont besoin de savoir PRÉCISÉMENT lequel des admins de l'établissement
+   est à l'origine du rendez-vous. */
+export const LIBELLE_ADMIN = 'Admin HOC'
+
 /* Couleur = catégorie de participants, pas statut — demande client du 2026-09-16 : « jaune pour
    les prospects, bleu pour les étudiants, vert pour les professeurs, violet pour mixte étudiants
    et professeurs ». Le statut (à valider / annulé) reste lisible via `attenue` et `marqueur`,
@@ -57,7 +64,8 @@ export function versEvenementAdmin(evenement: EvenementAdminAvecParticipants): E
   const participants = tousLesParticipants(evenement)
   const aDesEtudiants = participants.some((p) => p.role === 'etudiant')
   const aDesProfesseurs = participants.some((p) => p.role === 'professeur')
-  const noms = participants.map((p) => `${p.prenom} ${p.nom}`).join(', ')
+  // « Admin HOC » en tête dès que l'admin est à l'origine du rendez-vous — voir LIBELLE_ADMIN.
+  const noms = [...(evenement.creeParAdmin ? [LIBELLE_ADMIN] : []), ...participants.map((p) => `${p.prenom} ${p.nom}`)].join(', ')
   return {
     id: PREFIXE_EVENEMENT + evenement.id,
     debut: evenement.debut,

@@ -3,6 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useDossierEtudiant, type SeanceDuParcours } from '../../hooks/useDossierEtudiant'
 import { getJoinUrl } from '../../lib/visio'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
+import { LIBELLE_ADMIN } from '../../lib/agendaEvenements'
 import { EtudiantLayout } from '../layout/EtudiantLayout'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -35,7 +36,9 @@ interface MonRendezVous {
   // Détails enrichis le 2026-09-29 (pièce jointe client, « personnes incluses dans
   // l'invitation... les détails du rendez-vous ») — voir api/etudiant/mon-rendez-vous.ts.
   message: string | null
-  interlocuteur: ParticipantResolu | null
+  // Toujours vrai une fois confirmé — reformulé le 2026-09-30 : « Admin HOC », jamais le nom
+  // personnel de l'admin (voir LIBELLE_ADMIN, src/lib/agendaEvenements.ts).
+  avecAdmin: boolean
 }
 
 interface MonEvenement {
@@ -47,6 +50,7 @@ interface MonEvenement {
   notes: string | null
   obligatoires: ParticipantResolu[]
   optionnels: ParticipantResolu[]
+  creeParAdmin: boolean
 }
 
 interface MesRendezVous {
@@ -200,8 +204,11 @@ export function AgendaEtudiant() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <LigneInfo label="Motif" valeur={evenementOuvert.titre} />
             <LigneInfo label="Durée" valeur={`${evenementOuvert.duree_minutes} minutes`} />
-            {evenementOuvert.obligatoires.length > 0 && (
-              <LigneInfo label="Participants" valeur={evenementOuvert.obligatoires.map((p) => `${p.prenom} ${p.nom}`).join(', ')} />
+            {(evenementOuvert.creeParAdmin || evenementOuvert.obligatoires.length > 0) && (
+              <LigneInfo
+                label="Participants"
+                valeur={[...(evenementOuvert.creeParAdmin ? [LIBELLE_ADMIN] : []), ...evenementOuvert.obligatoires.map((p) => `${p.prenom} ${p.nom}`)].join(', ')}
+              />
             )}
             {evenementOuvert.optionnels.length > 0 && (
               <LigneInfo label="Participants (optionnel)" valeur={evenementOuvert.optionnels.map((p) => `${p.prenom} ${p.nom}`).join(', ')} />
@@ -236,12 +243,7 @@ export function AgendaEtudiant() {
             <LigneInfo label="Rendez-vous" valeur="Appel diagnostic" />
             <LigneInfo label="Statut" valeur={rdvOuvert.statut === 'confirme' ? 'Confirmé' : 'À valider'} />
             <LigneInfo label="Durée" valeur={`${rdvOuvert.duree_minutes} minutes`} />
-            {rdvOuvert.interlocuteur && (
-              <LigneInfo
-                label="Avec"
-                valeur={`${rdvOuvert.interlocuteur.prenom ?? ''} ${rdvOuvert.interlocuteur.nom ?? ''}`.trim() || 'Établissement'}
-              />
-            )}
+            {rdvOuvert.avecAdmin && <LigneInfo label="Avec" valeur={LIBELLE_ADMIN} />}
             {rdvOuvert.message && (
               <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0, fontStyle: 'italic' }}>
                 « {rdvOuvert.message} »

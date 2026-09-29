@@ -6,7 +6,7 @@ import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 import { supabase } from '../../lib/supabaseClient'
 import type { RendezVousAvecProspect } from '../../hooks/useRendezVous'
 import type { EvenementAdminAvecParticipants } from '../../hooks/useEvenementsAdmin'
-import { PREFIXE_PROSPECT, PREFIXE_EVENEMENT, typeEvenementAdmin } from '../../lib/agendaEvenements'
+import { PREFIXE_PROSPECT, PREFIXE_EVENEMENT, typeEvenementAdmin, LIBELLE_ADMIN } from '../../lib/agendaEvenements'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import type { StatutRendezVous } from '../../types/database.types'
 import { Modale } from '../ui/Modale'
@@ -505,9 +505,13 @@ export function CarteEvenementAdmin({
         <>
           <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>{quand} · {evenement.duree_minutes} min</span>
 
-          {evenement.obligatoires.length > 0 && (
+          {/* « Admin HOC » en tête de la liste des obligatoires dès que c'est l'admin qui a créé
+              ce rendez-vous (demande client du 2026-09-29) — jamais un participant réel au sens
+              de participants_obligatoires (le vivier de création ne propose pas les admins),
+              donc ajouté ici à l'affichage plutôt qu'en base. Voir creeParAdmin. */}
+          {(evenement.creeParAdmin || evenement.obligatoires.length > 0) && (
             <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-              Obligatoire : {evenement.obligatoires.map((p) => `${p.prenom} ${p.nom}`).join(', ')}
+              Obligatoire : {[...(evenement.creeParAdmin ? [LIBELLE_ADMIN] : []), ...evenement.obligatoires.map((p) => `${p.prenom} ${p.nom}`)].join(', ')}
             </span>
           )}
           {evenement.optionnels.length > 0 && (
