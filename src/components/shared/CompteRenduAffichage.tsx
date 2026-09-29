@@ -1,4 +1,4 @@
-import { CHAMPS_TEXTE_COMPTE_RENDU, CHAMPS_TEXTE_SUITE, compteRenduRempli, libelleObjectif, libelleProgres, type CompteRenduValeurs } from '../../lib/compteRendu'
+import { CHAMPS_TEXTE_ANCIENS, CHAMPS_TEXTE_COMPTE_RENDU, CHAMPS_TEXTE_SUITE, compteRenduRempli, libelleObjectif, libelleProgres, type CompteRenduValeurs } from '../../lib/compteRendu'
 import { TexteRepliable } from '../ui/Repliable'
 
 /* Lecture seule du compte rendu structuré (0052), partagée entre l'onglet Documents de l'admin
@@ -40,7 +40,7 @@ export function CompteRenduAffichage({ rapport }: { rapport: CompteRenduValeurs 
         </p>
       )}
 
-      {CHAMPS_TEXTE_SUITE.map((champ) => {
+      {[...CHAMPS_TEXTE_SUITE, ...CHAMPS_TEXTE_ANCIENS].map((champ) => {
         const valeur = rapport[champ.cle as keyof CompteRenduValeurs] as string | null
         if (!valeur) return null
         return (

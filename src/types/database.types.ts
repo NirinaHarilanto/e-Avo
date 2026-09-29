@@ -796,6 +796,7 @@ export interface Database {
           progres: string | null
           priorites_prochain_cours: string | null
           conseils_prochain_professeur: string | null
+          remarques: string | null
           created_at: string
           updated_at: string
         }
@@ -815,6 +816,7 @@ export interface Database {
           progres?: string | null
           priorites_prochain_cours?: string | null
           conseils_prochain_professeur?: string | null
+          remarques?: string | null
           created_at?: string
           updated_at?: string
         }

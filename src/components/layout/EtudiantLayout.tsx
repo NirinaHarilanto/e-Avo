@@ -16,6 +16,7 @@ const ETUDIANT_NAV_GROUPS: NavGroup[] = [
       { label: 'Mes paiements', href: '/mon-espace/paiements', disponible: true, icone: 'paiements', description: 'Vos factures et reçus' },
       { label: 'Mes contrats', href: '/mon-espace/contrats', disponible: true, icone: 'contrats', description: 'Contrats à lire et à signer' },
       { label: 'Mon profil', href: '/mon-espace/profil', disponible: true, icone: 'parametres', description: 'Vos coordonnées et votre signature' },
+      { label: 'Guide d’utilisation', href: '/mon-espace/guide', disponible: true, icone: 'guide', description: 'Le fonctionnement de votre espace' },
     ],
   },
 ]

@@ -24,22 +24,27 @@ export const NIVEAUX_PROGRES: { valeur: NiveauProgres; libelle: string }[] = [
   { valeur: 'faible', libelle: 'Faible' },
 ]
 
-/* Zones de texte du template, dans l'ordre d'affichage voulu par le client. `cle` correspond
-   directement à la colonne de `session_reports` (migration 0052). */
+/* Template allégé le 2026-09-29 (demande client : « trop de cases à renseigner ») : objectif,
+   ce qui a été vu, points à améliorer, progrès, remarques. `cle` correspond directement à la
+   colonne de `session_reports` ; « A été vu » reprend `contenu_cours` (0052), « Remarques » est
+   la colonne `remarques` (0077). */
 export const CHAMPS_TEXTE_COMPTE_RENDU: { cle: string; libelle: string; aide?: string }[] = [
+  { cle: 'contenu_cours', libelle: 'A été vu' },
+  { cle: 'points_a_ameliorer', libelle: 'Points à améliorer' },
+]
+
+/* Après la note de progrès, comme dans le formulaire. */
+export const CHAMPS_TEXTE_SUITE: { cle: string; libelle: string }[] = [{ cle: 'remarques', libelle: 'Remarques' }]
+
+/* Rubriques de l'ancien template (0052), qui ne se saisissent plus mais restent affichées en
+   lecture seule sur les comptes rendus déjà rédigés — rien de ce qu'un professeur a écrit ne
+   disparaît. */
+export const CHAMPS_TEXTE_ANCIENS: { cle: string; libelle: string }[] = [
   { cle: 'lecons_abordees', libelle: 'Leçons abordées' },
-  { cle: 'contenu_cours', libelle: 'Contenu du cours' },
   { cle: 'nouveau_vocabulaire', libelle: 'Nouveau vocabulaire' },
   { cle: 'erreurs_importantes', libelle: 'Erreurs importantes' },
   { cle: 'points_forts', libelle: 'Points forts' },
-  { cle: 'points_a_ameliorer', libelle: 'Points à améliorer' },
   { cle: 'devoirs', libelle: 'Devoirs' },
-]
-
-/* Priorités et conseils viennent après la note de progrès dans le template : séparés de la
-   liste ci-dessus pour que le formulaire puisse intercaler le sélecteur de progrès entre les
-   deux groupes, exactement comme le document fourni par le client. */
-export const CHAMPS_TEXTE_SUITE: { cle: string; libelle: string }[] = [
   { cle: 'priorites_prochain_cours', libelle: 'Priorités du prochain cours' },
   { cle: 'conseils_prochain_professeur', libelle: 'Conseils au prochain professeur' },
 ]
@@ -56,13 +61,14 @@ export interface CompteRenduValeurs {
   progres: string | null
   priorites_prochain_cours: string | null
   conseils_prochain_professeur: string | null
+  remarques: string | null
 }
 
 export function compteRenduRempli(valeurs: CompteRenduValeurs): boolean {
   return (
     valeurs.objectifs.length > 0 ||
     !!valeurs.progres ||
-    [...CHAMPS_TEXTE_COMPTE_RENDU, ...CHAMPS_TEXTE_SUITE].some(
+    [...CHAMPS_TEXTE_COMPTE_RENDU, ...CHAMPS_TEXTE_SUITE, ...CHAMPS_TEXTE_ANCIENS].some(
       (champ) => (valeurs[champ.cle as keyof CompteRenduValeurs] as string | null)?.trim(),
     )
   )

@@ -25,7 +25,7 @@ export function TagProgramme({ programme }: { programme: ProgrammeEtudiant }) {
 }
 
 /* Signale, dans la liste de gauche, un étudiant dont les informations personnelles (téléphone,
-   adresse, ville, date et lieu de naissance — voir informationsPersonnellesCompletes) sont
+   adresse, ville — voir informationsPersonnellesCompletes) sont
    encore incomplètes. Même vocabulaire de couleur que BadgeStatutContrat côté « en attente » :
    ambre, pas rouge — ce n'est pas bloquant, seulement à surveiller avant de générer un contrat
    ou une facture. */

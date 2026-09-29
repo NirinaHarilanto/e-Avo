@@ -17,16 +17,10 @@ interface CompteRenduSeanceProps {
 
 const VALEURS_VIDES = {
   objectifs: [] as string[],
-  lecons_abordees: '',
   contenu_cours: '',
-  nouveau_vocabulaire: '',
-  erreurs_importantes: '',
-  points_forts: '',
   points_a_ameliorer: '',
-  devoirs: '',
   progres: '',
-  priorites_prochain_cours: '',
-  conseils_prochain_professeur: '',
+  remarques: '',
 }
 
 type ValeursFormulaire = typeof VALEURS_VIDES
@@ -36,9 +30,9 @@ type ValeursFormulaire = typeof VALEURS_VIDES
    session_reports par séance (contrainte unique sur session_id) — upsert plutôt que
    insert/update séparés pour ne pas avoir à savoir si un brouillon existe déjà.
 
-   Le template complet (objectifs cochés, sept zones de texte, note de progrès, priorités,
-   conseils au prochain professeur) vient de src/lib/compteRendu.ts — demande client du
-   2026-09-21, en remplacement de l'ancien résumé libre à deux champs (0052). */
+   Le template (objectif, a été vu, points à améliorer, progrès, remarques) vient de
+   src/lib/compteRendu.ts — allégé le 2026-09-29. Seules ces rubriques sont écrites : les
+   rubriques de l'ancien template déjà remplies restent intactes en base. */
 export function CompteRenduSeance({ sessionId, etablissementId, teacherId }: CompteRenduSeanceProps) {
   const [rapport, setRapport] = useState<SessionReport | null>(null)
   const [ouvert, setOuvert] = useState(false)
@@ -57,16 +51,10 @@ export function CompteRenduSeance({ sessionId, etablissementId, teacherId }: Com
         setRapport(data)
         setValeurs({
           objectifs: data?.objectifs ?? [],
-          lecons_abordees: data?.lecons_abordees ?? '',
           contenu_cours: data?.contenu_cours ?? '',
-          nouveau_vocabulaire: data?.nouveau_vocabulaire ?? '',
-          erreurs_importantes: data?.erreurs_importantes ?? '',
-          points_forts: data?.points_forts ?? '',
           points_a_ameliorer: data?.points_a_ameliorer ?? '',
-          devoirs: data?.devoirs ?? '',
           progres: data?.progres ?? '',
-          priorites_prochain_cours: data?.priorites_prochain_cours ?? '',
-          conseils_prochain_professeur: data?.conseils_prochain_professeur ?? '',
+          remarques: data?.remarques ?? '',
         })
         setLoading(false)
       })
@@ -94,16 +82,10 @@ export function CompteRenduSeance({ sessionId, etablissementId, teacherId }: Com
           session_id: sessionId,
           teacher_id: teacherId,
           objectifs: valeurs.objectifs,
-          lecons_abordees: valeurs.lecons_abordees || null,
           contenu_cours: valeurs.contenu_cours || null,
-          nouveau_vocabulaire: valeurs.nouveau_vocabulaire || null,
-          erreurs_importantes: valeurs.erreurs_importantes || null,
-          points_forts: valeurs.points_forts || null,
           points_a_ameliorer: valeurs.points_a_ameliorer || null,
-          devoirs: valeurs.devoirs || null,
           progres: valeurs.progres || null,
-          priorites_prochain_cours: valeurs.priorites_prochain_cours || null,
-          conseils_prochain_professeur: valeurs.conseils_prochain_professeur || null,
+          remarques: valeurs.remarques || null,
         },
         { onConflict: 'session_id' },
       )
@@ -143,7 +125,7 @@ export function CompteRenduSeance({ sessionId, etablissementId, teacherId }: Com
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
         <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Objectifs
+          Objectif
         </span>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           {OBJECTIFS_COURS.map((objectif) => (

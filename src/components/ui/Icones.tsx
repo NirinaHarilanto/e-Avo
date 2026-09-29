@@ -35,8 +35,29 @@ export type NomIcone =
   | 'pause'
   | 'lecture'
   | 'etoile'
+  | 'guide'
+  | 'recrutement'
+  | 'timesheet'
 
 const CHEMINS: Record<NomIcone, ReactNode> = {
+  guide: (
+    <>
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z" />
+      <path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20v3H6.5A2.5 2.5 0 0 1 4 20.5zM8.5 7.5h7M8.5 11h5" />
+    </>
+  ),
+  recrutement: (
+    <>
+      <circle cx="10" cy="8" r="3.5" />
+      <path d="M3.5 20c.6-3.6 3.2-5.5 6.5-5.5 1.4 0 2.6.3 3.6.9M18 14v6M15 17h6" />
+    </>
+  ),
+  timesheet: (
+    <>
+      <rect x="4" y="4" width="16" height="17" rx="2" />
+      <path d="M8 2.5v3M16 2.5v3M4 9h16M8 13h3M8 16.5h3M14 13h2M14 16.5h2" />
+    </>
+  ),
   prospects: <path d="M3 4h18l-7 8.2V19l-4 2v-8.8z" />,
   etudiants: (
     <>

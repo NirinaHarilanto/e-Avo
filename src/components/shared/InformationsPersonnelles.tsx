@@ -9,12 +9,13 @@ import { boutonSecondaireStyle, boutonNeutreStyle, boutonPrimaireStyle } from '.
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
-/* Les cinq champs modifiables dans ce panneau (au-delà de nom/prénom, déjà exigés à
-   l'inscription) : téléphone, adresse, ville, date et lieu de naissance. Exportée pour que la
+/* Les champs exigés pour un dossier complet (au-delà de nom/prénom, déjà exigés à
+   l'inscription) : téléphone, adresse, ville. La date et le lieu de naissance ont été retirés
+   de la fiche le 2026-09-29 (jugés non pertinents par le client). Exportée pour que la
    liste des étudiants (EtudiantsAdmin.tsx) puisse signaler un dossier incomplet sans dupliquer
    cette définition — un seul endroit à mettre à jour si ces champs changent. */
 export function informationsPersonnellesCompletes(personne: Profile): boolean {
-  return Boolean(personne.telephone && personne.adresse && personne.ville && personne.date_naissance && personne.lieu_naissance)
+  return Boolean(personne.telephone && personne.adresse && personne.ville)
 }
 
 interface InformationsPersonnellesProps {
@@ -45,8 +46,6 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
   const [whatsapp, setWhatsapp] = useState(personne.whatsapp ?? '')
   const [adresse, setAdresse] = useState(personne.adresse ?? '')
   const [ville, setVille] = useState(personne.ville ?? '')
-  const [dateNaissance, setDateNaissance] = useState(personne.date_naissance ?? '')
-  const [lieuNaissance, setLieuNaissance] = useState(personne.lieu_naissance ?? '')
   const [tauxHoraire, setTauxHoraire] = useState(personne.taux_horaire?.toString() ?? '')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -59,8 +58,6 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
     setWhatsapp(personne.whatsapp ?? '')
     setAdresse(personne.adresse ?? '')
     setVille(personne.ville ?? '')
-    setDateNaissance(personne.date_naissance ?? '')
-    setLieuNaissance(personne.lieu_naissance ?? '')
     setTauxHoraire(personne.taux_horaire?.toString() ?? '')
     setErreur(null)
     setEdition(false)
@@ -100,8 +97,6 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
         whatsapp: whatsapp || null,
         adresse: adresse || null,
         ville: ville || null,
-        date_naissance: dateNaissance || null,
-        lieu_naissance: lieuNaissance || null,
         ...(estProfesseur && { taux_horaire: tauxHoraire ? Number(tauxHoraire) : null }),
       })
       .eq('id', personne.id)
@@ -133,8 +128,6 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <LigneInfo label="Nom" valeur={personne.nom ?? '—'} />
           <LigneInfo label="Prénom" valeur={personne.prenom ?? '—'} />
-          <LigneInfo label="Date de naissance" valeur={personne.date_naissance ? new Date(personne.date_naissance).toLocaleDateString('fr-FR') : '—'} />
-          <LigneInfo label="Lieu de naissance" valeur={personne.lieu_naissance ?? '—'} />
           <LigneInfo label="E-mail" valeur={personne.email ?? '—'} />
           <LigneInfo label="Téléphone" valeur={personne.telephone ?? '—'} />
           <LigneInfo label="WhatsApp" valeur={personne.whatsapp ?? '—'} />
@@ -149,12 +142,6 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
           </Champ>
           <Champ label="Prénom">
             <input value={prenom} onChange={(e) => setPrenom(e.target.value)} style={champStyle} />
-          </Champ>
-          <Champ label="Date de naissance">
-            <input type="date" value={dateNaissance} onChange={(e) => setDateNaissance(e.target.value)} style={champStyle} />
-          </Champ>
-          <Champ label="Lieu de naissance">
-            <input value={lieuNaissance} onChange={(e) => setLieuNaissance(e.target.value)} style={champStyle} />
           </Champ>
           <Champ label="E-mail" aide="L’e-mail sert d’identifiant de connexion : il se modifie depuis le compte, pas ici.">
             <input value={personne.email ?? ''} disabled style={{ ...champStyle, opacity: 0.55, cursor: 'not-allowed' }} />

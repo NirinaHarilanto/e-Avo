@@ -77,9 +77,6 @@ export const SOURCES_VARIABLE: { valeur: SourceVariable; label: string; groupe: 
   { valeur: 'adresse', label: 'Adresse', groupe: 'Personne concernée' },
   { valeur: 'ville', label: 'Ville', groupe: 'Personne concernée' },
   { valeur: 'taux_horaire', label: 'Taux horaire', groupe: 'Personne concernée' },
-  { valeur: 'date_naissance', label: 'Date de naissance', groupe: 'Naissance' },
-  { valeur: 'lieu_naissance', label: 'Lieu de naissance', groupe: 'Naissance' },
-  { valeur: 'age', label: 'Âge', groupe: 'Naissance' },
   { valeur: 'nom_complet_2', label: 'Prénom et nom (étudiant 2)', groupe: 'Second membre du duo' },
   { valeur: 'prenom_2', label: 'Prénom (étudiant 2)', groupe: 'Second membre du duo' },
   { valeur: 'nom_2', label: 'Nom (étudiant 2)', groupe: 'Second membre du duo' },
@@ -88,9 +85,6 @@ export const SOURCES_VARIABLE: { valeur: SourceVariable; label: string; groupe: 
   { valeur: 'whatsapp_2', label: 'WhatsApp (étudiant 2)', groupe: 'Second membre du duo' },
   { valeur: 'adresse_2', label: 'Adresse (étudiant 2)', groupe: 'Second membre du duo' },
   { valeur: 'ville_2', label: 'Ville (étudiant 2)', groupe: 'Second membre du duo' },
-  { valeur: 'date_naissance_2', label: 'Date de naissance (étudiant 2)', groupe: 'Second membre du duo' },
-  { valeur: 'lieu_naissance_2', label: 'Lieu de naissance (étudiant 2)', groupe: 'Second membre du duo' },
-  { valeur: 'age_2', label: 'Âge (étudiant 2)', groupe: 'Second membre du duo' },
   { valeur: 'langue_programme', label: 'Langue visée / suivie', groupe: 'Programme (étudiant)' },
   { valeur: 'type_programme_label', label: 'Type de programme', groupe: 'Programme (étudiant)' },
   { valeur: 'heures_programme', label: "Nombre d'heures du programme", groupe: 'Programme (étudiant)' },
@@ -107,8 +101,19 @@ export const SOURCES_VARIABLE: { valeur: SourceVariable; label: string; groupe: 
   { valeur: 'annee', label: 'Année en cours', groupe: 'Date' },
 ]
 
+/* Retirées du sélecteur (la fiche ne porte plus ces champs depuis le 2026-09-29) mais encore
+   résolues pour les modèles qui les utilisaient déjà. */
+const SOURCES_RETIREES: Record<string, string> = {
+  date_naissance: 'Date de naissance',
+  lieu_naissance: 'Lieu de naissance',
+  age: 'Âge',
+  date_naissance_2: 'Date de naissance (étudiant 2)',
+  lieu_naissance_2: 'Lieu de naissance (étudiant 2)',
+  age_2: 'Âge (étudiant 2)',
+}
+
 export function libelleSource(source: string): string | undefined {
-  return SOURCES_VARIABLE.find((s) => s.valeur === source)?.label
+  return SOURCES_VARIABLE.find((s) => s.valeur === source)?.label ?? SOURCES_RETIREES[source]
 }
 
 /* Champs d'identité personnelle qu'un contrat DUO doit porter pour les DEUX membres même quand

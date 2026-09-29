@@ -46,6 +46,7 @@ const ContratsEtudiant = lazy(() => import('./components/etudiants/ContratsEtudi
 const EtablissementsPlateforme = lazy(() => import('./components/plateforme/EtablissementsPlateforme').then((m) => ({ default: m.EtablissementsPlateforme })))
 const EtablissementDetailPlateforme = lazy(() => import('./components/plateforme/EtablissementDetailPlateforme').then((m) => ({ default: m.EtablissementDetailPlateforme })))
 const EspacePersonnel = lazy(() => import('./components/shared/EspacePersonnel').then((m) => ({ default: m.EspacePersonnel })))
+const GuideUtilisateur = lazy(() => import('./components/shared/GuideUtilisateur').then((m) => ({ default: m.GuideUtilisateur })))
 const MonProfil = lazy(() => import('./components/shared/MonProfil').then((m) => ({ default: m.MonProfil })))
 
 /* Repère bref pendant le téléchargement d'un espace — chaque écran affiche déjà lui-même
@@ -87,6 +88,7 @@ export default function App() {
             <Route path="/admin/parametres" element={<ParametresAdmin />} />
             <Route path="/admin/tarifs" element={<TarifsAdmin />} />
             <Route path="/admin/mon-profil" element={<MonProfil />} />
+            <Route path="/admin/guide" element={<GuideUtilisateur espace="admin" />} />
             <Route path="/professeur/calendrier" element={<CalendrierProfesseur />} />
             <Route path="/professeur/etudiants" element={<EtudiantsProfesseur />} />
             <Route path="/professeur/etudiants/:id" element={<EtudiantsProfesseur />} />
@@ -96,12 +98,14 @@ export default function App() {
             <Route path="/professeur/factures" element={<FacturesProfesseur />} />
             <Route path="/professeur/contrats" element={<ContratsProfesseur />} />
             <Route path="/professeur/mon-profil" element={<MonProfil />} />
+            <Route path="/professeur/guide" element={<GuideUtilisateur espace="professeur" />} />
             <Route path="/mon-espace" element={<EspacePersonnel />} />
             <Route path="/mon-espace/agenda" element={<AgendaEtudiant />} />
             <Route path="/mon-espace/documents" element={<DocumentsEtudiant />} />
             <Route path="/mon-espace/paiements" element={<PaiementsEtudiant />} />
             <Route path="/mon-espace/contrats" element={<ContratsEtudiant />} />
             <Route path="/mon-espace/profil" element={<MonProfil />} />
+            <Route path="/mon-espace/guide" element={<GuideUtilisateur espace="etudiant" />} />
             <Route path="/plateforme/etablissements" element={<EtablissementsPlateforme />} />
             <Route path="/plateforme/etablissements/:id" element={<EtablissementDetailPlateforme />} />
           </Routes>
