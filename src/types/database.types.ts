@@ -8,7 +8,9 @@ export type ProfileStatus = 'pending' | 'approved' | 'suspended' | 'en_pause'
 export type ProspectStatut = 'prospect' | 'diagnostic_planifie' | 'diagnostic_fait' | 'etudiant'
 export type TypeProgrammeProspect = 'individuel' | 'duo' | 'collectif'
 export type SessionType = 'individuel' | 'collectif'
-export type SessionStatut = 'planifiee' | 'terminee' | 'annulee'
+// 'reportee' (0085) : absence à la clôture, séance reportée — distincte de 'annulee' (n'aura
+// jamais lieu) et de 'terminee' (effectivement comptée, présence ou non).
+export type SessionStatut = 'planifiee' | 'terminee' | 'annulee' | 'reportee'
 export type InvitationStatut = 'en_attente' | 'acceptee' | 'excusee'
 export type LedgerType = 'credit_professeur' | 'debit_etudiant'
 export type CategorieDocument =
@@ -341,7 +343,9 @@ export interface Database {
           session_id: string
           etablissement_id: string
           modifie_par: string
-          type_modification: 'reprogrammee' | 'annulee'
+          // 'reportee'/'absence_comptabilisee' (0085) : décision prise à la clôture d'une séance en
+          // présence d'un absent, voir api/professeur/cloturer-seance.ts.
+          type_modification: 'reprogrammee' | 'annulee' | 'reportee' | 'absence_comptabilisee'
           ancien_debut: string
           nouveau_debut: string | null
           ancienne_duree_minutes: number
@@ -354,7 +358,7 @@ export interface Database {
           session_id: string
           etablissement_id: string
           modifie_par: string
-          type_modification: 'reprogrammee' | 'annulee'
+          type_modification: 'reprogrammee' | 'annulee' | 'reportee' | 'absence_comptabilisee'
           ancien_debut: string
           nouveau_debut?: string | null
           ancienne_duree_minutes: number

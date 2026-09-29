@@ -205,6 +205,12 @@ function StatutSeance({ enrollment, statutSession }: { enrollment: { present: bo
   if (statutSession === 'annulee') {
     return <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)' }}>Annulée</span>
   }
+  // 0085 : absence à la clôture, séance reportée — ni l'élève ni le professeur ne sont
+  // impactés. À distinguer d'« Absent(e) » (ci-dessous) : celui-ci vaudrait pour une séance
+  // COMPTÉE malgré l'absence (choix « Comptabiliser »), qui reste bien « terminée ».
+  if (statutSession === 'reportee') {
+    return <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--warning, #e0a94d)' }}>Reportée</span>
+  }
   if (enrollment.present === true) {
     return <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-teal)' }}>Présent(e)</span>
   }

@@ -59,7 +59,7 @@ export function AgendaEtudiant() {
   /* Couche 2 de la stratégie temps réel du 2026-09-29 : une séance reprogrammée/annulée
      recharge l'agenda de l'élève sans qu'il ait à rafraîchir — voir
      useRafraichirSurNotification.ts. */
-  useRafraichirSurNotification(derniereNotification, ['seance_reprogrammee', 'seance_annulee'], recharger)
+  useRafraichirSurNotification(derniereNotification, ['seance_reprogrammee', 'seance_annulee', 'seance_reportee', 'absence_comptabilisee'], recharger)
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
   const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
 
@@ -81,8 +81,11 @@ export function AgendaEtudiant() {
         dureeMinutes: seance.session.duree_minutes,
         titre: professeurParSeance.get(seance.session.id) ?? 'Cours',
         sousTitre: `${seance.session.type === 'individuel' ? 'Cours individuel' : 'Cours collectif'} · ${seance.session.duree_minutes} min`,
-        ton: seance.session.statut === 'terminee' ? 'teal' : seance.session.statut === 'annulee' ? 'neutre' : 'bleu',
-        attenue: seance.session.statut === 'annulee',
+        // 'reportee' (0085) : absence à la clôture, séance reportée — traitée comme 'annulee' à
+        // l'affichage (cette occurrence n'a pas eu lieu), statut exact lisible via `statut`.
+        ton: seance.session.statut === 'terminee' ? 'teal' : seance.session.statut === 'annulee' || seance.session.statut === 'reportee' ? 'neutre' : 'bleu',
+        attenue: seance.session.statut === 'annulee' || seance.session.statut === 'reportee',
+        statut: seance.session.statut === 'reportee' ? 'Reportée' : seance.session.statut === 'annulee' ? 'Annulée' : undefined,
       })),
     [seances, professeurParSeance],
   )

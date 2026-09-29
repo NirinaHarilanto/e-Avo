@@ -104,8 +104,11 @@ export function SeancesAdmin() {
         dureeMinutes: seance.session.duree_minutes,
         titre: seance.professeur ? `${seance.professeur.prenom} ${seance.professeur.nom}` : 'Professeur inconnu',
         sousTitre: eleves.join(', ') || 'Aucun élève inscrit',
-        ton: seance.session.statut === 'annulee' ? 'neutre' : tonDuProfesseur(professeurIds, seance.professeur?.id),
-        attenue: seance.session.statut === 'annulee',
+        // 'reportee' (0085) traitée comme 'annulee' à l'affichage : dans les deux cas, cette
+        // occurrence n'a pas eu lieu comme prévu — le statut exact reste lisible via `statut`.
+        ton: seance.session.statut === 'annulee' || seance.session.statut === 'reportee' ? 'neutre' : tonDuProfesseur(professeurIds, seance.professeur?.id),
+        attenue: seance.session.statut === 'annulee' || seance.session.statut === 'reportee',
+        statut: seance.session.statut === 'reportee' ? 'Reportée' : seance.session.statut === 'annulee' ? 'Annulée' : undefined,
       }
     })
 

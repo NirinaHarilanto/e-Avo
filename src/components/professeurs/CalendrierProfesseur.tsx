@@ -74,8 +74,11 @@ function versEvenement(seance: SeanceProfesseur): EvenementAgenda {
        type, seul état jugé plus important à distinguer qu'à quel programme appartient le cours.
        Or/violet reprennent les teintes déjà associées à Duo/Collectif ailleurs dans
        l'application (TagProgramme, EtudiantsAdmin). */
-    ton: seance.session.statut === 'annulee' ? 'neutre' : estSeanceDuo(seance) ? 'or' : seance.session.type === 'collectif' ? 'violet' : 'bleu',
-    attenue: seance.session.statut === 'annulee',
+    // 'reportee' (0085) traitée comme 'annulee' à l'affichage : cette occurrence n'a pas eu
+    // lieu comme prévu — le statut exact reste lisible via `statut`.
+    ton: seance.session.statut === 'annulee' || seance.session.statut === 'reportee' ? 'neutre' : estSeanceDuo(seance) ? 'or' : seance.session.type === 'collectif' ? 'violet' : 'bleu',
+    attenue: seance.session.statut === 'annulee' || seance.session.statut === 'reportee',
+    statut: seance.session.statut === 'reportee' ? 'Reportée' : seance.session.statut === 'annulee' ? 'Annulée' : undefined,
   }
 }
 
@@ -114,7 +117,7 @@ export function CalendrierProfesseur() {
      useRafraichirSurNotification.ts. (Sa propre action ne se notifie jamais lui-même, voir
      notifierParticipantsSeance : rien à recharger en double dans ce cas, sa page reflète déjà le
      changement via le recharger() de sa propre modale.) */
-  useRafraichirSurNotification(derniereNotification, ['seance_reprogrammee', 'seance_annulee'], recharger)
+  useRafraichirSurNotification(derniereNotification, ['seance_reprogrammee', 'seance_annulee', 'seance_reportee', 'absence_comptabilisee'], recharger)
   /* Rendez-vous « autre » (entretien, séance d'information…) créés par le professeur lui-même ou
      où il est participant — demande client du 2026-09-23, même mécanisme que RendezVousAdmin.tsx.
      Distinct des séances : ils vivent dans `evenements_admin`, pas `sessions`, et n'affectent
@@ -545,9 +548,16 @@ function CarteSeance({
   const [editionHoraireOuverte, setEditionHoraireOuverte] = useState(false)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  /* Choix à la clôture dès qu'un absent est constaté (0085, demande client du 2026-09-29) — voir
+     api/professeur/cloturer-seance.ts pour la logique. Jamais pertinent pour une séance de
+     vague (`cohort_id` posé) : le décompte y est déjà indépendant de la présence. */
+  const [decisionAbsence, setDecisionAbsence] = useState<'reporter' | 'comptabiliser' | null>(null)
+  const [justificatifAbsence, setJustificatifAbsence] = useState('')
 
   const estAVenir = seance.session.statut === 'planifiee'
   const dejaCommencee = seance.session.debut <= maintenant
+  const auMoinsUnAbsent = !seance.session.cohort_id && Object.values(presences).some((present) => !present)
+  const clotureBloquee = auMoinsUnAbsent && (!decisionAbsence || !justificatifAbsence.trim())
 
   async function annuler() {
     if (!authSession) return
@@ -570,7 +580,7 @@ function CarteSeance({
   }
 
   async function cloturer() {
-    if (!authSession) return
+    if (!authSession || clotureBloquee) return
     setEnCours(true)
     setErreur(null)
     const reponse = await fetch('/api/professeur/cloturer-seance', {
@@ -579,6 +589,7 @@ function CarteSeance({
       body: JSON.stringify({
         sessionId: seance.session.id,
         presences: Object.entries(presences).map(([studentId, present]) => ({ studentId, present })),
+        ...(auMoinsUnAbsent ? { decisionAbsence, justificatifAbsence: justificatifAbsence.trim() } : {}),
       }),
     })
     setEnCours(false)
@@ -654,11 +665,48 @@ function CarteSeance({
               {i.etudiant?.prenom} {i.etudiant?.nom}
             </label>
           ))}
+
+          {/* 0085, demande client du 2026-09-29 : dès qu'un absent est constaté (hors vague),
+              le choix devient obligatoire avant de pouvoir clôturer. */}
+          {auMoinsUnAbsent && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 9, borderRadius: 12, border: '1px solid rgba(224,169,77,.32)', background: 'rgba(224,169,77,.08)', padding: '11px 13px' }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--warning, #e0a94d)' }}>
+                Élève absent — que faire de cette séance ?
+              </span>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 12.5, color: 'var(--ink)', cursor: 'pointer' }}>
+                <input type="radio" name={`decision-absence-${seance.session.id}`} checked={decisionAbsence === 'reporter'} onChange={() => setDecisionAbsence('reporter')} style={{ marginTop: 2 }} />
+                <span>
+                  <strong>Reporter la séance</strong> — elle aura lieu plus tard, ni vous ni l’élève n’êtes impactés pour
+                  cette occurrence.
+                </span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 9, fontSize: 12.5, color: 'var(--ink)', cursor: 'pointer' }}>
+                <input type="radio" name={`decision-absence-${seance.session.id}`} checked={decisionAbsence === 'comptabiliser'} onChange={() => setDecisionAbsence('comptabiliser')} style={{ marginTop: 2 }} />
+                <span>
+                  <strong>Comptabiliser l’heure</strong> — l’heure est décomptée du forfait de l’élève et créditée pour
+                  vous, malgré l’absence.
+                </span>
+              </label>
+              <textarea
+                placeholder="Justificatif (obligatoire)"
+                value={justificatifAbsence}
+                onChange={(e) => setJustificatifAbsence(e.target.value)}
+                rows={2}
+                style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
+              />
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setClotureOuverte(false)} style={{ flexGrow: 1, fontSize: 12.5, padding: 9, borderRadius: 999, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink-2)', cursor: 'pointer' }}>
               Annuler
             </button>
-            <button onClick={cloturer} disabled={enCours} className="btn-shine" style={{ flexGrow: 1, fontSize: 12.5, padding: 9, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours ? 0.6 : 1 }}>
+            <button
+              onClick={cloturer}
+              disabled={enCours || clotureBloquee}
+              className="btn-shine"
+              style={{ flexGrow: 1, fontSize: 12.5, padding: 9, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours || clotureBloquee ? 0.6 : 1 }}
+            >
               Confirmer la clôture
             </button>
           </div>
