@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { EspaceLayout, type NavGroup } from './EspaceLayout'
 import { BienvenueEtudiant } from '../etudiants/BienvenueEtudiant'
+import { EnqueteSatisfactionAuto } from '../etudiants/EnqueteSatisfactionAuto'
 
 const ETUDIANT_NAV_GROUPS: NavGroup[] = [
   {
@@ -29,6 +30,7 @@ export function EtudiantLayout({ children, actif }: { children: ReactNode; actif
     <EspaceLayout roleAttendu="etudiant" roleLabel="Étudiant" navGroups={ETUDIANT_NAV_GROUPS} actif={actif}>
       {children}
       <BienvenueEtudiant />
+      <EnqueteSatisfactionAuto />
     </EspaceLayout>
   )
 }

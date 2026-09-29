@@ -64,37 +64,30 @@ export function BadgeSatisfaction({ satisfactions }: { satisfactions: SeanceDuPa
   )
 }
 
-/* Bouton + pop-up de l'enquête de satisfaction (0068, demande client du 2026-09-23) : « à chaque
-   fin de séance, l'étudiant devra renseigner une petite enquête... avec un système d'étoiles ».
+/* Corps du formulaire de l'enquête (0068, demande client du 2026-09-23 : « à chaque fin de
+   séance, l'étudiant devra renseigner une petite enquête... avec un système d'étoiles »).
+   Extrait de SatisfactionSeance ci-dessous pour être réutilisable par EnqueteSatisfactionAuto.tsx
+   (demande client du 2026-09-30 : l'enquête doit s'ouvrir D'ELLE-MÊME après la clôture, pas
+   seulement attendre qu'on clique un bouton pour la trouver) — même pop-up, deux déclencheurs.
    Écrit directement dans `session_satisfaction` — pas d'endpoint dédié, la RLS
    (session_satisfaction_student_insert) porte déjà toutes les règles (séance terminée, élève
    réellement concerné, y compris un second membre de binôme DUO sans inscription propre). */
-export function SatisfactionSeance({
+export function PopupSatisfaction({
   seance,
   studentId,
+  onFermer,
   onEnregistre,
 }: {
   seance: SeanceDuParcours
   studentId: string
+  onFermer: () => void
   onEnregistre: () => void
 }) {
-  const [ouverte, setOuverte] = useState(false)
   const [noteGlobale, setNoteGlobale] = useState(0)
   const [notePedagogie, setNotePedagogie] = useState(0)
   const [commentaire, setCommentaire] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
-
-  const dejaRepondu = seance.satisfactions.find((s) => s.student_id === studentId) ?? null
-
-  if (dejaRepondu) {
-    return (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <Etoiles valeur={dejaRepondu.note_globale} taille={13} />
-        <span style={{ fontSize: 10.5, color: 'var(--muted-2)' }}>Merci pour votre avis</span>
-      </span>
-    )
-  }
 
   async function enregistrer() {
     setEnCours(true)
@@ -112,8 +105,72 @@ export function SatisfactionSeance({
       setErreur(error.message)
       return
     }
-    setOuverte(false)
     onEnregistre()
+  }
+
+  return (
+    <Modale titre="Votre avis sur cette séance" onFermer={onFermer} largeurMax={420}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Note globale (obligatoire)</label>
+          <Etoiles valeur={noteGlobale} onChange={setNoteGlobale} taille={22} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Clarté du cours (facultatif)</label>
+          <Etoiles valeur={notePedagogie} onChange={setNotePedagogie} taille={22} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Commentaire (facultatif)</label>
+          <textarea
+            value={commentaire}
+            onChange={(e) => setCommentaire(e.target.value)}
+            rows={3}
+            placeholder="Ce que vous avez aimé, ce qui pourrait être amélioré…"
+            style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
+          />
+        </div>
+        {erreur && <MessageErreur>{erreur}</MessageErreur>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button type="button" onClick={onFermer} style={boutonNeutreStyle}>
+            Plus tard
+          </button>
+          <button
+            type="button"
+            onClick={enregistrer}
+            disabled={enCours || noteGlobale === 0}
+            className="btn-shine"
+            style={{ ...boutonPrimaireStyle, fontSize: 12.5, padding: '9px 16px', opacity: enCours || noteGlobale === 0 ? 0.6 : 1 }}
+          >
+            {enCours ? 'Envoi…' : 'Envoyer mon avis'}
+          </button>
+        </div>
+      </div>
+    </Modale>
+  )
+}
+
+/* Bouton + pop-up de l'enquête depuis le dossier (onglet Parcours pédagogique) — la même
+   PopupSatisfaction, déclenchée ici par un clic plutôt qu'automatiquement. */
+export function SatisfactionSeance({
+  seance,
+  studentId,
+  onEnregistre,
+}: {
+  seance: SeanceDuParcours
+  studentId: string
+  onEnregistre: () => void
+}) {
+  const [ouverte, setOuverte] = useState(false)
+
+  const dejaRepondu = seance.satisfactions.find((s) => s.student_id === studentId) ?? null
+
+  if (dejaRepondu) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <Etoiles valeur={dejaRepondu.note_globale} taille={13} />
+        <span style={{ fontSize: 10.5, color: 'var(--muted-2)' }}>Merci pour votre avis</span>
+      </span>
+    )
   }
 
   return (
@@ -130,43 +187,15 @@ export function SatisfactionSeance({
       </button>
 
       {ouverte && (
-        <Modale titre="Votre avis sur cette séance" onFermer={() => setOuverte(false)} largeurMax={420}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Note globale (obligatoire)</label>
-              <Etoiles valeur={noteGlobale} onChange={setNoteGlobale} taille={22} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Clarté du cours (facultatif)</label>
-              <Etoiles valeur={notePedagogie} onChange={setNotePedagogie} taille={22} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Commentaire (facultatif)</label>
-              <textarea
-                value={commentaire}
-                onChange={(e) => setCommentaire(e.target.value)}
-                rows={3}
-                placeholder="Ce que vous avez aimé, ce qui pourrait être amélioré…"
-                style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
-              />
-            </div>
-            {erreur && <MessageErreur>{erreur}</MessageErreur>}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-              <button type="button" onClick={() => setOuverte(false)} style={boutonNeutreStyle}>
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={enregistrer}
-                disabled={enCours || noteGlobale === 0}
-                className="btn-shine"
-                style={{ ...boutonPrimaireStyle, fontSize: 12.5, padding: '9px 16px', opacity: enCours || noteGlobale === 0 ? 0.6 : 1 }}
-              >
-                {enCours ? 'Envoi…' : 'Envoyer mon avis'}
-              </button>
-            </div>
-          </div>
-        </Modale>
+        <PopupSatisfaction
+          seance={seance}
+          studentId={studentId}
+          onFermer={() => setOuverte(false)}
+          onEnregistre={() => {
+            setOuverte(false)
+            onEnregistre()
+          }}
+        />
       )}
     </>
   )
