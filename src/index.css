@@ -1371,3 +1371,34 @@ body.sans-defilement {
     height: 240px;
   }
 }
+
+/* Bouton « Rejoignez-nous ! » posé sur la maquette du hero (HeroPublic.tsx). */
+.hero-rejoindre {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #7c4ddf, #5a2fb8);
+  color: #fff !important;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(90, 47, 184, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.hero-rejoindre:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 9px 22px rgba(90, 47, 184, 0.45);
+}
+.hero-rejoindre--flottant {
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  padding: 11px 22px;
+  font-size: 14px;
+  z-index: 5;
+}
+.hero-rejoindre--flottant:hover {
+  transform: translateX(-50%) translateY(-1px);
+}

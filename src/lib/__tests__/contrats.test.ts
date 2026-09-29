@@ -36,6 +36,7 @@ const etudiant: Profile = {
   motif_pause: null,
   pause_le: null,
   pause_par: null,
+  statut_integration: null,
   created_at: '2026-01-01T00:00:00Z',
 }
 

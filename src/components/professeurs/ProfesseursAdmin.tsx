@@ -218,9 +218,14 @@ export function ProfesseursAdmin() {
                   </span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>{formaterHeures(heures[prof.id] ?? 0)} enseignées</span>
                 </div>
-                {statutsContrats[prof.id] && (
-                  <div>
-                    <BadgeStatutContrat statut={statutsContrats[prof.id]} compact />
+                {(statutsContrats[prof.id] || prof.statut_integration) && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {prof.statut_integration === 'en_integration' && (
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#b89cff', border: '1px solid currentColor', borderRadius: 999, padding: '2px 8px' }}>
+                        En phase d’intégration
+                      </span>
+                    )}
+                    {statutsContrats[prof.id] && <BadgeStatutContrat statut={statutsContrats[prof.id]} compact />}
                   </div>
                 )}
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, fontWeight: 700, color: 'var(--accent-blue)' }}>

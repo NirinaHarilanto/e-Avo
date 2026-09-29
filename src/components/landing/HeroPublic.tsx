@@ -48,6 +48,12 @@ const ZONES: { cle: string; libelle: string; boite: [number, number, number, num
   { cle: 'commencer', libelle: 'Commencer maintenant', boite: [69, 483, 308, 64], action: { type: 'reserver' } },
 ]
 
+/* Emplacement du bouton « Rejoignez-nous ! » dans le repère de la maquette : zone vide de la
+   barre de navigation, à la même hauteur que « Se connecter ». */
+const REJOINDRE: [number, number, number, number] = [905, 27, 200, 37]
+/* En dessous de cette largeur de scène, le texte à l'échelle de la maquette passerait sous 10 px. */
+const LARGEUR_MIN_BOUTON_INTEGRE = 1600
+
 export function HeroPublic({
   nomEtablissement,
   onReserver,
@@ -140,7 +146,34 @@ export function HeroPublic({
               />
             )
           })}
+
+        {/* Seul élément HTML visible posé sur la maquette : l'entrée des candidats formateurs
+            (demande client du 2026-09-29), dans l'espace libre de la barre de navigation
+            dessinée, entre « À propos » et la loupe. Taille calée sur l'échelle de la scène
+            pour rester proportionnée au bouton « Se connecter » dessiné. */}
+        {scene.largeur >= LARGEUR_MIN_BOUTON_INTEGRE && (
+          <a
+            href="/rejoignez-nous"
+            className="hero-rejoindre"
+            style={{
+              left: `${((MAQUETTE.gauche + REJOINDRE[0]) / IMAGE.largeur) * 100}%`,
+              top: `${((MAQUETTE.haut + REJOINDRE[1]) / IMAGE.hauteur) * 100}%`,
+              width: `${(REJOINDRE[2] / IMAGE.largeur) * 100}%`,
+              height: `${(REJOINDRE[3] / IMAGE.hauteur) * 100}%`,
+              fontSize: (scene.largeur * 14) / IMAGE.largeur,
+            }}
+          >
+            Rejoignez-nous !
+          </a>
+        )}
       </div>
+      {/* Écran étroit : la barre dessinée devient trop petite pour y loger un bouton lisible —
+          il flotte alors en bas de l'écran, à taille normale. */}
+      {scene.largeur > 0 && scene.largeur < LARGEUR_MIN_BOUTON_INTEGRE && (
+        <a href="/rejoignez-nous" className="hero-rejoindre hero-rejoindre--flottant">
+          Rejoignez-nous !
+        </a>
+      )}
     </div>
   )
 }

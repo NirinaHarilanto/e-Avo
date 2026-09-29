@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { EspaceLayout, type NavGroup } from './EspaceLayout'
+import { useProfileContext } from '../../context/ProfileContext'
 
 const PROFESSEUR_NAV_GROUPS: NavGroup[] = [
   {
@@ -24,8 +26,17 @@ const PROFESSEUR_NAV_GROUPS: NavGroup[] = [
 ]
 
 export function ProfesseurLayout({ children, actif }: { children: ReactNode; actif: string }) {
+  const { profile } = useProfileContext()
   return (
     <EspaceLayout roleAttendu="professeur" roleLabel="Professeur" navGroups={PROFESSEUR_NAV_GROUPS} actif={actif}>
+      {/* Formateur recruté dont l'intégration n'est pas encore validée (0082). */}
+      {profile?.statut_integration === 'en_integration' && (
+        <div style={{ marginBottom: 16, borderRadius: 12, border: '1px solid rgba(184,156,255,.4)', background: 'rgba(184,156,255,.08)', padding: '11px 15px', fontSize: 12.5, lineHeight: 1.55, color: 'var(--ink-2)' }}>
+          <strong style={{ color: '#b89cff' }}>Bienvenue ! Vous êtes en phase d’intégration.</strong> Première étape : lire et signer votre
+          contrat dans <Link to="/professeur/contrats" style={{ color: 'var(--accent-blue)', fontWeight: 700 }}>Mes contrats</Link>. L’équipe HOC
+          vous accompagne ensuite pour les sessions d’onboarding.
+        </div>
+      )}
       {children}
     </EspaceLayout>
   )

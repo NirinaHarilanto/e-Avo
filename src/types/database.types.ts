@@ -33,6 +33,13 @@ export type NiveauClasse = 'beginner' | 'intermediate' | 'advanced'
 export type CreneauClasse = 'matin' | 'midi' | 'soir'
 export type StatutRendezVous = 'en_attente' | 'confirme' | 'refuse' | 'annule'
 
+/* Pièce déposée par un candidat formateur (0082), dans le bucket privé `candidatures`. */
+export interface FichierCandidature {
+  chemin: string
+  nom: string
+  type: 'cv' | 'diplome'
+}
+
 export type StatutTimesheet = 'soumis' | 'valide' | 'refuse'
 
 /* Une séance déclarée sur un TimeSheet (0081), figée au moment de l'envoi. */
@@ -132,6 +139,8 @@ export interface Database {
           motif_pause: string | null
           pause_le: string | null
           pause_par: string | null
+          /* Professeur recruté encore en phase d'intégration (0082). */
+          statut_integration: 'en_integration' | null
           created_at: string
         }
         Insert: {
@@ -157,6 +166,7 @@ export interface Database {
           motif_pause?: string | null
           pause_le?: string | null
           pause_par?: string | null
+          statut_integration?: 'en_integration' | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['profiles']['Insert']>
@@ -637,6 +647,58 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['hour_ledger']['Insert']>
+        Relationships: []
+      }
+      candidatures_formateurs: {
+        Row: {
+          id: string
+          etablissement_id: string
+          prenom: string
+          nom: string
+          email: string
+          telephone: string | null
+          ville: string | null
+          motivation: string
+          experiences: string
+          diplome_declare: 'licence_anglais' | 'tefl' | 'licence_et_tefl' | 'autre'
+          fichiers: FichierCandidature[]
+          statut: 'recue' | 'preselection' | 'tests' | 'simulation' | 'integration' | 'integre' | 'refusee'
+          documents_verifies: boolean
+          preselection: Record<string, string | number | boolean | null | undefined>
+          tests: Record<string, unknown>
+          simulation: Record<string, string | number | boolean | null | undefined>
+          integration: Record<string, { fait?: boolean; date?: string | null } | undefined>
+          notes: string | null
+          motif_refus: string | null
+          professeur_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          prenom: string
+          nom: string
+          email: string
+          telephone?: string | null
+          ville?: string | null
+          motivation: string
+          experiences: string
+          diplome_declare: 'licence_anglais' | 'tefl' | 'licence_et_tefl' | 'autre'
+          fichiers?: FichierCandidature[]
+          statut?: 'recue' | 'preselection' | 'tests' | 'simulation' | 'integration' | 'integre' | 'refusee'
+          documents_verifies?: boolean
+          preselection?: Record<string, string | number | boolean | null | undefined>
+          tests?: Record<string, unknown>
+          simulation?: Record<string, string | number | boolean | null | undefined>
+          integration?: Record<string, { fait?: boolean; date?: string | null } | undefined>
+          notes?: string | null
+          motif_refus?: string | null
+          professeur_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['candidatures_formateurs']['Insert']>
         Relationships: []
       }
       timesheets: {

@@ -135,7 +135,10 @@ export function LandingEtablissement() {
           ))}
         </nav>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <a href="/rejoignez-nous" className="lien-nav-public" style={{ fontWeight: 700 }}>
+            Rejoignez-nous !
+          </a>
           <a href="/connexion" className="bouton-contour">
             Se connecter
           </a>
@@ -172,6 +175,7 @@ export function LandingEtablissement() {
         <span style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <a href="/confidentialite">Confidentialité</a>
           <a href="/conditions-utilisation">Conditions d’utilisation</a>
+          <a href="/rejoignez-nous">Devenir formateur</a>
           <a href="/plateforme/etablissements">Admin plateforme</a>
         </span>
       </footer>

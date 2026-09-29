@@ -196,3 +196,13 @@ function echapper(valeur: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
 }
+
+export function modeleCandidatureRecue(params: { prenom: string; etablissement: string }): string {
+  return coquille(`
+  <h1 style="font-size:19px;margin:0 0 14px">Votre candidature est bien arrivée</h1>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 14px">Bonjour ${echapper(params.prenom)},</p>
+  <p style="font-size:14px;line-height:1.65;margin:0 0 14px">
+    Merci pour votre intérêt : ${echapper(params.etablissement)} a bien reçu votre dossier de candidature formateur.
+    Notre équipe l'examine et revient vers vous pour un premier appel si votre profil correspond à nos besoins.
+  </p>`)
+}

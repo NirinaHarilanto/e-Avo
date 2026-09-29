@@ -11,6 +11,7 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
       { label: 'Agenda', href: '/admin/rendez-vous', disponible: true, icone: 'seances', description: 'Demandes d’appel diagnostic et rendez-vous à valider' },
       { label: 'Étudiants', href: '/admin/etudiants', disponible: true, icone: 'etudiants', description: 'Dossiers, professeurs et forfaits' },
       { label: 'Cours collectifs', href: '/admin/vagues', disponible: true, icone: 'vagues', description: 'Vagues, sessions de test oral et quiz de positionnement' },
+      { label: 'Recrutement', href: '/admin/recrutement', disponible: true, icone: 'recrutement', description: 'Candidatures formateurs et intégration' },
       { label: 'Professeurs', href: '/admin/professeurs', disponible: true, icone: 'professeurs', description: 'Équipe enseignante et charge' },
       { label: 'Séances & visio', href: '/admin/seances', disponible: true, icone: 'seances', description: 'Planning des cours' },
       { label: 'Heures & forfaits', href: '/admin/heures', disponible: true, icone: 'heures', description: 'Compteurs suivis et enseignés' },

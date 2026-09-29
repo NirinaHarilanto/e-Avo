@@ -47,6 +47,8 @@ const EtablissementsPlateforme = lazy(() => import('./components/plateforme/Etab
 const EtablissementDetailPlateforme = lazy(() => import('./components/plateforme/EtablissementDetailPlateforme').then((m) => ({ default: m.EtablissementDetailPlateforme })))
 const EspacePersonnel = lazy(() => import('./components/shared/EspacePersonnel').then((m) => ({ default: m.EspacePersonnel })))
 const GuideUtilisateur = lazy(() => import('./components/shared/GuideUtilisateur').then((m) => ({ default: m.GuideUtilisateur })))
+const CandidatureFormateur = lazy(() => import('./components/landing/CandidatureFormateur').then((m) => ({ default: m.CandidatureFormateur })))
+const RecrutementAdmin = lazy(() => import('./components/admin/RecrutementAdmin').then((m) => ({ default: m.RecrutementAdmin })))
 const MonProfil = lazy(() => import('./components/shared/MonProfil').then((m) => ({ default: m.MonProfil })))
 
 /* Repère bref pendant le téléchargement d'un espace — chaque écran affiche déjà lui-même
@@ -69,6 +71,7 @@ export default function App() {
             <Route path="/" element={<LandingEtablissement />} />
             <Route path="/e/:slug" element={<LandingEtablissement />} />
             <Route path="/connexion" element={<Connexion />} />
+            <Route path="/rejoignez-nous" element={<CandidatureFormateur />} />
             <Route path="/auth/reinitialiser" element={<ReinitialiserMotDePasse />} />
             <Route path="/confidentialite" element={<Confidentialite />} />
             <Route path="/conditions-utilisation" element={<ConditionsUtilisation />} />
@@ -78,6 +81,7 @@ export default function App() {
             <Route path="/admin/etudiants/:id" element={<EtudiantsAdmin />} />
             <Route path="/admin/vagues" element={<CohortesAdmin />} />
             <Route path="/admin/professeurs" element={<ProfesseursAdmin />} />
+            <Route path="/admin/recrutement" element={<RecrutementAdmin />} />
             <Route path="/admin/professeurs/:id" element={<ProfesseurDetailAdmin />} />
             <Route path="/admin/seances" element={<SeancesAdmin />} />
             <Route path="/admin/heures" element={<HeuresAdmin />} />
