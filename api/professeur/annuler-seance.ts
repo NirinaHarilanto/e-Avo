@@ -1,6 +1,6 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { annulerVisio } from '../_lib/synchroniserVisio.js'
-import { notifierParticipantsSeance } from '../_lib/notifications.js'
+import { formaterDateSeance, notifierAdminsMouvementPlanning, notifierParticipantsSeance } from '../_lib/notifications.js'
 
 export const config = { runtime: 'edge' }
 
@@ -70,7 +70,18 @@ export default async function handler(request: Request): Promise<Response> {
       acteurId: profileId,
       type: 'seance_annulee',
       titre: 'Séance annulée',
-      message: `La séance du ${new Date(session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })} a été annulée.`,
+      message: `La séance du ${formaterDateSeance(session.debut)} a été annulée.`,
+    })
+
+    const { data: inscrits } = await serviceClient.from('session_enrollments').select('student_id').eq('session_id', session.id)
+    await notifierAdminsMouvementPlanning(serviceClient, {
+      etablissementId,
+      acteurId: profileId,
+      teacherId: session.teacher_id,
+      type: 'planning_seance_annulee',
+      titre: 'Séance annulée',
+      detail: `La séance du ${formaterDateSeance(session.debut)} a été annulée.`,
+      studentIds: (inscrits ?? []).map((i) => i.student_id),
     })
 
     return Response.json({ ok: true })

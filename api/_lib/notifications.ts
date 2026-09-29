@@ -69,3 +69,69 @@ export async function notifierParticipantsSeance(
     ),
   )
 }
+
+const FUSEAU_ETABLISSEMENT = 'Indian/Antananarivo'
+
+/* Le serveur tourne en UTC : sans fuseau explicite, une heure de séance s'afficherait avec trois
+   heures d'écart dans les notifications. */
+export function formaterDateSeance(iso: string): string {
+  return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short', timeZone: FUSEAU_ETABLISSEMENT })
+}
+
+/**
+ * Prévient l'administration de tout mouvement du planning d'un professeur — séance créée,
+ * reprogrammée ou annulée (demande client du 2026-09-29). Vont aux admins de l'établissement,
+ * administrateurs plateforme compris, jamais à l'auteur du mouvement lui-même.
+ */
+export async function notifierAdminsMouvementPlanning(
+  serviceClient: ServiceClient,
+  params: {
+    etablissementId: string
+    acteurId: string
+    teacherId: string
+    type: 'planning_seance_creee' | 'planning_seance_reprogrammee' | 'planning_seance_annulee'
+    titre: string
+    detail: string
+    studentIds?: string[]
+  },
+) {
+  const [{ data: admins }, { data: plateforme }] = await Promise.all([
+    serviceClient
+      .from('profiles')
+      .select('id')
+      .eq('etablissement_id', params.etablissementId)
+      .eq('role', 'admin_etablissement')
+      .eq('status', 'approved'),
+    serviceClient.from('platform_admins').select('id'),
+  ])
+  const idsPlateforme = (plateforme ?? []).map((p) => p.id)
+  const { data: plateformeDeLEtablissement } = idsPlateforme.length
+    ? await serviceClient.from('profiles').select('id').in('id', idsPlateforme).eq('etablissement_id', params.etablissementId)
+    : { data: [] as { id: string }[] }
+
+  const destinataires = new Set([...(admins ?? []), ...(plateformeDeLEtablissement ?? [])].map((p) => p.id))
+  destinataires.delete(params.acteurId)
+  if (destinataires.size === 0) return
+
+  const personnes = [params.teacherId, ...(params.studentIds ?? [])]
+  const { data: profils } = await serviceClient.from('profiles').select('id, prenom, nom').in('id', personnes)
+  const nom = (id: string) => {
+    const p = (profils ?? []).find((x) => x.id === id)
+    return p ? [p.prenom, p.nom].filter(Boolean).join(' ') : null
+  }
+  const professeur = nom(params.teacherId) ?? 'Un professeur'
+  const eleves = (params.studentIds ?? []).map(nom).filter(Boolean).join(', ')
+
+  await Promise.all(
+    [...destinataires].map((destinataireProfileId) =>
+      creerNotification(serviceClient, {
+        etablissementId: params.etablissementId,
+        destinataireProfileId,
+        type: params.type,
+        titre: `${params.titre} · ${professeur}`,
+        message: `${params.detail}${eleves ? ` Élève(s) : ${eleves}.` : ''}`,
+        lien: '/admin/seances',
+      }),
+    ),
+  )
+}

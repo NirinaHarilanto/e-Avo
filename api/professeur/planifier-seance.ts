@@ -1,4 +1,5 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
+import { formaterDateSeance, notifierAdminsMouvementPlanning } from '../_lib/notifications.js'
 import { creerSeanceAvecInscriptions } from '../_lib/creerSeance.js'
 import { CAPACITE_MIN_CLASSE } from '../../src/lib/classesCollectif.js'
 
@@ -115,6 +116,16 @@ export default async function handler(request: Request): Promise<Response> {
     if ('error' in resultat) {
       return Response.json({ error: resultat.error }, { status: 500 })
     }
+
+    await notifierAdminsMouvementPlanning(serviceClient, {
+      etablissementId,
+      acteurId: profileId,
+      teacherId,
+      type: 'planning_seance_creee',
+      titre: 'Nouvelle séance planifiée',
+      detail: `Séance du ${formaterDateSeance(body.debut)} (${body.dureeMinutes} min).`,
+      studentIds: body.studentIds,
+    })
 
     return Response.json({ sessionId: resultat.sessionId })
   } catch (error) {

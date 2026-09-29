@@ -1,6 +1,6 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { deplacerVisio } from '../_lib/synchroniserVisio.js'
-import { notifierParticipantsSeance } from '../_lib/notifications.js'
+import { formaterDateSeance, notifierAdminsMouvementPlanning, notifierParticipantsSeance } from '../_lib/notifications.js'
 
 export const config = { runtime: 'edge' }
 
@@ -101,7 +101,18 @@ export default async function handler(request: Request): Promise<Response> {
       acteurId: profileId,
       type: 'seance_reprogrammee',
       titre: 'Séance reprogrammée',
-      message: `Nouvelle heure : ${new Date(nouveauDebut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}.`,
+      message: `Nouvelle heure : ${formaterDateSeance(nouveauDebut)}.`,
+    })
+
+    const { data: inscrits } = await serviceClient.from('session_enrollments').select('student_id').eq('session_id', session.id)
+    await notifierAdminsMouvementPlanning(serviceClient, {
+      etablissementId,
+      acteurId: profileId,
+      teacherId: session.teacher_id,
+      type: 'planning_seance_reprogrammee',
+      titre: 'Séance reprogrammée',
+      detail: `Séance du ${formaterDateSeance(session.debut)} déplacée au ${formaterDateSeance(nouveauDebut)} (${nouvelleDuree} min). Motif : ${justificatif}.`,
+      studentIds: (inscrits ?? []).map((i) => i.student_id),
     })
 
     return Response.json({ ok: true })
