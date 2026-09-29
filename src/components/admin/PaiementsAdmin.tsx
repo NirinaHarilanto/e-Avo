@@ -549,21 +549,37 @@ function SupprimerPaiementModale({
   const [motif, setMotif] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  /* Distingue un échec RÉSEAU (jeton pas encore rafraîchi après une longue inactivité de
+     l'onglet, connexion coupée un instant...) d'un vrai refus du serveur — demande client du
+     2026-09-30, capture à l'appui : « TypeError: Failed to fetch ». Ce message brut, RENVOYÉ TEL
+     QUEL par postgrest-js dans `error.message` (il ne fait qu'y relayer l'exception JS d'origine,
+     jamais lui-même la cause), ne dit rien d'actionnable à l'admin. Reconstitué ici en repérant sa
+     forme plutôt qu'ajouté par une nouvelle gestion d'erreur : réessayer suffit dans la quasi-
+     totalité des cas, le bouton restait déjà cliquable, mais rien ne le suggérait clairement. */
+  const [reseauEnCause, setReseauEnCause] = useState(false)
 
   async function supprimer() {
     setEnCours(true)
     setErreur(null)
+    setReseauEnCause(false)
     const champs = { supprime_le: new Date().toISOString(), supprime_par: profileId, motif_suppression: motif.trim() }
-    const { error } =
-      paiement.table === 'teacher_payments'
-        ? await supabase.from('teacher_payments').update(champs).eq('id', paiement.id)
-        : await supabase.from('student_payments').update(champs).eq('id', paiement.id)
-    setEnCours(false)
-    if (error) {
-      setErreur(error.message)
-      return
+    try {
+      const { error } =
+        paiement.table === 'teacher_payments'
+          ? await supabase.from('teacher_payments').update(champs).eq('id', paiement.id)
+          : await supabase.from('student_payments').update(champs).eq('id', paiement.id)
+      if (error) throw error
+      setEnCours(false)
+      onSupprime()
+    } catch (e) {
+      setEnCours(false)
+      // `error` (PostgrestError) et une exception JS native n'ont pas le même prototype mais
+      // portent toutes deux `.message` — testé ainsi plutôt que `instanceof Error`, qui manquerait
+      // le premier cas.
+      const message = e && typeof e === 'object' && 'message' in e ? String((e as { message: unknown }).message) : 'La suppression a échoué.'
+      setReseauEnCause(/failed to fetch|networkerror|load failed/i.test(message))
+      setErreur(message)
     }
-    onSupprime()
   }
 
   return (
@@ -575,13 +591,26 @@ function SupprimerPaiementModale({
         <Champ label="Motif de la suppression" obligatoire aide="Conservé avec la ligne supprimée, pour justifier la correction plus tard.">
           <input value={motif} onChange={(e) => setMotif(e.target.value)} placeholder="Doublon, erreur de saisie…" style={champStyle} />
         </Champ>
-        {erreur && <MessageErreur>{erreur}</MessageErreur>}
+        {erreur && (
+          <MessageErreur>
+            {reseauEnCause ? (
+              <>
+                La connexion au serveur a échoué. Vérifiez votre connexion internet et cliquez à nouveau sur « Confirmer la
+                suppression » — rien n’a été enregistré.
+                <br />
+                <span style={{ opacity: 0.7, fontSize: 11 }}>Détail technique : {erreur}</span>
+              </>
+            ) : (
+              erreur
+            )}
+          </MessageErreur>
+        )}
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={onFermer} style={{ ...boutonNeutreStyle, flexGrow: 1 }}>
             Annuler
           </button>
           <button onClick={supprimer} disabled={enCours || motif.trim().length === 0} style={{ ...boutonDangerStyle, flexGrow: 1, opacity: enCours || !motif.trim() ? 0.6 : 1 }}>
-            {enCours ? 'Suppression…' : 'Confirmer la suppression'}
+            {enCours ? 'Suppression…' : reseauEnCause ? 'Réessayer' : 'Confirmer la suppression'}
           </button>
         </div>
       </div>
