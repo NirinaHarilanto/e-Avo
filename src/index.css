@@ -496,13 +496,20 @@ select { color-scheme: dark; }
   min-height: 100dvh;
   align-items: flex-start;
 }
+/* Ancrée aux bords haut et bas de la fenêtre (`position: fixed; top: 0; bottom: 0`) plutôt que
+   dimensionnée en `100dvh` : le `zoom` de <body> (0.82 dans les espaces connectés, 0.9 sur la
+   plateforme) s'applique aussi aux unités `vh` dans Chrome récent, et la barre ne couvrait que
+   82 % de la hauteur de l'écran — vide en dessous, et défilement interne inutile (signalé par le
+   client le 2026-09-29). Des bords ancrés se calculent sur la fenêtre réelle, quel que soit le
+   zoom ; la zone de contenu lui réserve sa largeur par une marge (voir .zone-contenu). */
 .barre-laterale {
   width: 248px;
   flex-shrink: 0;
-  position: sticky;
+  position: fixed;
   top: 0;
-  height: 100vh;
-  height: 100dvh;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -538,6 +545,7 @@ select { color-scheme: dark; }
 .zone-contenu {
   flex-grow: 1;
   min-width: 0;
+  margin-left: 248px;
   display: flex;
   flex-direction: column;
 }
@@ -549,11 +557,16 @@ select { color-scheme: dark; }
 }
 
 @media (max-width: 900px) {
+  /* En tiroir, la barre ne réserve plus de place : le contenu reprend toute la largeur. */
+  .zone-contenu {
+    margin-left: 0;
+  }
   .barre-laterale {
     position: fixed;
     z-index: 40;
     left: 0;
     top: 0;
+    bottom: 0;
     transform: translateX(-100%);
     transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
