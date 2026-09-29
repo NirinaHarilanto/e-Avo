@@ -58,10 +58,12 @@ const PROGRAMMES: { type: TypeProgrammeProspect; tag: string; titre: string; tex
     type: 'individuel',
     tag: 'Individuel',
     titre: 'Cours particuliers',
+    /* Le paragraphe de détail (anglais général/affaires, personnalisation) a été retiré ici
+       (demande client du 2026-09-29) : à texte égal avec les deux autres cartes, les photos —
+       calées en bas comme leur texte (voir .grille-cours dans index.css) — s'alignent
+       naturellement, sans perdre l'espace qu'un texte plus long leur aurait pris. */
     texte:
       'Sur mesure : vous choisissez votre rythme et le sujet de chaque séance, avec un professeur rien que pour vous, calé sur votre objectif réel.',
-    detail:
-      'Anglais général, focus oral, compréhension ou grammaire — ou anglais des affaires (meetings, présentations, négociation). Contenu 100 % personnalisable sur demande.',
   },
   {
     type: 'collectif',
