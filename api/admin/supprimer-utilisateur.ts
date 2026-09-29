@@ -1,4 +1,6 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
+import { annulerVisio } from '../_lib/synchroniserVisio.js'
+import { formaterDateSeance, notifierParticipantsSeance } from '../_lib/notifications.js'
 
 export const config = { runtime: 'edge' }
 
@@ -86,6 +88,8 @@ async function purgerContrats(
 async function purgerDonneesEtudiant(
   serviceClient: Awaited<ReturnType<typeof requireAdmin>>['serviceClient'],
   studentId: string,
+  etablissementId: string,
+  acteurId: string,
 ): Promise<void> {
   // Séances à venir qui se retrouveraient sans aucun inscrit une fois cet élève retiré — calculé
   // AVANT la suppression des inscriptions, pour pouvoir les annuler ensuite (le passé, lui, n'est
@@ -93,11 +97,15 @@ async function purgerDonneesEtudiant(
   const maintenant = new Date().toISOString()
   const { data: inscriptionsFutures } = await serviceClient
     .from('session_enrollments')
-    .select('session_id, sessions!inner(id, debut, statut)')
+    .select('session_id, sessions!inner(id, debut, teacher_id, statut)')
     .eq('student_id', studentId)
     .gt('sessions.debut', maintenant)
     .eq('sessions.statut', 'planifiee')
-  const sessionIdsFutures = [...new Set((inscriptionsFutures ?? []).map((i: { session_id: string }) => i.session_id))]
+  type LigneInscriptionFuture = { session_id: string; sessions: { id: string; debut: string; teacher_id: string; statut: string } }
+  const seancesFuturesParId = new Map(
+    (inscriptionsFutures ?? []).map((i) => [(i as unknown as LigneInscriptionFuture).session_id, (i as unknown as LigneInscriptionFuture).sessions]),
+  )
+  const sessionIdsFutures = [...seancesFuturesParId.keys()]
 
   await purgerDocuments(serviceClient, studentId)
   await serviceClient.from('document_permissions').delete().eq('profile_id', studentId)
@@ -118,6 +126,27 @@ async function purgerDonneesEtudiant(
     const aAnnuler = sessionIdsFutures.filter((id) => !encoreOccupees.has(id))
     if (aAnnuler.length > 0) {
       await serviceClient.from('sessions').update({ statut: 'annulee' }).in('id', aAnnuler)
+      // Même traitement que l'annulation normale (annuler-seance.ts) : le lien de
+      // visioconférence est retiré et le professeur prévenu — sans ce garde-fou, la séance
+      // disparaissait de l'agenda de l'élève supprimé mais restait « planifiée » dans celui de
+      // son professeur, lien Meet compris (demande client du 2026-09-29 : « efface les
+      // évènements et rendez-vous concernant les personnes qui ont été supprimées »).
+      await Promise.all(
+        aAnnuler.map(async (sessionId) => {
+          await annulerVisio(serviceClient, { sessionId, etablissementId })
+          const seance = seancesFuturesParId.get(sessionId)
+          if (!seance) return
+          await notifierParticipantsSeance(serviceClient, {
+            etablissementId,
+            sessionId,
+            teacherId: seance.teacher_id,
+            acteurId,
+            type: 'seance_annulee',
+            titre: 'Séance annulée',
+            message: `La séance du ${formaterDateSeance(seance.debut)} a été annulée : son dernier élève inscrit a été supprimé.`,
+          })
+        }),
+      )
     }
   }
 
@@ -139,7 +168,46 @@ async function purgerDonneesEtudiant(
 async function purgerDonneesProfesseur(
   serviceClient: Awaited<ReturnType<typeof requireAdmin>>['serviceClient'],
   teacherId: string,
+  etablissementId: string,
+  acteurId: string,
 ): Promise<void> {
+  // Séances encore planifiées de ce professeur (individuelles ou collectives) : `teacher_id` est
+  // une colonne obligatoire de `sessions`, rien ne les détache automatiquement de lui. Restées
+  // « planifiee » elles continuaient jusqu'ici de s'afficher, lien Meet compris, dans l'agenda de
+  // leurs élèves ET dans le pipeline admin — avec un professeur désormais supprimé en face
+  // (demande client du 2026-09-29 : « efface les évènements et rendez-vous concernant les
+  // personnes qui ont été supprimées »). Le passé, lui, n'est jamais retouché : c'est l'historique
+  // pédagogique des élèves qui l'ont suivi, indépendant du sort de ce professeur.
+  const maintenant = new Date().toISOString()
+  const { data: seancesFutures } = await serviceClient
+    .from('sessions')
+    .select('id, debut')
+    .eq('teacher_id', teacherId)
+    .eq('statut', 'planifiee')
+    .gt('debut', maintenant)
+  const idsSeancesFutures = (seancesFutures ?? []).map((s) => s.id)
+  if (idsSeancesFutures.length > 0) {
+    await serviceClient.from('sessions').update({ statut: 'annulee' }).in('id', idsSeancesFutures)
+    await Promise.all(
+      (seancesFutures ?? []).map(async (seance) => {
+        await annulerVisio(serviceClient, { sessionId: seance.id, etablissementId })
+        // `notifierParticipantsSeance` prévient aussi le professeur par défaut (`teacherId`) :
+        // sans effet ici puisque toutes ses notifications sont purgées juste après et que son
+        // compte est de toute façon désactivé dans la foulée — seuls ses élèves comptent
+        // vraiment recevoir cette notification.
+        await notifierParticipantsSeance(serviceClient, {
+          etablissementId,
+          sessionId: seance.id,
+          teacherId,
+          acteurId,
+          type: 'seance_annulee',
+          titre: 'Séance annulée',
+          message: `La séance du ${formaterDateSeance(seance.debut)} a été annulée : le professeur a quitté l’établissement.`,
+        })
+      }),
+    )
+  }
+
   await purgerDocuments(serviceClient, teacherId)
   await serviceClient.from('document_permissions').delete().eq('profile_id', teacherId)
   await purgerContrats(serviceClient, teacherId)
@@ -221,9 +289,9 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     if (cible.role === 'etudiant') {
-      await purgerDonneesEtudiant(serviceClient, body.profileId)
+      await purgerDonneesEtudiant(serviceClient, body.profileId, etablissementId, profileId)
     } else {
-      await purgerDonneesProfesseur(serviceClient, body.profileId)
+      await purgerDonneesProfesseur(serviceClient, body.profileId, etablissementId, profileId)
     }
 
     /* `email` remis à null en même temps que le statut — pas seulement l'e-mail Auth (anonymisé
