@@ -482,13 +482,17 @@ function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => vo
   const { tarifs } = useTarifs(prospect.etablissement_id)
   const tarifsDuProgramme = tarifs.filter((t) => t.type_programme === (prospect.type_programme ?? 'individuel'))
   const tarifChoisi = tarifs.find((t) => t.id === prospect.tarif_choisi_id) ?? null
-  /* Heure d'essai (0057) : l'élève commence par 1 h au tarif horaire, puis décide. C'est donc ce
-     tarif-là qu'il faut encaisser avant la conversion, pas le prix du forfait visé. Le tarif
-     horaire est celui de SON programme avec `heures = 1` — sans lui, l'essai n'est pas
-     proposable (rien ne permettrait de le facturer). */
+  /* Séance d'essai (0057, revue en 0078 le 2026-09-29) : 1, 2 ou 3 h facturées au tarif horaire
+     de SON programme (`heures = 1`), à part du forfait — c'est donc ce montant-là qu'on encaisse
+     avant la conversion. Sans tarif horaire, l'essai n'est pas proposable (rien ne permettrait
+     de le facturer). */
   const tarifUneHeure = tarifsDuProgramme.find((t) => t.heures === 1) ?? null
   const essai = prospect.essai_demande
-  const tarifAEncaisser = essai ? tarifUneHeure : tarifChoisi
+  const essaiHeures = prospect.essai_heures ?? 1
+  const tarifEssai = tarifUneHeure
+    ? { titre: `Séance d’essai · ${essaiHeures} h`, prix: Number(tarifUneHeure.prix) * essaiHeures, heures: essaiHeures }
+    : null
+  const tarifAEncaisser = essai ? tarifEssai : tarifChoisi
   /* Un simple acompte suffit à débloquer la conversion : le client parle d'« enregistrer le
      paiement », pas d'exiger le solde complet — un forfait se règle souvent en plusieurs fois
      (voir paiement_versements, 0049). Le reste dû reste visible dans le dossier de l'étudiant
@@ -620,6 +624,16 @@ function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => vo
     onChange()
   }
 
+  async function choisirHeuresEssai(heures: number) {
+    setErreur(null)
+    const { error } = await supabase.from('prospects').update({ essai_heures: heures }).eq('id', prospect.id)
+    if (error) {
+      setErreur(error.message)
+      return
+    }
+    onChange()
+  }
+
   async function relancerProspect() {
     if (!session) return
     setRelanceEnCours(true)
@@ -687,6 +701,8 @@ function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => vo
     enregistrerDiagnostic,
     choisirTarif,
     basculerEssai,
+    essaiHeures,
+    choisirHeuresEssai,
     relancerProspect,
     validerRendezVous,
   }
@@ -721,7 +737,6 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
     paiementOuvert,
     setPaiementOuvert,
     tarifsDuProgramme,
-    tarifChoisi,
     tarifUneHeure,
     essai,
     tarifAEncaisser,
@@ -732,6 +747,8 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
     enregistrerDiagnostic,
     choisirTarif,
     basculerEssai,
+    essaiHeures,
+    choisirHeuresEssai,
     relancerProspect,
     validerRendezVous,
   } = a
@@ -971,7 +988,8 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
                 <SelecteurTarifChoisi tarifs={tarifsDuProgramme} valeur={prospect.tarif_choisi_id} onChoisir={choisirTarif} />
                 <ChoixHeureEssai
                   essai={essai}
-                  tarifChoisi={tarifChoisi}
+                  heures={essaiHeures}
+                  onChoisirHeures={choisirHeuresEssai}
                   tarifUneHeure={tarifUneHeure}
                   /* Verrouillé dès qu'un paiement existe : son montant a été calculé d'après ce
                      choix, basculer après coup rendrait la ligne fausse. */
@@ -1381,7 +1399,8 @@ function CarteDuo({
                 <SelecteurTarifChoisi tarifs={a.tarifsDuProgramme} valeur={porteur.tarif_choisi_id} onChoisir={a.choisirTarif} />
                 <ChoixHeureEssai
                   essai={a.essai}
-                  tarifChoisi={a.tarifChoisi}
+                  heures={a.essaiHeures}
+                  onChoisirHeures={a.choisirHeuresEssai}
                   tarifUneHeure={a.tarifUneHeure}
                   verrouille={!!porteur.paiement}
                   onBasculer={a.basculerEssai}
@@ -1448,23 +1467,26 @@ function CarteDuo({
    Remplace l'ancienne zone de notes libres, et se place juste sous le forfait choisi pour que la
    décision (quel forfait) et son encaissement se lisent d'un seul tenant. C'est ce bloc qui
    conditionne la conversion en étudiant. */
-/* Heure d'essai avant engagement (0057) — arbitrage client : l'essai dure toujours une heure.
-   Coché, c'est le tarif horaire qui est encaissé avant la conversion ; le forfait visé n'est
-   facturé (pour son complément) qu'une fois l'essai transformé, depuis le dossier de l'élève. */
+/* Séance d'essai avant engagement (0057, revue le 2026-09-29) : 1, 2 ou 3 heures facturées au
+   tarif horaire, à part. Si l'élève poursuit, il paie ensuite le forfait complet de son choix
+   (décision enregistrée depuis son dossier) ; s'il s'arrête, il n'aura payé que l'essai. */
 function ChoixHeureEssai({
   essai,
-  tarifChoisi,
+  heures,
+  onChoisirHeures,
   tarifUneHeure,
   verrouille,
   onBasculer,
 }: {
   essai: boolean
-  tarifChoisi: { titre: string } | null
+  heures: number
+  onChoisirHeures: (heures: number) => void
   tarifUneHeure: { titre: string; prix: number } | null
   verrouille: boolean
   onBasculer: (valeur: boolean) => void
 }) {
   const indisponible = !tarifUneHeure && !essai
+  const prixHoraire = tarifUneHeure ? Number(tarifUneHeure.prix) : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -1485,7 +1507,7 @@ function ChoixHeureEssai({
           onChange={(e) => onBasculer(e.target.checked)}
           style={{ marginTop: 2 }}
         />
-        Commencer par une heure d’essai
+        Commencer par une séance d’essai
       </label>
       {indisponible && (
         <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
@@ -1493,12 +1515,37 @@ function ChoixHeureEssai({
           proposer un essai.
         </span>
       )}
-      {essai && tarifUneHeure && (
-        <span style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--muted)' }}>
-          Seule l’heure d’essai est encaissée maintenant ({tarifUneHeure.prix.toLocaleString('fr-FR')} Ar).
-          {tarifChoisi
-            ? ` Si l’élève poursuit, le complément du forfait ${tarifChoisi.titre} lui sera facturé depuis son dossier ; s’il s’arrête, il n’aura payé que cette heure.`
-            : ' Choisissez un forfait ci-dessus pour que le complément puisse être calculé.'}
+      {essai && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingLeft: 22 }}>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>Durée :</span>
+          {[1, 2, 3].map((h) => (
+            <button
+              key={h}
+              type="button"
+              disabled={verrouille}
+              onClick={() => onChoisirHeures(h)}
+              aria-pressed={heures === h}
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                padding: '5px 12px',
+                borderRadius: 999,
+                cursor: verrouille ? 'not-allowed' : 'pointer',
+                border: `1px solid ${heures === h ? 'transparent' : 'var(--border)'}`,
+                background: heures === h ? 'var(--accent-gradient)' : 'transparent',
+                color: heures === h ? '#1b1510' : 'var(--ink-2)',
+              }}
+            >
+              {h} h
+            </button>
+          ))}
+        </div>
+      )}
+      {essai && prixHoraire != null && (
+        <span style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--muted)', paddingLeft: 22 }}>
+          {heures} h × {prixHoraire.toLocaleString('fr-FR')} Ar = <strong>{(heures * prixHoraire).toLocaleString('fr-FR')} Ar</strong>,
+          facturés à part. S’il poursuit, l’élève paiera ensuite le forfait complet de son choix ; s’il s’arrête, il n’aura
+          payé que l’essai.
         </span>
       )}
       {verrouille && (
@@ -1529,7 +1576,7 @@ function BlocPaiementForfait({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 10 }}>
       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        {essai ? 'Paiement de l’heure d’essai' : 'Paiement du forfait choisi'}
+        {essai ? 'Paiement de la séance d’essai' : 'Paiement du forfait choisi'}
       </span>
 
       {!tarifAEncaisser && !paiement && (

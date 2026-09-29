@@ -66,6 +66,10 @@ const LABEL_PROGRAMME: Record<Package['type_programme'], string> = {
 /* Date du jour telle que l'admin la lit sur son calendrier, pas la date UTC : `toISOString()`
    renverrait la veille entre minuit et 3 h du matin à Antananarivo (UTC+3), et un acompte
    encaissé en soirée serait daté du jour précédent. */
+/* Règle client du 2026-09-29 : le paiement en plusieurs fois (acomptes, échéancier) n'est
+   accepté que pour un forfait d'au moins 40 heures. Aussi imposée en base (0078). */
+export const HEURES_MIN_PAIEMENT_FRACTIONNE = 40
+
 const dateDuJour = new Intl.DateTimeFormat('fr-CA', { timeZone: FUSEAU_ETABLISSEMENT }).format(new Date())
 
 interface HeureEnseignee {
@@ -90,6 +94,12 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
   const [enCours, setEnCours] = useState(false)
 
   const estProfesseur = cible.type === 'professeur'
+  const heuresCouvertes =
+    cible.type === 'etudiant' ? (cible.forfait?.total_heures ?? null)
+    : cible.type === 'forfait' ? cible.forfait.total_heures
+    : cible.type === 'prospect' ? (cible.tarif?.heures ?? null)
+    : null
+  const paiementUnique = heuresCouvertes != null && heuresCouvertes < HEURES_MIN_PAIEMENT_FRACTIONNE
   const colonneCible = estProfesseur ? 'teacher_payment_id' : 'student_payment_id'
   // Binôme DUO toujours affiché ensemble, y compris dans une fenêtre qui ne concerne
   // financièrement qu'un seul des deux (forfait partagé porté par un seul, ou heure d'essai
@@ -346,17 +356,23 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
 
               {resteAPayer(ligne) > 0 && (
                 <FormulaireAcompte
-                  suggestion={acompteSuggere(ligne)}
+                  suggestion={paiementUnique ? resteAPayer(ligne) : acompteSuggere(ligne)}
                   devise={paiement.devise}
                   enCours={enCours}
                   estProfesseur={estProfesseur}
+                  paiementUnique={paiementUnique ? heuresCouvertes : null}
                   onValider={ajouterVersement}
                 />
               )}
 
               {/* L'échéancier ne concerne que les élèves : une rémunération de professeur se
                   règle en une fois, on ne lui planifie pas un calendrier de versements. */}
-              {!estProfesseur && (
+              {!estProfesseur && paiementUnique && (
+                <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+                  Pas d’échéancier : le paiement en plusieurs fois est réservé aux forfaits de {HEURES_MIN_PAIEMENT_FRACTIONNE} h et plus.
+                </p>
+              )}
+              {!estProfesseur && !paiementUnique && (
                 <EcheancierPaiement
                   studentPaymentId={paiement.id}
                   etablissementId={paiement.etablissement_id}
@@ -501,12 +517,16 @@ function FormulaireAcompte({
   devise,
   enCours,
   estProfesseur,
+  paiementUnique,
   onValider,
 }: {
   suggestion: number
   devise: string
   enCours: boolean
   estProfesseur: boolean
+  /* Nombre d'heures du forfait quand il est sous le seuil du paiement fractionné : le montant est
+     alors figé sur le solde, à régler en une fois. `null` sinon. */
+  paiementUnique: number | null
   onValider: (valeurs: { montant: number; date: string; moyen: string; reference: string; notes: string }) => void
 }) {
   const [montant, setMontant] = useState(String(suggestion))
@@ -524,11 +544,26 @@ function FormulaireAcompte({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
       <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        {estProfesseur ? 'Enregistrer un versement' : 'Enregistrer un acompte'}
+        {estProfesseur ? 'Enregistrer un versement' : paiementUnique != null ? 'Enregistrer le règlement' : 'Enregistrer un acompte'}
       </span>
+      {!estProfesseur && (
+        <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+          {paiementUnique != null
+            ? `Forfait de ${paiementUnique} h : il se règle en une seule fois. Le paiement en plusieurs fois est réservé aux forfaits de ${HEURES_MIN_PAIEMENT_FRACTIONNE} h et plus.`
+            : `Forfait de ${HEURES_MIN_PAIEMENT_FRACTIONNE} h ou plus : le paiement en plusieurs fois (acomptes) est possible.`}
+        </span>
+      )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
-        <Champ label={`Montant (${devise})`} obligatoire aide="Pré-rempli avec le solde restant.">
-          <input type="number" min={0} step="0.01" value={montant} onChange={(e) => setMontant(e.target.value)} style={champStyle} />
+        <Champ label={`Montant (${devise})`} obligatoire aide={paiementUnique != null ? 'Solde complet, non modifiable.' : 'Pré-rempli avec le solde restant.'}>
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={montant}
+            readOnly={paiementUnique != null}
+            onChange={(e) => setMontant(e.target.value)}
+            style={{ ...champStyle, ...(paiementUnique != null ? { opacity: 0.7, cursor: 'not-allowed' } : {}) }}
+          />
         </Champ>
         <Champ label="Date">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={champStyle} />

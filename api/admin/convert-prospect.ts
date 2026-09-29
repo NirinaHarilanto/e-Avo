@@ -134,11 +134,11 @@ export default async function handler(request: Request): Promise<Response> {
        qui ne portait ni tarif ni rendez-vous (l'autre ayant été refusé au même moment, par
        exemple par la garde d'homonyme). Sans ce repli, le tarif choisi à l'appel diagnostic était
        purement et simplement perdu, et le binôme se retrouvait sans forfait du tout. */
-    if (!forfaitId && prospect.tarif_choisi_id && (prospect.type_programme === 'individuel' || prospect.type_programme === 'duo')) {
-      /* Heure d'essai (0057) : on ne crée PAS le forfait complet. L'élève démarre sur un forfait
-         d'une heure, au tarif horaire de son programme, qui mémorise le forfait visé. Le
-         complément ne naîtra qu'à la décision (api/admin/decider-essai.ts) — de cette façon la
-         facture émise pour l'essai reste juste quoi qu'il arrive ensuite. */
+    if (!forfaitId && (prospect.tarif_choisi_id || prospect.essai_demande) && (prospect.type_programme === 'individuel' || prospect.type_programme === 'duo')) {
+      /* Séance d'essai (0057, revue en 0078) : on ne crée PAS le forfait complet. L'élève démarre
+         sur un forfait d'essai de 1 à 3 h au tarif horaire de son programme, qui mémorise le
+         forfait visé. Le forfait de suite ne naîtra qu'à la décision (api/admin/decider-essai.ts),
+         facturé en entier — l'essai est payé à part. */
       const { data: tarif } = prospect.essai_demande
         ? await serviceClient
             .from('tarifs')
@@ -146,11 +146,12 @@ export default async function handler(request: Request): Promise<Response> {
             .eq('etablissement_id', etablissementId)
             .eq('type_programme', prospect.type_programme)
             .eq('heures', 1)
+            .limit(1)
             .maybeSingle()
         : await serviceClient
             .from('tarifs')
             .select('heures, prix')
-            .eq('id', prospect.tarif_choisi_id)
+            .eq('id', prospect.tarif_choisi_id as string)
             .maybeSingle()
       // Un tarif sans volume d'heures fixe (heures = null, ex. « sur devis ») ne décrit pas un
       // forfait exploitable tel quel — mieux vaut laisser l'admin le créer à la main plutôt que
@@ -162,9 +163,14 @@ export default async function handler(request: Request): Promise<Response> {
             etablissement_id: etablissementId,
             student_id: beneficiaireForfait,
             type_programme: prospect.type_programme,
-            total_heures: tarif.heures,
-            montant: tarif.prix,
-            ...(prospect.essai_demande ? { essai: true, tarif_vise_id: prospect.tarif_choisi_id } : {}),
+            ...(prospect.essai_demande
+              ? {
+                  total_heures: prospect.essai_heures ?? 1,
+                  montant: Number(tarif.prix) * (prospect.essai_heures ?? 1),
+                  essai: true,
+                  tarif_vise_id: prospect.tarif_choisi_id,
+                }
+              : { total_heures: tarif.heures, montant: tarif.prix }),
           })
           .select('id')
           .maybeSingle()

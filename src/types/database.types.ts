@@ -169,6 +169,8 @@ export interface Database {
           tarif_choisi_id: string | null
           /* Le prospect commence par une heure d'essai avant de s'engager (0057). */
           essai_demande: boolean
+          /* Durée de la séance d'essai (1 à 3 h), facturée à l'heure hors forfait (0078). */
+          essai_heures: number
           duo_partenaire_id: string | null
           duo_nom_groupe: string | null
           created_at: string
@@ -187,6 +189,7 @@ export interface Database {
           type_programme?: TypeProgrammeProspect | null
           tarif_choisi_id?: string | null
           essai_demande?: boolean
+          essai_heures?: number
           duo_partenaire_id?: string | null
           duo_nom_groupe?: string | null
           created_at?: string
