@@ -37,24 +37,30 @@
 
 /* Police resserrée (0059, demande client du 2026-09-22, en trois temps : d'abord « un peu... dans
    l'espace admin », puis « encore... dans toute l'application », puis « encore... dans les
-   espaces étudiants, professeurs, admin »). Tout le texte de l'application est en `fontSize`
-   inline exprimé en px (voir la convention du projet — pas de Tailwind, pas d'échelle
-   typographique en `rem`) : une règle CSS sur un ancêtre ne l'atteindrait jamais, un `font-size`
-   inline gagne toujours face à l'héritage. `zoom` est la seule propriété qui réduit uniformément
-   un sous-arbre entier sans dépendre de comment chaque taille y a été posée — y compris les
-   pop-up montées par portail dans `document.body` (voir Modale.tsx), qui restent bien
-   descendantes de ce même `body`.
-   Deux paliers plutôt qu'un stacking de deux `zoom` imbriqués (qui se multiplient en cascade au
-   lieu de se remplacer, contrairement à `font-size` en `%`) : `body.echelle-connectee`, posée par
+   espaces étudiants, professeurs, admin » — puis un 4e temps le 2026-09-29, cette fois réservé au
+   seul espace admin). Tout le texte de l'application est en `fontSize` inline exprimé en px (voir
+   la convention du projet — pas de Tailwind, pas d'échelle typographique en `rem`) : une règle
+   CSS sur un ancêtre ne l'atteindrait jamais, un `font-size` inline gagne toujours face à
+   l'héritage. `zoom` est la seule propriété qui réduit uniformément un sous-arbre entier sans
+   dépendre de comment chaque taille y a été posée — y compris les pop-up montées par portail dans
+   `document.body` (voir Modale.tsx), qui restent bien descendantes de ce même `body`.
+   Trois paliers plutôt qu'un stacking de `zoom` imbriqués (qui se multiplient en cascade au lieu
+   de se remplacer, contrairement à `font-size` en `%`) : `body.echelle-connectee`, posée par
    `EspaceLayout.tsx` pour les 3 espaces qu'il sert (admin, professeur, étudiant — jamais la
    plateforme ni la vitrine publique, qui restent au premier palier), l'EMPORTE sur `body` nu
-   grâce à sa spécificité CSS plus élevée, elle ne s'y ADDITIONNE pas. Un seul réglage par palier
-   à modifier si une future demande de taille revient. */
+   grâce à sa spécificité CSS plus élevée, elle ne s'y ADDITIONNE pas. `body.echelle-admin`,
+   posée SEULEMENT quand `EspaceLayout` sert l'espace admin (`roleAttendu === 'admin_etablissement'`
+   — professeur et étudiant restent au palier `echelle-connectee`), l'emporte à son tour sur
+   `echelle-connectee` grâce à ses deux classes combinées, plus spécifiques qu'une seule. Un seul
+   réglage par palier à modifier si une future demande de taille revient. */
 body {
   zoom: 0.9;
 }
 body.echelle-connectee {
   zoom: 0.82;
+}
+body.echelle-connectee.echelle-admin {
+  zoom: 0.74;
 }
 
 /* Le zoom d'écran ne doit jamais s'appliquer à l'impression (devis/factures/contrats, voir
