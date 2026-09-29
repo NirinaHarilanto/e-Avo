@@ -1747,32 +1747,28 @@ body.sans-defilement {
   grid-template-rows: minmax(0, 1fr);
   align-self: center;
 }
-/* Alignement des trois cartes (demande client du 2026-09-29 : « bien aligné ») : la carte
-   « Cours particuliers » porte un paragraphe de plus que les deux autres, si bien que sa photo
-   était plus courte et que titres et boutons ne tombaient pas à la même hauteur. Chaque carte
-   devient une sous-grille (`subgrid`) de deux rangées PARTAGÉES par les trois cartes : une rangée
-   photo (même hauteur pour toutes) et une rangée texte (hauteur du texte le plus long), dans
-   laquelle le bouton est poussé en bas — titres, textes et boutons s'alignent donc d'une carte à
-   l'autre. Sur mobile, les cartes sont empilées : rien à aligner, on garde la colonne simple. */
+/* Informations en bas de chaque carte, photo au-dessus (demande client du 2026-09-29, avec
+   capture annotée : « faire descendre les informations […] afin de libérer plus d'espace pour
+   les images »). Chaque carte est une colonne : le bloc texte garde sa hauteur naturelle et se
+   cale en bas, juste au-dessus du bouton ; la photo prend TOUTE la hauteur restante. La carte
+   « Cours particuliers », qui a un paragraphe de plus, a donc une photo un peu moins haute que
+   les deux autres, mais aucune carte ne garde de vide entre son texte et son bouton — ce vide
+   (32 à 45 px) revient à la photo. Les trois cartes ont la même hauteur, donc les boutons
+   restent alignés en bas. */
 @media (min-width: 821px) {
-  .grille-cours {
-    grid-template-rows: minmax(0, 1fr) auto;
-    row-gap: 0;
-  }
   .grille-cours .carte-cours {
-    display: grid;
-    grid-row: span 2;
-    grid-template-rows: subgrid;
-    row-gap: 0;
-  }
-  /* Aucune hauteur minimale imposée à la photo : une hauteur minimale plus grande que sa rangée
-     la faisait déborder SUR le texte en dessous dans une fenêtre peu haute (signalé le
-     2026-09-29). La photo prend exactement la place que le texte laisse libre, ni plus ni moins. */
-  .grille-cours .carte-cours-visuel {
+    display: flex;
+    flex-direction: column;
     min-height: 0;
   }
-  .grille-cours .carte-cours-corps .bouton-or {
-    margin-top: auto;
+  .grille-cours .carte-cours-visuel {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .grille-cours .carte-cours-corps {
+    flex: 0 0 auto;
+    padding-top: 8px;
+    gap: 4px;
   }
 }
 .carte-cours {
