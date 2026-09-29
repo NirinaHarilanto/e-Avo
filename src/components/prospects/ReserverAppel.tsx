@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react'
 import type { AccentPalette } from '../../lib/accent'
-import { fuseauDuVisiteur, grouperParJour, libelleFuseau } from '../../lib/creneaux'
+import { fuseauDuVisiteur, grouperParJour } from '../../lib/creneaux'
 import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 import type { TypeProgrammeProspect } from '../../types/database.types'
 
@@ -21,47 +21,6 @@ interface ReponseCreneaux {
   creneaux: string[]
   dureeMinutes: number
   fuseau: string
-}
-
-/* Fuseaux proposés dans la liste : les pays francophones et anglophones les plus probables pour
-   des cours d'anglais. Le fuseau réellement sélectionné au chargement n'est pas celui de
-   l'établissement mais celui du visiteur, détecté depuis son navigateur (voir `fuseauxProposes`
-   plus bas) — un prospect en France lit d'emblée les créneaux à son heure, sans rien régler. */
-const FUSEAUX_PROSPECT: { valeur: string; libelle: string }[] = [
-  { valeur: 'Indian/Antananarivo', libelle: 'Madagascar — Antananarivo' },
-  { valeur: 'Indian/Mauritius', libelle: 'Maurice — Port-Louis' },
-  { valeur: 'Indian/Reunion', libelle: 'La Réunion' },
-  { valeur: 'Europe/Paris', libelle: 'France, Belgique, Suisse — Paris' },
-  { valeur: 'Europe/London', libelle: 'Royaume-Uni — Londres' },
-  { valeur: 'Africa/Casablanca', libelle: 'Maroc — Casablanca' },
-  { valeur: 'Africa/Tunis', libelle: 'Tunisie — Tunis' },
-  { valeur: 'Africa/Algiers', libelle: 'Algérie — Alger' },
-  { valeur: 'Africa/Abidjan', libelle: 'Côte d’Ivoire, Sénégal — Abidjan' },
-  { valeur: 'Africa/Nairobi', libelle: 'Afrique de l’Est — Nairobi' },
-  { valeur: 'America/Toronto', libelle: 'Canada — Toronto, Montréal' },
-  { valeur: 'America/New_York', libelle: 'États-Unis (Est) — New York' },
-  { valeur: 'Asia/Dubai', libelle: 'Émirats arabes unis — Dubaï' },
-]
-
-/* Le fuseau détecté est ajouté en tête de liste s'il n'y figure pas déjà : le prospect voit
-   donc toujours sa propre ville, où qu'il soit, tout en gardant la possibilité de basculer sur
-   un autre fuseau (il réserve pour quelqu'un d'autre, il est en déplacement…). */
-function fuseauxProposes(fuseauDetecte: string): { valeur: string; libelle: string }[] {
-  if (FUSEAUX_PROSPECT.some((f) => f.valeur === fuseauDetecte)) return FUSEAUX_PROSPECT
-  return [{ valeur: fuseauDetecte, libelle: `Votre fuseau — ${libelleFuseau(fuseauDetecte)}` }, ...FUSEAUX_PROSPECT]
-}
-
-/* Décalage horaire courant lisible ("UTC+3"), pour aider le prospect à repérer son fuseau dans la
-   liste sans avoir à connaître le nom IANA. */
-function decalageLisible(fuseau: string): string {
-  try {
-    const partie = new Intl.DateTimeFormat('fr-FR', { timeZone: fuseau, timeZoneName: 'shortOffset' })
-      .formatToParts(new Date())
-      .find((p) => p.type === 'timeZoneName')?.value
-    return partie ?? ''
-  } catch {
-    return ''
-  }
 }
 
 export function ReserverAppel({
@@ -88,8 +47,14 @@ export function ReserverAppel({
   const [erreurChargement, setErreurChargement] = useState<string | null>(null)
   const [creneauChoisi, setCreneauChoisi] = useState<string | null>(null)
   const [pageJours, setPageJours] = useState(0)
-  const [fuseauAffichage, setFuseauAffichage] = useState(() => fuseauDuVisiteur(FUSEAU_ETABLISSEMENT))
-  const fuseaux = useMemo(() => fuseauxProposes(fuseauDuVisiteur(FUSEAU_ETABLISSEMENT)), [])
+  /* Fuseau détecté automatiquement depuis le navigateur du visiteur au chargement — un prospect
+     en France lit d'emblée les créneaux à son heure, sans rien régler. Le sélecteur qui
+     permettait de le changer à la main a été masqué (demande client du 2026-09-29 : « masque
+     visuellement uniquement la partie fuseau horaire, il faudrait que les fonctionnalités
+     continue de fonctionner automatiquement ») ; la détection et le regroupement des créneaux
+     par jour dans ce fuseau continuent donc de fonctionner exactement comme avant, seule la
+     possibilité de le changer soi-même a disparu. */
+  const [fuseauAffichage] = useState(() => fuseauDuVisiteur(FUSEAU_ETABLISSEMENT))
 
   const [typeProgramme, setTypeProgramme] = useState<TypeProgrammeProspect>(typeInitial)
   const [prenom, setPrenom] = useState('')
@@ -279,21 +244,6 @@ export function ReserverAppel({
 
       {jours.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <label style={labelStyle}>Fuseau horaire</label>
-            <select
-              value={fuseauAffichage}
-              onChange={(e) => setFuseauAffichage(e.target.value)}
-              style={champStyle}
-            >
-              {fuseaux.map((f) => (
-                <option key={f.valeur} value={f.valeur}>
-                  {f.libelle} ({decalageLisible(f.valeur)})
-                </option>
-              ))}
-            </select>
-          </div>
-
           {creneauChoisi && (
             <button
               type="button"
@@ -395,9 +345,6 @@ export function ReserverAppel({
                   </div>
                 ))}
               </div>
-              <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0 }}>
-                Horaires affichés dans le fuseau sélectionné : {fuseaux.find((f) => f.valeur === fuseauAffichage)?.libelle ?? libelleFuseau(fuseauAffichage)}.
-              </p>
             </div>
           </div>
         </div>
