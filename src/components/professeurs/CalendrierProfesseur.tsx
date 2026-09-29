@@ -29,6 +29,8 @@ import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { AvertissementDureeMeet } from '../shared/AvertissementDureeMeet'
 import { ChoixNatureRendezVous } from '../shared/ChoixNatureRendezVous'
 import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
+import { EnqueteSatisfactionAffichage } from '../shared/EnqueteSatisfactionAffichage'
+import { useDetailSeance } from '../../hooks/useDetailSeance'
 import { CompteRenduSeance } from './CompteRenduSeance'
 import { PlanningPrevisionnelProfesseur } from './PlanningPrevisionnelProfesseur'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
@@ -541,6 +543,11 @@ function CarteSeance({
   sansCadre?: boolean
 }) {
   const { session: authSession, profile } = useProfileContext()
+  // Résultats de l'enquête de satisfaction (0068) visibles dans l'agenda professeur — demande
+  // client du 2026-09-30 : « le professeur, l'étudiant et l'admin devraient pouvoir voir [...]
+  // les résultats de l'enquête [...] dans les agendas respectifs ». Déjà le cas côté admin
+  // (DetailSeanceModale.tsx) ; manquait ici. Chargé seulement une fois la séance terminée.
+  const { detail: detailSatisfaction } = useDetailSeance(seance.session.statut === 'terminee' ? seance.session.id : null)
   const [presences, setPresences] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(seance.inscriptions.map((i) => [i.student_id, true])),
   )
@@ -715,6 +722,18 @@ function CarteSeance({
 
       {seance.session.statut === 'terminee' && profile && (
         <CompteRenduSeance sessionId={seance.session.id} etablissementId={profile.etablissement_id} teacherId={profile.id} />
+      )}
+
+      {seance.session.statut === 'terminee' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            Enquête de satisfaction
+          </span>
+          <EnqueteSatisfactionAffichage
+            satisfactions={detailSatisfaction?.satisfactions ?? []}
+            resoudreNom={(id) => nomsElevesInscrits(seance.inscriptions.filter((i) => i.student_id === id))[0] ?? 'Élève'}
+          />
+        </div>
       )}
 
       {editionHoraireOuverte && (

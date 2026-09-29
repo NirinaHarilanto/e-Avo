@@ -9,7 +9,7 @@ import { LigneInfo } from '../ui/Champ'
 import { EtatChargement } from '../ui/Etats'
 import { BadgeStatutSeance } from './BadgeStatutSeance'
 import { CompteRenduAffichage } from './CompteRenduAffichage'
-import { Etoiles } from '../etudiants/SatisfactionSeance'
+import { EnqueteSatisfactionAffichage } from './EnqueteSatisfactionAffichage'
 
 type Session = Database['public']['Tables']['sessions']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -54,10 +54,6 @@ export function DetailSeanceModale({ session, professeur, eleves, video, onFerme
 
   const nomsEleves = eleves.map((e) => nomEleveInscrit(e))
   const satisfactions = detail?.satisfactions ?? []
-  const moyenne =
-    satisfactions.length > 0
-      ? satisfactions.reduce((total, s) => total + s.note_globale, 0) / satisfactions.length
-      : null
 
   return (
     <Modale titre="Détail de la séance" onFermer={onFermer} largeurMax={560}>
@@ -104,42 +100,7 @@ export function DetailSeanceModale({ session, professeur, eleves, video, onFerme
 
         {!loading && session.statut === 'terminee' && (
           <Bloc titre="Enquête de satisfaction">
-            {satisfactions.length === 0 ? (
-              <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0 }}>
-                Aucun avis déposé pour le moment. L’élève la remplit depuis son espace personnel.
-              </p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {moyenne !== null && satisfactions.length > 1 && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'var(--ink-2)' }}>
-                    Moyenne <Etoiles valeur={Math.round(moyenne)} taille={13} />
-                    <strong style={{ color: 'var(--accent-gold, #e9cf94)' }}>
-                      {Number.isInteger(moyenne) ? moyenne : moyenne.toFixed(1)}/5
-                    </strong>
-                  </span>
-                )}
-                {satisfactions.map((avis) => {
-                  const eleve = eleves.find((e) => e?.id === avis.student_id)
-                  return (
-                    <div
-                      key={avis.id}
-                      style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 10px', borderRadius: 10, background: 'rgba(255,255,255,.03)' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 12, color: 'var(--ink)' }}>{nomEleveInscrit(eleve)}</span>
-                        <Etoiles valeur={avis.note_globale} taille={13} />
-                        {avis.note_pedagogie !== null && (
-                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>Pédagogie {avis.note_pedagogie}/5</span>
-                        )}
-                      </div>
-                      {avis.commentaire && (
-                        <p style={{ margin: 0, fontSize: 12, color: 'var(--muted)', lineHeight: 1.5 }}>{avis.commentaire}</p>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            <EnqueteSatisfactionAffichage satisfactions={satisfactions} resoudreNom={(id) => nomEleveInscrit(eleves.find((e) => e?.id === id))} />
           </Bloc>
         )}
 

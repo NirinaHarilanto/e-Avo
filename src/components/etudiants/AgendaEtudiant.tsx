@@ -13,8 +13,11 @@ import { LigneInfo } from '../ui/Champ'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
+import { CompteRenduAffichage } from '../shared/CompteRenduAffichage'
+import { EnqueteSatisfactionAffichage } from '../shared/EnqueteSatisfactionAffichage'
 import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 import { useCacheRequete } from '../../hooks/useCacheRequete'
+import { useDetailSeance } from '../../hooks/useDetailSeance'
 import { supabase } from '../../lib/supabaseClient'
 
 const PREFIXE_RDV = 'rdv:'
@@ -285,11 +288,18 @@ function FicheSeance({
   onFermer: () => void
 }) {
   const aVenir = seance.session.statut === 'planifiee'
+  const termine = seance.session.statut === 'terminee'
+  // Compte rendu et enquête de satisfaction (0068/0052) visibles depuis l'agenda de l'élève —
+  // demande client du 2026-09-30 : « le compte rendu de la séance devrait être également
+  // visible par l'étudiant [...] dans les agendas respectifs ». Déjà le cas côté admin
+  // (DetailSeanceModale.tsz) ; manquait côté élève. La RLS renvoie déjà exactement ce que
+  // l'élève a le droit de voir (son propre avis de satisfaction, le compte rendu du professeur).
+  const { detail } = useDetailSeance(termine ? seance.session.id : null)
   return (
     <Modale
       titre={new Date(seance.session.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
       onFermer={onFermer}
-      largeurMax={430}
+      largeurMax={460}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -298,9 +308,7 @@ function FicheSeance({
         <LigneInfo label="Professeur" valeur={professeur} />
         <LigneInfo label="Type" valeur={seance.session.type === 'individuel' ? 'Cours individuel' : 'Cours collectif'} />
         <LigneInfo label="Durée" valeur={`${seance.session.duree_minutes} minutes`} />
-        {seance.session.statut === 'terminee' && (
-          <LigneInfo label="Présence" valeur={seance.enrollment.present ? 'Présent' : 'Absent'} />
-        )}
+        {termine && <LigneInfo label="Présence" valeur={seance.enrollment.present ? 'Présent' : 'Absent'} />}
         {aVenir && seance.video && (
           <a
             href={getJoinUrl(seance.video)}
@@ -311,6 +319,28 @@ function FicheSeance({
           >
             Rejoindre le cours
           </a>
+        )}
+
+        {termine && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft, var(--border))', paddingTop: 12 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Compte rendu du cours
+            </span>
+            {detail?.compteRendu ? (
+              <CompteRenduAffichage rapport={detail.compteRendu} />
+            ) : (
+              <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0 }}>Le professeur n’a pas encore rédigé de compte rendu.</p>
+            )}
+          </div>
+        )}
+
+        {termine && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft, var(--border))', paddingTop: 12 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Votre avis
+            </span>
+            <EnqueteSatisfactionAffichage satisfactions={detail?.satisfactions ?? []} />
+          </div>
         )}
       </div>
     </Modale>
