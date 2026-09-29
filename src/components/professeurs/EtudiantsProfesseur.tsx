@@ -7,6 +7,7 @@ import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { useSecondairesDuo } from '../../hooks/useSecondairesDuo'
 import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
 import { useTypesProgrammeEtudiants } from '../../hooks/useTypesProgrammeEtudiants'
+import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
 import { DossierEtudiantVue, initiales } from '../etudiants/DossierEtudiantVue'
 import { CarteListeEtudiant } from '../etudiants/CarteListeEtudiant'
 import { PanneauInformationsDuo, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
@@ -16,9 +17,14 @@ import { ChampRecherche } from '../ui/BarreOutils'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 
-/* Équivalent, côté professeur, de EtudiantsAdmin.tsx : même agencement liste + dossier, mais
-   scope réduit aux élèves actuellement assignés à ce professeur, et en lecture seule (aucun
-   panneau d'action — DossierEtudiantVue est déjà conçu pour ça, voir son commentaire).
+/* Équivalent, côté professeur, de EtudiantsAdmin.tsx : même agencement liste + dossier, scope
+   réduit aux élèves actuellement assignés à ce professeur. Longtemps en lecture seule (aucun
+   panneau d'action), jusqu'à la demande client du 2026-09-29 : « renseigner, modifier, annuler
+   le planning prévisionnel dans la section Étudiants de son espace, comme ce que l'on a dans
+   l'espace admin » — le seul panneau d'action désormais ouvert ici (onglet « Planning » du
+   dossier, DossierPanel plus bas). Ne pas confondre avec PlanningPrevisionnelProfesseur.tsx,
+   qui vit dans l'agenda (CalendrierProfesseur.tsx) : même finalité, écran différent — celui-ci
+   plutôt qu'un élève à la fois, l'autre en partant d'une vague ou de tous les élèves à la fois.
    Bloc de liste et panneau d'informations personnelles PARTAGÉS avec EtudiantsAdmin.tsx
    (CarteListeEtudiant / PanneauInformationsDuo) — demande client du 2026-09-23 : « il faut que
    le bloc étudiant dans l'espace admin soit repris exactement » côté professeur, DUO compris.
@@ -69,11 +75,12 @@ export function EtudiantsProfesseur() {
         id="professeur-etudiants"
         etapes={[
           <>
-            Cette page est en <strong>lecture seule</strong> : elle vous informe sans rien vous demander de saisir.
-          </>,
-          <>
             Le <strong>parcours pédagogique</strong> d’un élève liste toutes ses séances avec vous et sa présence à
             chacune, utile pour préparer votre prochain cours.
+          </>,
+          <>
+            L’onglet <strong>Planning</strong> du forfait vous permet de générer, modifier ou annuler le planning
+            prévisionnel d’un élève actuellement attribué — exactement comme dans l’espace admin.
           </>,
           <>
             Un élève qui change de professeur passe dans la section <strong>« Anciens élèves »</strong>, avec la date du
@@ -174,10 +181,21 @@ export function EtudiantsProfesseur() {
 }
 
 function DossierPanel({ studentId }: { studentId: string }) {
-  const { dossier, loading, erreur } = useDossierEtudiant(studentId)
+  const { profile } = useProfileContext()
+  const { dossier, loading, erreur, recharger } = useDossierEtudiant(studentId)
 
   if (loading) return <EtatChargement lignes={3} hauteur={110} />
   if (erreur || !dossier) return <MessageErreur>{erreur ?? 'Dossier introuvable.'}</MessageErreur>
+
+  const forfait = dossier.packages[0] ?? null
+  /* Planning prévisionnel ouvert au professeur (0084, demande client du 2026-09-29 : « comme ce
+     que l'on a dans l'espace admin ») — mais seulement tant qu'il est le professeur ACTUEL de
+     l'élève : un « ancien élève » (transféré) garde son historique visible, jamais modifiable
+     depuis ici. `api/professeur/planifier-seances-prevision.ts` revalide de toute façon
+     l'attribution côté serveur ; ce test ne fait qu'éviter d'afficher un formulaire voué à
+     échouer. Le collectif (vague) n'a pas de forfait/planning individuel — hors de portée ici,
+     comme côté admin : voir CoursCollectifsProfesseur.tsx pour son propre planning de vague. */
+  const estProfesseurActuel = dossier.periodeActuelle?.professeur?.id === profile?.id
 
   return (
     <DossierEtudiantVue
@@ -185,6 +203,30 @@ function DossierPanel({ studentId }: { studentId: string }) {
       panneauInformations={
         <PanneauInformationsDuo etudiant={dossier.etudiant} duoPartenaire={dossier.duoPartenaire} onChange={() => {}} lectureSeule />
       }
+      panneauPlanification={
+        forfait && estProfesseurActuel
+          ? (fermer) => (
+              <PlanifierSeancesForfait
+                studentIds={[dossier.etudiant.id]}
+                packageId={forfait.id}
+                dureeParDefaut={60}
+                dateFinParDefaut={forfait.echeance}
+                heuresForfait={forfait.total_heures}
+                endpoint="/api/professeur/planifier-seances-prevision"
+                onCree={() => {
+                  // Même geste que côté admin (EtudiantsAdmin.tsx) : referme le formulaire pour
+                  // révéler aussitôt le planning qu'il vient de créer. L'échéance du forfait est
+                  // ici reportée par l'API elle-même (voir packageId ci-dessus), pas par un appel
+                  // client direct : le professeur n'a qu'une policy de LECTURE sur `packages`.
+                  fermer()
+                  recharger()
+                }}
+              />
+            )
+          : undefined
+      }
+      peutModifierPlanning={estProfesseurActuel}
+      onDossierChange={recharger}
     />
   )
 }

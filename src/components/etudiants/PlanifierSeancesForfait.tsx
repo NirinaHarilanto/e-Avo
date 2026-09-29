@@ -36,6 +36,14 @@ interface PlanifierSeancesForfaitProps {
      `dateFinCalculee` ci-dessous). Omis côté professeur, qui n'a pas accès au forfait de l'élève
      depuis cet écran : l'échéance y reste alors à saisir à la main, comportement inchangé. */
   heuresForfait?: number | null
+  /* Identifiant du forfait à mettre à jour avec l'échéance retenue — demande client du
+     2026-09-29 : « comme ce que l'on a dans l'espace admin ». Côté admin, EtudiantsAdmin.tsx
+     écrit directement `packages.echeance` via le client (policy `packages_admin_all`) ; le
+     professeur n'a qu'une policy de LECTURE sur `packages` (0061), donc transmis ici pour que
+     l'API professeur fasse l'écriture elle-même avec la clé de service, après avoir vérifié que
+     le forfait appartient bien à un élève qui lui est attribué. Omis côté admin (déjà géré par
+     l'appelant) — aucun changement de comportement là où il n'est pas passé. */
+  packageId?: string
   /* Route cible — la version professeur restreint la planification à ses propres élèves. */
   endpoint?: string
   titre?: string
@@ -58,6 +66,7 @@ export function PlanifierSeancesForfait({
   dureeParDefaut,
   dateFinParDefaut,
   heuresForfait,
+  packageId,
   endpoint = '/api/admin/planifier-seances-prevision',
   titre = 'Planning prévisionnel',
   onCree,
@@ -155,6 +164,7 @@ export function PlanifierSeancesForfait({
         ...(cohortId ? { cohortId } : {}),
         ...(cohortClassId ? { cohortClassId } : {}),
         ...(teacherId ? { teacherId } : {}),
+        ...(packageId ? { packageId, echeance: dateFin } : {}),
         dureeMinutes,
         debuts: debutsPrevus,
       }),

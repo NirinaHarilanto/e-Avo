@@ -15,6 +15,12 @@ interface Corps {
   cohortId?: string
   /* Planning d'une classe de niveau au sein d'une vague (0074) : prioritaire sur `cohortId`. */
   cohortClassId?: string
+  /* Report de l'échéance calculée sur le forfait (0084, demande client du 2026-09-29 : « comme
+     ce que l'on a dans l'espace admin ») — voir la validation d'appartenance plus bas. Ignoré
+     hors planning individuel/duo (`cohortId`/`cohortClassId` posé) : un forfait n'a pas de sens
+     pour un cours collectif. */
+  packageId?: string
+  echeance?: string
 }
 
 const MAX_OCCURRENCES = 156 // même garde-fou que la version admin (~3 ans à 2 séances/semaine)
@@ -134,6 +140,23 @@ export default async function handler(request: Request): Promise<Response> {
         return Response.json({ error: resultat.error, sessionsCreees: sessionIds.length }, { status: 500 })
       }
       sessionIds.push(resultat.sessionId)
+    }
+
+    /* Écriture de l'échéance (voir le commentaire de `packageId` ci-dessus) : le professeur n'a
+       qu'une policy SELECT sur `packages` (0061), donc faite ici avec la clé de service, après
+       vérification que le forfait appartient bien à l'un des élèves déjà validés ci-dessus — la
+       même garantie que pour la création des séances elle-même. `studentIds` n'est significatif
+       ici que dans la branche individuel/duo (`else` ci-dessus) : `cohortId`/`cohortClassId`
+       posé signifie un cours collectif, qui n'a pas de forfait. */
+    if (body.packageId && body.echeance && !cohortId && !cohortClassId) {
+      const { data: forfait } = await serviceClient
+        .from('packages')
+        .select('id, student_id, etablissement_id')
+        .eq('id', body.packageId)
+        .maybeSingle()
+      if (forfait && forfait.etablissement_id === etablissementId && studentIds.includes(forfait.student_id)) {
+        await serviceClient.from('packages').update({ echeance: body.echeance }).eq('id', forfait.id)
+      }
     }
 
     const debutsTries = [...body.debuts].sort()
