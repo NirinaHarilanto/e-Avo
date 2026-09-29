@@ -8,13 +8,14 @@ import type { AccentPalette } from '../../lib/accent'
    propre cadre quand il est dense — les tarifs, typiquement — pour qu'aucune information ne soit
    perdue au passage.
 
-   Ambiance sombre brillant doré (demande client du 2026-09-22, qui annule le thème glassmorphism
-   néon violet posé le 2026-09-15) : les quatre vues (Programme, Tarifs, Professeurs, Avis)
-   reprennent l'habillage déjà en place partout ailleurs dans l'application — fond marine
-   (`.vue-sombre`, avec l'image du Hero en filigrane, posé par CadreVue), cartes opaques (`.card`)
-   au liseré doré tournant au survol (`.carte-vue`, même mécanique que `.card-lift`) et pastilles
-   de catégorie à la couleur d'accent de l'établissement (`.etiquette-programme`). Aucun décor
-   flottant animé : seules les données et boutons de chaque vue restent, inchangés. */
+   Refonte visuelle du 2026-09-29, d'après les visuels de référence fournis par le client (qui
+   remplace l'ambiance marine et or du 2026-09-22) :
+   — Cours, Tarifs et À propos (thème « violet ») : fond violet profond, cartes violettes, titres
+     et boutons jaune doré, trait doré sous le titre ;
+   — Professeurs (thème « nuit ») : fond bleu nuit sarcelle, photos cerclées d'or, titre blanc et
+     sous-titre doré en italique.
+   Aucune donnée ni aucun mécanisme ne change (forfaits, programmes, extension de la liste des
+   tarifs, réservation) : seuls les classes et les styles de présentation sont neufs. */
 
 type Tarif = Database['public']['Tables']['tarifs']['Row']
 
@@ -29,34 +30,21 @@ export const TEMOIGNAGES = [
 export function VueAvis() {
   return (
     <CadreVue
+      surtitre="À propos"
       titre="Ce qu’en disent nos élèves"
       sousTitre="Exemples d’avis — à remplacer par de vrais témoignages avant mise en ligne."
+      theme="violet"
     >
       <div className="grille-vue">
         {TEMOIGNAGES.map((temoignage) => (
-          <article key={temoignage.nom} className="card carte-vue carte-avis">
-            <span aria-hidden style={{ fontSize: 14, letterSpacing: 2, color: '#6d3bd1' }}>★★★★★</span>
-            <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink-2)', fontStyle: 'italic', margin: 0 }}>
-              « {temoignage.texte} »
-            </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 999,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  background: 'linear-gradient(135deg, #8b5cf6, #6d3bd1)',
-                  color: '#fff',
-                }}
-              >
-                {temoignage.initiales}
-              </span>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)' }}>{temoignage.nom}</span>
+          <article key={temoignage.nom} className="carte-hoc carte-avis">
+            <span aria-hidden className="etoiles-avis">
+              ★★★★★
+            </span>
+            <p className="citation-avis">« {temoignage.texte} »</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto' }}>
+              <span className="avatar-avis">{temoignage.initiales}</span>
+              <span className="nom-avis">{temoignage.nom}</span>
             </div>
           </article>
         ))}
@@ -98,7 +86,6 @@ const PROGRAMME_LABEL: Record<TypeProgrammeProspect, string> = {
 }
 
 export function VueProgrammes({
-  accent,
   onReserver,
 }: {
   accent: AccentPalette
@@ -106,37 +93,28 @@ export function VueProgrammes({
 }) {
   return (
     <CadreVue
+      surtitre="Cours"
       titre="Trois façons d’apprendre, un seul cap : votre objectif."
       sousTitre="Choisissez la formule qui correspond à votre rythme et à votre budget."
+      theme="violet"
     >
       <div className="grille-vue">
         {PROGRAMMES.map((programme) => (
-          <article key={programme.titre} className="card carte-vue">
-            <span className="etiquette-programme" style={{ color: accent.accent, borderColor: accent.accentBorder, background: accent.accentSoft }}>
-              {programme.tag}
-            </span>
-            <h3 style={{ fontSize: 19, margin: 0, color: 'var(--ink)' }}>{programme.titre}</h3>
-            <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--muted)', margin: 0 }}>{programme.texte}</p>
-            {programme.detail && (
-              <p style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--muted-2)', margin: 0 }}>{programme.detail}</p>
-            )}
-            <button
-              type="button"
-              onClick={() => onReserver(programme.type)}
-              className="btn-shine"
-              style={{
-                marginTop: 'auto',
-                alignSelf: 'flex-start',
-                fontSize: 12.5,
-                padding: '10px 18px',
-                background: accent.accentGrad,
-                color: accent.accentInk,
-                border: 'none',
-                boxShadow: `0 8px 22px ${accent.accentGlow}`,
-              }}
-            >
-              {programme.type === 'collectif' ? 'Réserver mon test →' : 'Réserver mon appel →'}
-            </button>
+          <article key={programme.titre} className="carte-hoc carte-cours">
+            {/* Photo en tête de carte, comme sur le visuel de référence (demande client du
+                2026-09-29) : une personne seule, un duo en ligne, un groupe. */}
+            <div className={`carte-cours-visuel carte-cours-visuel--${programme.type}`}>
+              <img src={PHOTOS_FORMULE[programme.type].src} alt={PHOTOS_FORMULE[programme.type].alt} loading="lazy" />
+              <span className="etiquette-programme">{programme.tag}</span>
+            </div>
+            <div className="carte-cours-corps">
+              <h3 className="titre-carte-hoc">{programme.titre}</h3>
+              <p className="texte-carte-hoc">{programme.texte}</p>
+              {programme.detail && <p className="detail-carte-hoc">{programme.detail}</p>}
+              <button type="button" onClick={() => onReserver(programme.type)} className="btn-shine bouton-or">
+                {programme.type === 'collectif' ? 'Réserver mon test →' : 'Réserver mon appel →'}
+              </button>
+            </div>
           </article>
         ))}
       </div>
@@ -144,11 +122,21 @@ export function VueProgrammes({
   )
 }
 
+/* Photos Unsplash (licence Unsplash : usage commercial libre, sans attribution obligatoire),
+   réduites à 960 px et converties en WebP dans public/programmes :
+   — individuel : Julio Lopez, unsplash.com/photos/Imz-pn2LMbg
+   — duo : Chidera Faustina Okeke, unsplash.com/photos/2FDdgn0-W_o
+   — collectif : Vitaly Gariev, unsplash.com/photos/-X4Qx4_4iMU */
+const PHOTOS_FORMULE: Record<TypeProgrammeProspect, { src: string; alt: string }> = {
+  individuel: { src: '/programmes/individuel.webp', alt: 'Une élève étudie seule avec son casque, devant son ordinateur' },
+  duo: { src: '/programmes/duo.webp', alt: 'Deux amies suivent ensemble un cours en ligne sur un ordinateur portable' },
+  collectif: { src: '/programmes/collectif.webp', alt: 'Un groupe d’élèves souriants suit un cours en ligne autour d’un ordinateur' },
+}
+
 const LIMITE_TARIFS_VISIBLES = 4
 
 export function VueTarifs({
   tarifs,
-  accent,
   onReserver,
 }: {
   tarifs: Tarif[]
@@ -157,18 +145,21 @@ export function VueTarifs({
 }) {
   return (
     <CadreVue
+      surtitre="Tarifs"
       titre="Tarifs"
       sousTitre="Des formules claires, sans frais cachés. Le premier appel est toujours gratuit."
-      pastille
+      theme="violet"
     >
       {tarifs.length === 0 ? (
-        <p style={{ fontSize: 14, color: 'var(--muted)' }}>Les tarifs seront publiés très prochainement.</p>
+        <p className="texte-carte-hoc" style={{ textAlign: 'center' }}>
+          Les tarifs seront publiés très prochainement.
+        </p>
       ) : (
         <div className="grille-vue">
           {(['individuel', 'duo', 'collectif'] as const).map((type) => {
             const lignes = tarifs.filter((t) => t.type_programme === type)
             if (lignes.length === 0) return null
-            return <BlocTarif key={type} type={type} lignes={lignes} accent={accent} onReserver={onReserver} />
+            return <BlocTarif key={type} type={type} lignes={lignes} onReserver={onReserver} />
           })}
         </div>
       )}
@@ -179,12 +170,10 @@ export function VueTarifs({
 function BlocTarif({
   type,
   lignes,
-  accent,
   onReserver,
 }: {
   type: TypeProgrammeProspect
   lignes: Tarif[]
-  accent: AccentPalette
   onReserver: (type: TypeProgrammeProspect) => void
 }) {
   const [etendu, setEtendu] = useState(false)
@@ -192,63 +181,33 @@ function BlocTarif({
   const masquees = lignes.length - visibles.length
 
   return (
-    <article className="card carte-vue">
-      <span className="etiquette-programme" style={{ color: accent.accent, borderColor: accent.accentBorder, background: accent.accentSoft }}>
-        {PROGRAMME_LABEL[type]}
-      </span>
-      <h3 style={{ fontSize: 18, margin: 0, color: 'var(--ink)' }}>
+    <article className="carte-hoc carte-tarif">
+      <span className="etiquette-programme">{PROGRAMME_LABEL[type]}</span>
+      <h3 className="titre-carte-hoc">
         {type === 'individuel' ? 'Cours particuliers' : type === 'duo' ? 'Cours en duo' : 'Cours en petit groupe'}
       </h3>
 
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {visibles.map((ligne, index) => (
-          <div
-            key={ligne.id}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              padding: '8px 10px',
-              borderRadius: 8,
-              background: index % 2 === 0 ? accent.accentSoft : 'transparent',
-            }}
-          >
+        {visibles.map((ligne) => (
+          <div key={ligne.id} className="ligne-tarif">
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }}>{ligne.titre}</span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: accent.accent, whiteSpace: 'nowrap' }}>
+              <span className="ligne-tarif-titre">{ligne.titre}</span>
+              <span className="ligne-tarif-prix">
                 {ligne.prix.toLocaleString('fr-FR')} {ligne.unite}
               </span>
             </div>
-            {ligne.description && <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>{ligne.description}</span>}
+            {ligne.description && <span className="ligne-tarif-description">{ligne.description}</span>}
           </div>
         ))}
       </div>
 
       {lignes.length > LIMITE_TARIFS_VISIBLES && (
-        <button
-          type="button"
-          onClick={() => setEtendu((v) => !v)}
-          style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: accent.accent, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
-        >
+        <button type="button" onClick={() => setEtendu((v) => !v)} className="lien-deplier">
           {etendu ? 'Réduire ↑' : `Voir tous les tarifs (+${masquees}) ↓`}
         </button>
       )}
 
-      <button
-        type="button"
-        onClick={() => onReserver(type)}
-        className="btn-shine"
-        style={{
-          marginTop: 'auto',
-          alignSelf: 'flex-start',
-          fontSize: 12.5,
-          padding: '10px 18px',
-          background: accent.accentGrad,
-          color: accent.accentInk,
-          border: 'none',
-          boxShadow: `0 8px 22px ${accent.accentGlow}`,
-        }}
-      >
+      <button type="button" onClick={() => onReserver(type)} className="btn-shine bouton-or">
         Réserver →
       </button>
     </article>
@@ -260,7 +219,6 @@ function BlocTarif({
 export function VueProfesseurs({
   nomEtablissement,
   dossierAssets,
-  accent,
   onReserver,
 }: {
   nomEtablissement: string
@@ -270,11 +228,13 @@ export function VueProfesseurs({
 }) {
   return (
     <CadreVue
+      surtitre="Professeurs"
       titre="Notre équipe"
       sousTitre="Des professeurs choisis pour leur pédagogie autant que pour leur passion des langues."
+      theme="nuit"
     >
       <div className="grille-professeurs">
-        <article className="card carte-vue" style={{ gap: 14 }}>
+        <article className="carte-professeur">
           <div className="panneau-photo">
             <img
               src={`${dossierAssets}/Directrice.jpg`}
@@ -284,11 +244,9 @@ export function VueProfesseurs({
               }}
             />
           </div>
-          <span className="etiquette-programme" style={{ color: accent.accent, borderColor: accent.accentBorder, background: accent.accentSoft }}>
-            Notre directrice
-          </span>
-          <h3 style={{ fontSize: 18, margin: 0, color: 'var(--ink)' }}>Une pédagogie pensée pour des résultats réels</h3>
-          <p style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--muted)', margin: 0 }}>
+          <span className="nom-professeur">Notre directrice</span>
+          <h3 className="role-professeur">Une pédagogie pensée pour des résultats réels</h3>
+          <p className="texte-professeur">
             Persuadée qu’aucune application ne remplace le regard d’un professeur qui croit en vous, notre directrice
             a fondé {nomEtablissement} pour redonner sa juste place à la relation humaine dans l’apprentissage des
             langues. Son exigence : un accompagnement sur-mesure, taillé pour votre objectif, votre rythme et votre
@@ -296,7 +254,7 @@ export function VueProfesseurs({
           </p>
         </article>
 
-        <article className="card carte-vue" style={{ gap: 14 }}>
+        <article className="carte-professeur">
           <div className="panneau-photo">
             <img
               src={`${dossierAssets}/equipe.jpg`}
@@ -306,29 +264,13 @@ export function VueProfesseurs({
               }}
             />
           </div>
-          <span className="etiquette-programme" style={{ color: accent.accent, borderColor: accent.accentBorder, background: accent.accentSoft }}>
-            Notre équipe
-          </span>
-          <h3 style={{ fontSize: 18, margin: 0, color: 'var(--ink)' }}>Des professeurs choisis pour votre objectif</h3>
-          <p style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--muted)', margin: 0 }}>
+          <span className="nom-professeur">Notre équipe</span>
+          <h3 className="role-professeur">Des professeurs choisis pour votre objectif</h3>
+          <p className="texte-professeur">
             Une équipe soudée, choisie pour sa pédagogie autant que pour sa passion des langues — la même exigence
             bienveillante à chaque cours, quel que soit le professeur qui vous accompagne.
           </p>
-          <button
-            type="button"
-            onClick={onReserver}
-            className="btn-shine"
-            style={{
-              marginTop: 'auto',
-              alignSelf: 'flex-start',
-              fontSize: 12.5,
-              padding: '10px 18px',
-              background: accent.accentGrad,
-              color: accent.accentInk,
-              border: 'none',
-              boxShadow: `0 8px 22px ${accent.accentGlow}`,
-            }}
-          >
+          <button type="button" onClick={onReserver} className="btn-shine bouton-or bouton-or--pilule">
             Rencontrer un professeur →
           </button>
         </article>
@@ -338,34 +280,26 @@ export function VueProfesseurs({
 }
 
 function CadreVue({
+  surtitre,
   titre,
   sousTitre,
-  pastille = false,
+  theme,
   children,
 }: {
+  /* Petit libellé doré au-dessus du titre : l'intitulé de l'onglet de navigation, rien de plus. */
+  surtitre: string
   titre: string
   sousTitre: string
-  /* Titre encapsulé dans une pastille claire — seule la vue Tarifs en a une dans la maquette
-     fournie, les trois autres gardent un titre nu directement sur le fond sombre. */
-  pastille?: boolean
+  theme: 'violet' | 'nuit'
   children: ReactNode
 }) {
   return (
-    <section className="vue-secondaire vue-sombre">
-      <header className="entete-vue" style={{ textAlign: 'center', marginBottom: 20 }}>
-        {pastille ? (
-          <div className="titre-pastille">
-            <h2 style={{ fontSize: 28, margin: 0, color: 'var(--ink)' }}>{titre}</h2>
-            <p style={{ fontSize: 13.5, margin: 0, color: 'var(--muted)' }}>{sousTitre}</p>
-          </div>
-        ) : (
-          <>
-            <h2 style={{ fontSize: 30, margin: '0 0 8px', color: 'var(--ink)', textShadow: '0 2px 20px rgba(233, 207, 148, 0.35)' }}>
-              {titre}
-            </h2>
-            <p style={{ fontSize: 14, color: 'var(--muted)', margin: 0 }}>{sousTitre}</p>
-          </>
-        )}
+    <section className={`vue-secondaire vue-theme-${theme}`}>
+      <header className="entete-vue">
+        {theme === 'violet' && <span className="surtitre-vue">{surtitre}</span>}
+        <h2 className="titre-vue">{titre}</h2>
+        {theme === 'violet' && <span className="trait-vue" aria-hidden="true" />}
+        <p className="soustitre-vue">{sousTitre}</p>
       </header>
       <div className="vue-secondaire-corps">{children}</div>
     </section>

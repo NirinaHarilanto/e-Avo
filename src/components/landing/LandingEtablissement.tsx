@@ -97,30 +97,23 @@ export function LandingEtablissement() {
     setReservation(type)
   }
 
-  /* Les quatre vues Programme/Tarifs/Professeurs/Avis (CadreVue, voir VuesPubliques.tsx) portent
-     désormais un thème sombre glassmorphism néon — seule l'accueil garde la photo du hero sur
-     fond clair. Le pied de page doit s'adapter à ce fond sombre (voir .page-unique--sombre dans
-     index.css) plutôt que garder sa bande blanche translucide pensée pour la photo. */
-  const sombre = vue !== 'accueil'
-
-  /* Sur l'accueil, la maquette dessine elle-même sa barre de navigation, ses boutons « Se
-     connecter » et « S'inscrire » et sa barre de bénéfices : superposer l'en-tête et le pied de
-     page HTML afficherait tout cela en double (demande client du 2026-09-15 : « pas de
-     redondance, il me faut exactement la figure de l'image »). Ils reviennent dès qu'on quitte
-     l'accueil, où ils sont le seul moyen de naviguer — c'est aussi là que restent accessibles les
-     mentions légales exigées par Google pour l'accès Calendar. */
+  /* Refonte visuelle du 2026-09-29 : l'accueil n'est plus une image qui dessinait sa propre barre
+     de navigation, mais une page HTML (voir HeroPublic.tsx). L'en-tête ci-dessous s'affiche donc
+     désormais sur TOUTES les vues, avec exactement les entrées qu'avait la barre dessinée : logo,
+     cinq liens, « Rejoignez-nous ! » et « Se connecter ». Le bouton « Réserver mon appel » reste
+     réservé aux vues secondaires, comme avant — sur l'accueil, « Commencer maintenant » en tient
+     lieu. Le pied de page légal reste, lui aussi, propre aux vues secondaires. */
   const accueil = vue === 'accueil'
 
   return (
-    <div className={`page-claire page-unique${sombre ? ' page-unique--sombre' : ''}${accueil ? ' page-unique--accueil' : ''}`}>
-      {!accueil && (
+    <div className={`page-claire page-unique${accueil ? ' page-unique--accueil' : ' page-unique--sombre'}`}>
       <header className="en-tete-public">
         <button type="button" onClick={() => setVue('accueil')} className="bloc-logo" aria-label={`Accueil ${etablissement.nom}`}>
           <img src="/logo-hoc.png" alt={etablissement.nom} style={{ height: 42, width: 'auto', display: 'block' }} />
           {etablissement.specialite && <span className="baseline-logo">{etablissement.specialite}</span>}
         </button>
 
-        <nav style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 24 }}>
+        <nav className="nav-publique">
           {ENTREES.map((entree) => (
             <button
               key={entree.vue}
@@ -128,30 +121,36 @@ export function LandingEtablissement() {
               onClick={() => setVue(entree.vue)}
               className="lien-nav-public"
               aria-current={vue === entree.vue ? 'page' : undefined}
-              style={{ background: 'transparent', border: 'none', borderBottomWidth: 2, borderBottomStyle: 'solid', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               {entree.libelle}
             </button>
           ))}
         </nav>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <a href="/rejoignez-nous" className="lien-nav-public" style={{ fontWeight: 700 }}>
+        <div className="actions-publiques">
+          <a href="/rejoignez-nous" className="lien-rejoindre">
             Rejoignez-nous !
           </a>
-          <a href="/connexion" className="bouton-contour">
+          <a href="/connexion" className="bouton-connexion">
+            <span className="bouton-connexion-avatar" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </span>
             Se connecter
           </a>
-          <button type="button" onClick={() => ouvrirReservation()} className="btn-shine" style={{ background: 'var(--accent-blue-gradient)', color: '#fff', border: 'none' }}>
-            Réserver mon appel →
-          </button>
+          {!accueil && (
+            <button type="button" onClick={() => ouvrirReservation()} className="btn-shine bouton-reserver-public">
+              Réserver mon appel →
+            </button>
+          )}
         </div>
       </header>
-      )}
 
       <main className="corps-unique">
         {vue === 'accueil' && (
-          <HeroPublic nomEtablissement={etablissement.nom} onReserver={() => ouvrirReservation()} onNaviguer={setVue} />
+          <HeroPublic nomEtablissement={etablissement.nom} onReserver={() => ouvrirReservation()} />
         )}
         {vue === 'programmes' && <VueProgrammes accent={accent} onReserver={ouvrirReservation} />}
         {vue === 'tarifs' && <VueTarifs tarifs={tarifs} accent={accent} onReserver={ouvrirReservation} />}

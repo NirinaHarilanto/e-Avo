@@ -806,93 +806,48 @@ input[type='search']::-webkit-search-cancel-button {
   box-shadow: 0 8px 22px rgba(93, 47, 181, 0.26);
 }
 
-/* Même mécanique de halo tournant que .nav-link-glow (voir plus haut, conic-gradient piloté par
-   --glow-angle/navGlowSpin déjà déclarés) recolorée en violet plutôt qu'en doré, qui jurerait sur
-   ce fond clair — demande client du 2026-09-15 de reprendre les animations de l'application. */
-.lien-nav-public {
-  position: relative;
-  font-size: 14px;
-  font-weight: 600;
-  color: #4a4266;
-  padding: 6px 3px;
-  border-bottom: 2px solid transparent;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-.lien-nav-public::before {
-  content: '';
-  position: absolute;
-  inset: -6px -8px;
-  border-radius: 8px;
-  padding: 2px;
-  background: conic-gradient(
-    from var(--glow-angle),
-    transparent 0%, transparent 76%,
-    #4a2494 83%, #a78bfa 88%, #f3e8ff 91%, #a78bfa 94%, #4a2494 99%,
-    transparent 100%
-  );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0;
-  pointer-events: none;
-  filter: drop-shadow(0 0 4px rgba(124, 58, 237, 0.6));
-  animation: navGlowSpin 3.4s linear infinite;
-  transition: opacity 0.3s;
-}
-.lien-nav-public:hover::before {
-  opacity: 1;
-}
-.lien-nav-public:hover,
-.lien-nav-public[aria-current='page'] {
-  color: #6d3bd1;
-  border-bottom-color: #6d3bd1;
+/* ─────────────────────────────────────────────────────────────────────────────
+   Vitrine publique — refonte visuelle du 2026-09-29.
+   Trois visuels de référence fournis par le client, un par famille de vues :
+   — accueil : page « learning center » claire, violet franc (#8263e4), cartes blanches ;
+   — Cours / Tarifs / À propos : violet prune (#42246e), cartes #63438e, or #f0b85b ;
+   — Professeurs : bleu nuit sarcelle (#023249), portraits cerclés d'or (#ffc962).
+   Couleurs relevées au pixel sur les visuels. Seule la présentation est concernée : les
+   composants gardent leurs données et leurs actions.
+   ───────────────────────────────────────────────────────────────────────────── */
+.page-claire {
+  --hoc-violet: #7657e6;
+  --hoc-violet-fonce: #5536c9;
+  --hoc-violet-clair: #987ee9;
+  --hoc-lavande: #f3effd;
+  --hoc-encre: #17163a;
+  --hoc-texte: #5b5a78;
+  --hoc-or: #f0b85b;
+  --hoc-or-vif: #ffc962;
+  --hoc-prune: #42246e;
+  --hoc-prune-carte: #63438e;
+  --hoc-nuit: #023249;
 }
 
-
-/* ── Page publique en vue unique ────────────────────────────────────────────────
-   Toute la page tient dans la hauteur de la fenêtre : en-tête, corps, bande légale. Le document
-   lui-même ne défile jamais (`.sans-defilement` sur <body>), seul le corps d'une vue dense peut
-   défiler dans son propre cadre. */
-body.sans-defilement {
-  overflow: hidden;
-}
-
-.page-unique {
-  position: relative;
-  height: 100vh;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* Barre de navigation en surimpression translucide, posée SUR l'image plutôt qu'au-dessus d'elle
-   dans le flux normal : demande client du 2026-09-15, « la barre de navigation doit être
-   intégrée dans l'image de fond et être en harmonie avec elle ». Position absolute + fond
-   semi-transparent flouté (au lieu d'un blanc opaque) pour qu'elle se fonde dans le décor au lieu
-   de lui manger de la hauteur — c'est ce qui permet aussi à l'image de couvrir l'écran en entier,
-   y compris derrière la barre. */
+/* ── Barre de navigation : bandeau blanc flottant, commun à toutes les vues ─────────────── */
 .page-unique .en-tete-public {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  top: 14px;
+  left: 24px;
+  right: 24px;
   display: flex;
   flex-wrap: wrap;
   row-gap: 8px;
+  column-gap: 20px;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 34px;
-  /* Le dégradé retombe à une opacité nulle (et non 0.4 comme avant) : sinon le bord inférieur du
-     bandeau dessine une ligne blanche nette qui tranche sur l'image, visible même là où il n'y a
-     ni logo ni lien (au-dessus du décor, à droite) — signalé par le client comme une bande
-     parasite le 2026-09-15. */
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.68) 0%, rgba(255, 255, 255, 0) 100%);
-  backdrop-filter: blur(6px);
-  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
-  -webkit-backdrop-filter: blur(6px);
-  z-index: 4;
+  padding: 10px 14px 10px 22px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 14px 40px rgba(38, 20, 90, 0.14), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  z-index: 10;
 }
 
 .bloc-logo {
@@ -907,14 +862,124 @@ body.sans-defilement {
 
 .baseline-logo {
   padding-left: 13px;
-  border-left: 1px solid rgba(74, 66, 102, 0.3);
+  border-left: 1px solid rgba(74, 66, 102, 0.25);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.6px;
-  color: #4a4266;
+  color: var(--hoc-texte);
   text-transform: uppercase;
 }
 
+.nav-publique {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lien-nav-public {
+  position: relative;
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hoc-encre);
+  padding: 8px 14px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.18s ease, background-color 0.18s ease;
+}
+/* Soulignement qui se déploie depuis le centre, comme le lien actif du visuel de référence. */
+.lien-nav-public::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 18px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--hoc-violet);
+  transform: translateX(-50%) scaleX(0);
+  transition: transform 0.25s ease;
+}
+.lien-nav-public:hover {
+  color: var(--hoc-violet);
+  background: var(--hoc-lavande);
+}
+.lien-nav-public[aria-current='page'] {
+  color: var(--hoc-violet);
+}
+.lien-nav-public[aria-current='page']::after,
+.lien-nav-public:hover::after {
+  transform: translateX(-50%) scaleX(1);
+}
+
+.actions-publiques {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.page-claire .lien-rejoindre {
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--hoc-violet);
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+.page-claire .lien-rejoindre:hover {
+  color: var(--hoc-violet-fonce);
+}
+
+.page-claire .bouton-connexion {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #fff;
+  padding: 5px 20px 5px 5px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--hoc-violet-clair), var(--hoc-violet));
+  box-shadow: 0 8px 20px rgba(118, 87, 230, 0.35);
+  white-space: nowrap;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.page-claire .bouton-connexion:hover {
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(118, 87, 230, 0.45);
+}
+.bouton-connexion-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: var(--hoc-violet);
+}
+.bouton-connexion-avatar svg {
+  width: 16px;
+  height: 16px;
+}
+
+.bouton-reserver-public {
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: 13px;
+  padding: 10px 18px;
+  color: #2a1646;
+  background: linear-gradient(135deg, var(--hoc-or-vif), var(--hoc-or));
+  box-shadow: 0 8px 20px rgba(240, 184, 91, 0.35);
+}
+
+/* Bouton pilule à contour (« Retour à l'accueil » de la page de candidature formateur,
+   CandidatureFormateur.tsx) — conservé tel quel, la refonte de la vitrine ne l'utilise plus. */
 .bouton-contour {
   font-size: 13px;
   font-weight: 700;
@@ -932,8 +997,27 @@ body.sans-defilement {
   transform: translateY(-1px);
 }
 
-/* Le corps occupe maintenant TOUTE la hauteur de la page (l'en-tête n'est plus dans le flux, elle
-   flotte par-dessus) : c'est ce qui permet à l'image du hero de couvrir l'écran jusqu'en haut. */
+/* ── Page publique en vue unique ────────────────────────────────────────────────
+   Toute la page tient dans la hauteur de la fenêtre : en-tête, corps, bande légale. Le document
+   lui-même ne défile jamais (`.sans-defilement` sur <body>), seul le corps d'une vue dense peut
+   défiler dans son propre cadre. */
+body.sans-defilement {
+  overflow: hidden;
+}
+
+/* Ancrée aux quatre bords de la fenêtre plutôt que dimensionnée en `100dvh` : le `zoom: 0.9` de
+   <body> (voir plus haut) s'applique aussi aux unités `vh` dans Chrome récent, et la page ne
+   couvrait alors que 90 % de la hauteur, avec une bande vide en dessous. Des bords ancrés se
+   calculent, eux, sur la fenêtre réelle, quel que soit le zoom. */
+.page-unique {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Le corps occupe toute la hauteur de la page : l'en-tête flotte par-dessus. */
 .corps-unique {
   flex: 1 1 auto;
   min-height: 0;
@@ -947,93 +1031,590 @@ body.sans-defilement {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px;
-  padding: 8px 34px;
-  border-top: 1px solid var(--border-soft);
-  font-size: 11.5px;
-  color: var(--muted-2);
-  background: rgba(255, 255, 255, 0.7);
+  padding: 7px 34px;
+  font-size: 11px;
   position: relative;
   z-index: 3;
 }
-.pied-unique a {
-  color: var(--muted-2);
+.page-unique--sombre .pied-unique {
+  color: rgba(255, 255, 255, 0.6);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
-.pied-unique a:hover {
-  color: var(--accent-blue);
+.page-unique--sombre .pied-unique a {
+  color: var(--hoc-or);
+}
+.page-unique--sombre .pied-unique a:hover {
+  color: #fff;
+}
+/* Le pied de page prend la couleur de la vue qu'il clôt. */
+.page-unique--sombre:has(.vue-theme-violet) {
+  background: var(--hoc-prune);
+}
+.page-unique--sombre:has(.vue-theme-nuit) {
+  background: #03293b;
 }
 
-/* ── Vue d'accueil : la maquette EST la page, en plein écran ────────────────── */
-
-/* `.hero-plein` est le cadre (la fenêtre), `.hero-scene` le rectangle réellement occupé par
-   l'image, mesuré en JavaScript (voir HeroPublic.tsx) : c'est lui qui sert de repère aux zones
-   cliquables, qui restent ainsi calées sur les éléments dessinés quelle que soit la taille de
-   l'écran. */
-.hero-plein {
-  height: 100%;
+/* ── Accueil ───────────────────────────────────────────────────────────────── */
+.hero-hoc {
   position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: clamp(10px, 2.2cqh, 26px);
+  padding: 96px clamp(24px, 4.5vw, 72px) clamp(14px, 2.6cqh, 28px);
   overflow: hidden;
-  /* Ne se voit qu'en portrait, seule forme d'écran où aucun cadrage ne peut à la fois montrer
-     toute la maquette et remplir la hauteur. Reprend la couleur des lignes extérieures de
-     l'image élargie — un décor déjà fondu en flou à cet endroit, donc sans raccord franc. */
-  background: linear-gradient(180deg, #e0dcf4 0%, #e0dcf4 40%, #ad9089 100%);
+  container-type: size;
+  background:
+    radial-gradient(60% 70% at 85% 30%, rgba(152, 126, 233, 0.22), transparent 70%),
+    radial-gradient(40% 50% at 5% 90%, rgba(240, 184, 91, 0.12), transparent 70%),
+    linear-gradient(180deg, #faf9fe 0%, #f1edfb 100%);
 }
 
-.hero-scene {
+/* Décors du visuel de référence : grand anneau blanc sur le bord gauche, trame de points. */
+.hero-deco-anneau {
   position: absolute;
+  left: -170px;
+  top: 30%;
+  width: 340px;
+  height: 340px;
+  border-radius: 50%;
+  border: 56px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 20px 60px rgba(118, 87, 230, 0.12);
+  pointer-events: none;
+}
+.hero-deco-points {
+  position: absolute;
+  left: 38%;
+  top: 110px;
+  width: 120px;
+  height: 70px;
+  background-image: radial-gradient(rgba(118, 87, 230, 0.35) 1.6px, transparent 1.8px);
+  background-size: 14px 14px;
+  pointer-events: none;
 }
 
-/* La scène a exactement les proportions du fichier source : l'image la remplit donc sans jamais
-   être déformée. Elle est servie en WebP sans perte (strictement les mêmes pixels que le PNG,
-   vérifié à la génération) avec le PNG en repli — rien n'est recompressé en chemin. */
-.hero-image {
+.hero-grille {
+  position: relative;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+  align-items: center;
+  gap: clamp(20px, 3vw, 56px);
+}
+
+.hero-texte {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(10px, 2.2cqh, 22px);
+  animation: heroEntree 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.hero-accroche {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+}
+.hero-accroche-barre {
+  width: 4px;
+  height: 30px;
+  border-radius: 4px;
+  background: var(--hoc-violet);
+}
+.hero-accroche .mention-manuscrite {
+  font-size: clamp(22px, min(2.2cqw, 4.2cqh), 32px);
+  color: var(--hoc-violet-fonce);
+}
+
+.page-claire .hero-titre {
+  margin: 0;
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: clamp(34px, min(4.6cqw, 8.6cqh), 72px);
+  line-height: 1.04;
+  letter-spacing: -1.5px;
+  color: var(--hoc-encre);
+}
+.hero-titre-degrade {
+  display: block;
+  background: linear-gradient(95deg, var(--hoc-violet-fonce) 0%, var(--hoc-violet) 45%, #b06cf0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-intro {
+  margin: 0;
+  max-width: 520px;
+  font-size: clamp(14px, min(1.25cqw, 2.3cqh), 17px);
+  line-height: 1.65;
+  color: var(--hoc-texte);
+}
+
+.hero-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: clamp(12px, 2cqh, 16px) 26px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: clamp(14px, min(1.2cqw, 2.2cqh), 16px);
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--hoc-violet-clair) 0%, var(--hoc-violet) 50%, var(--hoc-violet-fonce) 100%);
+  background-size: 180% 100%;
+  box-shadow: 0 14px 30px rgba(85, 54, 201, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-position 0.4s ease;
+}
+.hero-cta:hover {
+  transform: translateY(-2px);
+  background-position: 100% 0;
+  box-shadow: 0 18px 38px rgba(85, 54, 201, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.hero-cta .icone-hero {
+  width: 20px;
+  height: 20px;
+}
+.hero-cta-fleche {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+.hero-cta:hover .hero-cta-fleche {
+  transform: translateX(4px);
+}
+
+.hero-garanties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hero-garanties li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hoc-encre);
+}
+.hero-garanties .icone-hero {
+  width: 20px;
+  height: 20px;
+  padding: 4px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--hoc-violet);
+}
+
+/* Visuel : décor 3D (canevas WebGL), cadre de l'illustration incliné sous la souris et cartes
+   flottantes à des profondeurs différentes. `container-type: size` : le cadre se dimensionne sur
+   la place réellement disponible, en largeur comme en hauteur, pour tenir sans défilement. */
+.hero-visuel {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  container-type: size;
+  perspective: 1400px;
+  --incl-x: 0deg;
+  --incl-y: 0deg;
+}
+
+.hero-3d {
+  position: absolute;
+  left: -14%;
+  top: -10%;
+  width: 122%;
+  height: 116%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  /* Bords fondus : les anneaux d'orbite qui sortent du canevas s'effacent au lieu d'être coupés
+     net sous la barre de navigation ou contre la bande des bénéfices. */
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 88%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 88%, transparent 100%);
+}
+.hero-3d--pret {
+  opacity: 1;
+}
+
+.hero-cadre-3d {
+  position: relative;
+  width: min(74cqw, 72cqh * 1.235);
+  aspect-ratio: 840 / 680;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--incl-x)) rotateY(var(--incl-y));
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: heroEntreeVisuel 1s 0.1s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.hero-cercle {
+  position: absolute;
+  left: -9%;
+  bottom: -10%;
+  width: 34%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: linear-gradient(145deg, var(--hoc-violet-clair), var(--hoc-violet-fonce));
+  box-shadow: 0 24px 50px rgba(85, 54, 201, 0.35);
+  transform: translateZ(-40px);
+}
+
+.hero-cadre {
+  position: absolute;
+  inset: 0;
+  border-radius: 26px;
+  overflow: hidden;
+  border: 6px solid #fff;
+  background: #fff;
+  box-shadow: 0 40px 80px rgba(38, 20, 90, 0.28), 0 10px 24px rgba(38, 20, 90, 0.14);
+  transform: translateZ(0);
+}
+.hero-cadre img {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: cover;
   user-select: none;
   -webkit-user-drag: none;
 }
 
-/* Zone cliquable posée sur un élément dessiné dans la maquette : entièrement transparente, elle
-   n'ajoute rien à l'image — elle lui donne seulement sa fonction. Le voile au survol est le seul
-   retour visuel, assez discret pour ne pas dénaturer le rendu. */
-.hero-zone {
+/* Cartes flottantes : chacune à sa profondeur (translateZ), donc un décalage différent quand le
+   cadre s'incline — c'est ce qui donne la sensation de relief. */
+.hero-flottant {
   position: absolute;
-  border: none;
+  margin: 0;
   padding: 0;
-  background: transparent;
-  border-radius: 999px;
-  cursor: pointer;
-  font: inherit;
-  color: transparent;
-  transition: background-color 0.16s ease, box-shadow 0.16s ease;
-}
-.hero-zone:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-.hero-zone:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(109, 59, 209, 0.8);
+  list-style: none;
+  font-family: 'Poppins', 'Inter', sans-serif;
 }
 
-/* ── Vues Programme / Tarifs / Professeurs / Avis ──────────────────────────── */
+.hero-progression {
+  right: -9%;
+  top: 19.5%;
+  width: 36%;
+  /* Recouvre entièrement la carte « Progression » dessinée dans l'illustration. */
+  min-height: 19.5%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 20px 44px rgba(38, 20, 90, 0.22);
+  transform: translateZ(70px);
+  animation: heroFlotte 6s ease-in-out infinite;
+}
+.hero-progression-icone {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  padding-bottom: 10px;
+  background: #eaf8ee;
+}
+.hero-progression-icone i {
+  width: 5px;
+  border-radius: 2px;
+  background: #2fbf71;
+}
+.hero-progression-icone i:nth-child(1) { height: 7px; }
+.hero-progression-icone i:nth-child(2) { height: 12px; }
+.hero-progression-icone i:nth-child(3) { height: 17px; }
+.hero-progression-texte {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.hero-progression-texte small {
+  font-size: 10.5px;
+  color: var(--hoc-texte);
+}
+.hero-progression-texte strong {
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--hoc-encre);
+}
+.hero-progression-barre {
+  display: block;
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 6px;
+  background: var(--hoc-lavande);
+  overflow: hidden;
+}
+.hero-progression-barre span {
+  display: block;
+  width: 64%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--hoc-violet-clair), var(--hoc-violet));
+  animation: heroProgression 2.4s 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.hero-progression-fleche {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #fff;
+  background: var(--hoc-violet);
+}
+
+.hero-piliers {
+  right: -12%;
+  top: 47%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transform: translateZ(90px);
+  animation: heroFlotte 7s 0.8s ease-in-out infinite;
+}
+.hero-piliers li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 16px 8px 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  background: linear-gradient(135deg, var(--hoc-violet-clair), var(--hoc-violet-fonce));
+  box-shadow: 0 12px 26px rgba(85, 54, 201, 0.35);
+}
+.hero-piliers li:nth-child(2) { margin-left: -10px; }
+.hero-piliers li:nth-child(3) { margin-left: -20px; }
+.hero-piliers .icone-hero {
+  width: 26px;
+  height: 26px;
+  padding: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Les quatre livres de la maquette, en relief : chaque tranche a sa couleur et son épaisseur. */
+.hero-livres {
+  left: -8%;
+  bottom: 3%;
+  width: 34%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transform: translateZ(60px) rotate(-3deg);
+  animation: heroFlotte 8s 1.6s ease-in-out infinite;
+}
+.hero-livres li {
+  position: relative;
+  padding: 7px 14px;
+  border-radius: 6px 10px 10px 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.2px;
+  box-shadow: 0 8px 16px rgba(38, 20, 90, 0.22), inset 0 -3px 0 rgba(0, 0, 0, 0.15), inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+.hero-livres li::after {
+  content: '';
+  position: absolute;
+  right: 6px;
+  top: 4px;
+  bottom: 4px;
+  width: 22%;
+  border-radius: 3px;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0 2px, rgba(235, 230, 250, 0.9) 2px 3px);
+}
+.hero-livres li:nth-child(1) { background: linear-gradient(90deg, #a23ce0, #c25cf0); margin-left: 6px; }
+.hero-livres li:nth-child(2) { background: linear-gradient(90deg, #5b45e0, #7b67f0); }
+.hero-livres li:nth-child(3) { background: linear-gradient(90deg, #2d73d8, #4f97ee); margin-left: 4px; }
+.hero-livres li:nth-child(4) { background: linear-gradient(90deg, #13a39a, #2cc3b5); margin-left: -2px; }
+
+/* Bande des bénéfices : quatre cartes blanches, la deuxième mise en avant en violet, comme la
+   carte centrale du visuel de référence. */
+.hero-benefices {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  animation: heroEntree 0.8s 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.hero-benefices li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: clamp(10px, 1.8cqh, 16px) 16px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(38, 20, 90, 0.1);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, color 0.25s ease;
+}
+.hero-benefices li > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.hero-benefices strong {
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: 13.5px;
+  color: var(--hoc-encre);
+}
+.hero-benefices small {
+  font-size: 12px;
+  color: var(--hoc-texte);
+}
+.hero-benefice-icone {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--hoc-violet);
+  background: var(--hoc-lavande);
+}
+.hero-benefice-icone .icone-hero {
+  width: 20px;
+  height: 20px;
+}
+.hero-benefices li:nth-child(2),
+.hero-benefices li:hover {
+  transform: translateY(-4px);
+  background: linear-gradient(135deg, var(--hoc-violet-clair), var(--hoc-violet));
+  box-shadow: 0 20px 40px rgba(85, 54, 201, 0.3);
+}
+.hero-benefices li:nth-child(2) strong,
+.hero-benefices li:nth-child(2) small,
+.hero-benefices li:hover strong,
+.hero-benefices li:hover small {
+  color: #fff;
+}
+.hero-benefices li:nth-child(2) .hero-benefice-icone,
+.hero-benefices li:hover .hero-benefice-icone {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}
+/* Au survol d'une autre carte, la deuxième redevient blanche : une seule carte violette à la fois. */
+.hero-benefices:has(li:hover) li:nth-child(2):not(:hover) {
+  transform: none;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(38, 20, 90, 0.1);
+}
+.hero-benefices:has(li:hover) li:nth-child(2):not(:hover) strong { color: var(--hoc-encre); }
+.hero-benefices:has(li:hover) li:nth-child(2):not(:hover) small { color: var(--hoc-texte); }
+.hero-benefices:has(li:hover) li:nth-child(2):not(:hover) .hero-benefice-icone {
+  color: var(--hoc-violet);
+  background: var(--hoc-lavande);
+}
+
+@keyframes heroEntree {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes heroEntreeVisuel {
+  from { opacity: 0; transform: translateY(24px) scale(0.96) rotateY(-8deg); }
+}
+@keyframes heroFlotte {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -10px; }
+}
+@keyframes heroProgression {
+  from { width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-texte,
+  .hero-cadre-3d,
+  .hero-benefices,
+  .hero-flottant,
+  .hero-progression-barre span {
+    animation: none;
+  }
+  .hero-cadre-3d {
+    transform: none;
+  }
+}
+
+/* ── Vues Cours / Tarifs / Professeurs / À propos ────────────────────────── */
 .vue-secondaire {
   position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
-  /* La barre de navigation flotte désormais par-dessus le contenu (voir .en-tete-public) : ces
-     vues doivent donc réserver sa hauteur en haut pour ne pas passer dessous. */
-  padding: 86px 34px 10px;
+  /* L'en-tête flotte par-dessus le contenu : on réserve sa hauteur en haut. */
+  padding: 82px 34px 8px;
   overflow: hidden;
+  isolation: isolate;
 }
 .vue-secondaire-corps {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: 8px;
+  padding: 6px 4px 10px;
   display: flex;
   flex-direction: column;
   justify-content: safe center;
+}
+
+.entete-vue {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 5px;
+  margin-bottom: 12px;
+}
+.surtitre-vue {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2.4px;
+  text-transform: uppercase;
+  color: var(--hoc-or);
+}
+.page-claire .titre-vue {
+  margin: 0;
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: clamp(20px, 2.1vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: #fff;
+}
+.trait-vue {
+  width: 90px;
+  height: 3px;
+  margin: 2px 0 1px;
+  border-radius: 4px;
+  background: var(--hoc-or);
+}
+.soustitre-vue {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.72);
 }
 
 /* `width: 100%` n'est pas décoratif : ces grilles sont des éléments flex de .vue-secondaire-corps,
@@ -1042,186 +1623,301 @@ body.sans-defilement {
    de retomber sur une seule colonne. */
 .grille-vue {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 18px;
   align-items: stretch;
   width: 100%;
-  max-width: 1180px;
+  max-width: 1120px;
   margin: 0 auto;
 }
 
 .grille-professeurs {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 22px;
   width: 100%;
   max-width: 1000px;
   margin: 0 auto;
 }
 
-/* Même mécanique que .card-lift (liseré tournant + soulèvement + ombre, voir plus haut), dorée à
-   l'identique — demande client du 2026-09-22 : revenir à l'ambiance sombre brillant doré de
-   l'application plutôt que le violet néon posé le 2026-09-15. */
-.carte-vue {
+/* Thème « violet » (visuel de référence n° 2) : fond prune, halos discrets, cartes #63438e. */
+.vue-theme-violet {
+  background:
+    radial-gradient(700px 380px at 12% 0%, rgba(152, 126, 233, 0.22), transparent 65%),
+    radial-gradient(600px 360px at 92% 100%, rgba(240, 184, 91, 0.1), transparent 65%),
+    var(--hoc-prune);
+}
+
+.carte-hoc {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 20px;
-  transition: transform 0.2s ease, box-shadow 0.25s ease;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 6px;
+  background: var(--hoc-prune-carte);
+  box-shadow: 0 18px 40px rgba(20, 8, 45, 0.35);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
-.carte-vue::before {
-  content: '';
+.carte-hoc:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 26px 50px rgba(20, 8, 45, 0.5), 0 0 0 1px rgba(240, 184, 91, 0.45);
+}
+
+.carte-cours {
+  padding: 14px;
+  gap: 0;
+}
+.carte-cours-visuel {
+  position: relative;
+  height: clamp(84px, 19vh, 180px);
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+.carte-cours-visuel img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* Cadrage sur les visages : les photos sont plus hautes que le bandeau. */
+.carte-cours-visuel--individuel img { object-position: 60% 25%; }
+.carte-cours-visuel--duo img { object-position: 50% 35%; }
+.carte-cours-visuel--collectif img { object-position: 50% 30%; }
+.carte-cours:hover .carte-cours-visuel img {
+  transform: scale(1.06);
+}
+.carte-cours-visuel .etiquette-programme {
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 2px;
-  background: conic-gradient(
-    from var(--glow-angle),
-    transparent 0%, transparent 76%,
-    #a97c00 83%, #ffd700 88%, #fff6c8 91%, #ffd700 94%, #a97c00 99%,
-    transparent 100%
-  );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  opacity: 0;
-  pointer-events: none;
-  filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.85));
-  animation: navGlowSpin 3.4s linear infinite;
-  transition: opacity 0.35s;
+  left: 10px;
+  top: 10px;
 }
-.carte-vue:hover::before {
-  opacity: 1;
-}
-.carte-vue:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45), 0 0 24px rgba(233, 207, 148, 0.16);
+.carte-cours-corps {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 2px 0;
 }
 
 .etiquette-programme {
   align-self: flex-start;
   font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid;
+  color: #2a1646;
+  background: rgba(255, 255, 255, 0.9);
+}
+.vue-theme-violet .carte-tarif .etiquette-programme {
+  color: var(--hoc-or);
+  background: rgba(240, 184, 91, 0.12);
+  border: 1px solid rgba(240, 184, 91, 0.45);
 }
 
-/* Avis en trois colonnes, même trame que les cartes de programmes/tarifs. */
-.carte-avis {
+.page-claire .titre-carte-hoc {
+  margin: 0;
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--hoc-or);
+}
+.texte-carte-hoc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.82);
+}
+.detail-carte-hoc {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Bouton rectangulaire jaune doré en capitales, comme « MORE » sur le visuel de référence. */
+.page-claire .bouton-or {
+  margin-top: auto;
+  align-self: flex-start;
+  padding: 8px 15px;
+  border-radius: 3px;
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #2a1646;
+  background: var(--hoc-or);
+  box-shadow: 0 8px 20px rgba(240, 184, 91, 0.25);
+}
+.page-claire .bouton-or:hover {
+  background: var(--hoc-or-vif);
+}
+.page-claire .bouton-or--pilule {
+  align-self: center;
+  border-radius: 999px;
+  background: var(--hoc-or-vif);
+}
+
+.ligne-tarif {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 22px;
-  transition: transform 0.2s ease, box-shadow 0.25s ease;
+  gap: 1px;
+  padding: 5px 9px;
+  border-radius: 4px;
 }
-.carte-avis:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45), 0 0 24px rgba(233, 207, 148, 0.16);
+.ligne-tarif:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.07);
 }
-
-/* ── Vues Programme / Tarifs / Professeurs / Avis : ambiance sombre brillant doré ─────────────
-   Le violet néon posé le 2026-09-15 (fond « violet nuit », cartes en verre dépoli, décor flottant
-   animé) est retiré le 2026-09-22 à la demande du client, au profit de l'habillage déjà en place
-   partout ailleurs dans l'application : fond marine (`--bg-page`), cartes opaques (`.card`) et
-   liseré doré tournant au survol (`.carte-vue`, mécanique `.card-lift`). Rien de ce qui suit ne
-   touche à l'information affichée (données des forfaits, programmes, professeurs, avis) ni aux
-   mécanismes (extension de la liste de tarifs, réservation, etc.) — seules les couleurs et les
-   animations décoratives changent. */
-/* L'image de fond du Hero sert de socle aux quatre vues secondaires — demande client du
-   2026-09-16 : « la page Hero doit servir de base pour les autres sections de la barre de
-   navigation », conservée telle quelle. Posée en DERNIÈRE couche (donc la plus profonde : en CSS,
-   la première couche listée dans `background` est celle du dessus), sous les mêmes teintes que le
-   fond marine/or du reste de l'application plutôt que le violet nuit d'avant. L'image n'est donc
-   qu'une présence en filigrane — assez discrète pour qu'aucune carte ni aucun texte n'y perde en
-   lisibilité, assez visible pour qu'on reconnaisse le même décor que sur l'accueil. */
-.vue-sombre {
-  /* `.page-claire` (posée sur toute la vitrine publique, voir plus haut) redéfinit --surface en
-     blanc et --ink en une encre sombre pensée pour CE fond clair — illisibles tels quels sur les
-     cartes sombres de ces quatre vues. Mêmes valeurs que le thème principal de l'application
-     (`:root`), pour que `.card`/`.carte-vue` s'y comportent à l'identique. */
-  --surface: linear-gradient(155deg, #101d40, #0b1530);
-  --surface-alt: #0d1938;
-  --border: rgba(212, 175, 106, 0.22);
-  --border-soft: rgba(255, 255, 255, 0.06);
-  --ink: #e7edf9;
-  --ink-2: #c7d0e8;
-  --muted: #8b96b8;
-  --muted-2: #5b6584;
-  position: relative;
-  isolation: isolate;
-  background:
-    radial-gradient(700px 420px at 14% 8%, rgba(63, 127, 242, 0.28), transparent 62%),
-    radial-gradient(620px 380px at 92% 12%, rgba(233, 207, 148, 0.2), transparent 60%),
-    radial-gradient(900px 520px at 50% 105%, rgba(212, 175, 106, 0.24), transparent 70%),
-    linear-gradient(165deg, rgba(5, 10, 22, 0.93) 0%, rgba(10, 21, 48, 0.95) 45%, rgba(5, 10, 22, 0.97) 100%),
-    url('/hero-hoc.webp') center 30% / cover no-repeat;
+.ligne-tarif-titre {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
 }
-.vue-sombre .entete-vue,
-.vue-sombre .vue-secondaire-corps {
-  position: relative;
-  z-index: 1;
+.ligne-tarif-prix {
+  font-size: 13.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  color: var(--hoc-or-vif);
 }
-
-/* Le pied de page est pensé pour la photo claire du hero (bande blanche translucide) : sur les
-   vues sombres il doit au contraire se fondre dans le marine, comme partout ailleurs dans
-   l'application. */
-.page-unique--sombre .pied-unique {
+.ligne-tarif-description {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.lien-deplier {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
   background: transparent;
-  border-top-color: rgba(212, 175, 106, 0.18);
-  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--hoc-or);
 }
-.page-unique--sombre .pied-unique a {
-  color: var(--accent-gold);
+.lien-deplier:hover {
+  color: var(--hoc-or-vif);
 }
-.page-unique--sombre .pied-unique a:hover {
+
+.carte-avis {
+  gap: 12px;
+  padding: 20px;
+}
+.etoiles-avis {
+  font-size: 15px;
+  letter-spacing: 3px;
+  color: var(--hoc-or-vif);
+}
+.citation-avis {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.65;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.88);
+}
+.avatar-avis {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--hoc-violet-clair), var(--hoc-violet-fonce));
+  border: 2px solid var(--hoc-or-vif);
+}
+.nom-avis {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--hoc-or);
+}
+
+/* Thème « nuit » (visuel de référence n° 1) : bleu nuit sarcelle, fines stries, or. */
+.vue-theme-nuit {
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.018) 0 2px, transparent 2px 9px),
+    radial-gradient(800px 420px at 20% 0%, rgba(30, 110, 140, 0.35), transparent 70%),
+    linear-gradient(160deg, var(--hoc-nuit) 0%, #083344 55%, #133743 100%);
+}
+.vue-theme-nuit .titre-vue {
+  font-size: clamp(24px, 2.5vw, 32px);
+  font-weight: 800;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
+}
+.vue-theme-nuit .soustitre-vue {
+  font-family: 'Caveat', cursive;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--hoc-or-vif);
+}
+
+.carte-professeur {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  text-align: center;
+  padding: 4px 10px 6px;
+}
+.carte-professeur .texte-professeur {
+  margin: 0;
+  max-width: 440px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.78);
+}
+.nom-professeur {
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--hoc-or-vif);
+}
+.page-claire .role-professeur {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  font-style: italic;
+  letter-spacing: 0;
   color: #fff;
 }
 
-/* Titre encapsulé dans une pastille claire (maquette Tarifs uniquement) ; les autres vues
-   gardent un titre nu directement sur le fond sombre (maquette Programme). `!important` : le
-   titre porte déjà `color: var(--ink)` en style inline (device par CadreVue, réutilisé partout),
-   qui l'emporterait sinon sur cette pastille claire — même raison que `.nav-item:hover` plus haut. */
-.titre-pastille {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 0 auto 24px;
-  padding: 16px 36px;
-  border-radius: 20px;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(250, 244, 230, 0.94));
-  box-shadow: 0 18px 40px rgba(5, 10, 22, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
-}
-.titre-pastille h2 {
-  color: #0a1530 !important;
-}
-.titre-pastille p {
-  color: #4a5578 !important;
-}
-
-/* Panneau photo (fondatrice / équipe, vue Professeurs) : affiche la photo ENTIÈRE sans recadrage
-   (`object-fit: contain`), sur un fond qui absorbe les bandes vides plutôt que de laisser du vide
-   brut — demande client du 2026-09-15 : « les rendre plus visibles et complètes », mécanisme
-   conservé, seule la teinte de bordure redevient dorée le 2026-09-22. */
+/* Panneau photo (directrice / équipe) : la photo ENTIÈRE, sans recadrage — demande client du
+   2026-09-15 : « les rendre plus visibles et complètes ». Le cadre doré épouse EXACTEMENT les
+   bords de la photo (demande client du 2026-09-29 : plus aucune zone blanche) : le panneau n'a
+   plus de largeur imposée, il prend celle de l'image, qui se dimensionne sur la hauteur du
+   panneau en gardant ses proportions. `max-width: 100%` la fait se réduire sur un écran étroit
+   plutôt que déborder — la hauteur suit alors, toujours sans déformation. */
 .panneau-photo {
-  width: 100%;
-  height: 300px;
-  border-radius: 16px;
+  display: inline-flex;
+  max-width: 100%;
+  border-radius: 22px;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
-  border: 1px solid rgba(212, 175, 106, 0.28);
+  border: 5px solid var(--hoc-or-vif);
+  box-shadow: 0 0 0 6px rgba(255, 201, 98, 0.12), 0 22px 44px rgba(0, 0, 0, 0.35);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
+.carte-professeur:hover .panneau-photo {
+  transform: translateY(-4px);
+  box-shadow: 0 0 0 8px rgba(255, 201, 98, 0.2), 0 28px 50px rgba(0, 0, 0, 0.4);
+}
+/* Largeur et hauteur automatiques, bornées toutes les deux : le navigateur réduit alors la photo
+   en conservant ses proportions, quelle que soit la borne atteinte — jamais de vide dans le cadre. */
 .panneau-photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
   display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: clamp(140px, 33vh, 300px);
 }
 
 /* ── Fenêtre de réservation ────────────────────────────────────────────────── */
@@ -1303,102 +1999,214 @@ body.sans-defilement {
   min-width: 0;
 }
 
-/* ── Adaptations sur mobile ──────────────────────────────────────────────────
-   La vue unique redevient une page qui défile normalement sous 820 px : imposer un seul écran
+/* ── Adaptations d'écran ─────────────────────────────────────────────────────
+   Barre de navigation sur un écran de portable : on gagne la place du slogan et de l'espacement
+   pour qu'elle tienne sur une seule rangée. */
+@media (max-width: 1400px) {
+  .baseline-logo {
+    display: none;
+  }
+  .lien-nav-public {
+    padding: 8px 10px;
+  }
+}
+
+/* Écrans peu hauts (portable 1366 × 768 ou 1280 × 720, une fois retirées les barres du
+   navigateur) : les vues Cours / Tarifs / Professeurs / À propos se resserrent encore d'un cran
+   pour tenir entièrement dans l'écran, sans barre de défilement (demande client du 2026-09-29).
+   L'accueil, lui, se dimensionne déjà sur la place disponible (unités de conteneur). */
+@media (min-width: 821px) and (max-height: 700px) {
+  .vue-secondaire {
+    padding-top: 90px;
+  }
+  .entete-vue {
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .surtitre-vue {
+    font-size: 10px;
+  }
+  .page-claire .titre-vue {
+    font-size: 21px;
+  }
+  .soustitre-vue {
+    font-size: 12px;
+  }
+  .vue-theme-nuit .soustitre-vue {
+    font-size: 17px;
+  }
+  .carte-hoc,
+  .carte-cours {
+    padding: 11px;
+    gap: 6px;
+  }
+  .carte-cours-corps {
+    gap: 5px;
+    padding-top: 9px;
+  }
+  .page-claire .titre-carte-hoc {
+    font-size: 15.5px;
+  }
+  .texte-carte-hoc {
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+  .detail-carte-hoc {
+    font-size: 10.5px;
+    line-height: 1.4;
+  }
+  .page-claire .bouton-or {
+    padding: 7px 13px;
+    font-size: 10.5px;
+  }
+  .ligne-tarif {
+    padding: 3px 8px;
+  }
+  .ligne-tarif-titre {
+    font-size: 11.5px;
+  }
+  .ligne-tarif-prix {
+    font-size: 12.5px;
+  }
+  .ligne-tarif-description {
+    font-size: 10px;
+  }
+  .carte-professeur {
+    gap: 5px;
+  }
+  .carte-professeur .texte-professeur {
+    font-size: 11.5px;
+    line-height: 1.45;
+  }
+  .nom-professeur {
+    font-size: 14px;
+  }
+  .page-claire .role-professeur {
+    font-size: 12px;
+  }
+}
+
+/* La vue unique redevient une page qui défile normalement sous 820 px : imposer un seul écran
    sur un téléphone rendrait le texte minuscule ou couperait du contenu. La barre de navigation
-   reste en surimpression (elle ne prend sa hauteur nulle part), donc chaque vue doit continuer à
-   réserver sa place en haut. */
+   reprend alors sa place dans le flux (elle occupe plusieurs rangées et masquerait le contenu). */
 @media (max-width: 820px) {
   body.sans-defilement {
     overflow: auto;
   }
   .page-unique {
-    height: auto;
+    position: relative;
+    inset: auto;
     min-height: 100dvh;
     overflow: visible;
   }
-  .page-unique .en-tete-public,
+  .page-unique .en-tete-public {
+    position: static;
+    margin: 10px 12px 0;
+    padding: 10px 14px;
+    justify-content: center;
+  }
+  .nav-publique {
+    justify-content: center;
+    gap: 0;
+  }
+  .lien-nav-public {
+    font-size: 13px;
+    padding: 7px 8px;
+  }
+  .actions-publiques {
+    justify-content: center;
+  }
+  .hero-piliers {
+    right: -6%;
+  }
+  .hero-livres {
+    left: -5%;
+  }
   .pied-unique {
     padding-left: 18px;
     padding-right: 18px;
   }
-  .corps-unique {
-    overflow: visible;
-  }
-  /* Colonne, et non rangée : en rangée, les vues secondaires deviendraient des éléments flex qui
-     refusent de se réduire sous la largeur de leur grille de cartes et débordaient de l'écran. */
+  /* Colonne, et non rangée : en rangée, les vues deviendraient des éléments flex qui refusent de
+     se réduire sous la largeur de leur grille de cartes et débordaient de l'écran. */
   .corps-unique {
     display: flex;
     flex-direction: column;
+    overflow: visible;
   }
-  /* La maquette est au format 16/9 : sur un téléphone tenu à la verticale, la faire couvrir
-     l'écran reviendrait à n'en montrer qu'une colonne étroite. HeroPublic.tsx bascule donc en
-     « contenir » — toute la maquette reste visible, les bandes au-dessus et au-dessous reprenant
-     les couleurs de ses propres bords. L'accueil ne défile pas pour autant : il tient dans un
-     écran, comme sur grand écran. */
-  .page-unique--accueil {
-    height: 100dvh;
-    overflow: hidden;
-  }
-  .hero-plein {
-    flex: 1 1 auto;
+
+  .hero-hoc {
     height: auto;
+    container-type: inline-size;
+    grid-template-rows: auto auto;
+    gap: 28px;
+    padding: 26px 18px 28px;
   }
-  /* Sur les vues secondaires, la barre de navigation reprend sa place dans le flux : à cette
-     largeur elle occupe trois rangées, et en surimpression elle masquerait le contenu au lieu de
-     se fondre dans le décor. (Sur l'accueil, c'est la barre dessinée dans la maquette qui sert :
-     l'en-tête HTML n'y est pas rendu du tout.) */
-  .page-unique .en-tete-public {
-    position: static;
-    background: #ffffff;
-    border-bottom: 1px solid var(--border-soft);
-    -webkit-mask-image: none;
-    mask-image: none;
+  .hero-grille {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 26px;
   }
+  .page-claire .hero-titre {
+    font-size: clamp(30px, 9vw, 44px);
+  }
+  .hero-visuel {
+    height: auto;
+    container-type: normal;
+    padding: 18px 9% 26px;
+  }
+  .hero-cadre-3d {
+    width: 100%;
+  }
+  .hero-3d {
+    left: -8%;
+    top: -6%;
+    width: 116%;
+    height: 112%;
+  }
+  .hero-deco-points,
+  .hero-deco-anneau {
+    display: none;
+  }
+  .hero-benefices {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .vue-secondaire {
     height: auto;
     overflow: visible;
-    padding: 20px 18px 20px;
+    padding: 24px 18px;
   }
   .vue-secondaire-corps {
     overflow: visible;
   }
-  .titre-pastille {
-    padding: 14px 22px;
-    margin-bottom: 18px;
-  }
-  .panneau-photo {
-    height: 240px;
+  .panneau-photo img {
+    max-height: 320px;
   }
 }
 
-/* Bouton « Rejoignez-nous ! » posé sur la maquette du hero (HeroPublic.tsx). */
-.hero-rejoindre {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #7c4ddf, #5a2fb8);
-  color: #fff !important;
-  font-weight: 700;
-  text-decoration: none;
-  white-space: nowrap;
-  box-shadow: 0 6px 18px rgba(90, 47, 184, 0.35);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.hero-rejoindre:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 9px 22px rgba(90, 47, 184, 0.45);
-}
-.hero-rejoindre--flottant {
-  left: 50%;
-  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
-  padding: 11px 22px;
-  font-size: 14px;
-  z-index: 5;
-}
-.hero-rejoindre--flottant:hover {
-  transform: translateX(-50%) translateY(-1px);
+@media (max-width: 520px) {
+  .hero-benefices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .hero-progression {
+    width: 50%;
+    padding: 8px;
+    gap: 6px;
+  }
+  .hero-progression-icone,
+  .hero-progression-fleche {
+    display: none;
+  }
+  .hero-piliers li {
+    font-size: 11px;
+    padding: 5px 10px 5px 5px;
+  }
+  .hero-piliers .icone-hero {
+    width: 20px;
+    height: 20px;
+    padding: 4px;
+  }
+  .hero-livres li {
+    font-size: 11px;
+    padding: 5px 10px;
+  }
 }

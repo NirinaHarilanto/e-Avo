@@ -1,179 +1,215 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useRef, type PointerEvent, type ReactNode } from 'react'
+import { Scene3DHero } from './Scene3DHero'
 
-/* Vue d'accueil : la maquette du client EST la page. Elle porte déjà sa barre de navigation, ses
-   deux boutons d'en-tête, son bouton « Commencer maintenant » et sa barre de bénéfices — on n'en
-   redessine donc aucun en HTML par-dessus (demande client du 2026-09-15 : « pas de redondance, il
-   me faut exactement la figure de l'image »). L'interactivité passe par des zones transparentes
-   posées sur les éléments dessinés (voir ZONES) : ce que l'on voit est l'image, au pixel près, et
-   ce que l'on clique est l'application.
+/* Vue d'accueil (refonte visuelle du 2026-09-29, d'après les trois visuels de référence fournis
+   par le client : mise en page « learning center » claire et violette, décor 3D animé).
 
-   Corollaire dans LandingEtablissement.tsx : l'en-tête et le pied de page HTML sont masqués sur
-   cette vue — ils feraient doublon avec la barre dessinée.
+   Jusqu'ici, l'accueil ÉTAIT une image : la maquette du client, texte compris, avec des zones
+   cliquables invisibles posées dessus. Le contenu reste strictement le même — accroche, titre,
+   paragraphe, bouton « Commencer maintenant », garanties, piliers, compétences, bénéfices — mais
+   il est désormais écrit en HTML, ce qui le rend net à toute taille et lisible par les lecteurs
+   d'écran. Seule l'illustration des deux élèves est reprise de la maquette, recadrée
+   (public/hero-illustration.webp).
 
-   L'image source a été ÉLARGIE hors ligne (1600 × 900 → 2200 × 1600) en prolongeant son décor
-   vers l'extérieur : les derniers pixels de bokeh s'y perdent en flou, sans aucun miroir ni motif
-   rejoué (voir le commentaire de MAQUETTE). Cette marge est ce qui permet aux bords de l'image de
-   coïncider avec ceux de l'écran quelle que soit sa forme — demande client du 2026-09-15 — sans
-   jamais rogner la maquette ni la déformer : c'est la marge qu'on sacrifie au recadrage, pas le
-   contenu. Il n'y a donc plus rien à combler, et plus de bandes en miroir. */
+   La barre de navigation n'est plus dessinée ici : c'est celle de LandingEtablissement.tsx,
+   commune à toutes les vues, qui s'affiche désormais aussi sur l'accueil. */
 
-const IMAGE = { largeur: 2200, hauteur: 1600 }
+const GARANTIES = ['100% en ligne', 'Professeurs certifiés', 'Accès 24/7']
 
-/* Position de la maquette d'origine dans l'image élargie. Tout le reste est du décor prolongé,
-   sacrifiable au recadrage. Les coordonnées des zones cliquables (ZONES) restent exprimées dans
-   le repère de la maquette d'origine — celui où elles ont été mesurées — et sont décalées d'ici
-   au moment du rendu. */
-const MAQUETTE = { gauche: 300, haut: 350, largeur: 1600, hauteur: 900 }
-
-export type VueRaccourci = 'accueil' | 'programmes' | 'tarifs' | 'professeurs' | 'avis'
-
-type Action = { type: 'vue'; vue: VueRaccourci } | { type: 'reserver' } | { type: 'connexion' }
-
-/* Rectangles des éléments dessinés, en pixels de l'image source — mesurés directement sur le
-   fichier. Volontairement un peu plus larges que le texte qu'ils recouvrent : ils sont
-   invisibles, donc mieux vaut une cible confortable qu'un calage au pixel près. */
-const ZONES: { cle: string; libelle: string; boite: [number, number, number, number]; action: Action }[] = [
-  { cle: 'logo', libelle: 'Hari Online Club, retour à l’accueil', boite: [115, 18, 140, 80], action: { type: 'vue', vue: 'accueil' } },
-  { cle: 'accueil', libelle: 'Accueil', boite: [349, 31, 74, 32], action: { type: 'vue', vue: 'accueil' } },
-  { cle: 'cours', libelle: 'Cours', boite: [459, 31, 65, 32], action: { type: 'vue', vue: 'programmes' } },
-  { cle: 'professeurs', libelle: 'Professeurs', boite: [557, 31, 99, 32], action: { type: 'vue', vue: 'professeurs' } },
-  { cle: 'tarifs', libelle: 'Tarifs', boite: [689, 31, 58, 32], action: { type: 'vue', vue: 'tarifs' } },
-  /* L'application n'a pas de page « À propos » : la vue Avis est ce qui s'en approche le plus —
-     ce que l'établissement est, raconté par ses élèves. */
-  { cle: 'apropos', libelle: 'À propos', boite: [780, 31, 82, 32], action: { type: 'vue', vue: 'avis' } },
-  { cle: 'connexion', libelle: 'Se connecter', boite: [1187, 27, 136, 37], action: { type: 'connexion' } },
-  /* Le bouton « S'inscrire » a été retiré de la maquette (demande client du 2026-09-16, voir
-     outils/hero/construire.py) : « Commencer maintenant » reste le seul appel à l'action, et
-     ouvre la réservation de l'appel diagnostic. */
-  { cle: 'commencer', libelle: 'Commencer maintenant', boite: [69, 483, 308, 64], action: { type: 'reserver' } },
+const PILIERS: { libelle: string; icone: 'groupe' | 'mallette' | 'globe' }[] = [
+  { libelle: 'Confiance', icone: 'groupe' },
+  { libelle: 'Opportunités', icone: 'mallette' },
+  { libelle: 'Avenir global', icone: 'globe' },
 ]
 
-/* Emplacement du bouton « Rejoignez-nous ! » dans le repère de la maquette : zone vide de la
-   barre de navigation, à la même hauteur que « Se connecter ». */
-const REJOINDRE: [number, number, number, number] = [905, 27, 200, 37]
-/* En dessous de cette largeur de scène, le texte à l'échelle de la maquette passerait sous 10 px. */
-const LARGEUR_MIN_BOUTON_INTEGRE = 1600
+const COMPETENCES = ['Speaking', 'Listening', 'Reading', 'Writing']
 
-export function HeroPublic({
-  nomEtablissement,
-  onReserver,
-  onNaviguer,
-}: {
-  nomEtablissement: string
-  onReserver: () => void
-  onNaviguer: (vue: VueRaccourci) => void
-}) {
-  const zoneRef = useRef<HTMLDivElement>(null)
-  const [scene, setScene] = useState({ largeur: 0, hauteur: 0, gauche: 0, haut: 0 })
+const BENEFICES: { titre: string; texte: string; icone: 'bulle' | 'groupe' | 'cible' | 'etoile' }[] = [
+  { titre: 'Cours interactifs', texte: 'et pratiques', icone: 'bulle' },
+  { titre: 'Professeurs natifs', texte: 'et expérimentés', icone: 'groupe' },
+  { titre: 'Un suivi personnalisé', texte: 'pour progresser vite', icone: 'cible' },
+  { titre: 'Une communauté', texte: 'motivée et bienveillante', icone: 'etoile' },
+]
 
-  useEffect(() => {
-    const zone = zoneRef.current
-    if (!zone) return
+export function HeroPublic({ nomEtablissement, onReserver }: { nomEtablissement: string; onReserver: () => void }) {
+  const visuelRef = useRef<HTMLDivElement>(null)
 
-    function recalculer() {
-      const { width, height } = zone!.getBoundingClientRect()
-      if (!width || !height) return
-
-      /* Deux échelles de référence :
-         — `entiere` : la plus grande qui laisse la maquette d'origine entièrement visible ;
-         — `couvrante` : la plus petite qui remplit l'écran avec l'image élargie.
-         Grâce à la marge de décor, `couvrante` est la plus petite des deux sur tout écran en
-         paysage : on prend alors `entiere`, qui montre toute la maquette ET remplit l'écran. */
-      const entiere = Math.min(width / MAQUETTE.largeur, height / MAQUETTE.hauteur)
-      const couvrante = Math.max(width / IMAGE.largeur, height / IMAGE.hauteur)
-
-      /* Les deux ne peuvent plus être satisfaites qu'aux proportions extrêmes. Au-delà (écran
-         très large), on privilégie le remplissage : le rognage n'entame la maquette que de
-         quelques pixels de marge. En portrait, on privilégie au contraire la maquette entière —
-         la faire tenir en largeur y couperait tout le contenu, ce qui n'aurait aucun sens. */
-      const paysage = width >= height
-      const echelle = couvrante <= entiere ? entiere : paysage ? couvrante : entiere
-
-      const largeur = IMAGE.largeur * echelle
-      const hauteur = IMAGE.hauteur * echelle
-      setScene({ largeur, hauteur, gauche: (width - largeur) / 2, haut: (height - hauteur) / 2 })
-    }
-
-    recalculer()
-    const observateur = new ResizeObserver(recalculer)
-    observateur.observe(zone)
-    return () => observateur.disconnect()
-  }, [])
-
-  function declencher(action: Action) {
-    if (action.type === 'reserver') onReserver()
-    else if (action.type === 'vue') onNaviguer(action.vue)
+  /* Inclinaison 3D du cadre sous la souris : écrite directement en variables CSS, sans passer par
+     l'état React, pour ne déclencher aucun rendu à chaque mouvement. */
+  function incliner(evenement: PointerEvent<HTMLDivElement>) {
+    const visuel = visuelRef.current
+    if (!visuel || evenement.pointerType !== 'mouse') return
+    const boite = visuel.getBoundingClientRect()
+    const x = (evenement.clientX - boite.left) / boite.width - 0.5
+    const y = (evenement.clientY - boite.top) / boite.height - 0.5
+    visuel.style.setProperty('--incl-x', `${(-y * 7).toFixed(2)}deg`)
+    visuel.style.setProperty('--incl-y', `${(x * 9).toFixed(2)}deg`)
+  }
+  function redresser() {
+    visuelRef.current?.style.setProperty('--incl-x', '0deg')
+    visuelRef.current?.style.setProperty('--incl-y', '0deg')
   }
 
   return (
-    <div ref={zoneRef} className="hero-plein">
-      <div
-        className="hero-scene"
-        style={{ width: scene.largeur, height: scene.hauteur, left: scene.gauche, top: scene.haut }}
-      >
-        <picture>
-          <source srcSet="/hero-hoc.webp" type="image/webp" />
-          <img
-            src="/hero-hoc.png"
-            alt={`${nomEtablissement} — apprenez l’anglais à votre rythme : cours interactifs, professeurs passionnés, 100 % en ligne`}
-            className="hero-image"
-            fetchPriority="high"
-            draggable={false}
-          />
-        </picture>
+    <div className="hero-hoc" onPointerMove={incliner} onPointerLeave={redresser}>
+      <span className="hero-deco-anneau" aria-hidden="true" />
+      <span className="hero-deco-points" aria-hidden="true" />
 
-        {/* Zones transparentes : l'élément cliquable est dessiné dans l'image, pas ici. Le libellé
-            n'est donc lisible que par les lecteurs d'écran — d'où aria-label plutôt qu'un texte. */}
-        {scene.largeur > 0 &&
-          ZONES.map((zone) => {
-            const [x, y, l, h] = zone.boite
-            const style: CSSProperties = {
-              left: `${((MAQUETTE.gauche + x) / IMAGE.largeur) * 100}%`,
-              top: `${((MAQUETTE.haut + y) / IMAGE.hauteur) * 100}%`,
-              width: `${(l / IMAGE.largeur) * 100}%`,
-              height: `${(h / IMAGE.hauteur) * 100}%`,
-            }
-            return zone.action.type === 'connexion' ? (
-              <a key={zone.cle} href="/connexion" className="hero-zone" style={style} aria-label={zone.libelle} />
-            ) : (
-              <button
-                key={zone.cle}
-                type="button"
-                className="hero-zone"
-                style={style}
-                aria-label={zone.libelle}
-                onClick={() => declencher(zone.action)}
+      <div className="hero-grille">
+        <div className="hero-texte">
+          <p className="hero-accroche">
+            <span className="hero-accroche-barre" aria-hidden="true" />
+            <span className="mention-manuscrite">Your English, Your Future</span>
+          </p>
+          <h1 className="hero-titre">
+            Apprenez l’anglais <span className="hero-titre-degrade">à votre rythme</span>
+          </h1>
+          <p className="hero-intro">
+            Des cours interactifs, des professeurs passionnés et une expérience d’apprentissage unique. Rejoignez{' '}
+            {nomEtablissement} dès aujourd’hui !
+          </p>
+          <button type="button" className="hero-cta" onClick={onReserver}>
+            <Icone nom="fusee" />
+            Commencer maintenant
+            <span className="hero-cta-fleche" aria-hidden="true">
+              →
+            </span>
+          </button>
+          <ul className="hero-garanties">
+            {GARANTIES.map((garantie) => (
+              <li key={garantie}>
+                <Icone nom="coche" />
+                {garantie}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div ref={visuelRef} className="hero-visuel">
+          <Scene3DHero />
+          <div className="hero-cadre-3d">
+            <span className="hero-cercle" aria-hidden="true" />
+            <div className="hero-cadre">
+              <img
+                src="/hero-illustration.webp"
+                alt={`Deux élèves de ${nomEtablissement} suivent ensemble un cours d’anglais en ligne`}
+                fetchPriority="high"
+                draggable={false}
               />
-            )
-          })}
+            </div>
 
-        {/* Seul élément HTML visible posé sur la maquette : l'entrée des candidats formateurs
-            (demande client du 2026-09-29), dans l'espace libre de la barre de navigation
-            dessinée, entre « À propos » et la loupe. Taille calée sur l'échelle de la scène
-            pour rester proportionnée au bouton « Se connecter » dessiné. */}
-        {scene.largeur >= LARGEUR_MIN_BOUTON_INTEGRE && (
-          <a
-            href="/rejoignez-nous"
-            className="hero-rejoindre"
-            style={{
-              left: `${((MAQUETTE.gauche + REJOINDRE[0]) / IMAGE.largeur) * 100}%`,
-              top: `${((MAQUETTE.haut + REJOINDRE[1]) / IMAGE.hauteur) * 100}%`,
-              width: `${(REJOINDRE[2] / IMAGE.largeur) * 100}%`,
-              height: `${(REJOINDRE[3] / IMAGE.hauteur) * 100}%`,
-              fontSize: (scene.largeur * 14) / IMAGE.largeur,
-            }}
-          >
-            Rejoignez-nous !
-          </a>
-        )}
+            <div className="hero-flottant hero-progression">
+              <span className="hero-progression-icone" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+              <span className="hero-progression-texte">
+                <small>Progression</small>
+                <strong>Level B1</strong>
+                <span className="hero-progression-barre" aria-hidden="true">
+                  <span />
+                </span>
+              </span>
+              <span className="hero-progression-fleche" aria-hidden="true">
+                →
+              </span>
+            </div>
+
+            <ul className="hero-flottant hero-piliers">
+              {PILIERS.map((pilier) => (
+                <li key={pilier.libelle}>
+                  <Icone nom={pilier.icone} />
+                  {pilier.libelle}
+                </li>
+              ))}
+            </ul>
+
+            <ul className="hero-flottant hero-livres">
+              {COMPETENCES.map((competence) => (
+                <li key={competence}>{competence}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </div>
-      {/* Écran étroit : la barre dessinée devient trop petite pour y loger un bouton lisible —
-          il flotte alors en bas de l'écran, à taille normale. */}
-      {scene.largeur > 0 && scene.largeur < LARGEUR_MIN_BOUTON_INTEGRE && (
-        <a href="/rejoignez-nous" className="hero-rejoindre hero-rejoindre--flottant">
-          Rejoignez-nous !
-        </a>
-      )}
+
+      <ul className="hero-benefices">
+        {BENEFICES.map((benefice) => (
+          <li key={benefice.titre}>
+            <span className="hero-benefice-icone">
+              <Icone nom={benefice.icone} />
+            </span>
+            <span>
+              <strong>{benefice.titre}</strong>
+              <small>{benefice.texte}</small>
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
+  )
+}
+
+type NomIcone = 'fusee' | 'coche' | 'groupe' | 'mallette' | 'globe' | 'bulle' | 'cible' | 'etoile'
+
+/* Pictogrammes au trait, repris des icônes de la maquette. */
+function Icone({ nom }: { nom: NomIcone }) {
+  const chemins: Record<NomIcone, ReactNode> = {
+    fusee: (
+      <>
+        <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+        <path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
+        <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" />
+      </>
+    ),
+    coche: <path d="M20 6 9 17l-5-5" />,
+    groupe: (
+      <>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      </>
+    ),
+    mallette: (
+      <>
+        <rect x="2" y="7" width="20" height="14" rx="2" />
+        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+      </>
+    ),
+    globe: (
+      <>
+        <circle cx="12" cy="12" r="10" />
+        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </>
+    ),
+    bulle: (
+      <>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        <path d="M8 10h.01M12 10h.01M16 10h.01" />
+      </>
+    ),
+    cible: (
+      <>
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="6" />
+        <circle cx="12" cy="12" r="2" />
+      </>
+    ),
+    etoile: <path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />,
+  }
+  return (
+    <svg
+      className="icone-hero"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {chemins[nom]}
+    </svg>
   )
 }
