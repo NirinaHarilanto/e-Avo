@@ -263,6 +263,10 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
   const [erreur, setErreur] = useState<string | null>(null)
   const [joindreOuvert, setJoindreOuvert] = useState(false)
   const [rappelEnvoye, setRappelEnvoye] = useState(false)
+  // Distingue « en train de signer » des autres actions (supprimer, changer de statut...) qui
+  // partagent `enCours` — demande client du 2026-09-30 : le bouton de signature doit rester
+  // visuellement enfoncé tant que la signature n'est pas faite, pas juste grisé comme les autres.
+  const [signatureEnCours, setSignatureEnCours] = useState(false)
 
   const enRetard = !!contrat.date_limite_signature && contrat.date_limite_signature < new Date().toISOString().slice(0, 10) && contrat.statut === 'envoye'
 
@@ -284,6 +288,7 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
   async function signer() {
     if (!session) return
     setEnCours(true)
+    setSignatureEnCours(true)
     setErreur(null)
     const reponse = await fetch('/api/contrats/signer', {
       method: 'POST',
@@ -291,6 +296,7 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
       body: JSON.stringify({ contractId: contrat.id }),
     })
     setEnCours(false)
+    setSignatureEnCours(false)
     if (!reponse.ok) {
       const corps = await reponse.json().catch(() => null)
       setErreur(corps?.error ?? 'La signature a échoué.')
@@ -386,8 +392,15 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
           </button>
         )}
         {contrat.statut === 'envoye' && !contrat.signe_etablissement_at && (
-          <button onClick={signer} disabled={enCours} className="btn-shine" style={{ fontSize: 12, padding: '7px 13px', background: 'var(--accent-gradient)', color: '#1b1510' }}>
-            Signer pour l'établissement
+          <button
+            onClick={signer}
+            disabled={enCours}
+            // Bouton « enfoncé » tant que la signature est en cours (demande client du
+            // 2026-09-30) : voir le commentaire de .btn-enfonce dans index.css.
+            className={signatureEnCours ? 'btn-shine btn-enfonce' : 'btn-shine'}
+            style={{ fontSize: 12, padding: '7px 13px', background: 'var(--accent-gradient)', color: '#1b1510' }}
+          >
+            {signatureEnCours ? 'Signature en cours…' : "Signer pour l'établissement"}
           </button>
         )}
         {contrat.statut === 'envoye' && !contrat.signe_destinataire_at && (

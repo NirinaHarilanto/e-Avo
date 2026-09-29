@@ -118,8 +118,15 @@ export function MesContrats() {
                 {statut.texte}
               </span>
               {peutSigner && (
-                <button onClick={() => signer(contrat.id)} disabled={enCours === contrat.id} className="btn-shine" style={{ ...boutonPrimaireStyle, fontSize: 12, padding: '8px 14px' }}>
-                  {enCours === contrat.id ? 'Signature…' : 'Je signe'}
+                <button
+                  onClick={() => signer(contrat.id)}
+                  disabled={enCours === contrat.id}
+                  // Bouton « enfoncé » tant que la signature est en cours (demande client du
+                  // 2026-09-30) : voir le commentaire de .btn-enfonce dans index.css.
+                  className={enCours === contrat.id ? 'btn-shine btn-enfonce' : 'btn-shine'}
+                  style={{ ...boutonPrimaireStyle, fontSize: 12, padding: '8px 14px' }}
+                >
+                  {enCours === contrat.id ? 'Signature en cours…' : 'Je signe'}
                 </button>
               )}
               <button onClick={() => setContratAImprimer(item)} style={boutonSecondaireStyle}>

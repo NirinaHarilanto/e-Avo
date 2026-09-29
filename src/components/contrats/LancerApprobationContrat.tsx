@@ -44,6 +44,11 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
   const [destinataireId, setDestinataireId] = useState('')
   const [templateId, setTemplateId] = useState('')
   const [complements, setComplements] = useState<Record<string, string>>({})
+  /* Clause de minorité (0087, demande client du 2026-09-30) : une case à cocher par variable
+     `estClauseMineur`, indépendante de `complements` — cochée, le texte de la clause (voir
+     `defaut`, éditable) est inséré ; décochée (par défaut), rien ne l'est. Voir `valeurs`
+     plus bas pour l'endroit où ce choix devient la valeur réellement substituée. */
+  const [mineurCoche, setMineurCoche] = useState<Record<string, boolean>>({})
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -146,12 +151,11 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
   const variables = modele
     ? preparerVariables(modele.corps_template, modele.variables_disponibles, destinataire, etablissement, contexteProgramme, destinataireSecondaire)
     : []
-  /* Une variable résolue à vide (clause de minorité d'un étudiant majeur : il n'y a rien à
-     insérer) disparaît du récapitulatif — la mentionner ne ferait qu'attirer l'attention sur un
-     champ dont la réponse est « rien à faire ». Elle reste bien substituée par du vide dans le
-     texte du contrat. */
   const remplies = variables.filter((v) => !!v.valeurAuto)
-  const aCompleter = variables.filter((v) => v.valeurAuto === undefined)
+  // La clause de minorité (0087) a son propre rendu — case à cocher, pas un champ de texte libre
+  // parmi les autres — donc exclue d'ici malgré `valeurAuto === undefined`. Voir plus bas.
+  const aCompleter = variables.filter((v) => v.valeurAuto === undefined && !v.estClauseMineur)
+  const clausesMineur = variables.filter((v) => v.estClauseMineur)
 
   const valeurs: Record<string, string> = {}
   // Le second membre d'un DUO (0066, repli du 2026-09-23) ne pèse jamais sur `valeurs` : il ne
@@ -159,7 +163,14 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
   // la valeur du principal.
   const valeursSecondaires: Record<string, string> = {}
   for (const variable of variables) {
-    const valeur = complements[variable.cle] ?? variable.valeurAuto ?? variable.defaut
+    /* Clause de minorité : jamais `variable.defaut` en repli silencieux (contrairement aux
+       autres champs manuels) — sans la case cochée, la clause doit rester absente du contrat,
+       pas s'y glisser parce que personne n'a encore touché le champ. */
+    const valeur = variable.estClauseMineur
+      ? mineurCoche[variable.cle]
+        ? (complements[variable.cle] ?? variable.defaut ?? '')
+        : ''
+      : (complements[variable.cle] ?? variable.valeurAuto ?? variable.defaut)
     if (valeur !== undefined) valeurs[variable.cle] = valeur
     if (variable.valeurAutoSecondaire !== undefined) valeursSecondaires[variable.cle] = variable.valeurAutoSecondaire
   }
@@ -170,6 +181,7 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
     setDestinataireId('')
     setTemplateId('')
     setComplements({})
+    setMineurCoche({})
   }
 
   const pret = !!(profile && destinataire && modele)
@@ -199,7 +211,13 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
       const vars = preparerVariables(modeleClasse.corps_template, modeleClasse.variables_disponibles, membre, etablissement, contexte, null)
       const valeursMembre: Record<string, string> = {}
       for (const variable of vars) {
-        const valeur = complements[variable.cle] ?? variable.valeurAuto ?? variable.defaut
+        // Même règle que pour un contrat individuel (voir `valeurs` plus haut) : la case à
+        // cocher, partagée par tous les élèves de la classe, décide seule de la clause.
+        const valeur = variable.estClauseMineur
+          ? mineurCoche[variable.cle]
+            ? (complements[variable.cle] ?? variable.defaut ?? '')
+            : ''
+          : (complements[variable.cle] ?? variable.valeurAuto ?? variable.defaut)
         if (valeur !== undefined) valeursMembre[variable.cle] = valeur
       }
       return {
@@ -400,6 +418,35 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
           </div>
         </div>
       )}
+
+      {/* Clause de minorité (0087, demande client du 2026-09-30) : « mets une checkbox, oui ou
+          non, devant l'intitulé. Si la box est cochée, alors l'étudiant est mineur, donc la
+          clause de minorité à rajouter, sinon, il ne faut pas mettre la clause ». Décochée par
+          défaut — l'établissement n'a plus de date de naissance pour trancher lui-même. */}
+      {modele &&
+        clausesMineur.map((variable) => (
+          <div key={variable.cle} style={{ display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 12, border: '1px solid var(--border-soft, var(--border))', padding: '11px 14px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12.5, color: 'var(--ink)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={!!mineurCoche[variable.cle]}
+                onChange={(e) => setMineurCoche({ ...mineurCoche, [variable.cle]: e.target.checked })}
+              />
+              <span>
+                <strong>Élève mineur ?</strong> — {variable.label}
+              </span>
+            </label>
+            {mineurCoche[variable.cle] && (
+              <textarea
+                value={complements[variable.cle] ?? variable.defaut ?? ''}
+                onChange={(e) => setComplements({ ...complements, [variable.cle]: e.target.value })}
+                rows={3}
+                placeholder="Nom du représentant légal à compléter…"
+                style={{ ...champStyle, resize: 'vertical' }}
+              />
+            )}
+          </div>
+        ))}
 
       {classeChoisie && (
         <p style={{ margin: 0, fontSize: 12, color: 'var(--accent-gold, #e9cf94)', lineHeight: 1.5 }}>

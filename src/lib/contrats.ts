@@ -375,6 +375,12 @@ export function deduireValeurDefaut(cle: string, label: string): string | undefi
   return DEFAUTS_COURANTS.find((d) => d.motif.test(texte))?.valeur
 }
 
+/* Suggestion (éditable) collée quand l'étudiant est mineur (case cochée, voir `estClauseMineur`
+   sur VariableResolue) : le nom du représentant légal n'est connu d'aucune fiche, une révision
+   humaine reste nécessaire sur une mention à portée juridique. */
+export const MENTION_MINEUR_DEFAUT =
+  'Représenté(e) par [Nom du représentant légal], en qualité de représentant légal, qui consent à la présente inscription et s’engage solidairement à son exécution.'
+
 export interface VariableResolue {
   cle: string
   label: string
@@ -395,6 +401,13 @@ export interface VariableResolue {
   source?: string
   /* Proposition modifiable pour les variables restées en saisie manuelle. */
   defaut?: string
+  /* Clause de minorité (0087, demande client du 2026-09-30) : signale à l'appelant d'afficher une
+     case à cocher « Mineur » plutôt qu'un champ de texte libre — la fiche ne recueille plus la
+     date de naissance (0086), donc plus aucun moyen de déduire automatiquement si l'élève est
+     mineur ; l'admin tranche lui-même. Coché : la clause (voir `defaut`, à compléter avec le nom
+     du représentant légal) est insérée dans le contrat. Décoché (par défaut) : rien n'est inséré.
+     Voir LancerApprobationContrat.tsx pour le rendu. */
+  estClauseMineur?: boolean
 }
 
 /* Point d'entrée unique du pré-remplissage : pour chaque variable réellement présente dans le
@@ -434,15 +447,14 @@ export function preparerVariables(
     const declaree = variablesModele.find((v) => v.cle === cle)
     const label = declaree?.label || cle
 
-    /* Clause de minorité (0086, demande client du 2026-09-30 : « quand l'étudiant est majeur, il
-       faut masquer cette partie... sinon laisser ce champ vide ») — la fiche ne recueille plus
-       la date de naissance, donc plus aucun moyen de savoir si un élève est mineur : la clause
-       est désormais TOUJOURS masquée (résolue en chaîne vide, jamais présentée comme « à
-       saisir »), l'établissement étant réputé n'accueillir que des élèves majeurs. Le cas rare
-       d'un véritable mineur reste à traiter à la main par l'admin, en éditant directement le
-       texte du contrat généré. */
+    /* Clause de minorité (0087, demande client du 2026-09-30 : « remettre la clause de minorité
+       à sa place... mets une checkbox, oui ou non devant l'intitulé »). Ni `valeurAuto` (la
+       variable ne se remplit pas seule : décocher/cocher est un choix de l'admin, pas une
+       déduction) ni `defaut` employé comme valeur de repli automatique — seulement une
+       suggestion que `estClauseMineur` indique à l'appelant d'afficher derrière une case à
+       cocher. Voir son commentaire dans `VariableResolue`. */
     if (!declaree?.source && /\bmineur\b/.test(normaliser(`${cle} ${label}`))) {
-      return { cle, label, valeurAuto: '', source: 'age' }
+      return { cle, label, estClauseMineur: true, defaut: MENTION_MINEUR_DEFAUT }
     }
 
     const source = declaree?.source || deduireSource(cle, label)

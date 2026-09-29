@@ -178,6 +178,21 @@ a:hover {
 .btn-shine:active {
   transform: translateY(1px) scale(0.99);
 }
+/* Bouton visuellement « enfoncé » tant qu'une signature est en cours (demande client du
+   2026-09-30, contrats) : `disabled` seul rend juste le bouton plus terne au survol — rien ne
+   distingue « la demande est en vol » de « indisponible pour une autre raison ». `!important`
+   nécessaire pour l'emporter sur `.btn-shine:hover` en cas de curseur resté sur le bouton après
+   le clic. `::after` masqué : l'effet de brillance au survol n'a pas de sens sur un bouton qui
+   ne réagit plus. */
+.btn-enfonce {
+  transform: translateY(2px) scale(0.97) !important;
+  box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.45) !important;
+  filter: brightness(0.8) saturate(0.85) !important;
+  cursor: wait !important;
+}
+.btn-enfonce::after {
+  display: none;
+}
 .btn-primary {
   background: var(--accent-gradient);
   color: #1b1510;

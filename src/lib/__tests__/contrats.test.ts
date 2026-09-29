@@ -178,21 +178,42 @@ describe('preparerVariables', () => {
    masquer cette partie [...] sinon laisser ce champ vide ». Faute de pouvoir distinguer les deux
    cas, la clause est désormais TOUJOURS masquée (résolue en chaîne vide), que le profil porte ou
    non une ancienne date de naissance — un éventuel mineur reste à traiter à la main par l'admin. */
-describe('preparerVariables — âge et clause de minorité retirés', () => {
-  const modele = [
-    { cle: 'age_etudiant', label: "Âge de l'étudiant" },
-    { cle: 'mention_mineur', label: "Si l'étudiant est mineur, coller : « Représenté(e) par [Nom]… »" },
-  ]
-  const corps = '{{age_etudiant}} {{mention_mineur}}'
+// 0086, demande client du 2026-09-30 : la fiche ne recueille plus la date de naissance, donc
+// « âge » n'a plus rien à calculer — toujours vide, quelle que soit une éventuelle ancienne
+// valeur restée sur le profil.
+describe('preparerVariables — âge retiré', () => {
+  const modele = [{ cle: 'age_etudiant', label: "Âge de l'étudiant" }]
 
   it('résout toujours en chaîne vide, avec ou sans ancienne date de naissance sur le profil', () => {
     for (const profil of [etudiant, { ...etudiant, date_naissance: dateNaissanceIlYA(15) }, { ...etudiant, date_naissance: dateNaissanceIlYA(20) }]) {
-      const resolues = preparerVariables(corps, modele, profil, etablissement)
-      const parCle = Object.fromEntries(resolues.map((v) => [v.cle, v]))
-      expect(parCle.age_etudiant.valeurAuto).toBe('')
-      expect(parCle.mention_mineur.valeurAuto).toBe('')
-      expect(parCle.mention_mineur.defaut).toBeUndefined()
+      const resolues = preparerVariables('{{age_etudiant}}', modele, profil, etablissement)
+      expect(resolues.find((v) => v.cle === 'age_etudiant')?.valeurAuto).toBe('')
     }
+  })
+})
+
+/* 0087, demande client du 2026-09-30 : « remettre la clause de minorité à sa place... mets une
+   checkbox, oui ou non ». `preparerVariables` ne tranche plus lui-même (impossible sans date de
+   naissance) — il signale seulement `estClauseMineur`, à charge de LancerApprobationContrat.tsx
+   d'afficher la case et de décider la valeur réellement substituée (voir ses propres tests
+   d'intégration, hors de portée ici, cette suite ne couvrant que `lib/contrats.ts`). */
+describe('preparerVariables — clause de minorité (case à cocher)', () => {
+  const modele = [{ cle: 'mention_mineur', label: "Si l'étudiant est mineur, coller : « Représenté(e) par [Nom]… »" }]
+  const corps = '{{mention_mineur}}'
+
+  it('ne se remplit jamais seule, quel que soit le profil, et porte le marqueur pour la case à cocher', () => {
+    for (const profil of [etudiant, { ...etudiant, date_naissance: dateNaissanceIlYA(15) }, { ...etudiant, date_naissance: dateNaissanceIlYA(20) }]) {
+      const resolues = preparerVariables(corps, modele, profil, etablissement)
+      const clause = resolues.find((v) => v.cle === 'mention_mineur')
+      expect(clause?.valeurAuto).toBeUndefined()
+      expect(clause?.estClauseMineur).toBe(true)
+    }
+  })
+
+  it('porte une suggestion de texte, éditable une fois la case cochée', () => {
+    const resolues = preparerVariables(corps, modele, etudiant, etablissement)
+    const clause = resolues.find((v) => v.cle === 'mention_mineur')
+    expect(clause?.defaut).toMatch(/représentant légal/i)
   })
 })
 
