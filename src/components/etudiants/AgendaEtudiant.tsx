@@ -19,12 +19,23 @@ import { supabase } from '../../lib/supabaseClient'
 const PREFIXE_RDV = 'rdv:'
 const PREFIXE_EVT = 'evt:'
 
+interface ParticipantResolu {
+  id: string
+  prenom: string | null
+  nom: string | null
+  role: string
+}
+
 interface MonRendezVous {
   id: string
   debut: string
   duree_minutes: number
   statut: 'en_attente' | 'confirme'
   lien_meet: string | null
+  // Détails enrichis le 2026-09-29 (pièce jointe client, « personnes incluses dans
+  // l'invitation... les détails du rendez-vous ») — voir api/etudiant/mon-rendez-vous.ts.
+  message: string | null
+  interlocuteur: ParticipantResolu | null
 }
 
 interface MonEvenement {
@@ -33,6 +44,9 @@ interface MonEvenement {
   debut: string
   duree_minutes: number
   lien_meet: string | null
+  notes: string | null
+  obligatoires: ParticipantResolu[]
+  optionnels: ParticipantResolu[]
 }
 
 interface MesRendezVous {
@@ -186,6 +200,17 @@ export function AgendaEtudiant() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <LigneInfo label="Motif" valeur={evenementOuvert.titre} />
             <LigneInfo label="Durée" valeur={`${evenementOuvert.duree_minutes} minutes`} />
+            {evenementOuvert.obligatoires.length > 0 && (
+              <LigneInfo label="Participants" valeur={evenementOuvert.obligatoires.map((p) => `${p.prenom} ${p.nom}`).join(', ')} />
+            )}
+            {evenementOuvert.optionnels.length > 0 && (
+              <LigneInfo label="Participants (optionnel)" valeur={evenementOuvert.optionnels.map((p) => `${p.prenom} ${p.nom}`).join(', ')} />
+            )}
+            {evenementOuvert.notes && (
+              <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
+                {evenementOuvert.notes}
+              </p>
+            )}
             {evenementOuvert.lien_meet && (
               <a
                 href={evenementOuvert.lien_meet}
@@ -211,6 +236,17 @@ export function AgendaEtudiant() {
             <LigneInfo label="Rendez-vous" valeur="Appel diagnostic" />
             <LigneInfo label="Statut" valeur={rdvOuvert.statut === 'confirme' ? 'Confirmé' : 'À valider'} />
             <LigneInfo label="Durée" valeur={`${rdvOuvert.duree_minutes} minutes`} />
+            {rdvOuvert.interlocuteur && (
+              <LigneInfo
+                label="Avec"
+                valeur={`${rdvOuvert.interlocuteur.prenom ?? ''} ${rdvOuvert.interlocuteur.nom ?? ''}`.trim() || 'Établissement'}
+              />
+            )}
+            {rdvOuvert.message && (
+              <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0, fontStyle: 'italic' }}>
+                « {rdvOuvert.message} »
+              </p>
+            )}
             {rdvOuvert.lien_meet && (
               <a
                 href={rdvOuvert.lien_meet}
