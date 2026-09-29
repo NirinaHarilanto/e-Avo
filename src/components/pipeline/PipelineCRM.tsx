@@ -21,6 +21,7 @@ import { formaterMontant, resteAPayer, statutReglement } from '../../lib/paiemen
 import { useTarifs } from '../../hooks/useTarifs'
 import type { ProspectStatut, TypeProgrammeProspect } from '../../types/database.types'
 import { COLONNES_PIPELINE, useProspectsPipeline, type ProspectAvecDiagnostic } from '../../hooks/useProspectsPipeline'
+import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -38,8 +39,12 @@ const COULEUR_COLONNE: Record<string, string> = {
 }
 
 export function PipelineCRM() {
-  const { profile, session } = useProfileContext()
+  const { profile, session, derniereNotification } = useProfileContext()
   const { prospects, totalConvertis, loading, erreur, recharger } = useProspectsPipeline()
+  /* Couche 2 de la stratégie temps réel du 2026-09-29 : un nouveau prospect (réservation ou test
+     de positionnement sur la vitrine) recharge le pipeline sans que l'admin ait à rafraîchir sa
+     page — voir useRafraichirSurNotification.ts. */
+  useRafraichirSurNotification(derniereNotification, ['rendez_vous_demande', 'test_positionnement'], recharger)
   const [colonneSurvolee, setColonneSurvolee] = useState<ProspectStatut | null>(null)
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
 
@@ -908,6 +913,20 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
                 Planifier un appel diagnostic
               </button>
             )}
+            {/* Une fois le rendez-vous pris, la même fenêtre reste accessible pour le déplacer ou
+                l'annuler (demande client du 2026-09-29) — elle détecte déjà toute seule le
+                rendez-vous actif du prospect et bascule en mode « modifier » (voir
+                PlanifierAppelDiagnosticModale.tsx) ; sans ce bouton, elle n'était plus jamais
+                réouvrable dès que le prospect quittait la colonne « Nouveaux prospects ». */}
+            {prospect.statut === 'diagnostic_planifie' && prospect.rendezVous && (
+              <button
+                onClick={() => setPlanificationOuverte(true)}
+                className="btn-shine btn-secondary"
+                style={{ width: '100%', fontSize: 12.5, padding: 10 }}
+              >
+                Modifier ou annuler le rendez-vous
+              </button>
+            )}
             {/* Exactement la fenêtre de la section Facturation (acomptes, reste dû, reçu,
                 génération de facture) — demande client du 2026-09-21 : « tout doit être lié ».
                 La ligne créée ici est rattachée au prospect, puis reprise telle quelle par la
@@ -1321,6 +1340,15 @@ function CarteDuo({
                 style={{ width: '100%', fontSize: 12.5, padding: 10, background: 'var(--accent-gradient)', color: '#1b1510' }}
               >
                 Planifier un appel diagnostic
+              </button>
+            )}
+            {porteur.statut === 'diagnostic_planifie' && porteur.rendezVous && (
+              <button
+                onClick={() => a.setPlanificationOuverte(true)}
+                className="btn-shine btn-secondary"
+                style={{ width: '100%', fontSize: 12.5, padding: 10 }}
+              >
+                Modifier ou annuler le rendez-vous
               </button>
             )}
 

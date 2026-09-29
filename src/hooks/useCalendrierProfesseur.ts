@@ -161,7 +161,10 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
       })),
       heuresEnseignees: resumeHeures?.heures_enseignees ?? 0,
     }
-  })
+    // Filet de sécurité (couche 3 de la stratégie temps réel du 2026-09-29) : une modification
+    // faite par l'admin déclenche déjà une notification (voir CalendrierProfesseur.tsx, couche
+    // 2), ce sondage couvre le reste (ex. un élève supprimé qui libère une séance).
+  }, { intervalleSondageMs: 25_000 })
 
   return {
     seances: valeur?.seances ?? [],

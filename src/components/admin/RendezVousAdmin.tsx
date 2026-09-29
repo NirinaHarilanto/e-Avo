@@ -27,6 +27,7 @@ import { Icone } from '../ui/Icones'
 import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 import { ChoixNatureRendezVous } from '../shared/ChoixNatureRendezVous'
 import type { NatureRendezVous } from '../../lib/natureRendezVous'
+import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 
 type VueRendezVous = 'agenda' | 'liste'
 
@@ -36,9 +37,12 @@ function versDatetimeLocal(date: Date): string {
 }
 
 export function RendezVousAdmin() {
-  const { profile, session } = useProfileContext()
+  const { profile, session, derniereNotification } = useProfileContext()
   const { rendezVous, loading, erreur, recharger } = useRendezVous()
   const { evenements: evenementsAdmin, loading: chargementEvenements, recharger: rechargerEvenements } = useEvenementsAdmin()
+  /* Couche 2 de la stratégie temps réel du 2026-09-29 : une nouvelle demande de rendez-vous
+     depuis la vitrine recharge cette page sans intervention — voir useRafraichirSurNotification.ts. */
+  useRafraichirSurNotification(derniereNotification, ['rendez_vous_demande'], recharger)
   const [vue, setVue] = useState<VueRendezVous>('agenda')
   const [onglet, setOnglet] = useState('À valider')
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))

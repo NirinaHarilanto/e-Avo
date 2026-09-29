@@ -24,7 +24,50 @@ const cache = new Map<string, unknown>()
       requête réponde (on montrerait le dossier d'une autre personne sous le mauvais nom) ;
    2. ne pas laisser une requête devenue obsolète (l'admin a déjà cliqué sur quelqu'un d'autre
       entre-temps) écraser, en répondant en retard, le résultat déjà affiché de la clé actuelle. */
-export function useCacheRequete<T>(cle: string | null | undefined, requete: () => Promise<T>) {
+/* Filet de sécurité du sondage périodique (couche 3 de la stratégie temps réel du 2026-09-29,
+   voir aussi useRafraichirSurNotification.ts pour la couche 2) : pour ce qui ne déclenche pas
+   encore de notification métier (ex. glisser-déposer une carte dans le pipeline), un sondage
+   discret couvre l'écart. Suspendu dès que l'onglet n'est pas visible — inutile de solliciter le
+   serveur pour une page que personne ne regarde, et ça évite une rafale de requêtes accumulées au
+   retour sur l'onglet si `setInterval` avait continué de tourner pendant l'absence. */
+function useSondagePeriodique(executer: () => void, intervalleMs: number | undefined) {
+  const executerRef = useRef(executer)
+  useEffect(() => {
+    executerRef.current = executer
+  })
+  useEffect(() => {
+    if (!intervalleMs) return
+    let minuterie: ReturnType<typeof setInterval> | null = null
+    function demarrer() {
+      if (minuterie || document.hidden) return
+      minuterie = setInterval(() => executerRef.current(), intervalleMs)
+    }
+    function arreter() {
+      if (minuterie) {
+        clearInterval(minuterie)
+        minuterie = null
+      }
+    }
+    function surVisibilite() {
+      if (document.hidden) arreter()
+      else demarrer()
+    }
+    demarrer()
+    document.addEventListener('visibilitychange', surVisibilite)
+    return () => {
+      arreter()
+      document.removeEventListener('visibilitychange', surVisibilite)
+    }
+  }, [intervalleMs])
+}
+
+export function useCacheRequete<T>(
+  cle: string | null | undefined,
+  requete: () => Promise<T>,
+  /* Sondage périodique optionnel (ms) — voir useSondagePeriodique ci-dessus. Omis par défaut :
+     n'ajoute un coût réseau en arrière-plan qu'aux pages qui le demandent explicitement. */
+  options?: { intervalleSondageMs?: number },
+) {
   const [cleTraitee, setCleTraitee] = useState(cle)
   const dejaEnCache = cle != null && cache.has(cle)
   const [valeur, setValeur] = useState<T | undefined>(() => (dejaEnCache ? (cache.get(cle as string) as T) : undefined))
@@ -80,6 +123,8 @@ export function useCacheRequete<T>(cle: string | null | undefined, requete: () =
   useEffect(() => {
     executer()
   }, [executer])
+
+  useSondagePeriodique(executer, options?.intervalleSondageMs)
 
   return { valeur, loading, erreur, recharger: executer }
 }

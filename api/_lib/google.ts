@@ -317,6 +317,38 @@ export async function deplacerEvenement(
 }
 
 /**
+ * Modifie un événement « autre » existant (voir api/admin/modifier-evenement.ts) : horaire,
+ * titre, description et/ou liste d'invités en un seul PATCH, avec `sendUpdates=all` — c'est ce
+ * paramètre, déjà utilisé par `creerEvenementMeet`/`deplacerEvenement`, qui fait que Google
+ * envoie lui-même une invitation mise à jour à chaque participant : exactement la « nouvelle
+ * invitation » demandée par le client le 2026-09-29, sans avoir à écrire de modèle d'e-mail
+ * dédié. Plus général que `deplacerEvenement` (horaire seul) : les champs omis dans `params`
+ * restent inchangés côté Google (sémantique PATCH), donc un appelant qui ne change QUE l'horaire
+ * peut aussi n'en passer que les deux champs concernés.
+ */
+export async function modifierEvenementMeet(
+  integration: IntegrationGoogle,
+  eventId: string,
+  params: { titre?: string; description?: string; debut?: string; dureeMinutes?: number; emailsInvites?: string[] },
+): Promise<void> {
+  const corps: Record<string, unknown> = {}
+  if (params.titre !== undefined) corps.summary = params.titre
+  if (params.description !== undefined) corps.description = params.description
+  if (params.debut !== undefined && params.dureeMinutes !== undefined) Object.assign(corps, bornes(params.debut, params.dureeMinutes))
+  if (params.emailsInvites !== undefined) corps.attendees = params.emailsInvites.map((email) => ({ email }))
+
+  const reponse = await fetch(`${CALENDAR_URL}/${encodeURIComponent(eventId)}?sendUpdates=all`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${integration.accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(corps),
+  })
+  if (!reponse.ok) {
+    const corpsErreur = (await reponse.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new GoogleError(corpsErreur?.error?.message ?? "Google Calendar a refusé la modification de l'événement.")
+  }
+}
+
+/**
  * Périodes déjà occupées dans l'agenda de l'établissement, pour ne pas proposer à un prospect un
  * créneau où l'établissement est en réalité pris. Passe par `events.list` plutôt que par l'API
  * freebusy : le scope déjà accordé (`calendar.events`) suffit, là où freebusy demanderait un

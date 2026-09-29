@@ -4,11 +4,13 @@ import { useAuth, type InscriptionInfos } from '../hooks/useAuth'
 import { useProfile } from '../hooks/useProfile'
 import { useEtablissement } from '../hooks/useEtablissement'
 import { usePlatformAdmin } from '../hooks/usePlatformAdmin'
+import { useNotificationsTempsReel } from '../hooks/useNotificationsTempsReel'
 import type { Database } from '../types/database.types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
 type PlatformAdmin = Database['public']['Tables']['platform_admins']['Row']
+type Notification = Database['public']['Tables']['notifications']['Row']
 
 interface ProfileContextValue {
   session: Session | null
@@ -25,6 +27,14 @@ interface ProfileContextValue {
   etablissement: Etablissement | null
   platformAdmin: PlatformAdmin | null
   platformAdminLoading: boolean
+  /* Notifications en temps réel (0083, demande client du 2026-09-29) : un seul abonnement
+     Supabase Realtime pour toute l'application, voir useNotificationsTempsReel.ts. */
+  notifications: Notification[]
+  notificationsNonLues: number
+  marquerNotificationLue: (id: string) => Promise<void>
+  /* Dernière notification reçue en direct — signal générique pour qu'une page se recharge sans
+     ouvrir son propre canal Realtime, voir useRafraichirSurNotification.ts. */
+  derniereNotification: Notification | null
   seConnecter: (email: string, motDePasse: string) => ReturnType<ReturnType<typeof useAuth>['seConnecter']>
   sInscrire: (infos: InscriptionInfos) => ReturnType<ReturnType<typeof useAuth>['sInscrire']>
   seDeconnecter: () => ReturnType<ReturnType<typeof useAuth>['seDeconnecter']>
@@ -46,6 +56,12 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
      passage d'une page à l'autre pour une donnée qui ne change jamais en cours de session. */
   const etablissement = useEtablissement(profile?.etablissement_id)
   const { platformAdmin, loading: platformAdminLoading } = usePlatformAdmin(session, loading)
+  const {
+    notifications,
+    nonLues: notificationsNonLues,
+    marquerLue: marquerNotificationLue,
+    dernierEvenement: derniereNotification,
+  } = useNotificationsTempsReel(profile?.id)
 
   const value: ProfileContextValue = {
     session,
@@ -55,6 +71,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     etablissement,
     platformAdmin,
     platformAdminLoading,
+    notifications,
+    notificationsNonLues,
+    marquerNotificationLue,
+    derniereNotification,
     seConnecter,
     sInscrire,
     seDeconnecter,

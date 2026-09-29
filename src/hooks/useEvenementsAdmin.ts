@@ -47,13 +47,16 @@ async function chargerEvenements(): Promise<EvenementAdminAvecParticipants[]> {
     profil résolu) sert ensuite à déterminer la couleur de la pastille dans l'agenda — voir
     RendezVousAdmin.tsx. */
 export function useEvenementsAdmin() {
-  const { valeur, loading, erreur, recharger } = useCacheRequete('evenements-admin', chargerEvenements)
+  // Sondage périodique en filet de sécurité (couche 3 de la stratégie temps réel du 2026-09-29) :
+  // un événement créé/annulé par un autre admin ne déclenche pas encore de notification, voir
+  // le commentaire d'en-tête de useCacheRequete.ts.
+  const { valeur, loading, erreur, recharger } = useCacheRequete('evenements-admin', chargerEvenements, { intervalleSondageMs: 25_000 })
   return { evenements: valeur ?? [], loading, erreur, recharger }
 }
 
 /** Même chose côté professeur (demande client du 2026-09-23) : ses rendez-vous « autre », créés
     depuis son propre agenda (voir api/professeur/creer-evenement.ts) ou dont il est participant. */
 export function useEvenementsProfesseur() {
-  const { valeur, loading, erreur, recharger } = useCacheRequete('evenements-professeur', chargerEvenements)
+  const { valeur, loading, erreur, recharger } = useCacheRequete('evenements-professeur', chargerEvenements, { intervalleSondageMs: 25_000 })
   return { evenements: valeur ?? [], loading, erreur, recharger }
 }

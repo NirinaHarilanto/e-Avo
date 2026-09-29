@@ -111,7 +111,11 @@ export function useProspectsPipeline() {
     }))
 
     return { prospects, totalConvertis: totalConvertis ?? 0 }
-  })
+    /* Filet de sécurité (couche 3 de la stratégie temps réel du 2026-09-29) : un déplacement de
+       carte par glisser-déposer ne crée pas de notification métier (voir PipelineCRM.tsx,
+       couche 2), donc pas de rafraîchissement automatique de CE côté-là si un autre admin
+       déplace une carte pendant que la page reste ouverte — ce sondage discret couvre l'écart. */
+  }, { intervalleSondageMs: 25_000 })
 
   return { prospects: valeur?.prospects ?? [], totalConvertis: valeur?.totalConvertis ?? 0, loading, erreur, recharger }
 }

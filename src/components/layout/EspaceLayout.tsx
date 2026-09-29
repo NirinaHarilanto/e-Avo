@@ -212,7 +212,7 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-              <NotificationsBell profileId={profile.id} />
+              <NotificationsBell />
               <button
                 onClick={async () => {
                   // Navigue AVANT d'attendre seDeconnecter() — et non après (bug signalé par le client

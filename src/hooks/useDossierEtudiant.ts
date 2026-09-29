@@ -212,7 +212,9 @@ export function useDossierEtudiant(studentId: string | undefined) {
       duoPartenaire: duoPartenaire ?? null,
       tarifChoisi: tarifChoisi ?? null,
     }
-  })
+    // Filet de sécurité (couche 3 de la stratégie temps réel du 2026-09-29) : voir le
+    // commentaire d'en-tête de useCacheRequete.ts.
+  }, { intervalleSondageMs: 25_000 })
 
   return { dossier: valeur ?? null, loading, erreur, recharger }
 }

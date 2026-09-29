@@ -12,13 +12,18 @@ import { LigneInfo } from '../ui/Champ'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
+import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 
 /* Agenda de l'élève : même grille horaire que celle du professeur et de l'administration, mais
    sans aucune action — un élève consulte son emploi du temps, il ne le modifie pas. Les séances
    viennent du dossier déjà chargé (useDossierEtudiant), aucune requête supplémentaire. */
 export function AgendaEtudiant() {
-  const { idEtudiantEffectif } = useProfileContext()
-  const { dossier, loading, erreur } = useDossierEtudiant(idEtudiantEffectif ?? undefined)
+  const { idEtudiantEffectif, derniereNotification } = useProfileContext()
+  const { dossier, loading, erreur, recharger } = useDossierEtudiant(idEtudiantEffectif ?? undefined)
+  /* Couche 2 de la stratégie temps réel du 2026-09-29 : une séance reprogrammée/annulée
+     recharge l'agenda de l'élève sans qu'il ait à rafraîchir — voir
+     useRafraichirSurNotification.ts. */
+  useRafraichirSurNotification(derniereNotification, ['seance_reprogrammee', 'seance_annulee'], recharger)
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
   const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
 

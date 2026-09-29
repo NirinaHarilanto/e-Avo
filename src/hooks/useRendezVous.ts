@@ -20,7 +20,9 @@ export function useRendezVous() {
       .order('debut', { ascending: true })
     if (error) throw new Error(error.message)
     return (data ?? []) as unknown as RendezVousAvecProspect[]
-  })
+    // Filet de sécurité (couche 3 de la stratégie temps réel du 2026-09-29) : couvre l'écart
+    // pour les pages qui n'appellent pas déjà useRafraichirSurNotification sur cette donnée.
+  }, { intervalleSondageMs: 25_000 })
 
   return { rendezVous: valeur ?? [], loading, erreur, recharger }
 }

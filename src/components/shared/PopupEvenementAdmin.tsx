@@ -45,6 +45,13 @@ const boutonSecondaire = {
   fontFamily: 'inherit',
 }
 
+/* Format attendu par <input type="datetime-local"> — reprise locale de la même petite fonction
+   que RendezVousAdmin.tsx (trop courte pour justifier un import partagé). */
+function versDatetimeLocal(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 /* Fiche d'une demande de prospect : détail et, si elle est encore en attente, les actions de
    décision. Reprise à l'identique dans la liste de RendezVousAdmin (avec le cadre de Section posé
    par l'appelant) et dans la modale ouverte depuis n'importe quel agenda — un seul endroit où
@@ -63,9 +70,65 @@ export function CarteRendezVous({
   const [echec, setEchec] = useState<string | null>(null)
   const [refusEnCours, setRefusEnCours] = useState(false)
   const [motifRefus, setMotifRefus] = useState('')
+  /* Modifier / annuler un rendez-vous déjà confirmé (demande client du 2026-09-29, avec les
+     mêmes mécaniques que la fenêtre « Planifier un appel diagnostic » — voir
+     PlanifierAppelDiagnosticModale.tsx, qui appelle déjà ces deux mêmes routes). Distinct de
+     `decider()` ci-dessous : celui-ci traite une demande encore EN ATTENTE, ceci un rendez-vous
+     déjà ACTIF. */
+  const [modificationEnCours, setModificationEnCours] = useState(false)
+  const [annulationEnCours, setAnnulationEnCours] = useState(false)
+  const [nouveauDebut, setNouveauDebut] = useState(() => versDatetimeLocal(new Date(rdv.debut)))
+  const [nouvelleDuree, setNouvelleDuree] = useState(rdv.duree_minutes)
 
   const prospect = rdv.prospects
   const quand = formaterDansFuseauEtablissement(rdv.debut)
+
+  async function appelServeur(url: string, corps: object) {
+    const { data: session } = await supabase.auth.getSession()
+    const jeton = session.session?.access_token
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jeton}` },
+      body: JSON.stringify(corps),
+    })
+      .then((r) => r.json())
+      .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
+  }
+
+  async function modifierRendezVous() {
+    if (!prospect || !nouveauDebut) return
+    setEnCours(true)
+    setEchec(null)
+    setMessage(null)
+    const reponse = await appelServeur('/api/admin/planifier-rendez-vous', {
+      prospectId: rdv.prospect_id,
+      debut: new Date(nouveauDebut).toISOString(),
+      dureeMinutes: nouvelleDuree,
+    })
+    setEnCours(false)
+    if (reponse.error) {
+      setEchec(reponse.error)
+      return
+    }
+    setModificationEnCours(false)
+    setMessage('Rendez-vous déplacé et prospect prévenu par e-mail.')
+    onChange()
+  }
+
+  async function annulerRendezVous() {
+    setEnCours(true)
+    setEchec(null)
+    setMessage(null)
+    const reponse = await appelServeur('/api/admin/annuler-rendez-vous', { rendezVousId: rdv.id })
+    setEnCours(false)
+    if (reponse.error) {
+      setEchec(reponse.error)
+      return
+    }
+    setAnnulationEnCours(false)
+    setMessage('Rendez-vous annulé, prospect prévenu par e-mail.')
+    onChange()
+  }
 
   async function decider(decision: 'confirmer' | 'refuser') {
     setEnCours(true)
@@ -200,6 +263,74 @@ export function CarteRendezVous({
               )}
             </div>
           )}
+
+          {rdv.statut === 'confirme' && prospect && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+              {modificationEnCours ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="datetime-local"
+                      value={nouveauDebut}
+                      onChange={(e) => setNouveauDebut(e.target.value)}
+                      style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '9px 12px', fontSize: 13, color: 'var(--ink)', background: 'var(--surface-alt)', fontFamily: 'inherit' }}
+                    />
+                    <input
+                      type="number"
+                      min={5}
+                      max={240}
+                      value={nouvelleDuree}
+                      onChange={(e) => setNouvelleDuree(Number(e.target.value))}
+                      title="Durée en minutes"
+                      style={{ width: 70, border: '1px solid var(--border)', borderRadius: 9, padding: '9px 10px', fontSize: 13, color: 'var(--ink)', background: 'var(--surface-alt)', fontFamily: 'inherit' }}
+                    />
+                  </div>
+                  <span style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={() => setModificationEnCours(false)} style={{ ...boutonSecondaire, cursor: 'pointer' }}>
+                      Annuler
+                    </button>
+                    <button
+                      type="button"
+                      onClick={modifierRendezVous}
+                      disabled={enCours}
+                      className="btn-shine"
+                      style={{ ...boutonPrimaireStyle, opacity: enCours ? 0.6 : 1 }}
+                    >
+                      {enCours ? 'Déplacement…' : 'Confirmer le déplacement'}
+                    </button>
+                  </span>
+                </div>
+              ) : annulationEnCours ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--muted)', maxWidth: 260, textAlign: 'right' }}>
+                    Le créneau sera libéré et le prospect prévenu par e-mail.
+                  </span>
+                  <span style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={() => setAnnulationEnCours(false)} style={{ ...boutonSecondaire, cursor: 'pointer' }}>
+                      Non, garder
+                    </button>
+                    <button
+                      type="button"
+                      onClick={annulerRendezVous}
+                      disabled={enCours}
+                      style={{ ...boutonSecondaire, color: 'var(--danger)', borderColor: 'var(--danger)', cursor: 'pointer', opacity: enCours ? 0.6 : 1 }}
+                    >
+                      {enCours ? 'Annulation…' : 'Oui, annuler'}
+                    </button>
+                  </span>
+                </div>
+              ) : (
+                <span style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={() => setAnnulationEnCours(true)} style={{ ...boutonSecondaire, color: 'var(--danger)', borderColor: 'var(--danger)', cursor: 'pointer' }}>
+                    Annuler
+                  </button>
+                  <button type="button" onClick={() => setModificationEnCours(true)} style={{ ...boutonSecondaire, cursor: 'pointer' }}>
+                    Modifier
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>
@@ -215,6 +346,7 @@ export function CarteEvenementAdmin({
   session,
   onChange,
   urlAnnulation = '/api/admin/annuler-evenement',
+  urlModification = '/api/admin/modifier-evenement',
 }: {
   evenement: EvenementAdminAvecParticipants
   session: { access_token: string } | null
@@ -224,9 +356,17 @@ export function CarteEvenementAdmin({
      l'espace admin » côté mécanisme, mais pas côté droits : il ne peut pas annuler le rendez-vous
      d'un autre. */
   urlAnnulation?: string
+  /* Même principe pour la modification (demande client du 2026-09-29) : sa propre route,
+     restreinte aux événements qu'il a lui-même créés (api/professeur/modifier-evenement.ts). */
+  urlModification?: string
 }) {
   const [enCours, setEnCours] = useState(false)
   const [echec, setEchec] = useState<string | null>(null)
+  const [modificationEnCours, setModificationEnCours] = useState(false)
+  const [titre, setTitre] = useState(evenement.titre)
+  const [nouveauDebut, setNouveauDebut] = useState(() => versDatetimeLocal(new Date(evenement.debut)))
+  const [nouvelleDuree, setNouvelleDuree] = useState(evenement.duree_minutes)
+  const [notes, setNotes] = useState(evenement.notes ?? '')
   const quand = formaterDansFuseauEtablissement(evenement.debut)
 
   async function annuler() {
@@ -248,6 +388,37 @@ export function CarteEvenementAdmin({
     onChange()
   }
 
+  /* Modifie l'horaire, le titre et les notes (demande client du 2026-09-29) — pas les
+     participants, dont la réaffectation reste à faire depuis « Créer un rendez-vous » en
+     annulant puis recréant, comme pour un rendez-vous prospect (voir modifierRendezVous
+     ci-dessus, qui ne change lui non plus jamais le destinataire). Google Calendar prévient
+     lui-même chaque invité du changement (`sendUpdates=all`, voir modifierEvenementMeet). */
+  async function modifier() {
+    if (!session || !titre.trim() || !nouveauDebut) return
+    setEnCours(true)
+    setEchec(null)
+    const reponse = await fetch(urlModification, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        evenementId: evenement.id,
+        titre: titre.trim(),
+        debut: new Date(nouveauDebut).toISOString(),
+        dureeMinutes: nouvelleDuree,
+        notes: notes.trim(),
+      }),
+    })
+      .then((r) => r.json())
+      .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
+    setEnCours(false)
+    if (reponse.error) {
+      setEchec(reponse.error)
+      return
+    }
+    setModificationEnCours(false)
+    onChange()
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <span
@@ -266,41 +437,102 @@ export function CarteEvenementAdmin({
       >
         {typeEvenementAdmin(evenement)}
       </span>
-      <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>{quand} · {evenement.duree_minutes} min</span>
+      {modificationEnCours ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <input
+            value={titre}
+            onChange={(e) => setTitre(e.target.value)}
+            placeholder="Titre"
+            style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '9px 12px', fontSize: 13, color: 'var(--ink)', background: 'var(--surface-alt)', fontFamily: 'inherit' }}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="datetime-local"
+              value={nouveauDebut}
+              onChange={(e) => setNouveauDebut(e.target.value)}
+              style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '9px 12px', fontSize: 13, color: 'var(--ink)', background: 'var(--surface-alt)', fontFamily: 'inherit', flex: 1 }}
+            />
+            <input
+              type="number"
+              min={5}
+              max={480}
+              value={nouvelleDuree}
+              onChange={(e) => setNouvelleDuree(Number(e.target.value))}
+              title="Durée en minutes"
+              style={{ width: 70, border: '1px solid var(--border)', borderRadius: 9, padding: '9px 10px', fontSize: 13, color: 'var(--ink)', background: 'var(--surface-alt)', fontFamily: 'inherit' }}
+            />
+          </div>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Notes (facultatif)"
+            rows={2}
+            style={{ border: '1px solid var(--border)', borderRadius: 9, padding: '9px 12px', fontSize: 13, color: 'var(--ink)', background: 'var(--surface-alt)', fontFamily: 'inherit', resize: 'vertical' }}
+          />
+        </div>
+      ) : (
+        <>
+          <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>{quand} · {evenement.duree_minutes} min</span>
 
-      {evenement.obligatoires.length > 0 && (
-        <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-          Obligatoire : {evenement.obligatoires.map((p) => `${p.prenom} ${p.nom}`).join(', ')}
-        </span>
-      )}
-      {evenement.optionnels.length > 0 && (
-        <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
-          Optionnel : {evenement.optionnels.map((p) => `${p.prenom} ${p.nom}`).join(', ')}
-        </span>
-      )}
-      {evenement.notes && (
-        <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
-          {evenement.notes}
-        </p>
-      )}
-      {evenement.lien_meet && (
-        <a href={evenement.lien_meet} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, fontWeight: 700 }}>
-          Lien de visioconférence
-        </a>
+          {evenement.obligatoires.length > 0 && (
+            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+              Obligatoire : {evenement.obligatoires.map((p) => `${p.prenom} ${p.nom}`).join(', ')}
+            </span>
+          )}
+          {evenement.optionnels.length > 0 && (
+            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+              Optionnel : {evenement.optionnels.map((p) => `${p.prenom} ${p.nom}`).join(', ')}
+            </span>
+          )}
+          {evenement.notes && (
+            <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
+              {evenement.notes}
+            </p>
+          )}
+          {evenement.lien_meet && (
+            <a href={evenement.lien_meet} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, fontWeight: 700 }}>
+              Lien de visioconférence
+            </a>
+          )}
+        </>
       )}
       {evenement.annule && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)' }}>Événement annulé.</span>}
 
       {echec && <MessageErreur>{echec}</MessageErreur>}
 
       {!evenement.annule && (
-        <button
-          type="button"
-          onClick={annuler}
-          disabled={enCours}
-          style={{ ...boutonSecondaire, alignSelf: 'flex-start', color: 'var(--danger)', borderColor: 'var(--danger)', cursor: 'pointer', opacity: enCours ? 0.6 : 1 }}
-        >
-          {enCours ? 'Annulation…' : 'Annuler le rendez-vous'}
-        </button>
+        <span style={{ display: 'flex', gap: 8 }}>
+          {modificationEnCours ? (
+            <>
+              <button type="button" onClick={() => setModificationEnCours(false)} disabled={enCours} style={{ ...boutonSecondaire, cursor: 'pointer' }}>
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={modifier}
+                disabled={enCours || !titre.trim()}
+                className="btn-shine"
+                style={{ ...boutonPrimaireStyle, opacity: enCours ? 0.6 : 1 }}
+              >
+                {enCours ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={annuler}
+                disabled={enCours}
+                style={{ ...boutonSecondaire, color: 'var(--danger)', borderColor: 'var(--danger)', cursor: 'pointer', opacity: enCours ? 0.6 : 1 }}
+              >
+                {enCours ? 'Annulation…' : 'Annuler le rendez-vous'}
+              </button>
+              <button type="button" onClick={() => setModificationEnCours(true)} style={{ ...boutonSecondaire, cursor: 'pointer' }}>
+                Modifier
+              </button>
+            </>
+          )}
+        </span>
       )}
     </div>
   )
@@ -318,6 +550,7 @@ export function PopupEvenementAdmin({
   session,
   onChange,
   urlAnnulation,
+  urlModification,
 }: {
   elementOuvertId: string | null
   onFermer: () => void
@@ -327,6 +560,7 @@ export function PopupEvenementAdmin({
   session: { access_token: string } | null
   onChange: () => void
   urlAnnulation?: string
+  urlModification?: string
 }) {
   const rdvOuvert = elementOuvertId?.startsWith(PREFIXE_PROSPECT)
     ? rendezVous.find((r) => r.id === elementOuvertId!.slice(PREFIXE_PROSPECT.length))
@@ -345,7 +579,7 @@ export function PopupEvenementAdmin({
   if (evenementOuvert) {
     return (
       <Modale titre={evenementOuvert.titre} onFermer={onFermer} largeurMax={480}>
-        <CarteEvenementAdmin evenement={evenementOuvert} session={session} onChange={onChange} urlAnnulation={urlAnnulation} />
+        <CarteEvenementAdmin evenement={evenementOuvert} session={session} onChange={onChange} urlAnnulation={urlAnnulation} urlModification={urlModification} />
       </Modale>
     )
   }

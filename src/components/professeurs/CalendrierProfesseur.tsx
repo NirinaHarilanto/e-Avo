@@ -34,6 +34,7 @@ import { PlanningPrevisionnelProfesseur } from './PlanningPrevisionnelProfesseur
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
 import { champStyle } from '../ui/Champ'
 import { formaterHeures } from '../../lib/heures'
+import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type VueCalendrier = 'agenda' | 'liste' | 'previsionnel'
@@ -105,8 +106,14 @@ function versDatetimeLocal(date: Date): string {
 }
 
 export function CalendrierProfesseur() {
-  const { profile, session } = useProfileContext()
+  const { profile, session, derniereNotification } = useProfileContext()
   const { seances, etudiantsActifs, vagues, heuresEnseignees, loading, erreur, recharger } = useCalendrierProfesseur(profile?.id)
+  /* Couche 2 de la stratégie temps réel du 2026-09-29 : une séance reprogrammée/annulée par
+     l'admin recharge l'agenda du professeur sans qu'il ait à rafraîchir — voir
+     useRafraichirSurNotification.ts. (Sa propre action ne se notifie jamais lui-même, voir
+     notifierParticipantsSeance : rien à recharger en double dans ce cas, sa page reflète déjà le
+     changement via le recharger() de sa propre modale.) */
+  useRafraichirSurNotification(derniereNotification, ['seance_reprogrammee', 'seance_annulee'], recharger)
   /* Rendez-vous « autre » (entretien, séance d'information…) créés par le professeur lui-même ou
      où il est participant — demande client du 2026-09-23, même mécanisme que RendezVousAdmin.tsx.
      Distinct des séances : ils vivent dans `evenements_admin`, pas `sessions`, et n'affectent
@@ -302,6 +309,7 @@ export function CalendrierProfesseur() {
         session={session}
         onChange={rechargerEvenements}
         urlAnnulation="/api/professeur/annuler-evenement"
+        urlModification="/api/professeur/modifier-evenement"
       />
     </ProfesseurLayout>
   )

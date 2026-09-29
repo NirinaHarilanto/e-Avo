@@ -1,9 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useNotifications } from '../../hooks/useNotifications'
+import { useProfileContext } from '../../context/ProfileContext'
 
-export function NotificationsBell({ profileId }: { profileId: string | undefined }) {
-  const { notifications, nonLues, marquerLue } = useNotifications(profileId)
+/* Notifications en temps réel (0083, demande client du 2026-09-29) : le seul abonnement Supabase
+   Realtime de l'application vit dans ProfileContext (useNotificationsTempsReel.ts), pas ici — la
+   cloche se contente de le lire. */
+export function NotificationsBell() {
+  const { notifications, notificationsNonLues: nonLues, marquerNotificationLue: marquerLue } = useProfileContext()
   const [ouvert, setOuvert] = useState(false)
   const navigate = useNavigate()
 
