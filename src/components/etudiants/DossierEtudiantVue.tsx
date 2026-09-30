@@ -427,6 +427,15 @@ interface DossierEtudiantVueProps {
   panneauDemandeForfait?: ReactNode
   /* Bouton + pop-up de suppression du compte — admin uniquement, comme les autres panneaux. */
   panneauSuppression?: ReactNode
+  /* Bouton brillant de synthèse des comptes rendus (demande client du 2026-09-30) — admin et
+     professeur, jamais l'élève : rendu dans l'en-tête, à côté des actions de compte. Passé en
+     `ReactNode` plutôt que déduit ici d'un booléen, parce que la PORTÉE de la synthèse diffère
+     selon l'espace (tout l'établissement pour l'admin, ses propres cours pour le professeur) et
+     que c'est l'appelant qui la connaît. */
+  panneauSynthese?: ReactNode
+  /* Badge(s) ajouté(s) à la ligne d'identité de l'en-tête, après le statut et la langue — sert au
+     tag « Ancien élève » côté professeur (demande client du 2026-09-30). */
+  badgesSupplementaires?: ReactNode
   /* Autorise l'ajout d'une réévaluation de niveau depuis la fenêtre d'historique — admin
      uniquement, comme les autres panneaux d'action. */
   peutModifierNiveau?: boolean
@@ -461,6 +470,8 @@ export function DossierEtudiantVue({
   panneauAjoutForfait,
   panneauDemandeForfait,
   panneauSuppression,
+  panneauSynthese,
+  badgesSupplementaires,
   peutModifierNiveau,
   peutModifierPlanning,
   onDossierChange,
@@ -567,11 +578,17 @@ export function DossierEtudiantVue({
                   {(periodeActuelle ?? periodes[0]).affectation.langue}
                 </span>
               )}
+              {badgesSupplementaires}
               {etudiant.email && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{etudiant.email}</span>}
             </div>
           </div>
         </div>
-        {panneauSuppression}
+        {(panneauSynthese || panneauSuppression) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {panneauSynthese}
+            {panneauSuppression}
+          </div>
+        )}
       </div>
 
       <GrilleStats min={160} compact>

@@ -17,6 +17,7 @@ import { CarteListeEtudiant } from './CarteListeEtudiant'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
 import { PanneauInformationsDuo, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
 import { SupprimerCompte } from '../shared/SupprimerCompte'
+import { SyntheseComptesRendus } from '../shared/SyntheseComptesRendus'
 import { MettreEnPauseCompte } from './MettreEnPauseCompte'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -101,6 +102,11 @@ export function EtudiantsAdmin() {
           <>
             Le compteur d’heures et le taux d’assiduité se mettent à jour automatiquement à la clôture de chaque séance,
             il n’y a rien à saisir à la main.
+          </>,
+          <>
+            Le bouton doré <strong>« Résumer les comptes rendus »</strong>, en haut du dossier, condense d’un clic tous
+            les comptes rendus de séance de l’élève : compétences travaillées, progression, points à améliorer, mots
+            récurrents et fil des séances. La synthèse se copie en un clic pour un e-mail.
           </>,
           <>
             Le badge <strong>Contrat signé / en attente / aucun contrat</strong> sous chaque nom indique s’il reste à
@@ -233,6 +239,9 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
           <MettreEnPauseCompte personne={etudiant} onChange={recharger} />
           <SupprimerCompte personne={etudiant} onSupprime={onSupprime} />
         </div>
+      }
+      panneauSynthese={
+        <SyntheseComptesRendus studentId={etudiant.id} nomEleve={`${etudiant.prenom} ${etudiant.nom}`} portee="etablissement" />
       }
       panneauChoixInitial={
         <ChoixProgrammeInitial studentId={etudiant.id} etablissementId={etudiant.etablissement_id} onCree={recharger} />

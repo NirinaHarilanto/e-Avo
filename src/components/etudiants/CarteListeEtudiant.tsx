@@ -48,6 +48,31 @@ export function TagDossierIncomplet() {
   )
 }
 
+/* Tag « Ancien élève » — demande client du 2026-09-30 : « quand un étudiant change de professeur,
+   l'étudiant aura un tag visible du côté de l'ancien professeur comme "Ancien élève" pour aider le
+   professeur à l'identifier rapidement dans son espace personnel ». N'existe QUE côté professeur :
+   pour l'admin, un élève transféré reste un élève actif de l'établissement, et son changement de
+   professeur se lit déjà dans les périodes de son parcours. Gris neutre plutôt qu'une couleur
+   d'alerte : ce n'est ni un problème ni une action à mener, seulement un repère de lecture. */
+export function TagAncienEleve({ transfereLe }: { transfereLe?: string | null }) {
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        fontWeight: 700,
+        color: 'var(--muted)',
+        background: 'rgba(255,255,255,.05)',
+        border: '1px solid var(--border)',
+        borderRadius: 999,
+        padding: '2px 8px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      Ancien élève{transfereLe ? ` · transféré le ${new Date(transfereLe).toLocaleDateString('fr-FR')}` : ''}
+    </span>
+  )
+}
+
 interface CarteListeEtudiantProps {
   principal: Profile
   /* Second membre d'un binôme DUO (0054), s'il y en a un — le dossier ouvert au clic reste
@@ -58,6 +83,10 @@ interface CarteListeEtudiantProps {
   programme?: ProgrammeEtudiant | null
   statutContrat?: StatutSignatureContrat
   dossierIncomplet?: boolean
+  /* Élève transféré à un autre professeur, vu depuis l'espace de son ANCIEN professeur (date du
+     transfert). La carte est alors estompée et porte le tag « Ancien élève » — même bloc de liste
+     que les élèves en cours, plutôt qu'un rendu parallèle qui divergeait au fil des retouches. */
+  ancienEleve?: { transfereLe: string } | null
 }
 
 /* Bloc d'une ligne de liste étudiant — identité, statut, binôme DUO regroupé et badges du
@@ -75,7 +104,7 @@ interface CarteListeEtudiantProps {
    visible sur une liste étroite (barre latérale ~260px). Nom et prénom restent sur une seule
    ligne (`whiteSpace: nowrap` + `textOverflow: ellipsis`, `minWidth: 0` sur toute la chaîne de
    conteneurs flex parents), mais disposent maintenant de la largeur ENTIÈRE du bloc pour ça. */
-export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick, programme, statutContrat, dossierIncomplet }: CarteListeEtudiantProps) {
+export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick, programme, statutContrat, dossierIncomplet, ancienEleve }: CarteListeEtudiantProps) {
   const membres = secondaire ? [principal, secondaire] : [principal]
   const nomGroupe = principal.duo_nom_groupe || secondaire?.duo_nom_groupe || (secondaire ? `${principal.prenom} & ${secondaire.prenom}` : null)
 
@@ -98,6 +127,9 @@ export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick
         color: 'inherit',
         width: '100%',
         minWidth: 0,
+        // Estompé sans être illisible : l'élève reste cliquable (son historique se consulte
+        // toujours), il passe simplement au second plan des élèves en cours.
+        opacity: ancienEleve ? 0.68 : 1,
       }}
     >
       {nomGroupe && (
@@ -124,8 +156,9 @@ export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick
           forfait, contrat et heures sont communs au binôme, seules les informations
           personnelles restent propres à chacun (signalées ci-dessus pour l'un comme pour
           l'autre). */}
-      {(programme || statutContrat || dossierIncomplet) && (
+      {(programme || statutContrat || dossierIncomplet || ancienEleve) && (
         <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+          {ancienEleve && <TagAncienEleve transfereLe={ancienEleve.transfereLe} />}
           {!secondaire && programme && <TagProgramme programme={programme} />}
           {statutContrat && <BadgeStatutContrat statut={statutContrat} compact />}
           {dossierIncomplet && <TagDossierIncomplet />}

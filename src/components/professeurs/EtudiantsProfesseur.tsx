@@ -8,9 +8,10 @@ import { useSecondairesDuo } from '../../hooks/useSecondairesDuo'
 import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
 import { useTypesProgrammeEtudiants } from '../../hooks/useTypesProgrammeEtudiants'
 import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
-import { DossierEtudiantVue, initiales } from '../etudiants/DossierEtudiantVue'
-import { CarteListeEtudiant } from '../etudiants/CarteListeEtudiant'
+import { DossierEtudiantVue } from '../etudiants/DossierEtudiantVue'
+import { CarteListeEtudiant, TagAncienEleve } from '../etudiants/CarteListeEtudiant'
 import { PanneauInformationsDuo, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
+import { SyntheseComptesRendus } from '../shared/SyntheseComptesRendus'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { ChampRecherche } from '../ui/BarreOutils'
@@ -83,8 +84,14 @@ export function EtudiantsProfesseur() {
             prévisionnel d’un élève actuellement attribué — exactement comme dans l’espace admin.
           </>,
           <>
-            Un élève qui change de professeur passe dans la section <strong>« Anciens élèves »</strong>, avec la date du
-            transfert ; son historique avec vous reste consultable dans son dossier.
+            Un élève qui change de professeur passe dans la section <strong>« Anciens élèves »</strong> et porte le tag{' '}
+            <strong>« Ancien élève »</strong> avec la date du transfert ; son historique avec vous reste consultable dans
+            son dossier.
+          </>,
+          <>
+            Le bouton <strong>« Résumer les comptes rendus »</strong>, en haut du dossier, condense d’un clic tous vos
+            comptes rendus de séance avec cet élève : compétences travaillées, progression, points à améliorer et fil des
+            séances.
           </>,
         ]}
       />
@@ -129,36 +136,18 @@ export function EtudiantsProfesseur() {
               <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.8, padding: '10px 4px 2px' }}>
                 Anciens élèves
               </span>
+              {/* Même bloc de liste que les élèves en cours depuis le 2026-09-30 : le rendu
+                  parallèle qui vivait ici n'affichait qu'une date de transfert, sans le tag
+                  « Ancien élève » demandé par le client — et il aurait fallu le retoucher à chaque
+                  évolution de la carte partagée. */}
               {anciensFiltres.map(({ profil, transfereLe }) => (
-                <button
+                <CarteListeEtudiant
                   key={profil.id}
+                  principal={profil}
+                  selectionne={profil.id === id}
                   onClick={() => navigate(`/professeur/etudiants/${profil.id}`)}
-                  aria-current={profil.id === id ? 'true' : undefined}
-                  className="carte-ligne"
-                  style={{
-                    textAlign: 'left',
-                    borderRadius: 14,
-                    border: profil.id === id ? '1px solid rgba(94,179,255,.5)' : '1px solid var(--border)',
-                    background: 'var(--surface)',
-                    padding: '13px 14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    cursor: 'pointer',
-                    color: 'inherit',
-                    opacity: 0.6,
-                  }}
-                >
-                  <span style={{ width: 38, height: 38, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
-                    {initiales(profil)}
-                  </span>
-                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
-                    <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {profil.prenom} {profil.nom}
-                    </span>
-                    <span style={{ fontSize: 10.5, color: 'var(--muted-2)' }}>Transféré le {new Date(transfereLe).toLocaleDateString('fr-FR')}</span>
-                  </span>
-                </button>
+                  ancienEleve={{ transfereLe }}
+                />
               ))}
             </>
           )}
@@ -166,7 +155,7 @@ export function EtudiantsProfesseur() {
 
         <div style={{ minWidth: 0 }}>
           {id ? (
-            <DossierPanel studentId={id} />
+            <DossierPanel studentId={id} transfereLe={etudiantsAnciens.find((e) => e.profil.id === id)?.transfereLe ?? null} />
           ) : (
             <EtatVide
               icone="dossier"
@@ -180,7 +169,11 @@ export function EtudiantsProfesseur() {
   )
 }
 
-function DossierPanel({ studentId }: { studentId: string }) {
+/* `transfereLe` vient de la liste `etudiantsAnciens` (useCalendrierProfesseur), jamais d'une
+   déduction locale : `dossier.periodeActuelle?.professeur?.id !== profile?.id` serait aussi vrai
+   pour un élève de cours COLLECTIF, qui n'a aucune affectation individuelle (0069) et n'est pour
+   autant pas un ancien élève — il serait tagué à tort. */
+function DossierPanel({ studentId, transfereLe }: { studentId: string; transfereLe: string | null }) {
   const { profile } = useProfileContext()
   const { dossier, loading, erreur, recharger } = useDossierEtudiant(studentId)
 
@@ -202,6 +195,17 @@ function DossierPanel({ studentId }: { studentId: string }) {
       dossier={dossier}
       panneauInformations={
         <PanneauInformationsDuo etudiant={dossier.etudiant} duoPartenaire={dossier.duoPartenaire} onChange={() => {}} lectureSeule />
+      }
+      badgesSupplementaires={transfereLe ? <TagAncienEleve transfereLe={transfereLe} /> : undefined}
+      panneauSynthese={
+        /* Portée « mes cours » : la RLS de `session_reports` (0033) ne donne au professeur que les
+           comptes rendus dont il est l'auteur — la fenêtre le dit explicitement plutôt que de
+           laisser croire à une synthèse de tout le parcours de l'élève. */
+        <SyntheseComptesRendus
+          studentId={dossier.etudiant.id}
+          nomEleve={`${dossier.etudiant.prenom} ${dossier.etudiant.nom}`}
+          portee="mes-cours"
+        />
       }
       panneauPlanification={
         forfait && estProfesseurActuel
