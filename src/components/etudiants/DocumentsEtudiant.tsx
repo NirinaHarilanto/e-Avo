@@ -3,17 +3,16 @@ import { useDocuments } from '../../hooks/useDocuments'
 import { useSessionReports } from '../../hooks/useSessionReports'
 import { EtudiantLayout } from '../layout/EtudiantLayout'
 import { ExplorateurDocuments } from '../documents/ExplorateurDocuments'
+import { ListeComptesRendus } from '../shared/ListeComptesRendus'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GroupeSection } from '../ui/Section'
-import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
-import { CompteRenduAffichage } from '../shared/CompteRenduAffichage'
 
 export function DocumentsEtudiant() {
   const { profile } = useProfileContext()
   const { documents, loading, erreur, recharger } = useDocuments(profile?.id)
-  const { comptesRendus, loading: chargementComptesRendus } = useSessionReports()
+  const { comptesRendus, loading: chargementComptesRendus, erreur: erreurComptesRendus } = useSessionReports()
 
   return (
     <EtudiantLayout actif="Mes documents">
@@ -67,35 +66,16 @@ export function DocumentsEtudiant() {
 
         <GroupeSection
           titre="Comptes rendus de mes cours"
-          description="Rédigés par votre professeur après chaque séance. Vous ne pouvez pas les modifier."
+          description="Rédigés par votre professeur après chaque séance, avec les supports de cours qu'il y joint. Vous ne pouvez pas les modifier."
         >
-          {chargementComptesRendus ? (
-            <EtatChargement lignes={2} hauteur={78} />
-          ) : comptesRendus.length === 0 ? (
-            <EtatVide
-              icone="documents"
-              titre="Aucun compte rendu pour le moment"
-              description="Votre professeur peut rédiger un compte rendu après chaque séance. Ils apparaîtront ici automatiquement, du plus récent au plus ancien."
-            />
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {comptesRendus.map(({ rapport, session, professeur }) => (
-                <div key={rapport.id} className="card card-lift" style={{ padding: '15px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-                    <span className="brand-font" style={{ fontSize: 13.5, color: 'var(--ink)' }}>
-                      {session ? new Date(session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Séance'}
-                    </span>
-                    {professeur && (
-                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                        avec {professeur.prenom} {professeur.nom}
-                      </span>
-                    )}
-                  </div>
-                  <CompteRenduAffichage rapport={rapport} />
-                </div>
-              ))}
-            </div>
-          )}
+          <ListeComptesRendus
+            comptesRendus={comptesRendus}
+            loading={chargementComptesRendus}
+            erreur={erreurComptesRendus}
+            masquerParticipants
+            titreVide="Aucun compte rendu pour le moment"
+            descriptionVide="Votre professeur peut rédiger un compte rendu après chaque séance. Ils apparaîtront ici automatiquement, du plus récent au plus ancien."
+          />
         </GroupeSection>
       </div>
     </EtudiantLayout>

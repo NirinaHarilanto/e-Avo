@@ -814,6 +814,11 @@ export interface Database {
           etablissement_wide: boolean
           /* Dossier de classement (0058). Nul = racine de l'espace documentaire. */
           dossier_id: string | null
+          /* Support de cours joint à un compte rendu (0087, demande client du 2026-09-30) — nul
+             pour tout document déposé autrement. `on delete set null` : supprimer le compte
+             rendu ne doit pas faire disparaître la ligne à l'aveugle côté base, voir
+             api/admin/supprimer-compte-rendu.ts pour le nettoyage explicite. */
+          session_report_id: string | null
           created_at: string
         }
         Insert: {
@@ -833,6 +838,7 @@ export interface Database {
           storage_path?: string
           etablissement_wide?: boolean
           dossier_id?: string | null
+          session_report_id?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['documents']['Insert']>

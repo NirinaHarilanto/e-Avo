@@ -16,13 +16,12 @@ import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { GroupeSection } from '../ui/Section'
 import { Onglets } from '../ui/Onglets'
-import { CompteRenduAffichage } from '../shared/CompteRenduAffichage'
+import { ListeComptesRendus } from '../shared/ListeComptesRendus'
 import { ChampRecherche } from '../ui/BarreOutils'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
 import { boutonSecondaireStyle } from '../ui/Boutons'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
-import { Icone } from '../ui/Icones'
 import { ChampDate } from '../ui/ChampDate'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -38,7 +37,7 @@ const ONGLETS: { value: Onglet; label: string }[] = [
 ]
 
 export function DocumentsAdmin() {
-  const { profile } = useProfileContext()
+  const { profile, session } = useProfileContext()
   const { etudiants, loading: chargementEtudiants } = useEtudiants()
   const { professeurs, loading: chargementProfesseurs } = useProfesseurs()
   const [onglet, setOnglet] = useState<Onglet>('etudiants')
@@ -158,7 +157,7 @@ export function DocumentsAdmin() {
       )}
 
       {onglet === 'partageables' && profile && <PanneauPartageables etablissementId={profile.etablissement_id} adminId={profile.id} />}
-      {onglet === 'comptes_rendus' && <PanneauComptesRendus />}
+      {onglet === 'comptes_rendus' && <PanneauComptesRendus accessToken={session?.access_token} />}
       {onglet === 'confidentiels' && profile && <PanneauConfidentiels etablissementId={profile.etablissement_id} adminId={profile.id} />}
     </AdminLayout>
   )
@@ -240,9 +239,8 @@ function PanneauPartageables({ etablissementId, adminId }: { etablissementId: st
    confidentiels plus bas) avec filtre par personne concernée et par date — demande client du
    2026-09-23 : la liste, jusqu'ici entièrement dépliée, devenait vite trop longue à parcourir dès
    que les professeurs accumulaient des comptes rendus. */
-function PanneauComptesRendus() {
-  const { comptesRendus, loading, erreur } = useSessionReports()
-  const [ouvertId, setOuvertId] = useState<string | null>(null)
+function PanneauComptesRendus({ accessToken }: { accessToken: string | undefined }) {
+  const { comptesRendus, loading, erreur, recharger } = useSessionReports()
   const [recherchePersonne, setRecherchePersonne] = useState('')
   const [dateDebut, setDateDebut] = useState('')
   const [dateFin, setDateFin] = useState('')
@@ -320,54 +318,54 @@ function PanneauComptesRendus() {
           description="Aucun compte rendu ne correspond à ces filtres."
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {filtres.map(({ rapport, session, professeur, participants }) => {
-            const ouvert = ouvertId === rapport.id
-            return (
-              <div key={rapport.id} className="card card-lift" style={{ padding: 0, overflow: 'hidden' }}>
-                <button
-                  type="button"
-                  onClick={() => setOuvertId(ouvert ? null : rapport.id)}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '16px 20px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 14,
-                    flexWrap: 'wrap',
-                    color: 'inherit',
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
-                    {session ? new Date(session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Séance inconnue'}
-                  </span>
-                  <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>{professeur ? `${professeur.prenom} ${professeur.nom}` : 'Professeur inconnu'}</span>
-                  <span style={{ fontSize: 12, color: 'var(--muted-2)' }}>
-                    {participants.map((p) => `${p.prenom} ${p.nom}`).join(', ') || 'aucun participant'}
-                  </span>
-                  <Icone
-                    nom="chevron"
-                    taille={14}
-                    style={{ marginLeft: 'auto', flexShrink: 0, color: 'var(--muted)', transform: ouvert ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}
-                  />
-                </button>
-                {ouvert && (
-                  <div style={{ padding: '0 20px 18px' }}>
-                    <CompteRenduAffichage rapport={rapport} />
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+        <ListeComptesRendus
+          comptesRendus={filtres}
+          loading={false}
+          titreVide="Aucun compte rendu pour le moment"
+          descriptionVide="Les comptes rendus sont rédigés par les professeurs depuis leur calendrier, après avoir clôturé une séance."
+          actionsParLigne={({ rapport }) => <BoutonSupprimerCompteRendu rapportId={rapport.id} accessToken={accessToken} onSupprime={recharger} />}
+        />
       )}
     </div>
     </GroupeSection>
+  )
+}
+
+/* Suppression d'un compte rendu (0087, demande client du 2026-09-30 : « rajoute la possibilité
+   de supprimer un compte rendu de séance »). Le professeur auteur peut déjà le faire depuis son
+   propre calendrier (session_reports_teacher_all, 0033) ; l'admin n'avait jusqu'ici qu'une
+   lecture seule ici, d'où la route dédiée en clé de service. */
+function BoutonSupprimerCompteRendu({ rapportId, accessToken, onSupprime }: { rapportId: string; accessToken: string | undefined; onSupprime: () => void }) {
+  const [enCours, setEnCours] = useState(false)
+
+  async function supprimer(e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!accessToken) return
+    if (!window.confirm('Supprimer ce compte rendu ? Les supports de cours qui y sont joints seront supprimés avec lui.')) return
+    setEnCours(true)
+    const reponse = await fetch('/api/admin/supprimer-compte-rendu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ rapportId }),
+    })
+    setEnCours(false)
+    if (!reponse.ok) {
+      const corps = await reponse.json().catch(() => null)
+      window.alert(corps?.error ?? 'La suppression a échoué.')
+      return
+    }
+    onSupprime()
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={supprimer}
+      disabled={enCours}
+      style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer', opacity: enCours ? 0.6 : 1 }}
+    >
+      {enCours ? 'Suppression…' : 'Supprimer'}
+    </button>
   )
 }
 

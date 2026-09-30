@@ -721,7 +721,12 @@ function CarteSeance({
       )}
 
       {seance.session.statut === 'terminee' && profile && (
-        <CompteRenduSeance sessionId={seance.session.id} etablissementId={profile.etablissement_id} teacherId={profile.id} />
+        <CompteRenduSeance
+          sessionId={seance.session.id}
+          etablissementId={profile.etablissement_id}
+          teacherId={profile.id}
+          studentIds={seance.inscriptions.map((i) => i.student_id)}
+        />
       )}
 
       {seance.session.statut === 'terminee' && (

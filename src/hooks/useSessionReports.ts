@@ -5,12 +5,21 @@ import { useCacheRequete } from './useCacheRequete'
 type SessionReport = Database['public']['Tables']['session_reports']['Row']
 type Session = Database['public']['Tables']['sessions']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
+type Document = Database['public']['Tables']['documents']['Row']
 
 export interface CompteRenduComplet {
   rapport: SessionReport
   session: Session | null
   professeur: Profile | null
   participants: Profile[]
+  /* Supports de cours joints à ce compte rendu (0087, demande client du 2026-09-30) — la RLS de
+     `documents` filtre déjà qui voit quoi (le professeur y voit sa propre copie, un élève la
+     sienne, l'admin les deux) : cette liste ne contient donc jamais plus que ce que l'appelant a
+     le droit de voir, sans filtre supplémentaire à coder ici. Peut compter plusieurs lignes pour
+     UN SEUL fichier déposé (une copie par destinataire — professeur et chaque élève, voir
+     CompteRenduSeance.tsx) : dédoublonnées par nom pour l'affichage plutôt que montrées en
+     double. */
+  supports: Document[]
 }
 
 /* Comptes rendus de cours — RLS (0033) filtre déjà selon qui regarde (admin de
@@ -21,14 +30,28 @@ export function useSessionReports() {
     const { data: rapports, error } = await supabase.from('session_reports').select('*').order('created_at', { ascending: false })
     if (error) throw new Error(error.message)
 
+    const rapportIds = (rapports ?? []).map((r) => r.id)
     const sessionIds = [...new Set((rapports ?? []).map((r) => r.session_id))]
-    const [{ data: sessions }, { data: enrollments }] = await Promise.all([
+    const [{ data: sessions }, { data: enrollments }, { data: supportsBruts }] = await Promise.all([
       sessionIds.length ? supabase.from('sessions').select('*').in('id', sessionIds) : Promise.resolve({ data: [] as Session[] }),
       sessionIds.length
         ? supabase.from('session_enrollments').select('session_id, student_id').in('session_id', sessionIds)
         : Promise.resolve({ data: [] as { session_id: string; student_id: string }[] }),
+      rapportIds.length
+        ? supabase.from('documents').select('*').in('session_report_id', rapportIds)
+        : Promise.resolve({ data: [] as Document[] }),
     ])
     const sessionParId = new Map((sessions ?? []).map((s) => [s.id, s]))
+    const supportsParRapport = new Map<string, Document[]>()
+    for (const d of supportsBruts ?? []) {
+      if (!d.session_report_id) continue
+      const liste = supportsParRapport.get(d.session_report_id) ?? []
+      // Dédoublonnage par nom : une copie du même fichier existe par destinataire (professeur +
+      // chaque élève), inutile de la lister plusieurs fois pour une même personne qui les voit
+      // toutes (l'admin, par exemple, voit la copie du professeur ET celle de chaque élève).
+      if (!liste.some((existant) => existant.nom_original === d.nom_original)) liste.push(d)
+      supportsParRapport.set(d.session_report_id, liste)
+    }
 
     const profileIds = [
       ...new Set([...(rapports ?? []).map((r) => r.teacher_id), ...(enrollments ?? []).map((e) => e.student_id)]),
@@ -46,6 +69,7 @@ export function useSessionReports() {
         .filter((e) => e.session_id === rapport.session_id)
         .map((e) => profilParId.get(e.student_id))
         .filter((p): p is Profile => !!p),
+      supports: supportsParRapport.get(rapport.id) ?? [],
     }))
   })
 
