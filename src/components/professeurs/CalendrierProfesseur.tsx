@@ -34,7 +34,7 @@ import { useDetailSeance } from '../../hooks/useDetailSeance'
 import { CompteRenduSeance } from './CompteRenduSeance'
 import { PlanningPrevisionnelProfesseur } from './PlanningPrevisionnelProfesseur'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
-import { champStyle } from '../ui/Champ'
+import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { formaterHeures } from '../../lib/heures'
 import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 import { ChampDate } from '../ui/ChampDate'
@@ -661,7 +661,12 @@ function CarteSeance({
 
       {clotureOuverte && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)' }}>Présence</span>
+          {/* `etiquetteStyle` (var(--ink), majuscules) plutôt que l'ancien `--ink-2` : ce dernier
+              rendait l'intitulé « Présence » plus terne que les noms d'élèves qu'il annonce
+              juste en dessous (`--ink`, ligne suivante) — l'inverse de la hiérarchie attendue.
+              Demande client du 2026-09-30 : « rendre les intitulés plus visibles pour qu'ils ne
+              se mélangent pas avec les autres informations ». */}
+          <span style={etiquetteStyle}>Présence</span>
           {seance.inscriptions.map((i) => (
             <label key={i.student_id} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--ink)', cursor: 'pointer' }}>
               <input
@@ -731,9 +736,7 @@ function CarteSeance({
 
       {seance.session.statut === 'terminee' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            Enquête de satisfaction
-          </span>
+          <span style={{ ...etiquetteStyle, fontSize: 11 }}>Enquête de satisfaction</span>
           <EnqueteSatisfactionAffichage
             satisfactions={detailSatisfaction?.satisfactions ?? []}
             resoudreNom={(id) => nomsElevesInscrits(seance.inscriptions.filter((i) => i.student_id === id))[0] ?? 'Élève'}

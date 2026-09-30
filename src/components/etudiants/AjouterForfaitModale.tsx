@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { Modale } from '../ui/Modale'
-import { Champ, champStyle, LigneInfo } from '../ui/Champ'
+import { Champ, champStyle, etiquetteStyle, LigneInfo } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
 import { boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { ChampDate } from '../ui/ChampDate'
@@ -101,9 +101,7 @@ export function AjouterForfaitModale({
             background: paiementConfirme ? 'rgba(111,227,192,.08)' : 'var(--surface-alt)',
           }}
         >
-          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            Paiement
-          </span>
+          <span style={{ ...etiquetteStyle, fontSize: 11 }}>Paiement</span>
 
           {paiementConfirme ? (
             <>

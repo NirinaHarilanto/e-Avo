@@ -25,12 +25,19 @@ export const champStyleCompact: CSSProperties = {
   background: 'rgba(0,0,0,.24)',
 }
 
+/* `--muted` (couleur d'origine, jusqu'au 2026-09-30) se fondait dans les autres informations
+   d'un popup ou d'une checklist dense (retour client explicite : « il faut rendre les intitulés
+   plus visibles pour qu'ils ne se mélangent pas avec les autres informations ») — la majuscule,
+   le gras et l'espacement des lettres ne suffisaient pas à compenser une couleur aussi proche de
+   celle du texte environnant. `--ink`, la couleur la plus lumineuse du thème (réservée jusqu'ici
+   aux titres), rétablit une vraie hiérarchie : l'intitulé se voit avant le contenu qu'il annonce,
+   pas l'inverse. */
 export const etiquetteStyle: CSSProperties = {
   fontSize: 11.5,
-  fontWeight: 700,
-  color: 'var(--muted)',
+  fontWeight: 800,
+  color: 'var(--ink)',
   textTransform: 'uppercase',
-  letterSpacing: 0.5,
+  letterSpacing: 0.6,
 }
 
 interface ChampProps {

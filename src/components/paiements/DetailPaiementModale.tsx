@@ -12,7 +12,7 @@ import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 import type { Database } from '../../types/database.types'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
 import { Modale } from '../ui/Modale'
-import { Champ, champStyle, LigneInfo } from '../ui/Champ'
+import { Champ, champStyle, etiquetteStyle, LigneInfo } from '../ui/Champ'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { ChampDate } from '../ui/ChampDate'
@@ -472,9 +472,7 @@ function BlocDocuments({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
-      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        {estProfesseur ? 'Facture' : 'Facture et reçus'}
-      </span>
+      <span style={etiquetteStyle}>{estProfesseur ? 'Facture' : 'Facture et reçus'}</span>
       {facture && ligneDocument(facture)}
       {recus.map(ligneDocument)}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -560,9 +558,7 @@ function BlocHeures({ heures, tauxHoraire }: { heures: HeureEnseignee[]; tauxHor
   const total = arrondi(heures.reduce((somme, h) => somme + h.heures, 0))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        Heures enseignées couvertes
-      </span>
+      <span style={etiquetteStyle}>Heures enseignées couvertes</span>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 180, overflowY: 'auto' }}>
         {heures.map((h) => (
           <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12.5, color: 'var(--ink-2)', padding: '5px 8px', borderRadius: 7, background: 'rgba(255,255,255,.03)' }}>
@@ -594,9 +590,7 @@ function BlocVersements({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-        Acomptes enregistrés
-      </span>
+      <span style={etiquetteStyle}>Acomptes enregistrés</span>
       {versements.length === 0 ? (
         <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0 }}>Aucun acompte pour l’instant.</p>
       ) : (
@@ -654,7 +648,7 @@ function FormulaireAcompte({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
-      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+      <span style={etiquetteStyle}>
         {estProfesseur ? 'Enregistrer un versement' : paiementUnique != null ? 'Enregistrer le règlement' : 'Enregistrer un acompte'}
       </span>
       {!estProfesseur && (

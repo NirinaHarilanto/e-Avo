@@ -3,7 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { formaterMontant } from '../../lib/paiements'
 import type { Database } from '../../types/database.types'
-import { champStyle } from '../ui/Champ'
+import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { boutonSecondaireStyle } from '../ui/Boutons'
 import { MessageErreur } from '../ui/Etats'
 import { ChampDate } from '../ui/ChampDate'
@@ -104,9 +104,7 @@ export function EcheancierPaiement({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 9, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
-      <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)' }}>
-        Échéancier
-      </span>
+      <span style={{ ...etiquetteStyle, fontSize: 11 }}>Échéancier</span>
 
       {erreur && <MessageErreur>{erreur}</MessageErreur>}
 

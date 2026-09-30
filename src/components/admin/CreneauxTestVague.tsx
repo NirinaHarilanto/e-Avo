@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { formaterDansFuseauEtablissement, FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 import { instantDepuisLocal, partiesLocales } from '../../lib/creneaux'
 import type { Database, NiveauClasse } from '../../types/database.types'
-import { Champ, champStyle } from '../ui/Champ'
+import { Champ, champStyle, etiquetteStyle } from '../ui/Champ'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
@@ -234,7 +234,7 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)', flexGrow: 1 }}>
+        <span style={{ ...etiquetteStyle, fontSize: 11, flexGrow: 1 }}>
           Sessions de test oral
           {totalCandidats > 0 && (
             <span style={{ marginLeft: 8, textTransform: 'none', letterSpacing: 0, fontWeight: 700, color: 'var(--accent-blue)' }}>

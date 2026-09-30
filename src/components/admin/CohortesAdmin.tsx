@@ -18,7 +18,7 @@ import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { boutonPrimaireStyle, boutonSecondaireStyle, boutonDangerStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
-import { champStyle } from '../ui/Champ'
+import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { Onglets } from '../ui/Onglets'
 import { Modale } from '../ui/Modale'
 import { ChampRecherche } from '../ui/BarreOutils'
@@ -826,9 +826,7 @@ function AjouterEtudiantsClasse({
         {erreur && <MessageErreur>{erreur}</MessageErreur>}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)' }}>
-            Déjà dans cette promotion, sans classe
-          </span>
+          <span style={{ ...etiquetteStyle, fontSize: 11 }}>Déjà dans cette promotion, sans classe</span>
           {sansClasse === null ? (
             <EtatChargement lignes={1} hauteur={30} />
           ) : sansClasse.length === 0 ? (
@@ -843,9 +841,7 @@ function AjouterEtudiantsClasse({
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)' }}>
-            Rechercher un autre élève
-          </span>
+          <span style={{ ...etiquetteStyle, fontSize: 11 }}>Rechercher un autre élève</span>
           <p style={{ fontSize: 11, color: 'var(--muted-2)', margin: 0, lineHeight: 1.5 }}>
             S'il suit déjà une autre promotion et n'a pas encore consommé d'heures dans celle-ci, il en sera retiré
             pour rejoindre celle-ci.

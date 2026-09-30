@@ -4,7 +4,7 @@ import { useHistoriqueSeance } from '../../hooks/useHistoriqueSeance'
 import type { Database } from '../../types/database.types'
 import { getJoinUrl, estLienReel } from '../../lib/visio'
 import { Modale } from '../ui/Modale'
-import { Champ, champStyle } from '../ui/Champ'
+import { Champ, champStyle, etiquetteStyle } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { ChampDate } from '../ui/ChampDate'
@@ -198,9 +198,7 @@ export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre, e
 
         {!chargementHistorique && modifications.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft, var(--border))', paddingTop: 12 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.6 }}>
-              Historique des modifications
-            </span>
+            <span style={{ ...etiquetteStyle, fontSize: 11 }}>Historique des modifications</span>
             {modifications.map(({ modification, auteur }) => (
               <div key={modification.id} style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5 }}>
                 <span style={{ color: 'var(--muted)' }}>

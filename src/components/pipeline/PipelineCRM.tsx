@@ -28,7 +28,7 @@ import { GrilleStats, Stat } from '../ui/Stat'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { Modale } from '../ui/Modale'
 import { boutonPrimaireStyle } from '../ui/Boutons'
-import { champStyle } from '../ui/Champ'
+import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { Icone } from '../ui/Icones'
 
 const COULEUR_COLONNE: Record<string, string> = {
@@ -873,9 +873,7 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
 
             {prospect.objectif && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  Objectif indiqué à la réservation
-                </span>
+                <span style={{ ...etiquetteStyle, fontSize: 11 }}>Objectif indiqué à la réservation</span>
                 <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
                   « {prospect.objectif} »
                 </p>
@@ -1603,7 +1601,7 @@ function BlocPaiementForfait({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 10 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+      <span style={{ ...etiquetteStyle, fontSize: 11 }}>
         {essai ? 'Paiement de la séance d’essai' : 'Paiement du forfait choisi'}
       </span>
 
@@ -1716,7 +1714,7 @@ function SelecteurTarifChoisi({
   if (tarifs.length === 0) return null
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Forfait choisi</label>
+      <label style={{ ...etiquetteStyle, fontSize: 11 }}>Forfait choisi</label>
       <select
         value={valeur ?? ''}
         onChange={(e) => onChoisir(e.target.value)}
@@ -1755,9 +1753,7 @@ function BlocQuestionnaire({
         onClick={onBasculer}
         style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
       >
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Trame de l’appel diagnostic
-        </span>
+        <span style={{ ...etiquetteStyle, fontSize: 11 }}>Trame de l’appel diagnostic</span>
         {estRempli(reponses) && (
           <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '2px 8px' }}>
             Remplie
@@ -1807,9 +1803,7 @@ function BlocQuestionnaireDuo({
         onClick={onBasculer}
         style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
       >
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Trame de l’appel diagnostic
-        </span>
+        <span style={{ ...etiquetteStyle, fontSize: 11 }}>Trame de l’appel diagnostic</span>
         {rempli && (
           <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '2px 8px' }}>
             Remplie

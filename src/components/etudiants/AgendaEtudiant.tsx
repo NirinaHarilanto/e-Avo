@@ -9,7 +9,7 @@ import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
 import { Modale } from '../ui/Modale'
-import { LigneInfo } from '../ui/Champ'
+import { LigneInfo, etiquetteStyle } from '../ui/Champ'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
@@ -323,9 +323,7 @@ function FicheSeance({
 
         {termine && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft, var(--border))', paddingTop: 12 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Compte rendu du cours
-            </span>
+            <span style={{ ...etiquetteStyle, fontSize: 11 }}>Compte rendu du cours</span>
             {detail?.compteRendu ? (
               <CompteRenduAffichage rapport={detail.compteRendu} />
             ) : (
@@ -336,9 +334,7 @@ function FicheSeance({
 
         {termine && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft, var(--border))', paddingTop: 12 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Votre avis
-            </span>
+            <span style={{ ...etiquetteStyle, fontSize: 11 }}>Votre avis</span>
             <EnqueteSatisfactionAffichage satisfactions={detail?.satisfactions ?? []} />
           </div>
         )}

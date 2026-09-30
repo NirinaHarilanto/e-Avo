@@ -10,6 +10,7 @@ import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
 import { ListeRepliable, TexteRepliable } from '../ui/Repliable'
 import { Icone } from '../ui/Icones'
 import { boutonSecondaireStyle } from '../ui/Boutons'
+import { etiquetteStyle } from '../ui/Champ'
 
 /* Portée de la synthèse — ce que l'utilisateur a le droit de voir est déjà décidé par la RLS
    (voir useComptesRendusEtudiant) ; ce réglage ne fait que le DIRE à l'écran, pour qu'un
@@ -28,8 +29,11 @@ const TON_TENDANCE = {
 }
 
 function EnTeteBloc({ titre, compteur }: { titre: string; compteur?: number }) {
+  // `etiquetteStyle` (couleur `--ink`), pas `--muted` : demande client du 2026-09-30, une fenêtre
+  // aussi dense que cette synthèse est justement le cas où un intitulé terne se perd le plus
+  // facilement parmi les chiffres et badges qui l'entourent.
   return (
-    <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.6 }}>
+    <span style={{ ...etiquetteStyle, fontSize: 10.5 }}>
       {titre}
       {compteur !== undefined && ` · ${compteur}`}
     </span>

@@ -6,6 +6,7 @@ import { formaterMinutes } from '../../lib/heures'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { Icone } from '../ui/Icones'
+import { etiquetteStyle } from '../ui/Champ'
 
 async function telechargerSupport(storagePath: string) {
   const { data } = await supabase.storage.from('documents').createSignedUrl(storagePath, 60)
@@ -111,7 +112,12 @@ export function ListeComptesRendus({
                     (voir le commentaire de `supports` sur CompteRenduComplet). */}
                 {supports.length > 0 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    {/* `var(--ink)`, pas `var(--muted)` : demande client du 2026-09-30, « rendre
+                        les intitulés plus visibles pour qu'ils ne se mélangent pas avec les
+                        autres informations » — voir le même correctif sur `etiquetteStyle`
+                        (ui/Champ.tsx), dont ce libellé reprend maintenant les valeurs plutôt que
+                        de les dupliquer. */}
+                    <span style={{ ...etiquetteStyle, fontSize: 11 }}>
                       Support{supports.length > 1 ? 's' : ''} de cours
                     </span>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>

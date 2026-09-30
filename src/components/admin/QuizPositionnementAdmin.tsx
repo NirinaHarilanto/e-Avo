@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
-import { Champ, champStyle } from '../ui/Champ'
+import { Champ, champStyle, etiquetteStyle } from '../ui/Champ'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
@@ -189,9 +189,7 @@ function FormulaireQuestion({
         </Champ>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            Propositions — cochez la bonne réponse
-          </span>
+          <span style={etiquetteStyle}>Propositions — cochez la bonne réponse</span>
           {options.map((option, index) => (
             <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
               <input

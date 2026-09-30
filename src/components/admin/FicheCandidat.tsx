@@ -397,9 +397,13 @@ function Actions({ children }: { children: ReactNode }) {
 }
 
 function TexteLong({ titre, texte }: { titre: string; texte: string }) {
+  // `var(--ink)`, pas `var(--muted)` (jusqu'au 2026-09-30) : un sous-intitulé aussi terne se
+  // perdait devant le paragraphe qu'il annonce — demande client, « rendre les intitulés plus
+  // visibles pour qu'ils ne se mélangent pas avec les autres informations ». Reste sous la
+  // couleur or des titres de section (`titreSection`) pour garder les deux niveaux distincts.
   return (
     <div>
-      <p style={{ ...titreSection, color: 'var(--muted)', marginBottom: 4 }}>{titre}</p>
+      <p style={{ ...titreSection, color: 'var(--ink)', marginBottom: 4 }}>{titre}</p>
       <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--ink-2)', whiteSpace: 'pre-wrap' }}>{texte}</p>
     </div>
   )

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { CHAMPS_TEXTE_COMPTE_RENDU, CHAMPS_TEXTE_SUITE, NIVEAUX_PROGRES, OBJECTIFS_COURS } from '../../lib/compteRendu'
 import type { Database } from '../../types/database.types'
-import { Champ, champStyle } from '../ui/Champ'
+import { Champ, champStyle, etiquetteStyle } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
 import { boutonNeutreStyle, boutonSecondaireStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
@@ -202,9 +202,7 @@ export function CompteRenduSeance({ sessionId, etablissementId, teacherId, stude
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Objectif
-        </span>
+        <span style={etiquetteStyle}>Objectif</span>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           {OBJECTIFS_COURS.map((objectif) => (
             <label key={objectif.valeur} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--ink-2)', cursor: 'pointer' }}>
@@ -231,9 +229,7 @@ export function CompteRenduSeance({ sessionId, etablissementId, teacherId, stude
       ))}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Progrès
-        </span>
+        <span style={etiquetteStyle}>Progrès</span>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
           {NIVEAUX_PROGRES.map((niveau) => (
             <label key={niveau.valeur} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--ink-2)', cursor: 'pointer' }}>
@@ -262,9 +258,7 @@ export function CompteRenduSeance({ sessionId, etablissementId, teacherId, stude
 
       {studentIds && studentIds.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-            Support de cours (facultatif)
-          </span>
+          <span style={etiquetteStyle}>Support de cours (facultatif)</span>
           <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted-2)', lineHeight: 1.5 }}>
             Visible par l’élève, par vous et par l’administration une fois le compte rendu enregistré.
           </p>

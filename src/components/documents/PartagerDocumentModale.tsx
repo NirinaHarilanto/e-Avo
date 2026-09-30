@@ -3,7 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { Modale } from '../ui/Modale'
-import { Champ, champStyle, LigneInfo } from '../ui/Champ'
+import { Champ, champStyle, etiquetteStyle, LigneInfo } from '../ui/Champ'
 import { MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 
@@ -148,9 +148,7 @@ export function PartagerDocumentModale({
 
         {partages.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid var(--border-soft)', paddingTop: 11 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Déjà partagé avec
-            </span>
+            <span style={{ ...etiquetteStyle, fontSize: 11 }}>Déjà partagé avec</span>
             {partages.map((p) => (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1 }}>
