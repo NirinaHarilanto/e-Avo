@@ -9,7 +9,7 @@ import { CreerDevis } from '../facturation/CreerDevis'
 import { CreerFacture } from '../facturation/CreerFacture'
 import { DevisImprimable } from '../facturation/DevisImprimable'
 import type { ActionImpression } from '../facturation/OverlayImpression'
-import { FactureImprimable } from '../facturation/FactureImprimable'
+import { FactureImprimable, estRecu } from '../facturation/FactureImprimable'
 import type { StatutDevis, StatutFacture } from '../../types/database.types'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -20,7 +20,7 @@ import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 
-type Onglet = 'devis' | 'factures'
+type Onglet = 'devis' | 'factures' | 'recus'
 
 /* Intitulé au-dessus de chaque zone d'information d'une ligne de devis (demande client du
    2026-09-29) : numéro/étudiant, objet, montant et statut s'affichaient sans aucun libellé. */
@@ -53,10 +53,17 @@ export function FacturationAdmin() {
   const [actionImpression, setActionImpression] = useState<ActionImpression>('voir')
 
   const { devis, loading: chargementDevis, erreur: erreurDevis, recharger: rechargerDevis } = useDevis()
-  const { factures, loading: chargementFactures, erreur: erreurFactures, recharger: rechargerFactures } = useFactures()
+  const { factures: toutesLesFactures, loading: chargementFactures, erreur: erreurFactures, recharger: rechargerFactures } = useFactures()
   const { paiements } = usePaiementsEtudiants()
 
   const devisAcceptes = devis.filter((d) => d.devis.statut === 'accepte')
+  /* Une transaction réglée porte à la fois une facture et un reçu (généré automatiquement au
+     solde complet, trigger 0030/0080) : les compter ensemble double le montant affiché — bug
+     signalé par le client le 2026-09-30, corrigé par ces deux listes désormais distinctes plutôt
+     qu'une seule mêlant les deux types de document. */
+  const factures = toutesLesFactures.filter((f) => !estRecu(f.facture))
+  const recus = toutesLesFactures.filter((f) => estRecu(f.facture))
+  const listeActive = onglet === 'recus' ? recus : factures
 
   return (
     <AdminLayout actif="Facturation">
@@ -64,10 +71,14 @@ export function FacturationAdmin() {
         titre="Facturation"
         description="Les devis proposés aux étudiants et les factures émises. Un devis accepté se transforme en facture en un clic, sans ressaisir les lignes."
         actions={
-          <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
-            <Icone nom="plus" taille={15} />
-            {formulaireOuvert ? 'Fermer' : onglet === 'devis' ? 'Nouveau devis' : 'Nouvelle facture'}
-          </button>
+          // Un reçu s'ajoute tout seul au solde complet d'un paiement (trigger 0030/0080) —
+          // rien à créer à la main pour cet onglet, contrairement aux devis et aux factures.
+          onglet !== 'recus' ? (
+            <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
+              <Icone nom="plus" taille={15} />
+              {formulaireOuvert ? 'Fermer' : onglet === 'devis' ? 'Nouveau devis' : 'Nouvelle facture'}
+            </button>
+          ) : undefined
         }
       />
 
@@ -103,6 +114,7 @@ export function FacturationAdmin() {
           }}
           onglets={[
             { value: 'factures', label: 'Factures', compteur: factures.length },
+            { value: 'recus', label: 'Reçus', compteur: recus.length },
             { value: 'devis', label: 'Devis', compteur: devis.length },
           ]}
         />
@@ -147,6 +159,21 @@ export function FacturationAdmin() {
               ton={factures.some((f) => f.facture.statut === 'en_retard') ? 'alerte' : 'neutre'}
             />
             <Stat libelle="Factures émises" valeur={factures.length} ton="neutre" />
+          </GrilleStats>
+        </div>
+      )}
+
+      {onglet === 'recus' && !chargementFactures && recus.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <GrilleStats min={180}>
+            <Stat
+              libelle="Total reçu"
+              valeur={recus.reduce((total, f) => (f.facture.statut === 'annulee' ? total : total + f.facture.montant_ttc), 0).toFixed(2)}
+              unite="Ar"
+              ton="or"
+              aide="Hors reçus annulés"
+            />
+            <Stat libelle="Reçus émis" valeur={recus.length} ton="neutre" />
           </GrilleStats>
         </div>
       )}
@@ -198,15 +225,19 @@ export function FacturationAdmin() {
         <EtatChargement lignes={3} hauteur={84} />
       ) : erreurFactures ? (
         <MessageErreur>{erreurFactures}</MessageErreur>
-      ) : factures.length === 0 ? (
+      ) : listeActive.length === 0 ? (
         <EtatVide
           icone="facturation"
-          titre="Aucune facture enregistrée"
-          description="Créez une facture depuis un devis accepté, ou directement si vous n’êtes pas passé par un devis. Les factures de rémunération des professeurs apparaîtront aussi ici."
+          titre={onglet === 'recus' ? 'Aucun reçu enregistré' : 'Aucune facture enregistrée'}
+          description={
+            onglet === 'recus'
+              ? 'Un reçu est ajouté automatiquement dès qu’un règlement est intégralement soldé — rien à créer à la main ici.'
+              : 'Créez une facture depuis un devis accepté, ou directement si vous n’êtes pas passé par un devis. Les factures de rémunération des professeurs apparaîtront aussi ici.'
+          }
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {factures.map((f) => (
+          {listeActive.map((f) => (
             <LigneFacture
               key={f.facture.id}
               item={f}
