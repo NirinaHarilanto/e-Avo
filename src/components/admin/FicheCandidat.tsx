@@ -131,7 +131,11 @@ export function FicheCandidat({
   const etapeCourante = ETAPES.find((e) => e.statut === c.statut)
 
   return (
-    <Modale titre={`${c.prenom} ${c.nom} · ${etapeCourante?.libelle ?? ''}`} onFermer={onFermer} largeurMax={820}>
+    // La checklist se saisit dans l'état local et n'est écrite en base qu'au clic sur
+    // « Enregistrer » (voir plus bas) — un clic accidentel en dehors de cette fenêtre ne doit
+    // jamais faire perdre une évaluation en cours de remplissage (demande client du 2026-09-30 :
+    // « le seul moyen de quitter la checklist [doit être] le petit croix en haut à droite »).
+    <Modale titre={`${c.prenom} ${c.nom} · ${etapeCourante?.libelle ?? ''}`} onFermer={onFermer} largeurMax={820} fermetureExterieureDesactivee>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <Frise statut={c.statut} />
 

@@ -7,6 +7,15 @@ interface ModaleProps {
   onFermer: () => void
   children: ReactNode
   largeurMax?: number
+  /* Désactive la fermeture par clic à l'extérieur ET par Échap — seule la croix en haut à droite
+     ferme alors la fenêtre (demande client du 2026-09-30, pour les checklists : « le seul moyen
+     de quitter la checklist [doit être] le petit croix en haut à droite. Toute clique à
+     l'extérieure ne la fermera pas »). Un clic accidentel en dehors d'une longue évaluation en
+     cours de saisie (fiche candidat, par exemple) ne doit jamais la faire disparaître. Faux par
+     défaut : ce comportement reste l'exception, pas la règle, pour les popups ponctuelles de
+     l'application (confirmation, détail en lecture seule…) où fermer d'un clic extérieur est un
+     raccourci attendu. */
+  fermetureExterieureDesactivee?: boolean
 }
 
 /* Rang d'empilement d'une fenêtre parmi celles déjà ouvertes : la fiche d'un prospect ouvre
@@ -21,11 +30,12 @@ const ProfondeurModale = createContext(0)
 /* Fenêtre pop-up générique, sombre, dans le même thème que le reste de l'application.
    Utilisée en premier lieu pour le détail d'un prospect (carte de pipeline repliée par
    défaut), réutilisable partout où une action ponctuelle ne justifie pas une page dédiée. */
-export function Modale({ titre, onFermer, children, largeurMax = 480 }: ModaleProps) {
+export function Modale({ titre, onFermer, children, largeurMax = 480, fermetureExterieureDesactivee = false }: ModaleProps) {
   const voile = useRef<HTMLDivElement>(null)
   const profondeur = useContext(ProfondeurModale)
 
   useEffect(() => {
+    if (fermetureExterieureDesactivee) return
     /* Échap ne referme que la fenêtre du dessus : les deux écoutent `document`, sans ce filtre
        elles se fermeraient ensemble et l'admin perdrait la fiche à chaque acompte saisi. Le rang
        est relu dans le DOM au moment de la frappe — une pile alimentée au montage donnerait
@@ -45,7 +55,7 @@ export function Modale({ titre, onFermer, children, largeurMax = 480 }: ModalePr
     }
     document.addEventListener('keydown', surEchap)
     return () => document.removeEventListener('keydown', surEchap)
-  }, [onFermer])
+  }, [onFermer, fermetureExterieureDesactivee])
 
   /* Monté dans `document.body` plutôt qu'à l'endroit où le composant est écrit : un ancêtre
      portant `transform` (`.card-lift:hover` soulève la carte de 2 px) devient le bloc conteneur
@@ -57,7 +67,7 @@ export function Modale({ titre, onFermer, children, largeurMax = 480 }: ModalePr
     <div
       ref={voile}
       data-modale={profondeur}
-      onClick={onFermer}
+      onClick={fermetureExterieureDesactivee ? undefined : onFermer}
       style={{
         position: 'fixed',
         inset: 0,

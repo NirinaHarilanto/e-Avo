@@ -107,4 +107,55 @@ describe('Modale', () => {
 
     expect(fermerParent).toHaveBeenCalledTimes(1)
   })
+
+  /* `fermetureExterieureDesactivee` (demande client du 2026-09-30, pour les checklists : « le
+     seul moyen de quitter la checklist [doit être] le petit croix en haut à droite. Toute clique
+     à l'extérieure ne la fermera pas ») — comportement par défaut d'abord (inchangé), puis le
+     comportement dédié. Une régression ici romprait silencieusement soit les dizaines de popups
+     existantes qui ferment au clic extérieur/Échap, soit la protection anti-perte de saisie
+     qu'on vient d'ajouter pour la fiche candidat. */
+  it('se ferme par défaut au clic sur le voile extérieur', () => {
+    const onFermer = vi.fn()
+    render(
+      <Modale titre="Titre" onFermer={onFermer}>
+        <p>Contenu</p>
+      </Modale>,
+    )
+    fireEvent.click(screen.getByRole('dialog').parentElement as HTMLElement)
+    expect(onFermer).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignore le clic extérieur et Échap quand fermetureExterieureDesactivee est posé', () => {
+    const onFermer = vi.fn()
+    render(
+      <Modale titre="Checklist" onFermer={onFermer} fermetureExterieureDesactivee>
+        <p>Contenu</p>
+      </Modale>,
+    )
+    fireEvent.click(screen.getByRole('dialog').parentElement as HTMLElement)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onFermer).not.toHaveBeenCalled()
+  })
+
+  it('la croix ferme toujours la fenêtre, même avec fermetureExterieureDesactivee', () => {
+    const onFermer = vi.fn()
+    render(
+      <Modale titre="Checklist" onFermer={onFermer} fermetureExterieureDesactivee>
+        <p>Contenu</p>
+      </Modale>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Fermer' }))
+    expect(onFermer).toHaveBeenCalledTimes(1)
+  })
+
+  it('un clic à l’intérieur de la fenêtre ne la ferme jamais, avec ou sans le réglage', () => {
+    const onFermer = vi.fn()
+    render(
+      <Modale titre="Titre" onFermer={onFermer} fermetureExterieureDesactivee>
+        <p>Contenu</p>
+      </Modale>,
+    )
+    fireEvent.click(screen.getByText('Contenu'))
+    expect(onFermer).not.toHaveBeenCalled()
+  })
 })
