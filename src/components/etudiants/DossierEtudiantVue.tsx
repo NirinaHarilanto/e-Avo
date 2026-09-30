@@ -269,7 +269,15 @@ function BlocPeriode({
   satisfactionEtudiantId?: string
   onSatisfactionEnregistree?: () => void
 }) {
-  const heures = periode.seances.reduce((total, s) => total + s.session.duree_minutes / 60, 0)
+  // « enseignées » ne doit compter que les séances réellement COMPTÉES (statut « terminée ») —
+  // avant ce filtre, une séance encore planifiée (future) ou reportée (0085, demande client du
+  // 2026-09-30 : « il ne faut pas la comptabiliser comme une heure enseignée ») gonflait ce
+  // total au même titre qu'une séance effectivement tenue. `heuresConsommees`/`heuresEnseignees`
+  // globaux (vues `student_hours_summary`/`teacher_hours_summary`, dérivées de `hour_ledger`)
+  // n'avaient PAS ce bug : `hour_ledger` n'écrit jamais rien pour une séance reportée
+  // (api/professeur/cloturer-seance.ts) — seul ce total PAR PÉRIODE, recalculé ici depuis les
+  // séances brutes plutôt que depuis le grand livre, y était exposé.
+  const heures = periode.seances.filter((s) => s.session.statut === 'terminee').reduce((total, s) => total + s.session.duree_minutes / 60, 0)
   return (
     <div
       style={{
