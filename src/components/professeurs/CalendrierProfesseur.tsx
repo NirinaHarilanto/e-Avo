@@ -135,6 +135,14 @@ export function CalendrierProfesseur() {
      jour, pas celle capturée au moment du clic. */
   const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
   const [elementOuvertId, setElementOuvertId] = useState<string | null>(null)
+  /* Distingue un clic sur une séance pour la CONSULTER (ouvre la fiche, émargement replié) d'un
+     clic sur « Clôturer » depuis la vue Liste (ouvre la MÊME fiche, mais émargement déjà déplié)
+     — demande client du 2026-09-30 : « quand je clôture une séance [...] le pop-up avec
+     l'émargement de l'étudiant et avec la possibilité de renseigner le compte rendu [...] devrait
+     s'afficher ». En vue Agenda, la fiche s'ouvrait déjà en pop-up (clic sur l'événement) ; en
+     vue Liste, « Clôturer » dépliait jusqu'ici l'émargement SUR LA PAGE, au milieu de la carte —
+     pas en pop-up. */
+  const [seanceACloturerId, setSeanceACloturerId] = useState<string | null>(null)
 
   const maintenant = new Date().toISOString()
   const aVenir = seances
@@ -272,7 +280,16 @@ export function CalendrierProfesseur() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {aVenir.map((seance) => (
-                    <CarteSeance key={seance.session.id} seance={seance} maintenant={maintenant} onChange={recharger} />
+                    <CarteSeance
+                      key={seance.session.id}
+                      seance={seance}
+                      maintenant={maintenant}
+                      onChange={recharger}
+                      onDemandeCloture={() => {
+                        setSeanceOuverteId(seance.session.id)
+                        setSeanceACloturerId(seance.session.id)
+                      }}
+                    />
                   ))}
                 </div>
               )}
@@ -296,12 +313,21 @@ export function CalendrierProfesseur() {
       {seanceOuverte && (
         <Modale
           titre={new Date(seanceOuverte.session.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
-          onFermer={() => setSeanceOuverteId(null)}
+          onFermer={() => {
+            setSeanceOuverteId(null)
+            setSeanceACloturerId(null)
+          }}
           largeurMax={520}
         >
           {/* Exactement la carte de la vue liste, sans son cadre : présence, clôture, annulation,
               reprogrammation et compte rendu restent écrits à un seul endroit. */}
-          <CarteSeance seance={seanceOuverte} maintenant={maintenant} onChange={recharger} sansCadre />
+          <CarteSeance
+            seance={seanceOuverte}
+            maintenant={maintenant}
+            onChange={recharger}
+            sansCadre
+            emargementOuvertADemande={seanceOuverte.session.id === seanceACloturerId}
+          />
         </Modale>
       )}
 
@@ -534,6 +560,8 @@ function CarteSeance({
   maintenant,
   onChange,
   sansCadre = false,
+  onDemandeCloture,
+  emargementOuvertADemande = false,
 }: {
   seance: SeanceProfesseur
   maintenant: string
@@ -541,6 +569,15 @@ function CarteSeance({
   /* Montée dans une modale (depuis l'agenda), la carte perd son propre cadre pour éviter une
      carte dans une carte — même convention que le prop `carte` d'InformationsPersonnelles. */
   sansCadre?: boolean
+  /* Vue Liste uniquement (demande client du 2026-09-30) : au lieu de déplier l'émargement SUR LA
+     PAGE, le clic sur « Clôturer » délègue à l'appelant, qui rouvre cette même carte en pop-up
+     (voir le composant parent) avec `emargementOuvertADemande`. Absent en vue Agenda, où la carte
+     vit déjà dans une pop-up — y déplier l'émargement sur place reste le bon geste. */
+  onDemandeCloture?: () => void
+  /* Pop-up rouverte spécifiquement pour clôturer (vs. simplement consultée) : l'émargement doit
+     être déplié dès l'ouverture, pas seulement après un second clic sur « Clôturer » DANS la
+     pop-up — le premier clic l'a déjà demandé. */
+  emargementOuvertADemande?: boolean
 }) {
   const { session: authSession, profile } = useProfileContext()
   // Résultats de l'enquête de satisfaction (0068) visibles dans l'agenda professeur — demande
@@ -551,7 +588,7 @@ function CarteSeance({
   const [presences, setPresences] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(seance.inscriptions.map((i) => [i.student_id, true])),
   )
-  const [clotureOuverte, setClotureOuverte] = useState(false)
+  const [clotureOuverte, setClotureOuverte] = useState(emargementOuvertADemande)
   const [editionHoraireOuverte, setEditionHoraireOuverte] = useState(false)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -639,7 +676,11 @@ function CarteSeance({
             </a>
           )}
           {dejaCommencee && (
-            <button onClick={() => setClotureOuverte(true)} className="btn-shine" style={{ fontSize: 12.5, padding: '9px 16px', background: 'var(--accent-gradient)', color: '#1b1510' }}>
+            <button
+              onClick={onDemandeCloture ?? (() => setClotureOuverte(true))}
+              className="btn-shine"
+              style={{ fontSize: 12.5, padding: '9px 16px', background: 'var(--accent-gradient)', color: '#1b1510' }}
+            >
               Clôturer
             </button>
           )}
