@@ -13,7 +13,10 @@ import {
   NIVEAUX_CECRL,
   TESTS_ANGLAIS,
   integrationComplete,
-  moyenneSimulation,
+  resultatSimulation,
+  TOTAL_SIMULATION_MAX,
+  TOTAL_SIMULATION_REQUIS,
+  ECHELLE_SIMULATION,
   niveauGlobal,
   niveauGlobalPropose,
   testsReussis,
@@ -37,7 +40,8 @@ const titreSection = { fontSize: 12, fontWeight: 700, color: 'var(--accent-gold,
 
 /* Fiche d'un candidat formateur : dossier reçu, puis l'étape en cours à renseigner. Les étapes
    déjà franchies restent consultables, repliées. Chaque passage à l'étape suivante n'est permis
-   que lorsque sa condition est remplie (documents vérifiés, C1 minimum, avis favorable…). */
+   que lorsque sa condition est remplie (documents vérifiés, C1 minimum, grille de simulation
+   validée à 14/20 sans critère bloquant…). */
 export function FicheCandidat({
   candidature: c,
   contratSigne,
@@ -225,28 +229,24 @@ export function FicheCandidat({
         {rangActuel >= ORDRE.indexOf('simulation') || (c.statut === 'refusee' && Object.keys(c.simulation ?? {}).length > 0) ? (
           <Bloc titre="Simulation de cours sur Google Meet" ouvertParDefaut={c.statut === 'simulation'}>
             <FormulaireChecklist champs={CHECKLIST_SIMULATION} valeurs={simulation} onChange={setSimulation} lectureSeule={passee('simulation')} />
-            {moyenneSimulation(simulation) != null && (
-              <span style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
-                Moyenne des critères : <strong>{moyenneSimulation(simulation)} / 5</strong>
-              </span>
-            )}
+            <ResultatGrilleSimulation valeurs={simulation} />
             {c.statut === 'simulation' && (
               <Actions>
                 <button onClick={() => enregistrer({})} disabled={enCours} style={boutonNeutreStyle}>
                   Enregistrer
                 </button>
+                {/* Le passage en intégration suit la règle écrite du document (14/20 et aucun
+                    critère à 1) et non plus un « avis final » saisi à la main : c'est
+                    l'établissement qui a fixé le seuil, pas celui qui remplit la grille. */}
                 <button
                   onClick={passerEnIntegration}
-                  disabled={enCours || simulation.avis !== 'favorable'}
+                  disabled={enCours || !resultatSimulation(simulation).valide}
                   className="btn-shine"
-                  style={{ ...boutonPrimaireStyle, opacity: simulation.avis === 'favorable' ? 1 : 0.55 }}
+                  style={{ ...boutonPrimaireStyle, opacity: resultatSimulation(simulation).valide ? 1 : 0.55 }}
                 >
                   Passer en intégration (créer son espace professeur) →
                 </button>
               </Actions>
-            )}
-            {c.statut === 'simulation' && simulation.avis !== 'favorable' && (
-              <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>Un avis final « Favorable » est nécessaire pour passer en intégration.</span>
             )}
           </Bloc>
         ) : null}
@@ -254,6 +254,19 @@ export function FicheCandidat({
         {/* Intégration */}
         {rangActuel >= ORDRE.indexOf('integration') && (
           <Bloc titre="Phase d’intégration" ouvertParDefaut>
+            {/* Rappel des points relevés à la simulation : le document de la grille précise qu'ils
+                « serviront à adapter la session 2 » d'onboarding. Les retrouver ici évite de
+                rouvrir l'étape précédente au moment de préparer cette session. */}
+            {typeof simulation.points_ameliorer === 'string' && simulation.points_ameliorer.trim() && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, borderRadius: 11, border: '1px solid rgba(199,156,255,.3)', background: 'rgba(199,156,255,.07)', padding: '10px 13px' }}>
+                <span style={{ fontSize: 10.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--accent-violet)' }}>
+                  À travailler pendant l’onboarding — relevé à la simulation
+                </span>
+                <span style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+                  {simulation.points_ameliorer}
+                </span>
+              </div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {CHECKLIST_INTEGRATION.map((item) =>
                 item.automatique ? (
@@ -396,6 +409,48 @@ function Actions({ children }: { children: ReactNode }) {
   return <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{children}</div>
 }
 
+/* Verdict de la grille officielle (document « HOC_Grille_evaluation_simulation », intégré le
+   2026-10-01), affiché sous les cinq critères. Les deux conditions sont rendues séparément :
+   « 15/20 mais un critère à 1 » doit se lire comme un refus motivé, pas comme un refus
+   inexpliqué — c'est tout l'intérêt d'une règle écrite. */
+function ResultatGrilleSimulation({ valeurs }: { valeurs: ValeursChecklist }) {
+  const resultat = resultatSimulation(valeurs)
+
+  if (!resultat.complete) {
+    return (
+      <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+        Notez les cinq critères pour obtenir le total. Validation à partir de {TOTAL_SIMULATION_REQUIS}/
+        {TOTAL_SIMULATION_MAX}, et aucun critère noté 1.
+      </span>
+    )
+  }
+
+  const ton = resultat.valide
+    ? { color: 'var(--accent-teal)', bg: 'rgba(111,227,192,.1)', border: 'rgba(111,227,192,.32)' }
+    : { color: 'var(--danger)', bg: 'rgba(255,107,107,.08)', border: 'rgba(255,107,107,.3)' }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, borderRadius: 12, border: `1px solid ${ton.border}`, background: ton.bg, padding: '11px 14px' }}>
+      <span style={{ fontSize: 13.5, fontWeight: 700, color: ton.color }}>
+        Total : {resultat.total}/{TOTAL_SIMULATION_MAX} — {resultat.valide ? 'candidat validé' : 'candidat non retenu'}
+      </span>
+      {!resultat.valide && (
+        <span style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+          {resultat.critereBloquant
+            ? `« ${resultat.critereBloquant} » est noté 1 : ce critère est bloquant, quel que soit le total.`
+            : `Le total doit atteindre ${TOTAL_SIMULATION_REQUIS}/${TOTAL_SIMULATION_MAX}.`}
+        </span>
+      )}
+      {resultat.valide && (
+        <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+          Transmettez la grille pour l’annonce et le contrat, puis pour l’onboarding : les points à travailler
+          serviront à adapter la session 2.
+        </span>
+      )}
+    </div>
+  )
+}
+
 function TexteLong({ titre, texte }: { titre: string; texte: string }) {
   // `var(--ink)`, pas `var(--muted)` (jusqu'au 2026-09-30) : un sous-intitulé aussi terne se
   // perdait devant le paragraphe qu'il annonce — demande client, « rendre les intitulés plus
@@ -448,11 +503,20 @@ function FormulaireChecklist({
               ) : champ.type === 'note' ? (
                 <select value={(valeur as number) ?? ''} disabled={lectureSeule} onChange={(e) => definir(champ.cle, e.target.value ? Number(e.target.value) : null)} style={champStyle}>
                   <option value="">—</option>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n}>
-                      {n} / 5
-                    </option>
-                  ))}
+                  {/* Échelle propre au champ : la grille officielle de simulation note sur 4 avec
+                      des libellés qualitatifs (« 1 — Insuffisant (bloquant) »), la pré-sélection
+                      garde sa note sur 5 sans libellé. */}
+                  {champ.noteMax === 4
+                    ? ECHELLE_SIMULATION.map((n) => (
+                        <option key={n.valeur} value={n.valeur}>
+                          {n.libelle}
+                        </option>
+                      ))
+                    : [1, 2, 3, 4, 5].map((n) => (
+                        <option key={n} value={n}>
+                          {n} / 5
+                        </option>
+                      ))}
                 </select>
               ) : champ.type === 'choix' ? (
                 <select value={(valeur as string) ?? ''} disabled={lectureSeule} onChange={(e) => definir(champ.cle, e.target.value || null)} style={champStyle}>

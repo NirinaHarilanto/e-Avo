@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { integrationComplete, moyenneSimulation, niveauAuMoins, niveauGlobal, niveauGlobalPropose, testsReussis } from '../recrutement'
+import {
+  integrationComplete,
+  niveauAuMoins,
+  niveauGlobal,
+  niveauGlobalPropose,
+  resultatSimulation,
+  testsReussis,
+  TOTAL_SIMULATION_REQUIS,
+} from '../recrutement'
 
 describe('tests d’anglais des formateurs', () => {
   it('exige C1 au minimum', () => {
@@ -46,9 +54,43 @@ describe('tests d’anglais des formateurs', () => {
 })
 
 describe('simulation et intégration', () => {
-  it('calcule la moyenne des notes renseignées', () => {
-    expect(moyenneSimulation({ preparation: 4, anglais: 5, pedagogie: 3 })).toBe(4)
-    expect(moyenneSimulation({})).toBeNull()
+  /* Grille officielle (document « HOC_Grille_evaluation_simulation », 2026-10-01) : « un candidat
+     est validé à partir de 14/20, sans aucun critère noté 1 ». Les deux conditions sont testées
+     séparément — c'est la seconde qui se perd le plus facilement en refactorisant. */
+  const grille = (notes: number[]) => ({
+    delivrance: notes[0],
+    oral: notes[1],
+    stress: notes[2],
+    activites: notes[3],
+    methode_hoc: notes[4],
+  })
+
+  it('ne donne aucun total tant que les cinq critères ne sont pas notés', () => {
+    const partiel = resultatSimulation({ delivrance: 4, oral: 4 })
+    expect(partiel.complete).toBe(false)
+    expect(partiel.total).toBeNull()
+    expect(partiel.valide).toBe(false)
+  })
+
+  it('valide à partir du seuil quand aucun critère n’est bloquant', () => {
+    const juste = resultatSimulation(grille([3, 3, 3, 3, 2]))
+    expect(juste.total).toBe(TOTAL_SIMULATION_REQUIS)
+    expect(juste.valide).toBe(true)
+    expect(resultatSimulation(grille([4, 4, 4, 4, 4])).valide).toBe(true)
+  })
+
+  it('refuse juste en dessous du seuil', () => {
+    const dessous = resultatSimulation(grille([3, 3, 3, 2, 2]))
+    expect(dessous.total).toBe(TOTAL_SIMULATION_REQUIS - 1)
+    expect(dessous.valide).toBe(false)
+    expect(dessous.critereBloquant).toBeNull()
+  })
+
+  it('refuse un critère noté 1 même avec un très bon total, et dit lequel', () => {
+    const bloque = resultatSimulation(grille([4, 4, 4, 4, 1]))
+    expect(bloque.total).toBe(17)
+    expect(bloque.valide).toBe(false)
+    expect(bloque.critereBloquant).toContain('Méthode HOC')
   })
 
   it('exige le contrat signé et toutes les étapes d’onboarding', () => {

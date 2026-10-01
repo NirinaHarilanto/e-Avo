@@ -36,6 +36,9 @@ export interface ChampChecklist {
   type: TypeChamp
   aide?: string
   options?: { valeur: string; libelle: string }[]
+  /* Haut de l'échelle d'un champ `note`. 5 par défaut (pré-sélection), mais la grille officielle
+     de simulation de cours note chaque critère sur 4 — voir NOTE_MAX_SIMULATION. */
+  noteMax?: number
 }
 
 export type ValeursChecklist = Record<string, string | number | boolean | null | undefined>
@@ -103,37 +106,134 @@ export function testsReussis(tests: ValeursTests): boolean {
   return tousFaits && niveauAuMoins(niveauGlobal(tests))
 }
 
-/* Compte rendu de la simulation de cours sur Google Meet. */
-export const CHECKLIST_SIMULATION: ChampChecklist[] = [
+/* ---------------------------------------------------------------------------------------------
+   Grille d'évaluation de la simulation de cours — document client « HOC_Grille_evaluation_
+   simulation », intégré le 2026-10-01. Elle remplace la grille maison précédente (8 critères
+   notés sur 5, moyenne indicative, avis final saisi à la main) : c'est désormais la règle écrite
+   de l'établissement qui tranche, et non l'appréciation de celui qui remplit.
+
+   « Un candidat est validé à partir de 14/20, sans aucun critère noté 1. »
+   --------------------------------------------------------------------------------------------- */
+
+export const NOTE_MAX_SIMULATION = 4
+export const TOTAL_SIMULATION_MAX = 20
+export const TOTAL_SIMULATION_REQUIS = 14
+/* Durée plancher de la simulation, annoncée dans la grille (« 30 min minimum »). Renseignée en
+   clair plutôt que contrôlée automatiquement : une simulation de 28 minutes peut rester
+   concluante, c'est à l'évaluatrice d'en juger — le champ sert de trace, pas de verrou. */
+export const DUREE_MIN_SIMULATION = 30
+
+export const ECHELLE_SIMULATION: { valeur: number; libelle: string }[] = [
+  { valeur: 1, libelle: '1 — Insuffisant (bloquant)' },
+  { valeur: 2, libelle: '2 — À améliorer' },
+  { valeur: 3, libelle: '3 — Bon' },
+  { valeur: 4, libelle: '4 — Excellent' },
+]
+
+/* Contexte de la simulation : l'en-tête « Candidat » de la grille. L'évaluatrice n'y figure pas —
+   c'est l'admin connecté qui remplit, et son identité est déjà dans la trace de la candidature ;
+   le niveau aux tests n'y figure pas non plus, l'application le connaît déjà (TESTS_ANGLAIS,
+   C1 minimum contrôlé par `testsReussis`) et l'afficher est plus fiable que le retaper. */
+export const CONTEXTE_SIMULATION: ChampChecklist[] = [
   { cle: 'date_simulation', libelle: 'Date de la simulation', type: 'date' },
-  { cle: 'theme', libelle: 'Thème / niveau du cours simulé', type: 'texte' },
-  { cle: 'preparation', libelle: 'Préparation et structure (objectifs clairs, déroulé)', type: 'note' },
-  { cle: 'anglais', libelle: 'Qualité de l’anglais (prononciation, fluidité, justesse)', type: 'note' },
-  { cle: 'pedagogie', libelle: 'Pédagogie et clarté des explications', type: 'note' },
-  { cle: 'interaction', libelle: 'Interaction et temps de parole laissé à l’élève', type: 'note' },
-  { cle: 'correction', libelle: 'Correction des erreurs', type: 'note' },
-  { cle: 'temps', libelle: 'Gestion du temps', type: 'note' },
-  { cle: 'outils', libelle: 'Maîtrise de Google Meet et des supports', type: 'note' },
-  { cle: 'posture', libelle: 'Posture professionnelle et ponctualité', type: 'note' },
-  { cle: 'points_forts', libelle: 'Points forts', type: 'texte' },
-  { cle: 'points_ameliorer', libelle: 'Points à améliorer', type: 'texte' },
+  { cle: 'theme', libelle: 'Thème choisi par le candidat', type: 'texte' },
   {
-    cle: 'avis',
-    libelle: 'Avis final',
-    type: 'choix',
-    options: [
-      { valeur: 'favorable', libelle: 'Favorable' },
-      { valeur: 'defavorable', libelle: 'Défavorable' },
-    ],
+    cle: 'duree_minutes',
+    libelle: 'Durée effective (minutes)',
+    type: 'nombre',
+    aide: `${DUREE_MIN_SIMULATION} minutes minimum attendues.`,
   },
 ]
 
-export function moyenneSimulation(valeurs: ValeursChecklist): number | null {
-  const notes = CHECKLIST_SIMULATION.filter((c) => c.type === 'note')
-    .map((c) => Number(valeurs[c.cle]))
-    .filter((n) => Number.isFinite(n) && n > 0)
-  if (notes.length === 0) return null
-  return Math.round((notes.reduce((a, b) => a + b, 0) / notes.length) * 10) / 10
+/* Les cinq critères de la grille, dans son ordre, avec « ce que tu observes » en texte d'aide. */
+export const CRITERES_SIMULATION: ChampChecklist[] = [
+  {
+    cle: 'delivrance',
+    libelle: '1. Façon de délivrer la leçon',
+    type: 'note',
+    noteMax: NOTE_MAX_SIMULATION,
+    aide: 'Structure claire (début, déroulé, fin), consignes compréhensibles, gestion du temps.',
+  },
+  {
+    cle: 'oral',
+    libelle: '2. Aisance à l’oral',
+    type: 'note',
+    noteMax: NOTE_MAX_SIMULATION,
+    aide: 'Prononciation, fluidité, langue adaptée à l’apprenant, clarté des explications.',
+  },
+  {
+    cle: 'stress',
+    libelle: '3. Gestion du stress',
+    type: 'note',
+    noteMax: NOTE_MAX_SIMULATION,
+    aide: 'Calme, capacité à rebondir face à une question ou une difficulté, posture assurée.',
+  },
+  {
+    cle: 'activites',
+    libelle: '4. Activités et contenu',
+    type: 'note',
+    noteMax: NOTE_MAX_SIMULATION,
+    aide: 'Pertinence du contenu, variété et intérêt des activités, cohérence avec le thème.',
+  },
+  {
+    cle: 'methode_hoc',
+    libelle: '5. Méthode HOC',
+    type: 'note',
+    noteMax: NOTE_MAX_SIMULATION,
+    aide: 'Place donnée à la conversation, temps de parole laissé à l’apprenant, grammaire au service de la communication.',
+  },
+]
+
+/* Sortie de la grille. « Points à travailler pendant l'onboarding » n'est pas un simple
+   commentaire : le document précise qu'ils servent à adapter la session 2 d'onboarding — ils sont
+   donc rappelés dans la phase d'intégration (voir FicheCandidat.tsx). */
+export const SORTIE_SIMULATION: ChampChecklist[] = [
+  { cle: 'points_forts', libelle: 'Points forts', type: 'texte' },
+  {
+    cle: 'points_ameliorer',
+    libelle: 'Points à travailler pendant l’onboarding',
+    type: 'texte',
+    aide: 'Transmis à l’onboarding : ils serviront à adapter la session 2.',
+  },
+]
+
+/* Conservé pour les écrans qui affichent la grille entière d'un bloc. */
+export const CHECKLIST_SIMULATION: ChampChecklist[] = [
+  ...CONTEXTE_SIMULATION,
+  ...CRITERES_SIMULATION,
+  ...SORTIE_SIMULATION,
+]
+
+export interface ResultatSimulation {
+  /* Total sur 20, ou null tant que les cinq critères ne sont pas tous notés : un total partiel
+     ferait croire à un candidat recalé alors qu'il reste des critères à remplir. */
+  total: number | null
+  critereBloquant: string | null
+  complete: boolean
+  valide: boolean
+}
+
+/* Applique la règle du document, sans interprétation : total de 14/20 ou plus ET aucun critère
+   noté 1. Les deux conditions sont rendues séparément pour que l'écran puisse dire LAQUELLE
+   manque — « 15/20 mais un critère à 1 » doit se lire comme un refus motivé, pas comme un refus
+   inexpliqué. */
+export function resultatSimulation(valeurs: ValeursChecklist): ResultatSimulation {
+  const notes = CRITERES_SIMULATION.map((critere) => {
+    const brut = Number(valeurs[critere.cle])
+    return Number.isFinite(brut) && brut > 0 ? brut : null
+  })
+
+  const complete = notes.every((n) => n !== null)
+  const total = complete ? (notes as number[]).reduce((a, b) => a + b, 0) : null
+  const indexBloquant = notes.findIndex((n) => n === 1)
+  const critereBloquant = indexBloquant >= 0 ? CRITERES_SIMULATION[indexBloquant].libelle : null
+
+  return {
+    total,
+    critereBloquant,
+    complete,
+    valide: complete && (total as number) >= TOTAL_SIMULATION_REQUIS && critereBloquant === null,
+  }
 }
 
 /* Phase d'intégration. La signature du contrat se constate sur le contrat lui-même (statut
