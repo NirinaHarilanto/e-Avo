@@ -2,6 +2,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
 import { creerNotification } from '../_lib/notifications.js'
+import { envoyerDepuisModele, montantLisible } from '../_lib/templatesEmail.js'
 
 export const config = { runtime: 'edge' }
 
@@ -92,5 +93,140 @@ export default async function handler(request: Request): Promise<Response> {
     envoyees += 1
   }
 
-  return Response.json({ relances: envoyees })
+  const recus = await annoncerRecus(serviceClient)
+  const finsDHeures = await alerterFinDHeures(serviceClient)
+
+  return Response.json({ relances: envoyees, recus, finsDHeures })
+}
+
+/**
+ * Modèle 2.3 — « Facture (accusé de réception du paiement) », envoi automatique décidé le
+ * 2026-10-01. Le reçu lui-même est créé par un trigger au passage d'un paiement à « payé »
+ * (0030) : un trigger SQL ne pouvant pas envoyer d'e-mail, c'est ici qu'on reprend les reçus
+ * récents jamais annoncés. `email_envoye_le` (0095) garantit un seul envoi par reçu.
+ *
+ * Fenêtre de 7 jours : au-delà, annoncer un paiement reçu la semaine passée n'a plus de sens, et
+ * ça éviterait surtout d'inonder un élève si la colonne venait à être remise à zéro.
+ */
+async function annoncerRecus(serviceClient: ReturnType<typeof createClient<Database>>): Promise<number> {
+  const depuis = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
+  const { data: recus } = await serviceClient
+    .from('invoices')
+    .select('id, etablissement_id, student_id, montant_ttc, numero')
+    .is('email_envoye_le', null)
+    .gte('created_at', depuis)
+    .not('student_id', 'is', null)
+
+  let envoyes = 0
+  for (const recu of recus ?? []) {
+    if (!recu.student_id) continue
+    const { data: eleve } = await serviceClient
+      .from('profiles')
+      .select('prenom, email')
+      .eq('id', recu.student_id)
+      .maybeSingle()
+    if (!eleve?.email) continue
+
+    const resultat = await envoyerDepuisModele(serviceClient, {
+      etablissementId: recu.etablissement_id,
+      reference: '2.3',
+      destinataires: [eleve.email],
+      /* `invoices` ne porte pas de devise : tous les montants de l'application sont en ariary
+         depuis la correction du 2026-09-29 (le defaut EUR de 0019 etait un reliquat). */
+      valeurs: { prenom: eleve.prenom, montant: montantLisible(recu.montant_ttc) },
+    })
+    /* Marqué même en cas d'échec d'envoi : sans cela, un établissement sans clé Resend
+       retenterait tous les reçus chaque matin indéfiniment. L'admin a de toute façon le reçu
+       dans l'espace de l'élève et peut l'envoyer à la main depuis le modèle 2.3. */
+    await serviceClient.from('invoices').update({ email_envoye_le: new Date().toISOString() }).eq('id', recu.id)
+    if (resultat.envoye) envoyes += 1
+  }
+  return envoyes
+}
+
+/**
+ * Modèle 5.3 — « Fin du volume d'heures : renouvellement ». Déclenché quand le restant passe sous
+ * le seuil de l'établissement (`seuil_alerte_heures_restantes`, 0095, 5 h par défaut), une seule
+ * fois par forfait grâce à `email_fin_heures_le`.
+ *
+ * Le restant se calcule sur le CUMUL des forfaits de l'élève et ses heures consommées
+ * (`student_hours_summary`), comme partout ailleurs dans l'application : un ajout de forfait
+ * (0061) additionne des heures à un total déjà entamé. Alerter forfait par forfait annoncerait
+ * une fin de parcours à un élève qui vient d'en racheter un.
+ */
+async function alerterFinDHeures(serviceClient: ReturnType<typeof createClient<Database>>): Promise<number> {
+  const { data: etablissements } = await serviceClient.from('etablissements').select('id, seuil_alerte_heures_restantes')
+  const seuilParEtablissement = new Map((etablissements ?? []).map((e) => [e.id, e.seuil_alerte_heures_restantes]))
+
+  const { data: forfaits } = await serviceClient
+    .from('packages')
+    .select('id, etablissement_id, student_id, total_heures')
+    .is('email_fin_heures_le', null)
+
+  /* Regroupé par élève : le seuil porte sur son total restant, et un seul e-mail part même s'il a
+     plusieurs forfaits encore non marqués. */
+  const parEleve = new Map<string, { etablissementId: string; forfaitIds: string[]; total: number }>()
+  for (const f of forfaits ?? []) {
+    if (!f.student_id) continue
+    const entree = parEleve.get(f.student_id) ?? { etablissementId: f.etablissement_id, forfaitIds: [], total: 0 }
+    entree.forfaitIds.push(f.id)
+    entree.total += f.total_heures
+    parEleve.set(f.student_id, entree)
+  }
+
+  let envoyes = 0
+  for (const [studentId, entree] of parEleve) {
+    const seuil = seuilParEtablissement.get(entree.etablissementId) ?? 5
+    const { data: resume } = await serviceClient
+      .from('student_hours_summary')
+      .select('heures_consommees')
+      .eq('student_id', studentId)
+      .maybeSingle()
+
+    /* Tous forfaits confondus, y compris ceux déjà marqués : `entree.total` ne couvre que les
+       non marqués, il faut le total réel pour ne pas sous-estimer le restant. */
+    const { data: tousForfaits } = await serviceClient.from('packages').select('total_heures').eq('student_id', studentId)
+    const totalHeures = (tousForfaits ?? []).reduce((somme, f) => somme + f.total_heures, 0)
+    const restantes = totalHeures - (resume?.heures_consommees ?? 0)
+
+    // Au-dessus du seuil : rien à faire, et surtout rien à marquer (l'alerte reste à venir).
+    if (restantes > seuil) continue
+    // Volume déjà épuisé : le renouvellement « sans interruption » n'a plus d'objet, et l'élève a
+    // reçu les relances d'échéance. On marque pour ne pas y revenir chaque matin.
+    if (restantes <= 0) {
+      for (const id of entree.forfaitIds) {
+        await serviceClient.from('packages').update({ email_fin_heures_le: new Date().toISOString() }).eq('id', id)
+      }
+      continue
+    }
+
+    const { data: eleve } = await serviceClient.from('profiles').select('prenom, email').eq('id', studentId).maybeSingle()
+    const { data: affectation } = await serviceClient
+      .from('teacher_assignments')
+      .select('teacher_id')
+      .eq('student_id', studentId)
+      .is('date_fin', null)
+      .maybeSingle()
+    const { data: professeur } = affectation
+      ? await serviceClient.from('profiles').select('prenom, nom').eq('id', affectation.teacher_id).maybeSingle()
+      : { data: null as { prenom: string | null; nom: string | null } | null }
+
+    if (eleve?.email) {
+      const resultat = await envoyerDepuisModele(serviceClient, {
+        etablissementId: entree.etablissementId,
+        reference: '5.3',
+        destinataires: [eleve.email],
+        valeurs: {
+          prenom: eleve.prenom,
+          heures_restantes: String(Math.round(restantes * 10) / 10),
+          nom_formateur: professeur ? [professeur.prenom, professeur.nom].filter(Boolean).join(' ') : undefined,
+        },
+      })
+      if (resultat.envoye) envoyes += 1
+    }
+    for (const id of entree.forfaitIds) {
+      await serviceClient.from('packages').update({ email_fin_heures_le: new Date().toISOString() }).eq('id', id)
+    }
+  }
+  return envoyes
 }

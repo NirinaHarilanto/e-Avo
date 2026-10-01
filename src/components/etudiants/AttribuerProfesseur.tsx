@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { useProfileContext } from '../../context/ProfileContext'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import type { Database } from '../../types/database.types'
 import { MessageSucces } from '../ui/Etats'
@@ -13,6 +14,7 @@ interface AttribuerProfesseurProps {
 }
 
 export function AttribuerProfesseur({ studentId, affectationActuelle, onTermine }: AttribuerProfesseurProps) {
+  const { session } = useProfileContext()
   const { professeurs, loading: chargementProfs } = useProfesseurs()
   const [ouvert, setOuvert] = useState(false)
   const [teacherId, setTeacherId] = useState('')
@@ -63,6 +65,20 @@ export function AttribuerProfesseur({ studentId, affectationActuelle, onTermine 
     setTeacherId('')
     setMotif('')
     onTermine()
+
+    /* E-mail automatique à l'élève (0091, demande client du 2026-10-01) : bienvenue pour une
+       première attribution, annonce du nouveau formateur pour un changement — le serveur choisit
+       le modèle d'après l'historique réel des affectations. Appel SÉPARÉ de la transaction
+       d'attribution, et volontairement sans blocage : l'attribution est déjà faite et
+       `onTermine()` a rafraîchi l'écran. Un e-mail qui échoue (Resend non configuré, modèle
+       désactivé) ne doit ni annuler l'attribution ni afficher une erreur alarmante. */
+    if (session) {
+      fetch('/api/admin/email-demarrage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ studentId }),
+      }).catch(() => undefined)
+    }
   }
 
   if (!ouvert) {

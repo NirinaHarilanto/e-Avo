@@ -63,6 +63,7 @@ const etablissement: Etablissement = {
   creneau_midi: '12:00',
   creneau_soir: '19:00',
   relance_echeance_jours: 3,
+  seuil_alerte_heures_restantes: 5,
   created_at: '2026-01-01T00:00:00Z',
 }
 

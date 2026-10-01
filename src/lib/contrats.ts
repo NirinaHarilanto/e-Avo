@@ -1,4 +1,6 @@
-import type { Database, VariableTemplate } from '../types/database.types'
+/* Extension `.js` : ce module est desormais aussi compile par tsconfig.api.json (resolution
+   `node16`, qui l'exige), depuis que src/lib/templatesEmail.ts le reutilise cote serveur. */
+import type { Database, VariableTemplate } from '../types/database.types.js'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type Etablissement = Database['public']['Tables']['etablissements']['Row']

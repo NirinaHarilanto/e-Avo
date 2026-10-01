@@ -11,9 +11,16 @@
  */
 
 interface ParamsEmail {
-  destinataire: string
+  /* Un destinataire, ou plusieurs : l'envoi depuis un modèle (0091) adresse le même mail à
+     plusieurs personnes à la fois. Les deux formes sont acceptées pour ne pas avoir à retoucher
+     les neuf appelants existants, qui n'en visent qu'une. */
+  destinataire: string | string[]
+  /* Destinataires en copie — les « participants optionnels » du pop-up d'envoi. */
+  copies?: string[]
   sujet: string
   html: string
+  /* Pièce jointe unique (brochure, procédure, facture…), contenu déjà encodé en base64. */
+  piecesJointes?: { nom: string; contenuBase64: string }[]
 }
 
 export async function envoyerEmail(params: ParamsEmail): Promise<{ envoye: boolean; erreur?: string }> {
@@ -23,15 +30,24 @@ export async function envoyerEmail(params: ParamsEmail): Promise<{ envoye: boole
     return { envoye: false, erreur: 'Resend non configuré.' }
   }
 
+  const destinataires = (Array.isArray(params.destinataire) ? params.destinataire : [params.destinataire]).filter(Boolean)
+  if (destinataires.length === 0) {
+    return { envoye: false, erreur: 'Aucun destinataire.' }
+  }
+
   try {
     const reponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${cle}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         from: expediteur,
-        to: [params.destinataire],
+        to: destinataires,
+        ...(params.copies?.length ? { cc: params.copies } : {}),
         subject: params.sujet,
         html: params.html,
+        ...(params.piecesJointes?.length
+          ? { attachments: params.piecesJointes.map((p) => ({ filename: p.nom, content: p.contenuBase64 })) }
+          : {}),
       }),
     })
     if (!reponse.ok) {

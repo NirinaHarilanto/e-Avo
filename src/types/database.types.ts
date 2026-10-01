@@ -87,6 +87,9 @@ export interface Database {
           heures_forfait_collectif: number
           /* Nombre de jours avant une échéance à partir duquel la relance part (0070). */
           relance_echeance_jours: number
+          /* Seuil de déclenchement de l'alerte « fin du volume d'heures » (modèle 5.3, 0095),
+             en heures restantes. 5 par défaut, soit deux à trois séances. */
+          seuil_alerte_heures_restantes: number
           /* Créneaux horaires des classes de cours collectif, réglables (0074) : 7h/12h/19h
              par défaut. */
           creneau_matin: string
@@ -104,6 +107,7 @@ export interface Database {
           calendly_url?: string | null
           heures_forfait_collectif?: number
           relance_echeance_jours?: number
+          seuil_alerte_heures_restantes?: number
           creneau_matin?: string
           creneau_midi?: string
           creneau_soir?: string
@@ -436,6 +440,10 @@ export interface Database {
           tarif_vise_id: string | null
           essai_resultat: 'poursuivi' | 'arrete' | null
           essai_decide_le: string | null
+          /* Horodatage de l'e-mail « il vous reste X heures » (modèle 5.3, 0095) — null = jamais
+             alerté. Marqué une seule fois par forfait, sinon le cron enverrait l'alerte chaque
+             matin tant que le restant reste sous le seuil. */
+          email_fin_heures_le: string | null
           created_at: string
         }
         Insert: {
@@ -450,6 +458,7 @@ export interface Database {
           tarif_vise_id?: string | null
           essai_resultat?: 'poursuivi' | 'arrete' | null
           essai_decide_le?: string | null
+          email_fin_heures_le?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['packages']['Insert']>
@@ -1175,6 +1184,10 @@ export interface Database {
           date_echeance: string | null
           date_paiement: string | null
           notes: string | null
+          /* Horodatage de l'e-mail annonçant ce reçu/facture à l'élève (modèle 2.3, 0095) —
+             null = jamais annoncé. Le reçu naît d'un trigger (0030), qui ne peut pas envoyer
+             d'e-mail : c'est le cron quotidien qui reprend les reçus non marqués. */
+          email_envoye_le: string | null
           created_by_profile_id: string
           created_at: string
         }
@@ -1197,6 +1210,7 @@ export interface Database {
           date_echeance?: string | null
           date_paiement?: string | null
           notes?: string | null
+          email_envoye_le?: string | null
           created_by_profile_id: string
           created_at?: string
         }
@@ -1227,6 +1241,139 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['notifications']['Insert']>
+        Relationships: []
+      }
+      /* Messagerie interne (0090) : un humain écrit à un humain, avec objet et fil de réponses —
+         à ne pas confondre avec `notifications`, signal système à sens unique. Le contenu est
+         immuable après envoi (trigger `messages_contenu_immuable`), seul `lu` bouge. */
+      messages: {
+        Row: {
+          id: string
+          etablissement_id: string
+          expediteur_profile_id: string
+          destinataire_profile_id: string
+          objet: string
+          corps: string
+          parent_id: string | null
+          lu: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          expediteur_profile_id: string
+          destinataire_profile_id: string
+          objet: string
+          corps: string
+          parent_id?: string | null
+          lu?: boolean
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['messages']['Insert']>
+        Relationships: []
+      }
+      /* Modèles d'e-mails du parcours apprenant (0091), repris du document client
+         « HOC_Templates_emails_apprenants ». `reference` (« 1.1 », « 4.6 »…) est la clé stable
+         par laquelle les envois automatiques retrouvent leur modèle. */
+      email_templates: {
+        Row: {
+          id: string
+          etablissement_id: string
+          reference: string | null
+          categorie: string
+          nom: string
+          objet: string
+          corps: string
+          quand: string | null
+          piece_jointe_attendue: string | null
+          ordre: number
+          actif: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          reference?: string | null
+          categorie: string
+          nom: string
+          objet: string
+          corps: string
+          quand?: string | null
+          piece_jointe_attendue?: string | null
+          ordre?: number
+          actif?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['email_templates']['Insert']>
+        Relationships: []
+      }
+      /* Journal des envois, qui sert aussi de tiroir à brouillons (choix client du 2026-10-01 :
+         « Enregistrer » met le mail préparé de côté sans toucher au modèle). */
+      email_envois: {
+        Row: {
+          id: string
+          etablissement_id: string
+          template_id: string | null
+          destinataires_profile_ids: string[]
+          copies_profile_ids: string[]
+          destinataires_emails: string[]
+          objet: string
+          corps: string
+          piece_jointe_nom: string | null
+          piece_jointe_chemin: string | null
+          statut: 'brouillon' | 'envoye' | 'echec'
+          erreur: string | null
+          envoye_le: string | null
+          cree_par_profile_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          template_id?: string | null
+          destinataires_profile_ids?: string[]
+          copies_profile_ids?: string[]
+          destinataires_emails?: string[]
+          objet: string
+          corps: string
+          piece_jointe_nom?: string | null
+          piece_jointe_chemin?: string | null
+          statut?: 'brouillon' | 'envoye' | 'echec'
+          erreur?: string | null
+          envoye_le?: string | null
+          cree_par_profile_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['email_envois']['Insert']>
+        Relationships: []
+      }
+      /* Constantes de la maison injectées dans les modèles (0093) : liens de réservation, numéros
+         Orange Money/Mvola, dates de test oral. Une valeur vide fait tomber la ligne qui la porte
+         plutôt que d'exposer un gabarit nu (voir src/lib/templatesEmail.ts). */
+      email_variables: {
+        Row: {
+          id: string
+          etablissement_id: string
+          cle: string
+          libelle: string
+          valeur: string | null
+          ordre: number
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          cle: string
+          libelle: string
+          valeur?: string | null
+          ordre?: number
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['email_variables']['Insert']>
         Relationships: []
       }
       contract_templates: {
@@ -1499,6 +1646,19 @@ export interface Database {
       }
     }
     Views: {
+      /* Liste des personnes à qui écrire un message (0090). Vue `security definer` à dessein :
+         `profiles` ne laisse voir à un élève que lui-même et son professeur, cette vue n'expose
+         que le nom et le rôle de chacun — jamais e-mail, téléphone ni taux horaire. */
+      annuaire_etablissement: {
+        Row: {
+          id: string
+          prenom: string | null
+          nom: string | null
+          role: Role
+          etablissement_id: string
+        }
+        Relationships: []
+      }
       google_integration_statut: {
         Row: {
           etablissement_id: string

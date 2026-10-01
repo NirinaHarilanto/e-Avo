@@ -12,6 +12,7 @@ const PROFESSEUR_NAV_GROUPS: NavGroup[] = [
       { label: 'Cours collectifs', href: '/professeur/cours-collectifs', disponible: true, icone: 'vagues', description: 'Vos classes de niveau et leurs élèves' },
       { label: 'Mes heures', href: '/professeur/heures', disponible: true, icone: 'heures', description: 'Heures enseignées et TimeSheet' },
       { label: 'Documents', href: '/professeur/documents', disponible: true, icone: 'documents', description: 'Vos pièces et celles de vos élèves' },
+      { label: 'Messages', href: '/professeur/messages', disponible: true, icone: 'communication', description: 'Écrire à l’administration, à un élève ou à un collègue' },
     ],
   },
   {

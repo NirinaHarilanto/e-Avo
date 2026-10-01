@@ -38,8 +38,18 @@ export type NomIcone =
   | 'guide'
   | 'recrutement'
   | 'timesheet'
+  | 'communication'
 
 const CHEMINS: Record<NomIcone, ReactNode> = {
+  /* Enveloppe — section Messages des trois espaces (0090). Le rabat est tracé à part du cadre
+     pour rester lisible à 14 px, taille à laquelle une enveloppe d'un seul trait se referme
+     visuellement en rectangle. */
+  communication: (
+    <>
+      <rect x="3" y="5.5" width="18" height="13" rx="2.5" />
+      <path d="m3.8 7 7.3 5.6a1.5 1.5 0 0 0 1.8 0L20.2 7" />
+    </>
+  ),
   guide: (
     <>
       <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z" />

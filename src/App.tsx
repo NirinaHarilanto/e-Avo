@@ -27,6 +27,7 @@ const ProfesseurDetailAdmin = lazy(() => import('./components/professeurs/Profes
 const SeancesAdmin = lazy(() => import('./components/admin/SeancesAdmin').then((m) => ({ default: m.SeancesAdmin })))
 const HeuresAdmin = lazy(() => import('./components/admin/HeuresAdmin').then((m) => ({ default: m.HeuresAdmin })))
 const DocumentsAdmin = lazy(() => import('./components/admin/DocumentsAdmin').then((m) => ({ default: m.DocumentsAdmin })))
+const MessagesAdmin = lazy(() => import('./components/messages/MessagesAdmin').then((m) => ({ default: m.MessagesAdmin })))
 const PaiementsAdmin = lazy(() => import('./components/admin/PaiementsAdmin').then((m) => ({ default: m.PaiementsAdmin })))
 const FacturationAdmin = lazy(() => import('./components/admin/FacturationAdmin').then((m) => ({ default: m.FacturationAdmin })))
 const ContratsAdmin = lazy(() => import('./components/admin/ContratsAdmin').then((m) => ({ default: m.ContratsAdmin })))
@@ -37,10 +38,12 @@ const EtudiantsProfesseur = lazy(() => import('./components/professeurs/Etudiant
 const CoursCollectifsProfesseur = lazy(() => import('./components/professeurs/CoursCollectifsProfesseur').then((m) => ({ default: m.CoursCollectifsProfesseur })))
 const HeuresProfesseur = lazy(() => import('./components/professeurs/HeuresProfesseur').then((m) => ({ default: m.HeuresProfesseur })))
 const DocumentsProfesseur = lazy(() => import('./components/professeurs/DocumentsProfesseur').then((m) => ({ default: m.DocumentsProfesseur })))
+const MessagesProfesseur = lazy(() => import('./components/messages/MessagesProfesseur').then((m) => ({ default: m.MessagesProfesseur })))
 const FacturesProfesseur = lazy(() => import('./components/professeurs/FacturesProfesseur').then((m) => ({ default: m.FacturesProfesseur })))
 const ContratsProfesseur = lazy(() => import('./components/professeurs/ContratsProfesseur').then((m) => ({ default: m.ContratsProfesseur })))
 const AgendaEtudiant = lazy(() => import('./components/etudiants/AgendaEtudiant').then((m) => ({ default: m.AgendaEtudiant })))
 const DocumentsEtudiant = lazy(() => import('./components/etudiants/DocumentsEtudiant').then((m) => ({ default: m.DocumentsEtudiant })))
+const MessagesEtudiant = lazy(() => import('./components/messages/MessagesEtudiant').then((m) => ({ default: m.MessagesEtudiant })))
 const PaiementsEtudiant = lazy(() => import('./components/etudiants/PaiementsEtudiant').then((m) => ({ default: m.PaiementsEtudiant })))
 const ContratsEtudiant = lazy(() => import('./components/etudiants/ContratsEtudiant').then((m) => ({ default: m.ContratsEtudiant })))
 const EtablissementsPlateforme = lazy(() => import('./components/plateforme/EtablissementsPlateforme').then((m) => ({ default: m.EtablissementsPlateforme })))
@@ -86,6 +89,7 @@ export default function App() {
             <Route path="/admin/seances" element={<SeancesAdmin />} />
             <Route path="/admin/heures" element={<HeuresAdmin />} />
             <Route path="/admin/documents" element={<DocumentsAdmin />} />
+            <Route path="/admin/messages" element={<MessagesAdmin />} />
             <Route path="/admin/paiements" element={<PaiementsAdmin />} />
             <Route path="/admin/facturation" element={<FacturationAdmin />} />
             <Route path="/admin/contrats" element={<ContratsAdmin />} />
@@ -99,6 +103,7 @@ export default function App() {
             <Route path="/professeur/cours-collectifs" element={<CoursCollectifsProfesseur />} />
             <Route path="/professeur/heures" element={<HeuresProfesseur />} />
             <Route path="/professeur/documents" element={<DocumentsProfesseur />} />
+            <Route path="/professeur/messages" element={<MessagesProfesseur />} />
             <Route path="/professeur/factures" element={<FacturesProfesseur />} />
             <Route path="/professeur/contrats" element={<ContratsProfesseur />} />
             <Route path="/professeur/mon-profil" element={<MonProfil />} />
@@ -106,6 +111,7 @@ export default function App() {
             <Route path="/mon-espace" element={<EspacePersonnel />} />
             <Route path="/mon-espace/agenda" element={<AgendaEtudiant />} />
             <Route path="/mon-espace/documents" element={<DocumentsEtudiant />} />
+            <Route path="/mon-espace/messages" element={<MessagesEtudiant />} />
             <Route path="/mon-espace/paiements" element={<PaiementsEtudiant />} />
             <Route path="/mon-espace/contrats" element={<ContratsEtudiant />} />
             <Route path="/mon-espace/profil" element={<MonProfil />} />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { useProfileContext } from '../../context/ProfileContext'
 import { useCohortes } from '../../hooks/useCohortes'
 import { useCohortClasses } from '../../hooks/useCohortClasses'
 import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE } from '../../lib/classesCollectif'
@@ -47,6 +48,7 @@ function useNiveauDetecte(studentId: string): NiveauClasse | null {
 }
 
 export function AssignerVague({ studentId, etablissementId, vagueActuelle, ouvertParDefaut, onTermine }: AssignerVagueProps) {
+  const { session } = useProfileContext()
   const { cohortes, loading: chargementCohortes } = useCohortes()
   const [ouvert, setOuvert] = useState(!!ouvertParDefaut)
   const [cohortId, setCohortId] = useState('')
@@ -93,6 +95,19 @@ export function AssignerVague({ studentId, etablissementId, vagueActuelle, ouver
     setCohortId('')
     setCohortClassId('')
     onTermine()
+
+    /* E-mail de bienvenue en cours collectif (modèle 3.4, demande client du 2026-10-01) : niveau,
+       créneau, formateur, calendrier de la vague. Les accès propres à la classe (lien Jitsi,
+       groupe WhatsApp, supports) ne sont pas connus de l'application : les lignes qui les portent
+       tombent d'elles-mêmes, et l'admin peut les envoyer à la main depuis le modèle 3.4 s'il veut
+       le mail complet. Appel non bloquant, comme pour l'attribution de professeur. */
+    if (session) {
+      fetch('/api/admin/email-demarrage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ studentId }),
+      }).catch(() => undefined)
+    }
   }
 
   if (!ouvert) {

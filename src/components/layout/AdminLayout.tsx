@@ -21,6 +21,7 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
     titre: 'Gestion',
     items: [
       { label: 'Documents', href: '/admin/documents', disponible: true, icone: 'documents', description: 'Pièces jointes et comptes rendus' },
+      { label: 'Messages', href: '/admin/messages', disponible: true, icone: 'communication', description: 'Messagerie interne et modèles d’e-mails' },
       { label: 'Paiements', href: '/admin/paiements', disponible: true, icone: 'paiements', description: 'Encaissements et rémunérations' },
       { label: 'Facturation', href: '/admin/facturation', disponible: true, icone: 'facturation', description: 'Devis et factures' },
       { label: 'Contrats', href: '/admin/contrats', disponible: true, icone: 'contrats', description: 'Modèles et contrats signés' },

@@ -10,6 +10,7 @@ const ETUDIANT_NAV_GROUPS: NavGroup[] = [
       { label: 'Mon dossier', href: '/mon-espace', disponible: true, icone: 'dossier', description: 'Professeur, programme et heures' },
       { label: 'Mon agenda', href: '/mon-espace/agenda', disponible: true, icone: 'seances', description: 'Vos cours de la semaine' },
       { label: 'Mes documents', href: '/mon-espace/documents', disponible: true, icone: 'documents', description: 'Vos pièces et vos comptes rendus de cours' },
+      { label: 'Messages', href: '/mon-espace/messages', disponible: true, icone: 'communication', description: 'Écrire à l’administration ou à votre professeur' },
     ],
   },
   {
