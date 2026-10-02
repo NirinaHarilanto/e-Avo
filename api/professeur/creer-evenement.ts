@@ -45,6 +45,11 @@ export default async function handler(request: Request): Promise<Response> {
     if (!corps.debut || Number.isNaN(new Date(corps.debut).getTime())) {
       return Response.json({ error: 'Date et heure invalides.' }, { status: 400 })
     }
+    // Calculée une seule fois : `corps.debut` est optionnel dans `Corps`, donc TypeScript ne
+    // conserve pas le contrôle ci-dessus à travers la closure différée de `waitUntil` plus bas
+    // (il ne peut pas garantir que `corps` n'est pas muté entre-temps). Une constante typée
+    // `string` évite l'erreur de compilation ET le reparsing de la même date à deux endroits.
+    const debutIso = new Date(corps.debut).toISOString()
     if (!dureeMinutes || dureeMinutes < 5 || dureeMinutes > 480) {
       return Response.json({ error: 'Durée invalide.' }, { status: 400 })
     }
@@ -73,7 +78,7 @@ export default async function handler(request: Request): Promise<Response> {
       .insert({
         etablissement_id: etablissementId,
         titre,
-        debut: new Date(corps.debut).toISOString(),
+        debut: debutIso,
         duree_minutes: dureeMinutes,
         participants_obligatoires: obligatoiresIds,
         participants_optionnels: optionnelsIds,
@@ -96,7 +101,7 @@ export default async function handler(request: Request): Promise<Response> {
             const { eventId, lienMeet } = await creerEvenementMeet(integration, {
               titre,
               description: corps.notes?.trim() || undefined,
-              debut: new Date(corps.debut).toISOString(),
+              debut: debutIso,
               dureeMinutes,
               emailsInvites,
             })
