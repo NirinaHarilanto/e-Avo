@@ -20,9 +20,14 @@ export const config = { runtime: 'edge' }
  */
 export default async function handler(request: Request): Promise<Response> {
   /* Vercel signe ses appels de cron avec `CRON_SECRET`. Sans cette vérification, n'importe qui
-     pourrait déclencher une vague de notifications en appelant l'URL publiquement. */
+     pourrait déclencher une vague de notifications en appelant l'URL publiquement.
+     Refus aussi quand le secret est ABSENT de l'environnement : la version précédente laissait
+     alors passer tout le monde (`if (secret && …)`), et ce n'était plus tenable à partir du
+     2026-10-01, date à laquelle cette route s'est mise à expédier de vrais e-mails aux élèves
+     (reçus et fin d'heures) et non plus seulement des notifications internes. Mieux vaut un cron
+     qui s'arrête bruyamment qu'une URL publique qui envoie du courrier. */
   const secret = process.env.CRON_SECRET
-  if (secret && request.headers.get('authorization') !== `Bearer ${secret}`) {
+  if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
     return new Response('Unauthorized', { status: 401 })
   }
 
@@ -116,6 +121,15 @@ async function annoncerRecus(serviceClient: ReturnType<typeof createClient<Datab
     .is('email_envoye_le', null)
     .gte('created_at', depuis)
     .not('student_id', 'is', null)
+    /* `invoices` porte DEUX choses depuis 0080 : les reçus (`REC-…`, créés par le trigger à
+       l'encaissement) et les factures (`FAC-…`, émises à la main et parfois impayées). Le modèle
+       2.3 est un accusé de réception de paiement : sans ce filtre, une facture au statut « emise »
+       annonçait à l'élève un règlement qu'il n'a jamais fait, et un paiement couvert à la fois par
+       une facture et un reçu partait en double. `numero like 'REC-%'` est le discriminant déjà
+       utilisé en base (voir `numero_prochain_recu`, 0080). */
+    .like('numero', 'REC-%')
+    /* Un reçu annulé entre-temps ne s'annonce pas. */
+    .eq('statut', 'payee')
 
   let envoyes = 0
   for (const recu of recus ?? []) {
