@@ -78,9 +78,14 @@ export function PlanifierAppelDiagnosticModale({
   )
 
   // Se cadre sur la semaine du rendez-vous déjà pris pour ce prospect, s'il y en a un — sinon la
-  // semaine courante, pour repérer tout de suite le premier créneau libre.
+  // semaine courante, pour repérer tout de suite le premier créneau libre. Volontairement calé
+  // sur `rdvDuProspect?.id` seul plutôt que l'objet entier : `rechargerRdv()` (appelé après
+  // chaque action) donne une nouvelle référence à chaque fois même quand rien n'a changé pour ce
+  // prospect, et recadrer sur sa semaine à CE moment-là ferait perdre à l'admin la semaine qu'il
+  // est en train de parcourir pour choisir un nouveau créneau.
   useEffect(() => {
     if (rdvDuProspect) setSemaineDebut(lundiDeLaSemaine(new Date(rdvDuProspect.debut)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rdvDuProspect?.id])
 
   const evenements = useMemo<EvenementAgenda[]>(() => {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { cheminDossier, sousDossiers, useDossiersDocuments, type DossierDocument } from '../../hooks/useDossiersDocuments'
@@ -89,6 +89,19 @@ export function ExplorateurDocuments({
   )
 
   const racine = useMemo(() => sousDossiers(dossiers, null), [dossiers])
+  /* Compteurs affichés sur chaque sous-dossier : ce qu'il contient directement. Volontairement
+     pas de total récursif — un chiffre qui inclurait les petits-enfants laisserait croire qu'un
+     dossier est plein alors qu'on n'y trouve rien en l'ouvrant.
+     En `useCallback` (déplacé ici, avant son premier usage) : `onglets` ci-dessous en dépend, et
+     sans mémoïsation cette fonction serait recréée à chaque rendu, empêchant de la déclarer
+     proprement comme dépendance. */
+  const contenuDe = useCallback(
+    (dossier: DossierDocument) => ({
+      dossiers: dossiers.filter((d) => d.parent_id === dossier.id).length,
+      fichiers: documents.filter((d) => d.dossier_id === dossier.id).length,
+    }),
+    [dossiers, documents],
+  )
   /* Les quatre onglets, dans l'ordre imposé par le client. `Mes fichiers partagés` est virtuel
      (ID_PARTAGES) ; les trois autres n'apparaissent que si le dossier par défaut correspondant
      existe encore (voir NOMS_PAR_DEFAUT ci-dessus). */
@@ -101,21 +114,11 @@ export function ExplorateurDocuments({
           ? { id: parNom.get(nom)!.id, nom, compteur: contenuDe(parNom.get(nom)!).fichiers + contenuDe(parNom.get(nom)!).dossiers }
           : null,
     ).filter((o): o is { id: string; nom: string; compteur: number } => o !== null)
-  }, [racine, partages.length, documents, dossiers])
+  }, [racine, partages.length, contenuDe])
   const idsOnglets = new Set(onglets.map((o) => o.id))
   /* Dossiers créés par la personne à la racine, en plus des quatre par défaut — restent
      accessibles via la grille de cartes classique sous les onglets, pas dupliqués dedans. */
   const racinePersonnalisee = racine.filter((d) => !idsOnglets.has(d.id))
-
-  /* Compteurs affichés sur chaque sous-dossier : ce qu'il contient directement. Volontairement
-     pas de total récursif — un chiffre qui inclurait les petits-enfants laisserait croire qu'un
-     dossier est plein alors qu'on n'y trouve rien en l'ouvrant. */
-  function contenuDe(dossier: DossierDocument) {
-    return {
-      dossiers: dossiers.filter((d) => d.parent_id === dossier.id).length,
-      fichiers: documents.filter((d) => d.dossier_id === dossier.id).length,
-    }
-  }
 
   async function creerDossier() {
     if (!profile || !nouveauNom.trim()) return

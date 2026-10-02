@@ -22,14 +22,23 @@ const CIRCONFERENCE = 2 * Math.PI * RAYON
    librairie de graphes : le projet n'a aucune dépendance de ce type, et un anneau se résume à
    des arcs posés bout à bout via `stroke-dasharray`. */
 function Disque({ segments, total }: { segments: { valeur: number; couleur: string }[]; total: number }) {
-  let offsetCumule = 0
+  // Longueur de chaque arc, puis point de départ cumulé de chacun — calculés avant le rendu plutôt
+  // que par une variable mutée pendant le `.map()` (un segment à 0 ne contribue aucune longueur,
+  // donc l'inclure ou non dans le cumul ne change rien au résultat).
+  const longueurs = segments.map((segment) => (segment.valeur / total) * CIRCONFERENCE)
+  const debuts: number[] = []
+  longueurs.reduce((cumul, longueur) => {
+    debuts.push(cumul)
+    return cumul + longueur
+  }, 0)
+
   return (
     <svg width={140} height={140} viewBox="0 0 140 140" role="img" aria-label={`Répartition de ${total} avis`}>
       <circle cx={70} cy={70} r={RAYON} fill="none" stroke="rgba(255,255,255,.07)" strokeWidth={EPAISSEUR} />
       {segments.map((segment, index) => {
         if (segment.valeur === 0) return null
-        const longueur = (segment.valeur / total) * CIRCONFERENCE
-        const arc = (
+        const longueur = longueurs[index]
+        return (
           <circle
             key={index}
             cx={70}
@@ -39,13 +48,11 @@ function Disque({ segments, total }: { segments: { valeur: number; couleur: stri
             stroke={segment.couleur}
             strokeWidth={EPAISSEUR}
             strokeDasharray={`${longueur} ${CIRCONFERENCE - longueur}`}
-            strokeDashoffset={-offsetCumule}
+            strokeDashoffset={-debuts[index]}
             // Démarrage à midi plutôt qu'à 3 h, sens horaire : c'est ainsi qu'on lit un camembert.
             transform="rotate(-90 70 70)"
           />
         )
-        offsetCumule += longueur
-        return arc
       })}
     </svg>
   )
