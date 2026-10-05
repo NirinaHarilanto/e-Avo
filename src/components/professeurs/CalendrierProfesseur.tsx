@@ -10,7 +10,8 @@ import type { Database } from '../../types/database.types'
 import { getJoinUrl } from '../../lib/visio'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
 import { nomsElevesInscrits } from '../../lib/seances'
-import { versEvenementAdmin } from '../../lib/agendaEvenements'
+import { versEvenementAdmin, estEvenementGooglePersonnel } from '../../lib/agendaEvenements'
+import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { type NatureRendezVous } from '../../lib/natureRendezVous'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { EnTetePage } from '../ui/EnTetePage'
@@ -153,9 +154,12 @@ export function CalendrierProfesseur() {
     .filter((s) => s.session.statut !== 'planifiee')
     .sort((a, b) => a.session.debut.localeCompare(b.session.debut))
 
+  // Superposition en lecture seule de l'agenda Google personnel (0098) — vide tant que rien n'est
+  // connecté, voir useEvenementsGoogleCalendarPersonnel.
+  const evenementsGooglePersonnel = useEvenementsGoogleCalendarPersonnel(semaineDebut)
   const evenements = useMemo(
-    () => [...seances.map(versEvenement), ...evenementsAutres.map(versEvenementAdmin)],
-    [seances, evenementsAutres],
+    () => [...seances.map(versEvenement), ...evenementsAutres.map(versEvenementAdmin), ...evenementsGooglePersonnel],
+    [seances, evenementsAutres, evenementsGooglePersonnel],
   )
   const seanceOuverte = seances.find((s) => s.session.id === seanceOuverteId) ?? null
 
@@ -257,7 +261,13 @@ export function CalendrierProfesseur() {
             evenements={evenements}
             semaineDebut={semaineDebut}
             onSemaineChange={setSemaineDebut}
-            onSelectionner={(evenement) => (estEvenementAdmin(evenement.id) ? setElementOuvertId(evenement.id) : setSeanceOuverteId(evenement.id))}
+            onSelectionner={(evenement) => {
+              // Un événement de l'agenda Google personnel n'a pas de fiche HOC à ouvrir — son
+              // propre libellé (visible dans la pastille) est toute l'information disponible.
+              if (estEvenementGooglePersonnel(evenement.id)) return
+              if (estEvenementAdmin(evenement.id)) setElementOuvertId(evenement.id)
+              else setSeanceOuverteId(evenement.id)
+            }}
             onCreneauLibre={etudiantsActifs.length > 0 ? ouvrirPlanification : undefined}
             legende={<LegendeTypeSeance />}
             videMessage={

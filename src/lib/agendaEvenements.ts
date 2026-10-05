@@ -14,6 +14,9 @@ import type { EvenementAgenda } from './agenda'
    tableaux. */
 export const PREFIXE_PROSPECT = 'rdv:'
 export const PREFIXE_EVENEMENT = 'evt:'
+/* Agenda Google personnel superposé en lecture seule (0098) — jamais ouvert en pop-up HOC au
+   clic, voir estEvenementGooglePersonnel ci-dessous. */
+export const PREFIXE_GOOGLE_PERSONNEL = 'gcal:'
 
 /* Demande client du 2026-09-29 : « quand c'est l'admin qui invite un étudiant ou un professeur,
    il faut mentionner "Admin HOC" dans la liste des participants ». Un label institutionnel
@@ -94,4 +97,22 @@ export function agendaAdminComplet(
   evenementsAdmin: EvenementAdminAvecParticipants[],
 ): EvenementAgenda[] {
   return [...rendezVous.map(versEvenementProspect), ...evenementsAdmin.map(versEvenementAdmin)]
+}
+
+/* Agenda Google personnel (0098) converti au même format que le reste de l'agenda HOC — ton
+   neutre et discret, jamais confondu visuellement avec un cours ou un rendez-vous réel de HOC. */
+export function versEvenementGooglePersonnel(evenement: { id: string; titre: string; debut: string; fin: string }): EvenementAgenda {
+  const dureeMinutes = Math.max(15, (new Date(evenement.fin).getTime() - new Date(evenement.debut).getTime()) / 60_000)
+  return {
+    id: PREFIXE_GOOGLE_PERSONNEL + evenement.id,
+    debut: evenement.debut,
+    dureeMinutes,
+    titre: evenement.titre,
+    sousTitre: 'Agenda Google personnel',
+    ton: 'neutre',
+  }
+}
+
+export function estEvenementGooglePersonnel(id: string | null | undefined): boolean {
+  return !!id && id.startsWith(PREFIXE_GOOGLE_PERSONNEL)
 }

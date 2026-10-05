@@ -8,7 +8,8 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useVagues } from '../../hooks/useVagues'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { lundiDeLaSemaine } from '../../lib/agenda'
-import { agendaAdminComplet } from '../../lib/agendaEvenements'
+import { agendaAdminComplet, estEvenementGooglePersonnel } from '../../lib/agendaEvenements'
+import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { etudiantsSelectionnables, vaguesSelectionnables, classesSelectionnables } from '../../lib/invitations'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import { PopupEvenementAdmin, CarteRendezVous } from '../shared/PopupEvenementAdmin'
@@ -58,7 +59,15 @@ export function RendezVousAdmin() {
   const traites = rendezVous.filter((r) => r.statut === 'refuse' || r.statut === 'annule')
   const liste = onglet === 'À valider' ? enAttente : onglet === 'Confirmés' ? confirmes : traites
 
-  const evenementsAgenda = useMemo(() => agendaAdminComplet(rendezVous, evenementsAdmin), [rendezVous, evenementsAdmin])
+  // Superposition en lecture seule de l'agenda Google personnel DE CET ADMIN (0098) — vide tant
+  // que rien n'est connecté. Chaque admin ne voit que le sien (voir la vue
+  // google_integration_personnelle_statut, filtrée sur auth.uid()) : ce n'est pas « l'agenda
+  // Google de l'établissement », une notion qui n'existe pas ici.
+  const evenementsGooglePersonnel = useEvenementsGoogleCalendarPersonnel(semaineDebut)
+  const evenementsAgenda = useMemo(
+    () => [...agendaAdminComplet(rendezVous, evenementsAdmin), ...evenementsGooglePersonnel],
+    [rendezVous, evenementsAdmin, evenementsGooglePersonnel],
+  )
 
   return (
     <AdminLayout actif="Agenda">
@@ -129,7 +138,11 @@ export function RendezVousAdmin() {
           evenements={evenementsAgenda}
           semaineDebut={semaineDebut}
           onSemaineChange={setSemaineDebut}
-          onSelectionner={(evenement) => setElementOuvertId(evenement.id)}
+          onSelectionner={(evenement) => {
+            // Un événement de l'agenda Google personnel n'a pas de fiche HOC à ouvrir.
+            if (estEvenementGooglePersonnel(evenement.id)) return
+            setElementOuvertId(evenement.id)
+          }}
           onCreneauLibre={(debut) => setCreationOuverte(debut)}
           videMessage="Aucun rendez-vous cette semaine. Utilisez les flèches pour changer de semaine, ou cliquez un créneau pour en créer un."
           legende={

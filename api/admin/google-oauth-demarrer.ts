@@ -22,7 +22,7 @@ export default async function handler(request: Request): Promise<Response> {
       )
     }
 
-    const state = await signerState({ etablissementId, profileId })
+    const state = await signerState('etablissement', { etablissementId, profileId })
     return Response.json({ url: urlAutorisation(state) })
   } catch (error) {
     if (error instanceof AdminAuthError) {

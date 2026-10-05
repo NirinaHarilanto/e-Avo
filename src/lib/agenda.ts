@@ -130,7 +130,9 @@ export function placerEvenementsDuJour(
       finParColonne[colonne] = e.finChevauchement
       return { ...e, colonne }
     })
-    for (const { finChevauchement, ...e } of avecColonne) {
+    // `finChevauchement` n'a servi qu'au calcul ci-dessus : jamais renvoyé ni affiché, d'où le
+    // `_` qui le marque comme délibérément inutilisé plutôt que comme un oubli.
+    for (const { finChevauchement: _finChevauchement, ...e } of avecColonne) {
       places.push({ ...e, colonnes: finParColonne.length })
     }
     groupe = []

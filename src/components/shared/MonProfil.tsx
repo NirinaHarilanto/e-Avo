@@ -6,6 +6,7 @@ import { EnTetePage } from '../ui/EnTetePage'
 import { EtatChargement } from '../ui/Etats'
 import { InformationsPersonnelles } from './InformationsPersonnelles'
 import { PanneauSignature } from './PanneauSignature'
+import { IntegrationGoogleCalendarPersonnel } from './IntegrationGoogleCalendarPersonnel'
 
 /* "Mon profil" : coordonnées personnelles et signature, en self-service pour les 3 rôles (demande
    client du 2026-09-17). Un seul composant plutôt que 3 pages quasi identiques : le contenu ne
@@ -24,6 +25,11 @@ export function MonProfil() {
     )
   }
 
+  // Demande client du 2026-10-05 : « chaque professeur et admin [...] connecté[s] [...] avec son
+  // propre agenda » — la connexion personnelle à Google Calendar n'a de sens que pour ces deux
+  // rôles, pas pour un étudiant.
+  const peutConnecterAgendaPersonnel = profile.role === 'admin_etablissement' || profile.role === 'professeur'
+
   const contenu = (
     <>
       <EnTetePage titre="Mon profil" description="Vos coordonnées et votre signature, utilisées notamment lors de la signature de vos contrats." />
@@ -32,6 +38,11 @@ export function MonProfil() {
         onChange={rafraichirProfil}
         extra={<PanneauSignature profile={profile} onChange={rafraichirProfil} />}
       />
+      {peutConnecterAgendaPersonnel && (
+        <div style={{ marginTop: 20 }}>
+          <IntegrationGoogleCalendarPersonnel />
+        </div>
+      )}
     </>
   )
 

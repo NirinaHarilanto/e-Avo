@@ -22,6 +22,11 @@ type ServiceClient = ReturnType<typeof createClient<Database>>
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const CALENDAR_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
 export const SCOPE_GOOGLE = 'https://www.googleapis.com/auth/calendar.events'
+/* Agenda Google PERSONNEL (0098, demande client du 2026-10-05) : lecture seule — contrairement à
+   l'intégration d'établissement ci-dessus, celle-ci n'a jamais besoin de créer d'événement, elle
+   ne fait qu'afficher les événements existants en superposition dans l'agenda HOC de la
+   personne. Un scope plus étroit limite aussi ce qu'une fuite de jeton pourrait permettre. */
+export const SCOPE_GOOGLE_PERSONNEL = 'https://www.googleapis.com/auth/calendar.readonly'
 
 export class GoogleError extends Error {}
 
@@ -106,13 +111,21 @@ async function cleSignature() {
   )
 }
 
-export async function signerState(donnees: { etablissementId: string; profileId: string }): Promise<string> {
-  const charge = versBase64(new TextEncoder().encode(JSON.stringify({ ...donnees, emisLe: Date.now() })))
+/* `type` distingue les deux intégrations qui partagent désormais ce même aller-retour OAuth
+   (0098) : celle de l'établissement (un seul compte, crée les liens Meet) et celle, personnelle,
+   de chaque professeur/admin (lecture seule de son propre agenda). Les deux utilisent la MÊME
+   URL de callback — google-oauth-callback.ts, qui branche sur ce champ — plutôt qu'une seconde
+   route : Google exige que `redirect_uri` corresponde EXACTEMENT à une URL enregistrée dans sa
+   console, et il n'en existe qu'une seule pour ce projet (`GOOGLE_REDIRECT_URI`). Par défaut
+   'etablissement' si absent, pour rester compatible avec un lien déjà émis au moment du
+   déploiement de ce changement. */
+export async function signerState(type: 'etablissement' | 'personnel', donnees: { etablissementId: string; profileId: string }): Promise<string> {
+  const charge = versBase64(new TextEncoder().encode(JSON.stringify({ type, ...donnees, emisLe: Date.now() })))
   const signature = await crypto.subtle.sign('HMAC', await cleSignature(), new TextEncoder().encode(charge))
   return `${charge}.${versBase64(new Uint8Array(signature))}`
 }
 
-export async function verifierState(state: string): Promise<{ etablissementId: string; profileId: string }> {
+export async function verifierState(state: string): Promise<{ type: 'etablissement' | 'personnel'; etablissementId: string; profileId: string }> {
   const [charge, signature] = state.split('.')
   if (!charge || !signature) throw new GoogleError('Paramètre de sécurité manquant.')
 
@@ -125,6 +138,7 @@ export async function verifierState(state: string): Promise<{ etablissementId: s
   if (!valide) throw new GoogleError('Paramètre de sécurité invalide.')
 
   const donnees = JSON.parse(new TextDecoder().decode(depuisBase64(charge))) as {
+    type?: 'etablissement' | 'personnel'
     etablissementId: string
     profileId: string
     emisLe: number
@@ -132,18 +146,18 @@ export async function verifierState(state: string): Promise<{ etablissementId: s
   if (Date.now() - donnees.emisLe > VALIDITE_STATE_MS) {
     throw new GoogleError('Demande de connexion expirée, relancez-la depuis vos paramètres.')
   }
-  return { etablissementId: donnees.etablissementId, profileId: donnees.profileId }
+  return { type: donnees.type ?? 'etablissement', etablissementId: donnees.etablissementId, profileId: donnees.profileId }
 }
 
 /* ---------- OAuth ---------- */
 
-export function urlAutorisation(state: string): string {
+export function urlAutorisation(state: string, scope: string = SCOPE_GOOGLE): string {
   const { clientId, redirectUri } = config()
   const parametres = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
-    scope: SCOPE_GOOGLE,
+    scope,
     // offline + consent : indispensables pour recevoir un refresh_token, et pour en recevoir un
     // nouveau si l'établissement reconnecte un autre compte.
     access_type: 'offline',
@@ -242,6 +256,71 @@ export async function noterErreurGoogle(serviceClient: ServiceClient, etablissem
     .from('google_integrations')
     .update({ derniere_erreur: message })
     .eq('etablissement_id', etablissementId)
+}
+
+/* ---------- Agenda PERSONNEL (0098) ---------- */
+
+export interface IntegrationGooglePersonnelle {
+  profileId: string
+  accessToken: string
+  googleEmail: string
+}
+
+/** `null` si cette personne n'a connecté aucun compte personnel : l'appelant n'affiche alors
+    simplement aucune superposition, sans aucune erreur — c'est l'état normal de la plupart des
+    comptes. */
+export async function integrationPersonnelleDeLaPersonne(
+  serviceClient: ServiceClient,
+  profileId: string,
+): Promise<IntegrationGooglePersonnelle | null> {
+  if (!googleEstConfigure()) return null
+  const { data } = await serviceClient
+    .from('google_integrations_personnelles')
+    .select('profile_id, google_email, refresh_token_chiffre')
+    .eq('profile_id', profileId)
+    .maybeSingle()
+  if (!data) return null
+
+  const refreshToken = await dechiffrer(data.refresh_token_chiffre)
+  const accessToken = await jetonAcces(refreshToken)
+  return { profileId, accessToken, googleEmail: data.google_email }
+}
+
+export async function noterErreurGooglePersonnelle(serviceClient: ServiceClient, profileId: string, message: string | null) {
+  await serviceClient.from('google_integrations_personnelles').update({ derniere_erreur: message }).eq('profile_id', profileId)
+}
+
+/* Événements du calendrier personnel sur une fenêtre donnée — lecture seule, jamais réutilisés
+   pour créer ou modifier quoi que ce soit côté Google (voir SCOPE_GOOGLE_PERSONNEL). Les
+   événements « toute la journée » sont ignorés, même raison que `occupationsAgenda` : ce sont des
+   repères (anniversaires, jours fériés), pas des créneaux occupés à afficher dans un agenda
+   horaire. */
+export async function evenementsPersonnels(
+  integration: IntegrationGooglePersonnelle,
+  debut: Date,
+  fin: Date,
+): Promise<{ id: string; titre: string; debut: string; fin: string }[]> {
+  const parametres = new URLSearchParams({
+    timeMin: debut.toISOString(),
+    timeMax: fin.toISOString(),
+    singleEvents: 'true',
+    orderBy: 'startTime',
+    maxResults: '2500',
+  })
+  const reponse = await fetch(`${CALENDAR_URL}?${parametres}`, {
+    headers: { Authorization: `Bearer ${integration.accessToken}` },
+  })
+  if (!reponse.ok) {
+    const corps = (await reponse.json().catch(() => null)) as { error?: { message?: string } } | null
+    throw new GoogleError(corps?.error?.message ?? "Google Calendar a refusé la lecture de l'agenda personnel.")
+  }
+
+  const corps = (await reponse.json()) as {
+    items?: { id?: string; status?: string; summary?: string; start?: { dateTime?: string }; end?: { dateTime?: string } }[]
+  }
+  return (corps.items ?? [])
+    .filter((e) => e.status !== 'cancelled' && e.start?.dateTime && e.end?.dateTime)
+    .map((e) => ({ id: e.id ?? crypto.randomUUID(), titre: e.summary?.trim() || '(Sans titre)', debut: e.start!.dateTime!, fin: e.end!.dateTime! }))
 }
 
 interface ParamsEvenement {
