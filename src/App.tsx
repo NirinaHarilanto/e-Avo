@@ -32,6 +32,7 @@ const PaiementsAdmin = lazy(() => import('./components/admin/PaiementsAdmin').th
 const FacturationAdmin = lazy(() => import('./components/admin/FacturationAdmin').then((m) => ({ default: m.FacturationAdmin })))
 const ContratsAdmin = lazy(() => import('./components/admin/ContratsAdmin').then((m) => ({ default: m.ContratsAdmin })))
 const ParametresAdmin = lazy(() => import('./components/admin/ParametresAdmin').then((m) => ({ default: m.ParametresAdmin })))
+const ProfilHOC = lazy(() => import('./components/admin/ProfilHOC').then((m) => ({ default: m.ProfilHOC })))
 const TarifsAdmin = lazy(() => import('./components/admin/TarifsAdmin').then((m) => ({ default: m.TarifsAdmin })))
 const CalendrierProfesseur = lazy(() => import('./components/professeurs/CalendrierProfesseur').then((m) => ({ default: m.CalendrierProfesseur })))
 const EtudiantsProfesseur = lazy(() => import('./components/professeurs/EtudiantsProfesseur').then((m) => ({ default: m.EtudiantsProfesseur })))
@@ -93,6 +94,7 @@ export default function App() {
             <Route path="/admin/paiements" element={<PaiementsAdmin />} />
             <Route path="/admin/facturation" element={<FacturationAdmin />} />
             <Route path="/admin/contrats" element={<ContratsAdmin />} />
+            <Route path="/admin/profil-hoc" element={<ProfilHOC />} />
             <Route path="/admin/parametres" element={<ParametresAdmin />} />
             <Route path="/admin/tarifs" element={<TarifsAdmin />} />
             <Route path="/admin/mon-profil" element={<MonProfil />} />

@@ -64,6 +64,13 @@ const etablissement: Etablissement = {
   creneau_soir: '19:00',
   relance_echeance_jours: 3,
   seuil_alerte_heures_restantes: 5,
+  directrice: null,
+  adresse: null,
+  telephone: null,
+  email: null,
+  site_web: null,
+  nif: null,
+  stat: null,
   created_at: '2026-01-01T00:00:00Z',
 }
 

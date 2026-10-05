@@ -164,16 +164,37 @@ export function Connexion() {
 
         {etape === 'inconnu' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <h1 style={{ fontSize: 22, color: 'var(--ink)' }}>Adresse non reconnue</h1>
+            <h1 style={{ fontSize: 22, color: 'var(--ink)' }}>Cette page est réservée à nos élèves et formateurs</h1>
+            {/* Demande client du 2026-10-05 : un visiteur non inscrit qui tombe sur l'écran de
+                connexion doit être guidé vers la vitrine plutôt que vers un e-mail de contact —
+                « se connecter » n'est pas la bonne porte d'entrée pour quelqu'un qui n'a pas
+                encore de compte, « réserver un appel » ou « un créneau de test » l'est. */}
             <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink-2)' }}>
-              L'adresse <strong>{email}</strong> n'est reconnue par aucun compte. Veuillez contacter l'équipe Hari
-              Online Club à <strong>contact@harionlineclub.app</strong>.
+              L'adresse <strong>{email}</strong> ne correspond à aucun compte. Cette page s'adresse aux personnes déjà
+              inscrites chez Hari Online Club — élèves et formateurs. Vous découvrez tout juste nos cours ?
+              Retournez sur notre page d'accueil et cliquez sur <strong>« Commencer »</strong> pour réserver un appel
+              diagnostic ou un créneau de test de positionnement, selon votre besoin.
             </p>
+            <a
+              href="/?reserver=1"
+              className="btn-shine"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'var(--accent-blue-gradient)',
+                color: '#fff',
+                padding: '14px',
+                fontSize: 14.5,
+                textDecoration: 'none',
+              }}
+            >
+              Retourner à l’accueil et commencer
+            </a>
             <button
               type="button"
               onClick={revenirALEmail}
-              className="btn-shine"
-              style={{ background: 'var(--accent-blue-gradient)', color: '#fff', padding: '14px', fontSize: 14.5 }}
+              style={{ background: 'none', border: 'none', color: 'var(--ink-2)', fontSize: 13, cursor: 'pointer' }}
             >
               Essayer une autre adresse
             </button>

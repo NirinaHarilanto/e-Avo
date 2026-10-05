@@ -3,6 +3,7 @@ import { useEtablissement } from '../../hooks/useEtablissement'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { OverlayImpression } from '../facturation/OverlayImpression'
+import { MentionsEtablissement } from '../shared/MentionsEtablissement'
 
 type Contract = Database['public']['Tables']['contracts']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -115,6 +116,7 @@ export function ContratImprimable({ contrat, destinataire, destinataireSecondair
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 20, margin: 0 }}>{etablissement?.nom ?? "Établissement"}</h1>
+          <MentionsEtablissement etablissement={etablissement} />
           <h2 style={{ fontSize: 17, margin: '16px 0 4px' }}>{contrat.titre}</h2>
           <p style={{ fontSize: 12, color: '#555', margin: 0 }}>
             {nomsDestinataires} — émis le {new Date(contrat.created_at).toLocaleDateString('fr-FR')}

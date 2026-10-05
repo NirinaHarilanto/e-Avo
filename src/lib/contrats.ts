@@ -52,6 +52,17 @@ export type SourceVariable =
   | 'age_2'
   | 'etablissement_nom'
   | 'etablissement_specialite'
+  /* Section « Profil HOC » (0097, demande client du 2026-10-05) : identité administrative de
+     l'établissement, réutilisable dans les modèles de contrat au même titre que le nom/la
+     spécialité. Le CIN de la directrice n'y figure PAS — donnée personnelle sensible, jamais
+     destinée à apparaître sur un document remis à un élève (voir la migration). */
+  | 'etablissement_directrice'
+  | 'etablissement_adresse'
+  | 'etablissement_telephone'
+  | 'etablissement_email'
+  | 'etablissement_site_web'
+  | 'etablissement_nif'
+  | 'etablissement_stat'
   | 'date_du_jour'
   | 'annee'
   | 'langue_programme'
@@ -99,6 +110,13 @@ export const SOURCES_VARIABLE: { valeur: SourceVariable; label: string; groupe: 
   { valeur: 'heures_enseignees', label: 'Heures enseignées à ce jour', groupe: 'Activité (professeur)' },
   { valeur: 'etablissement_nom', label: "Nom de l'établissement", groupe: 'Établissement' },
   { valeur: 'etablissement_specialite', label: "Spécialité de l'établissement", groupe: 'Établissement' },
+  { valeur: 'etablissement_directrice', label: "Nom de la directrice", groupe: 'Établissement' },
+  { valeur: 'etablissement_adresse', label: "Adresse de l'établissement", groupe: 'Établissement' },
+  { valeur: 'etablissement_telephone', label: "Téléphone de l'établissement", groupe: 'Établissement' },
+  { valeur: 'etablissement_email', label: "E-mail de l'établissement", groupe: 'Établissement' },
+  { valeur: 'etablissement_site_web', label: "Site web de l'établissement", groupe: 'Établissement' },
+  { valeur: 'etablissement_nif', label: 'NIF', groupe: 'Établissement' },
+  { valeur: 'etablissement_stat', label: 'STAT', groupe: 'Établissement' },
   { valeur: 'date_du_jour', label: 'Date du jour', groupe: 'Date' },
   { valeur: 'annee', label: 'Année en cours', groupe: 'Date' },
 ]
@@ -218,6 +236,20 @@ export function resoudreSource(
       return etablissement?.nom ?? null
     case 'etablissement_specialite':
       return etablissement?.specialite ?? null
+    case 'etablissement_directrice':
+      return etablissement?.directrice ?? null
+    case 'etablissement_adresse':
+      return etablissement?.adresse ?? null
+    case 'etablissement_telephone':
+      return etablissement?.telephone ?? null
+    case 'etablissement_email':
+      return etablissement?.email ?? null
+    case 'etablissement_site_web':
+      return etablissement?.site_web ?? null
+    case 'etablissement_nif':
+      return etablissement?.nif ?? null
+    case 'etablissement_stat':
+      return etablissement?.stat ?? null
     case 'date_du_jour':
       return new Date().toLocaleDateString('fr-FR')
     case 'annee':
@@ -315,6 +347,13 @@ export function deduireSource(cle: string, label: string): SourceVariable | unde
   const nommeLaPersonne = MOTS_PERSONNE.some((m) => mots.includes(m))
   if (MOTS_ETABLISSEMENT.some((m) => mots.includes(m)) && !nommeLaPersonne) {
     if (mots.includes('specialite')) return 'etablissement_specialite'
+    if (mots.includes('directrice') || mots.includes('directeur') || mots.includes('direction')) return 'etablissement_directrice'
+    if (mots.includes('adresse')) return 'etablissement_adresse'
+    if (mots.includes('telephone') || mots.includes('tel')) return 'etablissement_telephone'
+    if (mots.includes('email') || mots.includes('mail')) return 'etablissement_email'
+    if (/site ?web/.test(texte) || mots.includes('site')) return 'etablissement_site_web'
+    if (mots.includes('nif')) return 'etablissement_nif'
+    if (mots.includes('stat')) return 'etablissement_stat'
     if (mots.includes('nom') || mots.includes('denomination')) return 'etablissement_nom'
     return undefined
   }

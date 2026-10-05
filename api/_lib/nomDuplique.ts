@@ -8,6 +8,7 @@ type ServiceClient = ReturnType<typeof createClient<Database>>
 const LIBELLE_ROLE: Record<string, string> = {
   etudiant: 'étudiant',
   professeur: 'professeur',
+  admin_etablissement: 'administrateur',
 }
 
 /**
@@ -30,7 +31,7 @@ export async function trouverProfilHomonyme(
   serviceClient: ServiceClient,
   params: {
     etablissementId: string
-    role: 'etudiant' | 'professeur'
+    role: 'etudiant' | 'professeur' | 'admin_etablissement'
     nom: string
     prenom: string
     exclureId?: string
@@ -50,7 +51,7 @@ export async function trouverProfilHomonyme(
   )
 }
 
-export function messageHomonyme(role: 'etudiant' | 'professeur', personne: { nom?: string | null; prenom?: string | null }) {
+export function messageHomonyme(role: 'etudiant' | 'professeur' | 'admin_etablissement', personne: { nom?: string | null; prenom?: string | null }) {
   return `Un ${LIBELLE_ROLE[role]} nommé ${nomComplet(personne)} existe déjà dans cet établissement. Utilisez un nom qui le distingue (second prénom, initiale) pour éviter deux fiches identiques dans la liste.`
 }
 

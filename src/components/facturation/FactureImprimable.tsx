@@ -1,5 +1,6 @@
 import { useEtablissement } from '../../hooks/useEtablissement'
 import type { Database } from '../../types/database.types'
+import { MentionsEtablissement } from '../shared/MentionsEtablissement'
 import { OverlayImpression, type ActionImpression } from './OverlayImpression'
 import { TableauLignesImprimable } from './TableauLignesImprimable'
 
@@ -29,6 +30,7 @@ export function FactureImprimable({ facture, destinataire, onFermer, action }: F
         <div>
           <h1 style={{ fontSize: 20, margin: 0 }}>{etablissement?.nom ?? "Établissement"}</h1>
           <p style={{ fontSize: 12, color: '#555', margin: '4px 0 0' }}>{etablissement?.specialite}</p>
+          <MentionsEtablissement etablissement={etablissement} />
         </div>
         <div style={{ textAlign: 'right' }}>
           <h2 style={{ fontSize: 18, margin: 0 }}>{intitule} {facture.numero}</h2>

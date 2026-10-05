@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database, TypeProgrammeProspect } from '../../types/database.types'
 import { deriveAccent } from '../../lib/accent'
@@ -43,6 +43,7 @@ export function LandingEtablissement() {
   const [vue, setVue] = useState<Vue>('accueil')
   const [reservation, setReservation] = useState<TypeProgrammeProspect | null>(null)
   const { tarifs } = useTarifs(etablissement?.id)
+  const [parametresUrl, setParametresUrl] = useSearchParams()
 
   useEffect(() => {
     if (!slug) return
@@ -70,6 +71,19 @@ export function LandingEtablissement() {
     document.body.classList.add('sans-defilement')
     return () => document.body.classList.remove('sans-defilement')
   }, [])
+
+  /* `?reserver=1` ouvre directement la fenêtre de réservation à l'arrivée sur la page — demande
+     client du 2026-10-05 : un prospect qui tombe sur l'écran de connexion (réservé aux personnes
+     déjà inscrites) est renvoyé ici avec ce paramètre, pour retrouver en un clic le bouton
+     « Commencer » qu'il cherchait, sans avoir à le repérer lui-même dans la page. Le paramètre
+     est retiré de l'URL une fois lu, pour qu'un rafraîchissement de la page ne rouvre pas la
+     fenêtre tout seul. */
+  useEffect(() => {
+    if (parametresUrl.get('reserver') !== '1') return
+    setReservation('individuel')
+    parametresUrl.delete('reserver')
+    setParametresUrl(parametresUrl, { replace: true })
+  }, [parametresUrl, setParametresUrl])
 
   if (loading) {
     return (

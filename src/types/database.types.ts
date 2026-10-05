@@ -95,6 +95,17 @@ export interface Database {
           creneau_matin: string
           creneau_midi: string
           creneau_soir: string
+          /* Section « Profil HOC » (0097, demande client du 2026-10-05) : identité
+             administrative de l'établissement, réutilisée sur factures/devis/reçus/contrats.
+             Colonnes publiques (même policy de lecture que `nom`/`specialite`) : le CIN de la
+             directrice, lui, vit à part dans `etablissement_identite_privee`, admin seul. */
+          directrice: string | null
+          adresse: string | null
+          telephone: string | null
+          email: string | null
+          site_web: string | null
+          nif: string | null
+          stat: string | null
           created_at: string
         }
         Insert: {
@@ -111,6 +122,13 @@ export interface Database {
           creneau_matin?: string
           creneau_midi?: string
           creneau_soir?: string
+          directrice?: string | null
+          adresse?: string | null
+          telephone?: string | null
+          email?: string | null
+          site_web?: string | null
+          nif?: string | null
+          stat?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['etablissements']['Insert']>
@@ -780,6 +798,42 @@ export interface Database {
           derniere_erreur?: string | null
         }
         Update: Partial<Database['public']['Tables']['google_integrations']['Insert']>
+        Relationships: []
+      }
+      etablissement_identite_privee: {
+        Row: {
+          etablissement_id: string
+          cin_directrice: string | null
+          updated_at: string
+        }
+        Insert: {
+          etablissement_id: string
+          cin_directrice?: string | null
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['etablissement_identite_privee']['Insert']>
+        Relationships: []
+      }
+      google_integrations_personnelles: {
+        Row: {
+          profile_id: string
+          etablissement_id: string
+          google_email: string
+          refresh_token_chiffre: string
+          scope: string | null
+          connecte_le: string
+          derniere_erreur: string | null
+        }
+        Insert: {
+          profile_id: string
+          etablissement_id: string
+          google_email: string
+          refresh_token_chiffre: string
+          scope?: string | null
+          connecte_le?: string
+          derniere_erreur?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['google_integrations_personnelles']['Insert']>
         Relationships: []
       }
       video_sessions: {
@@ -1662,6 +1716,14 @@ export interface Database {
       google_integration_statut: {
         Row: {
           etablissement_id: string
+          google_email: string
+          connecte_le: string
+          derniere_erreur: string | null
+        }
+        Relationships: []
+      }
+      google_integration_personnelle_statut: {
+        Row: {
           google_email: string
           connecte_le: string
           derniere_erreur: string | null

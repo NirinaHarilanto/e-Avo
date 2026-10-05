@@ -381,6 +381,31 @@ function LigneFacture({
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [envoyee, setEnvoyee] = useState(false)
+  // Numéro modifiable (demande client du 2026-10-05) : édition en ligne, pas de pop-up séparée
+  // pour un changement aussi ponctuel.
+  const [editionNumero, setEditionNumero] = useState(false)
+  const [nouveauNumero, setNouveauNumero] = useState(facture.numero)
+
+  async function renommerNumero() {
+    const valeur = nouveauNumero.trim()
+    if (!valeur || valeur === facture.numero) {
+      setEditionNumero(false)
+      setNouveauNumero(facture.numero)
+      return
+    }
+    setEnCours(true)
+    setErreur(null)
+    const { error } = await supabase.from('invoices').update({ numero: valeur }).eq('id', facture.id)
+    setEnCours(false)
+    if (error) {
+      // 23505 : contrainte d'unicité (etablissement_id, numero) — voir 0020. Un autre document
+      // porte déjà ce numéro dans cet établissement.
+      setErreur(error.code === '23505' ? `Le numéro « ${valeur} » est déjà utilisé par un autre document.` : error.message)
+      return
+    }
+    setEditionNumero(false)
+    onChange()
+  }
 
   async function changerStatut(nouveau: StatutFacture) {
     setEnCours(true)
@@ -452,8 +477,44 @@ function LigneFacture({
   return (
     <div className="card card-lift" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
       <div style={{ flexGrow: 1, minWidth: 200 }}>
-        <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
-          {facture.numero} — {destinataire ? `${destinataire.prenom} ${destinataire.nom}` : 'Destinataire inconnu'}
+        <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {editionNumero ? (
+            <input
+              autoFocus
+              value={nouveauNumero}
+              disabled={enCours}
+              onChange={(e) => setNouveauNumero(e.target.value)}
+              onBlur={renommerNumero}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') renommerNumero()
+                if (e.key === 'Escape') {
+                  setEditionNumero(false)
+                  setNouveauNumero(facture.numero)
+                }
+              }}
+              style={{
+                fontFamily: 'inherit',
+                fontSize: 14,
+                fontWeight: 700,
+                color: 'var(--ink)',
+                background: 'rgba(0,0,0,.28)',
+                border: '1px solid var(--accent-blue)',
+                borderRadius: 6,
+                padding: '2px 6px',
+                width: `${Math.max(10, nouveauNumero.length + 1)}ch`,
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditionNumero(true)}
+              title="Modifier le numéro"
+              style={{ font: 'inherit', fontWeight: 700, color: 'var(--ink)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
+            >
+              {facture.numero}
+            </button>
+          )}
+          {' '}— {destinataire ? `${destinataire.prenom} ${destinataire.nom}` : 'Destinataire inconnu'}
           {facture.teacher_id && <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent-blue)', marginLeft: 8 }}>PROFESSEUR</span>}
         </span>
         <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{facture.objet}</div>
