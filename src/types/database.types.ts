@@ -1730,6 +1730,13 @@ export interface Database {
         }
         Relationships: []
       }
+      etablissement_cin_directrice: {
+        Row: {
+          etablissement_id: string
+          cin_directrice: string | null
+        }
+        Relationships: []
+      }
       student_hours_summary: {
         Row: {
           student_id: string

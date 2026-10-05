@@ -22,8 +22,7 @@ export function DevisImprimable({ devis, etudiant, onFermer, action }: DevisImpr
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 style={{ fontSize: 20, margin: 0 }}>{etablissement?.nom ?? "Établissement"}</h1>
-          <p style={{ fontSize: 12, color: '#555', margin: '4px 0 0' }}>{etablissement?.specialite}</p>
-          <MentionsEtablissement etablissement={etablissement} />
+          <MentionsEtablissement etablissement={etablissement} variante="document-financier" />
         </div>
         <div style={{ textAlign: 'right' }}>
           <h2 style={{ fontSize: 18, margin: 0 }}>Devis {devis.numero}</h2>
