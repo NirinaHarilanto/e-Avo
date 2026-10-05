@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useAdmins } from '../../hooks/useAdmins'
+import { useEtablissement } from '../../hooks/useEtablissement'
 import { supabase } from '../../lib/supabaseClient'
-import type { Database } from '../../types/database.types'
+import { declencherSynchroLocale } from '../../lib/synchro'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { Section } from '../ui/Section'
@@ -12,8 +13,6 @@ import { EtatChargement, MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonDangerStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
-
-type Etablissement = Database['public']['Tables']['etablissements']['Row']
 
 /* Section « Profil HOC » — demande client du 2026-10-05, au même niveau de navigation que
    Contrats/Paiements/Facturation (voir AdminLayout.tsx). Deux blocs qui vivent ensemble ici
@@ -56,9 +55,15 @@ export function ProfilHOC() {
 
 function IdentiteEtablissement() {
   const { profile } = useProfileContext()
-  const [etablissement, setEtablissement] = useState<Etablissement | null>(null)
+  /* Même source que partout ailleurs dans l'application (ProfileContext, FactureImprimable,
+     DevisImprimable, ContratImprimable, LancerApprobationContrat…) — demande client du
+     2026-10-05 : « quand les informations dans Profil HOC sont mises à jour, les informations
+     dans les modèles de contrat et dans toute l'application devraient se mettre à jour
+     instantanément ». Une requête bespoke ici (comme avant) lirait les mêmes données sans
+     jamais partager le cache dont dépendent tous les autres écrans. */
+  const etablissement = useEtablissement(profile?.etablissement_id)
   const [cinDirectrice, setCinDirectrice] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [chargementCin, setChargementCin] = useState(true)
   const [champs, setChamps] = useState({
     nom: '',
     directrice: '',
@@ -73,26 +78,39 @@ function IdentiteEtablissement() {
   const [erreur, setErreur] = useState<string | null>(null)
   const [enregistre, setEnregistre] = useState(false)
 
+  /* Le formulaire ne se recale sur `etablissement` qu'UNE fois, à son premier chargement —
+     sinon un rafraîchissement du cache déclenché pendant la frappe (par exemple par la synchro
+     décrite plus bas, si un autre admin enregistre en même temps) effacerait ce que la personne
+     est en train de taper. */
+  const champsInitialises = useRef(false)
+  useEffect(() => {
+    if (!etablissement || champsInitialises.current) return
+    champsInitialises.current = true
+    setChamps({
+      nom: etablissement.nom ?? '',
+      directrice: etablissement.directrice ?? '',
+      adresse: etablissement.adresse ?? '',
+      telephone: etablissement.telephone ?? '',
+      email: etablissement.email ?? '',
+      site_web: etablissement.site_web ?? '',
+      nif: etablissement.nif ?? '',
+      stat: etablissement.stat ?? '',
+    })
+  }, [etablissement])
+
+  // Le CIN, lui, n'a pas d'équivalent ailleurs dans l'app (table admin seul, jamais affichée
+  // sur un document — voir la migration 0097) : pas besoin du cache partagé pour cette partie.
   useEffect(() => {
     if (!profile) return
-    Promise.all([
-      supabase.from('etablissements').select('*').eq('id', profile.etablissement_id).maybeSingle(),
-      supabase.from('etablissement_identite_privee').select('*').eq('etablissement_id', profile.etablissement_id).maybeSingle(),
-    ]).then(([{ data: etab }, { data: identite }]) => {
-      setEtablissement(etab)
-      setChamps({
-        nom: etab?.nom ?? '',
-        directrice: etab?.directrice ?? '',
-        adresse: etab?.adresse ?? '',
-        telephone: etab?.telephone ?? '',
-        email: etab?.email ?? '',
-        site_web: etab?.site_web ?? '',
-        nif: etab?.nif ?? '',
-        stat: etab?.stat ?? '',
+    supabase
+      .from('etablissement_identite_privee')
+      .select('*')
+      .eq('etablissement_id', profile.etablissement_id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setCinDirectrice(data?.cin_directrice ?? '')
+        setChargementCin(false)
       })
-      setCinDirectrice(identite?.cin_directrice ?? '')
-      setLoading(false)
-    })
   }, [profile])
 
   function majChamp(cle: keyof typeof champs) {
@@ -134,9 +152,18 @@ function IdentiteEtablissement() {
       return
     }
     setEnregistre(true)
+    /* Le client Supabase (voir supabaseClient.ts) prévient déjà automatiquement les AUTRES
+       onglets/navigateurs ouverts qu'une écriture vient d'avoir lieu — mais jamais celui-ci :
+       `self: false` (useSynchroEtablissement.ts) part du principe que l'onglet qui écrit se
+       recharge lui-même. `declencherSynchroLocale()` fait exactement ça ICI, tout de suite :
+       elle rejoue la requête de chaque donnée actuellement affichée dans CET onglet, y compris
+       le profil d'établissement partagé par toute l'application (ProfileContext.tsx) — c'est ce
+       qui fait apparaître sans délai la nouvelle adresse/le nouveau NIF dans un contrat qu'on
+       génère juste après, sans recharger la page. */
+    declencherSynchroLocale()
   }
 
-  if (loading) return <EtatChargement lignes={2} hauteur={200} />
+  if (!etablissement || chargementCin) return <EtatChargement lignes={2} hauteur={200} />
 
   return (
     <Section titre="Identité de l'établissement" description="Utilisée sur vos factures, devis, reçus et contrats, et disponible comme variable dans vos modèles.">
