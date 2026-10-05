@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import {
   ajouterJours,
+  dureeMinimaleColonnesMinutes,
+  HAUTEUR_MIN_EVENEMENT_PX,
   joursDeLaSemaine,
   libelleSemaine,
   lundiDeLaSemaine,
@@ -33,7 +35,7 @@ import { Icone } from './Icones'
    PLAFOND : chaque rendu recalcule la hauteur réelle d'une heure pour que la plage horaire active
    tienne pile dans l'espace mesuré sous la grille (voir `hauteurHeure` dans le composant), et ne
    grandit jamais au-delà de cette valeur même s'il reste de la place (pour ne pas non plus
-   étirer démesurément une journée avec peu de créneaux). `HAUTEUR_MIN_EVENEMENT`/
+   étirer démesurément une journée avec peu de créneaux). `HAUTEUR_MIN_EVENEMENT_PX`/
    `HAUTEUR_SOUS_TITRE`, eux, restent FIXES quelle que soit la densité de la grille : ce sont des
    planchers dictés par la police du texte (jamais réduite — « les descriptions [...] doivent
    rester visuellement visibles et lisibles »), pas par la grille elle-même. */
@@ -50,9 +52,12 @@ const PAS_MINUTES = 15
 
 /* Une demande d'appel dure 15 minutes : à l'échelle de la grille, sa pastille ferait 12 px de
    haut et son libellé serait tronqué au point d'être illisible. On lui impose donc une hauteur
-   plancher — elle déborde alors légèrement sur le créneau suivant, ce qui est sans conséquence
-   puisque les chevauchements sont de toute façon répartis en colonnes. */
-const HAUTEUR_MIN_EVENEMENT = 52
+   plancher (`HAUTEUR_MIN_EVENEMENT_PX`, importée de lib/agenda.ts — elle y vit aussi parce que
+   `placerEvenementsDuJour` en a besoin pour détecter les chevauchements qu'elle cause, pas
+   seulement pour le rendu ici). Corrigé le 2026-10-05 : cette pastille plus haute que son créneau
+   réel débordait bel et bien sur le suivant quand deux rendez-vous s'enchaînaient de près, et
+   comme l'ancien calcul de chevauchement ignorait ce débordement, les deux restaient « pleine
+   largeur » l'une sur l'autre au lieu d'être réparties en colonnes — capture client à l'appui. */
 /* En dessous de cette hauteur, la pastille n'a la place que d'une seule ligne : le sous-titre
    est retiré plutôt qu'affiché coupé. */
 const HAUTEUR_SOUS_TITRE = 70
@@ -321,7 +326,7 @@ export function AgendaHebdo({
 
             {joursVisibles.map((jour) => {
               const estAujourdhui = memeJour(jour, maintenant)
-              const places = placerEvenementsDuJour(evenements, jour)
+              const places = placerEvenementsDuJour(evenements, jour, dureeMinimaleColonnesMinutes(hauteurHeure))
               return (
                 <div
                   key={jour.toISOString()}
@@ -341,7 +346,7 @@ export function AgendaHebdo({
                     const ton = TONS[place.ton ?? 'bleu'] ?? TONS.bleu
                     const largeur = 100 / place.colonnes
                     const hauteur = Math.max(
-                      HAUTEUR_MIN_EVENEMENT,
+                      HAUTEUR_MIN_EVENEMENT_PX,
                       (place.finMinutes - place.debutMinutes) * (hauteurHeure / 60) - 2,
                     )
                     return (

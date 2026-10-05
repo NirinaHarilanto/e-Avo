@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  dureeMinimaleColonnesMinutes,
   joursDeLaSemaine,
   libelleSemaine,
   lundiDeLaSemaine,
@@ -101,6 +102,62 @@ describe('placerEvenementsDuJour', () => {
   it('tronque à minuit un cours qui déborde sur le lendemain', () => {
     const [place] = placerEvenementsDuJour([evenement('a', '2026-09-16', '23:30', 120)], jour)
     expect(place.finMinutes).toBe(1440)
+  })
+
+  // Bug réel constaté en production le 2026-10-05 (capture client à l'appui) : plusieurs
+  // rendez-vous admin strictement consécutifs (donc jamais chevauchants au sens de la durée
+  // réelle) se superposaient visuellement, parce que leur pastille à l'écran est bien plus haute
+  // que leur créneau réel pour rester lisible. Sans le 3e paramètre, le calcul de chevauchement
+  // ignore cette hauteur minimale — exactement le comportement d'AVANT le correctif.
+  it('sans le plancher visuel, ne sépare pas deux rendez-vous courts strictement consécutifs (comportement historique)', () => {
+    const places = placerEvenementsDuJour(
+      [evenement('a', '2026-09-16', '10:00', 15), evenement('b', '2026-09-16', '10:15', 15)],
+      jour,
+    )
+    expect(places.map((p) => p.colonnes)).toEqual([1, 1])
+  })
+
+  it('avec le plancher visuel, répartit en colonnes deux rendez-vous courts trop rapprochés pour ne pas se chevaucher à l’écran', () => {
+    // hauteurHeure=54 (HAUTEUR_HEURE par défaut d'AgendaHebdo) : deux rendez-vous de 15 min,
+    // strictement consécutifs, sont encore bien plus proches que ce que leur pastille (52 px +
+    // 6 px de marge) occupe réellement à l'écran à cette échelle.
+    const places = placerEvenementsDuJour(
+      [evenement('a', '2026-09-16', '10:00', 15), evenement('b', '2026-09-16', '10:15', 15)],
+      jour,
+      dureeMinimaleColonnesMinutes(54),
+    )
+    expect(places.map((p) => p.colonnes)).toEqual([2, 2])
+    expect(places.map((p) => p.colonne).sort()).toEqual([0, 1])
+    // Les horaires réels affichés dans la pastille ne doivent pas bouger : seule la répartition
+    // en colonnes change, jamais ce qui est montré à l'écran.
+    expect(places.find((p) => p.id === 'a')?.finMinutes).toBe(615) // 10:15, durée réelle inchangée
+  })
+
+  it('avec le plancher visuel, deux rendez-vous assez espacés restent chacun pleine largeur', () => {
+    // Même échelle (hauteurHeure=54), mais 2 heures d'écart : bien plus que ce que le plancher
+    // visuel peut faire déborder.
+    const places = placerEvenementsDuJour(
+      [evenement('a', '2026-09-16', '09:00', 15), evenement('b', '2026-09-16', '11:00', 15)],
+      jour,
+      dureeMinimaleColonnesMinutes(54),
+    )
+    expect(places.map((p) => p.colonnes)).toEqual([1, 1])
+  })
+})
+
+describe('dureeMinimaleColonnesMinutes', () => {
+  it('convertit le plancher de hauteur en minutes équivalentes à l’échelle donnée', () => {
+    // (52 + 6) px à 54 px/heure : un peu plus d'une heure équivalente.
+    expect(dureeMinimaleColonnesMinutes(54)).toBeCloseTo((58 / 54) * 60, 5)
+  })
+
+  it('grandit quand la grille est compressée (hauteur d’heure plus petite)', () => {
+    expect(dureeMinimaleColonnesMinutes(30)).toBeGreaterThan(dureeMinimaleColonnesMinutes(54))
+  })
+
+  it('reste à 0 si la hauteur d’heure est nulle ou négative, sans jamais diviser par zéro', () => {
+    expect(dureeMinimaleColonnesMinutes(0)).toBe(0)
+    expect(dureeMinimaleColonnesMinutes(-10)).toBe(0)
   })
 })
 
