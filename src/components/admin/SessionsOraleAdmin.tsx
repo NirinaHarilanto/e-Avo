@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
+import { useCohortes } from '../../hooks/useCohortes'
 import { supabase } from '../../lib/supabaseClient'
 import { formaterDansFuseauEtablissement, FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 import { instantDepuisLocal, partiesLocales } from '../../lib/creneaux'
@@ -7,25 +8,25 @@ import type { Database, NiveauClasse } from '../../types/database.types'
 import { Champ, champStyle, etiquetteStyle } from '../ui/Champ'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
+import { EtatVide } from '../ui/EtatVide'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import { Modale } from '../ui/Modale'
 import { Icone } from '../ui/Icones'
 import { ChampDate } from '../ui/ChampDate'
+import { GuidePage } from '../ui/GuidePage'
 
 type CreneauTest = Database['public']['Tables']['creneaux_test_positionnement']['Row']
 type Inscription = Database['public']['Tables']['test_positionnement_inscriptions']['Row']
 type Prospect = Database['public']['Tables']['prospects']['Row']
+type Cohort = Database['public']['Tables']['cohorts']['Row']
 
 interface CandidatInscrit {
   inscription: Inscription
   prospect: Prospect | null
 }
 
-/* Une entrée <input type="datetime-local"> ne porte aucun fuseau : le navigateur restitue
-   "YYYY-MM-DDTHH:mm" tel quel, sans timezone. On l'interprète toujours comme une heure
-   d'Antananarivo — jamais celle du navigateur de l'admin, potentiellement connecté depuis
-   l'étranger — pour rester cohérent avec le texte d'aide du formulaire et avec le reste de
-   l'affichage admin (formaterDansFuseauEtablissement). */
+/* Même conversion de fuseau que partout ailleurs dans l'admin des cours collectifs (ex-
+   CreneauxTestVague.tsx). */
 function versInstantAntananarivo(valeurDatetimeLocal: string): string {
   const [datePart, heurePart] = valeurDatetimeLocal.split('T')
   const [annee, mois, jour] = datePart.split('-').map(Number)
@@ -39,33 +40,33 @@ function versDatetimeLocalAntananarivo(instantIso: string): string {
   return `${annee}-${deux(mois)}-${deux(jour)}T${deux(heures)}:${deux(minutes)}`
 }
 
-/* Sessions de test oral d'une vague et candidats qui s'y sont inscrits depuis la page publique
-   (demande client du 2026-09-21). Chaque session est cliquable et déplie la liste de ses
-   candidats, avec un bouton pour les convertir en étudiant une fois le test oral passé — la
-   conversion les rattache automatiquement à cette vague (voir api/admin/convert-prospect.ts).
-   Création/modification/suppression passent par le serveur pour générer, déplacer ou retirer le
-   lien Google Meet en même temps que le créneau. */
-export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
+/* Onglet « Session orale » de Cours collectifs — demande client du 2026-10-06 : toutes les
+   sessions de test oral vivaient jusqu'ici dans le détail de LEUR vague d'origine
+   (CreneauxTestVague.tsx, repris ici), sans vue d'ensemble ni moyen de corriger un rattachement
+   fait par erreur. Ce composant les affiche TOUTES, quelle que soit leur vague, et rend ce
+   rattachement modifiable — une session créée pour la mauvaise promotion se corrige désormais
+   sans avoir à la supprimer et la recréer. */
+export function SessionsOraleAdmin() {
   const { session, profile } = useProfileContext()
+  const { cohortes, loading: chargementCohortes } = useCohortes()
   const [creneaux, setCreneaux] = useState<CreneauTest[] | null>(null)
   const [candidatsParCreneau, setCandidatsParCreneau] = useState<Map<string, CandidatInscrit[]>>(new Map())
+  const [filtreVague, setFiltreVague] = useState('')
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [creneauEnEdition, setCreneauEnEdition] = useState<CreneauTest | null>(null)
-  const [creneauDeplie, setCreneauDeplie] = useState<string | null>(null)
+  const [inscritsOuvertPour, setInscritsOuvertPour] = useState<CreneauTest | null>(null)
   const [bilanOuvert, setBilanOuvert] = useState<CandidatInscrit | null>(null)
-  // Candidat pour lequel on saisit les résultats du test oral avant conversion (demande client
-  // du 2026-09-24) — remplace le simple window.confirm d'avant.
   const [candidatPourResultats, setCandidatPourResultats] = useState<CandidatInscrit | null>(null)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [messageConversion, setMessageConversion] = useState<string | null>(null)
 
+  const cohorteParId = new Map(cohortes.map((c) => [c.id, c]))
+
   const charger = useCallback(async () => {
-    const { data: lignes, error } = await supabase
-      .from('creneaux_test_positionnement')
-      .select('*')
-      .eq('cohort_id', cohorteId)
-      .order('debut')
+    // Aucun filtre de vague ici, volontairement : la RLS (creneaux_test_admin_all) restreint déjà
+    // à l'établissement de l'admin connecté — même convention que useProfesseurs/useEtudiants.
+    const { data: lignes, error } = await supabase.from('creneaux_test_positionnement').select('*').order('debut')
     if (error) {
       setErreur(error.message)
       setCreneaux([])
@@ -92,7 +93,7 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
       parCreneau.set(inscription.creneau_id, liste)
     }
     setCandidatsParCreneau(parCreneau)
-  }, [cohorteId])
+  }, [])
 
   useEffect(() => {
     charger()
@@ -110,11 +111,11 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
     return { data: resultat }
   }
 
-  async function creer(valeurs: { debut: string; dureeMinutes: number; capaciteMax: number | null }) {
+  async function creer(valeurs: { cohortId: string; debut: string; dureeMinutes: number; capaciteMax: number | null }) {
     setEnCours(true)
     setErreur(null)
     const { error } = await appelServeur('/api/admin/creer-creneau-test', {
-      cohortId: cohorteId,
+      cohortId: valeurs.cohortId,
       debut: versInstantAntananarivo(valeurs.debut),
       dureeMinutes: valeurs.dureeMinutes,
       capaciteMax: valeurs.capaciteMax,
@@ -128,11 +129,15 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
     charger()
   }
 
-  async function modifier(creneauId: string, valeurs: { debut: string; dureeMinutes: number; capaciteMax: number | null }) {
+  async function modifier(
+    creneauId: string,
+    valeurs: { cohortId: string; debut: string; dureeMinutes: number; capaciteMax: number | null },
+  ) {
     setEnCours(true)
     setErreur(null)
     const { error } = await appelServeur('/api/admin/modifier-creneau-test', {
       creneauId,
+      cohortId: valeurs.cohortId,
       debut: versInstantAntananarivo(valeurs.debut),
       dureeMinutes: valeurs.dureeMinutes,
       capaciteMax: valeurs.capaciteMax,
@@ -172,11 +177,6 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
     charger()
   }
 
-  /* Consigne d'abord les résultats du test oral (niveau, profil, objectifs) dans un
-     diagnostic_calls — comme l'appel diagnostic individuel/duo, le dossier de l'élève les
-     affichera ensuite sans plomberie supplémentaire (BlocDiagnostic, DossierEtudiantVue.tsx) —
-     puis convertit le prospect. Les deux échouent ensemble si l'un des deux échoue : pas
-     d'étudiant sans trace de son test oral. */
   async function validerResultatsEtConvertir(
     candidat: CandidatInscrit,
     resultats: { niveau: string; profilDetaille: string; objectifs: string },
@@ -206,8 +206,6 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
       setErreur(error)
       return
     }
-    // Niveau détecté automatiquement à partir du quiz écrit, et classe assignée en conséquence
-    // (0074) — informe l'admin du résultat plutôt que de le laisser deviner en rouvrant la fiche.
     const resultat = data as { niveauDetecte?: NiveauClasse | null; classeAssignee?: string | null } | undefined
     if (resultat?.niveauDetecte) {
       setMessageConversion(
@@ -222,152 +220,197 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
     charger()
   }
 
-  /* Compteurs de la vague entière : sans eux, un candidat n'était visible qu'après avoir déplié
-     la bonne session, et rien ne signalait qu'il en restait à convertir (demande client du
-     2026-09-23, point 7). */
-  const tousCandidats = [...candidatsParCreneau.values()].flat()
-  const totalCandidats = tousCandidats.length
-  const aConvertir = tousCandidats.filter((c) => c.prospect && c.prospect.statut !== 'etudiant').length
+  const creneauxFiltres = (creneaux ?? []).filter((c) => !filtreVague || c.cohort_id === filtreVague)
+  const totalInscrits = [...candidatsParCreneau.values()].reduce((n, l) => n + l.length, 0)
 
-  if (creneaux === null) return <EtatChargement lignes={2} hauteur={40} />
+  if (creneaux === null || chargementCohortes) return <EtatChargement lignes={3} hauteur={70} />
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <GuidePage
+        id="admin-sessions-orale"
+        compact
+        etapes={[
+          <>
+            Toutes les sessions de test oral, <strong>quelle que soit leur vague</strong>, sont réunies ici. Le
+            rattachement à une vague se choisit à la création et peut être corrigé à tout moment avec « Modifier ».
+          </>,
+          <>
+            Le bouton <strong>« Voir les inscrits »</strong> de chaque session ouvre la liste complète des candidats
+            qui s’y sont inscrits depuis la page publique, avec leur score au quiz écrit et le bouton pour les
+            convertir en étudiant une fois le test oral passé.
+          </>,
+        ]}
+      />
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ ...etiquetteStyle, fontSize: 11, flexGrow: 1 }}>
-          Sessions de test oral
-          {totalCandidats > 0 && (
+        <span style={{ ...etiquetteStyle, fontSize: 11 }}>
+          {creneaux.length} session{creneaux.length > 1 ? 's' : ''}
+          {totalInscrits > 0 && (
             <span style={{ marginLeft: 8, textTransform: 'none', letterSpacing: 0, fontWeight: 700, color: 'var(--accent-blue)' }}>
-              {totalCandidats} candidat{totalCandidats > 1 ? 's' : ''}
-              {aConvertir > 0 ? ` · ${aConvertir} à convertir` : ''}
+              · {totalInscrits} candidat{totalInscrits > 1 ? 's' : ''} inscrit{totalInscrits > 1 ? 's' : ''}
             </span>
           )}
         </span>
-        <button onClick={() => setFormulaireOuvert(true)} style={boutonSecondaireStyle}>
+        <select
+          value={filtreVague}
+          onChange={(e) => setFiltreVague(e.target.value)}
+          aria-label="Filtrer par vague"
+          style={{ ...champStyle, width: 'auto', minWidth: 180, flexShrink: 0 }}
+        >
+          <option value="">Toutes les vagues</option>
+          {cohortes.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.nom}
+            </option>
+          ))}
+        </select>
+        <button onClick={() => setFormulaireOuvert(true)} disabled={cohortes.length === 0} className="btn-shine" style={{ ...boutonPrimaireStyle, marginLeft: 'auto' }}>
+          <Icone nom="plus" taille={14} />
           Ouvrir une session
         </button>
       </div>
 
+      {cohortes.length === 0 && (
+        <MessageInfo>Créez d’abord une vague dans l’onglet « Vagues » pour pouvoir y rattacher une session de test oral.</MessageInfo>
+      )}
       {erreur && <MessageErreur>{erreur}</MessageErreur>}
       {messageConversion && <MessageInfo>{messageConversion}</MessageInfo>}
 
-      {creneaux.length === 0 ? (
-        <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0, lineHeight: 1.55 }}>
-          Aucune session ouverte. Tant qu’il n’y en a pas, les visiteurs intéressés par le collectif ne peuvent pas
-          réserver de test de positionnement depuis la page publique.
-        </p>
+      {creneauxFiltres.length === 0 ? (
+        <EtatVide
+          icone="vagues"
+          titre="Aucune session de test oral"
+          description="Tant qu’aucune session n’est ouverte, les visiteurs intéressés par le collectif ne peuvent pas réserver de test de positionnement depuis la page publique."
+        />
       ) : (
-        creneaux.map((creneau) => {
-          const candidats = candidatsParCreneau.get(creneau.id) ?? []
-          const deplie = creneauDeplie === creneau.id
-          return (
-            <div key={creneau.id} style={{ display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 12, border: '1px solid var(--border)', padding: '11px 13px' }}>
-              <button
-                type="button"
-                onClick={() => setCreneauDeplie(deplie ? null : creneau.id)}
-                style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%' }}
-              >
-                <span style={{ transform: deplie ? 'rotate(90deg)' : 'none', transition: 'transform .15s', color: 'var(--muted)', flexShrink: 0 }}>
-                  <Icone nom="chevron" taille={14} />
-                </span>
-                <div style={{ flexGrow: 1, minWidth: 200 }}>
-                  <span style={{ fontSize: 13, color: 'var(--ink)', fontWeight: 700 }}>
-                    {formaterDansFuseauEtablissement(creneau.debut)}
-                  </span>
-                  <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                    {creneau.duree_minutes} min · {candidats.length} inscrit(s)
-                    {creneau.capacite_max ? ` / ${creneau.capacite_max}` : ''}
-                    {!creneau.actif && ' · fermée aux inscriptions'}
-                    {creneau.lien_visio ? ' · lien Meet prêt' : ' · lien Meet en préparation'}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {creneauxFiltres.map((creneau) => {
+            const candidats = candidatsParCreneau.get(creneau.id) ?? []
+            const vague = cohorteParId.get(creneau.cohort_id)
+            return (
+              <div key={creneau.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '13px 15px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ flexGrow: 1, minWidth: 200 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 700 }}>
+                        {formaterDansFuseauEtablissement(creneau.debut)}
+                      </span>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(233,207,148,.12)', border: '1px solid rgba(233,207,148,.3)', borderRadius: 999, padding: '2px 9px' }}>
+                        {vague?.nom ?? 'Vague supprimée'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
+                      {creneau.duree_minutes} min · {candidats.length} inscrit(s)
+                      {creneau.capacite_max ? ` / ${creneau.capacite_max}` : ''}
+                      {!creneau.actif && ' · fermée aux inscriptions'}
+                      {creneau.lien_visio ? ' · lien Meet prêt' : ' · lien Meet en préparation'}
+                    </div>
                   </div>
-                </div>
-              </button>
 
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>
-                {creneau.lien_visio && (
-                  <a
-                    href={creneau.lien_visio}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ ...boutonSecondaireStyle, textDecoration: 'none', display: 'inline-flex' }}
+                  {/* Bouton brillant demandé par le client : « très visible » — c'est l'action la
+                      plus fréquente sur cet écran (vérifier qui s'est inscrit), elle mérite de se
+                      distinguer des actions de gestion ci-dessous. */}
+                  <button
+                    type="button"
+                    onClick={() => setInscritsOuvertPour(creneau)}
+                    className="btn-shine"
+                    style={{ ...boutonPrimaireStyle, fontSize: 12.5, padding: '9px 16px', flexShrink: 0 }}
                   >
-                    Ouvrir le lien Meet
-                  </a>
-                )}
-                <button onClick={() => setCreneauEnEdition(creneau)} style={boutonSecondaireStyle}>
-                  Modifier
-                </button>
-                <button onClick={() => basculerActif(creneau)} style={boutonSecondaireStyle}>
-                  {creneau.actif ? 'Fermer' : 'Rouvrir'}
-                </button>
-                <button onClick={() => supprimer(creneau)} style={boutonDangerStyle}>
-                  Supprimer
-                </button>
-              </div>
-
-              {deplie && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, borderTop: '1px solid var(--border-soft)', paddingTop: 8 }}>
-                  {candidats.length === 0 ? (
-                    <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun candidat inscrit pour le moment.</p>
-                  ) : (
-                    candidats.map((candidat) => {
-                      const dejaConverti = candidat.prospect?.statut === 'etudiant'
-                      return (
-                        <div key={candidat.inscription.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 9px', borderRadius: 8, background: 'rgba(255,255,255,.03)', flexWrap: 'wrap' }}>
-                          <button
-                            type="button"
-                            onClick={() => setBilanOuvert(candidat)}
-                            style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', flexGrow: 1, minWidth: 140 }}
-                          >
-                            <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>
-                              {candidat.prospect ? `${candidat.prospect.prenom} ${candidat.prospect.nom}` : 'Candidat inconnu'}
-                            </span>
-                          </button>
-                          <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                            {candidat.inscription.score}/{candidat.inscription.total}
-                          </span>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '2px 9px' }}>
-                            {candidat.inscription.niveau_estime ?? 'Non évalué'}
-                          </span>
-                          {dejaConverti ? (
-                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-teal)' }}>Converti ✓</span>
-                          ) : (
-                            <button
-                              onClick={() => setCandidatPourResultats(candidat)}
-                              disabled={enCours || !candidat.prospect}
-                              style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'transparent', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '5px 11px', cursor: 'pointer' }}
-                            >
-                              Convertir en étudiant
-                            </button>
-                          )}
-                        </div>
-                      )
-                    })
-                  )}
+                    <Icone nom="etudiants" taille={14} />
+                    Voir les inscrits {candidats.length > 0 ? `(${candidats.length})` : ''}
+                  </button>
                 </div>
-              )}
-            </div>
-          )
-        })
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid var(--border-soft)', paddingTop: 9 }}>
+                  {creneau.lien_visio && (
+                    <a href={creneau.lien_visio} target="_blank" rel="noopener noreferrer" style={{ ...boutonSecondaireStyle, textDecoration: 'none', display: 'inline-flex' }}>
+                      Ouvrir le lien Meet
+                    </a>
+                  )}
+                  <button onClick={() => setCreneauEnEdition(creneau)} style={boutonSecondaireStyle}>
+                    Modifier
+                  </button>
+                  <button onClick={() => basculerActif(creneau)} style={boutonSecondaireStyle}>
+                    {creneau.actif ? 'Fermer' : 'Rouvrir'}
+                  </button>
+                  <button onClick={() => supprimer(creneau)} style={boutonDangerStyle}>
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
       )}
 
       {formulaireOuvert && (
-        <FormulaireCreneau onFermer={() => setFormulaireOuvert(false)} onValider={creer} enCours={enCours} />
+        <FormulaireSessionOrale cohortes={cohortes} onFermer={() => setFormulaireOuvert(false)} onValider={creer} enCours={enCours} erreur={erreur} />
       )}
       {creneauEnEdition && (
-        <FormulaireCreneau
+        <FormulaireSessionOrale
+          cohortes={cohortes}
           creneau={creneauEnEdition}
           onFermer={() => setCreneauEnEdition(null)}
           onValider={(valeurs) => modifier(creneauEnEdition.id, valeurs)}
           enCours={enCours}
+          erreur={erreur}
         />
       )}
-      {bilanOuvert && (
+
+      {inscritsOuvertPour && (
         <Modale
-          titre={`Bilan · ${bilanOuvert.prospect ? `${bilanOuvert.prospect.prenom} ${bilanOuvert.prospect.nom}` : 'Candidat'}`}
-          onFermer={() => setBilanOuvert(null)}
-          largeurMax={540}
+          titre={`Inscrits · ${formaterDansFuseauEtablissement(inscritsOuvertPour.debut)}`}
+          onFermer={() => setInscritsOuvertPour(null)}
+          largeurMax={560}
         >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 6px' }}>
+              Vague : <strong style={{ color: 'var(--ink-2)' }}>{cohorteParId.get(inscritsOuvertPour.cohort_id)?.nom ?? 'Vague supprimée'}</strong>
+            </p>
+            {(candidatsParCreneau.get(inscritsOuvertPour.id) ?? []).length === 0 ? (
+              <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0 }}>Aucun candidat inscrit pour le moment.</p>
+            ) : (
+              (candidatsParCreneau.get(inscritsOuvertPour.id) ?? []).map((candidat) => {
+                const dejaConverti = candidat.prospect?.statut === 'etudiant'
+                return (
+                  <div key={candidat.inscription.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,.03)', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => setBilanOuvert(candidat)}
+                      style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', flexGrow: 1, minWidth: 140 }}
+                    >
+                      <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>
+                        {candidat.prospect ? `${candidat.prospect.prenom} ${candidat.prospect.nom}` : 'Candidat inconnu'}
+                      </span>
+                    </button>
+                    <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                      {candidat.inscription.score}/{candidat.inscription.total}
+                    </span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '2px 9px' }}>
+                      {candidat.inscription.niveau_estime ?? 'Non évalué'}
+                    </span>
+                    {dejaConverti ? (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-teal)' }}>Converti ✓</span>
+                    ) : (
+                      <button
+                        onClick={() => setCandidatPourResultats(candidat)}
+                        disabled={enCours || !candidat.prospect}
+                        style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'transparent', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '5px 11px', cursor: 'pointer' }}
+                      >
+                        Convertir en étudiant
+                      </button>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </Modale>
+      )}
+
+      {bilanOuvert && (
+        <Modale titre={`Bilan · ${bilanOuvert.prospect ? `${bilanOuvert.prospect.prenom} ${bilanOuvert.prospect.nom}` : 'Candidat'}`} onFermer={() => setBilanOuvert(null)} largeurMax={540}>
           <pre style={{ fontSize: 12.5, lineHeight: 1.65, color: 'var(--ink-2)', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>
             {bilanOuvert.inscription.bilan ?? 'Aucun bilan enregistré.'}
           </pre>
@@ -390,21 +433,27 @@ export function CreneauxTestVague({ cohorteId }: { cohorteId: string }) {
   )
 }
 
-function FormulaireCreneau({
+function FormulaireSessionOrale({
+  cohortes,
   creneau,
   onFermer,
   onValider,
   enCours,
+  erreur,
 }: {
+  cohortes: Cohort[]
   creneau?: CreneauTest
   onFermer: () => void
-  onValider: (valeurs: { debut: string; dureeMinutes: number; capaciteMax: number | null }) => void
+  onValider: (valeurs: { cohortId: string; debut: string; dureeMinutes: number; capaciteMax: number | null }) => void
   enCours: boolean
+  erreur: string | null
 }) {
+  const [cohortId, setCohortId] = useState(creneau?.cohort_id ?? '')
   const [debut, setDebut] = useState(creneau ? versDatetimeLocalAntananarivo(creneau.debut) : '')
   const [duree, setDuree] = useState(String(creneau?.duree_minutes ?? 30))
   const [capacite, setCapacite] = useState(creneau?.capacite_max ? String(creneau.capacite_max) : '')
   const enModification = !!creneau
+  const pret = !!cohortId && !!debut
 
   return (
     <Modale titre={enModification ? 'Modifier la session de test oral' : 'Nouvelle session de test oral'} onFermer={onFermer} largeurMax={460}>
@@ -413,6 +462,16 @@ function FormulaireCreneau({
           Les candidats intéressés par le collectif choisiront cette session depuis la page publique, puis répondront au
           questionnaire de positionnement pour valider leur place. Le lien Google Meet se génère automatiquement.
         </p>
+        <Champ label="Vague" obligatoire aide={enModification ? 'Changer la vague rattache aussitôt cette session à la nouvelle promotion.' : undefined}>
+          <select value={cohortId} onChange={(e) => setCohortId(e.target.value)} style={champStyle}>
+            <option value="">— Choisir une vague —</option>
+            {cohortes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nom}
+              </option>
+            ))}
+          </select>
+        </Champ>
         <Champ label="Date et heure" obligatoire aide="Heure d’Antananarivo, convertie automatiquement chez le candidat.">
           <ChampDate type="datetime-local" value={debut} onChange={(e) => setDebut(e.target.value)} style={champStyle} />
         </Champ>
@@ -429,6 +488,7 @@ function FormulaireCreneau({
             Changer la date ou la durée déplace l’événement Google Calendar existant : le lien Meet ne change pas.
           </p>
         )}
+        {erreur && <MessageErreur>{erreur}</MessageErreur>}
         <div style={{ display: 'flex', gap: 8 }}>
           {enModification && (
             <button onClick={onFermer} style={boutonNeutreStyle}>
@@ -436,10 +496,10 @@ function FormulaireCreneau({
             </button>
           )}
           <button
-            onClick={() => onValider({ debut, dureeMinutes: Number(duree) || 30, capaciteMax: capacite ? Number(capacite) : null })}
-            disabled={!debut || enCours}
+            onClick={() => onValider({ cohortId, debut, dureeMinutes: Number(duree) || 30, capaciteMax: capacite ? Number(capacite) : null })}
+            disabled={!pret || enCours}
             className="btn-shine"
-            style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: debut && !enCours ? 1 : 0.6 }}
+            style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: pret && !enCours ? 1 : 0.6 }}
           >
             {enCours ? 'Enregistrement…' : enModification ? 'Enregistrer les modifications' : 'Ouvrir la session'}
           </button>
@@ -449,10 +509,7 @@ function FormulaireCreneau({
   )
 }
 
-/* Notes de l'appel diagnostic (0006) : un seul champ texte libre. Le profil détaillé et les
-   objectifs saisis au test oral y sont regroupés sous deux paragraphes étiquetés plutôt que
-   d'ajouter des colonnes dédiées, pour rester lisibles tels quels dans BlocDiagnostic
-   (DossierEtudiantVue.tsx) sans y toucher. `null` si les deux champs sont vides. */
+/* Notes de l'appel diagnostic (0006) — reprise à l'identique de l'ex-CreneauxTestVague.tsx. */
 function formaterNotesTestOral(profilDetaille: string, objectifs: string): string | null {
   const parties = [
     profilDetaille.trim() ? `Profil détaillé :\n${profilDetaille.trim()}` : null,
@@ -461,10 +518,6 @@ function formaterNotesTestOral(profilDetaille: string, objectifs: string): strin
   return parties.length > 0 ? parties.join('\n\n') : null
 }
 
-/* Résultats du test oral, saisis avant conversion (demande client du 2026-09-24) : jusqu'ici,
-   « Convertir en étudiant » ne faisait qu'un window.confirm, et rien du test oral (par
-   opposition au quiz écrit, déjà noté automatiquement) n'était conservé dans le dossier de
-   l'élève. */
 function ModaleResultatsTestOral({
   candidat,
   enCours,
@@ -494,20 +547,10 @@ function ModaleResultatsTestOral({
           <input value={niveau} onChange={(e) => setNiveau(e.target.value)} placeholder="Niveau déterminé à l'oral" style={champStyle} />
         </Champ>
         <Champ label="Profil détaillé">
-          <textarea
-            value={profilDetaille}
-            onChange={(e) => setProfilDetaille(e.target.value)}
-            rows={3}
-            style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
-          />
+          <textarea value={profilDetaille} onChange={(e) => setProfilDetaille(e.target.value)} rows={3} style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }} />
         </Champ>
         <Champ label="Objectifs">
-          <textarea
-            value={objectifs}
-            onChange={(e) => setObjectifs(e.target.value)}
-            rows={3}
-            style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
-          />
+          <textarea value={objectifs} onChange={(e) => setObjectifs(e.target.value)} rows={3} style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }} />
         </Champ>
         {erreur && <MessageErreur>{erreur}</MessageErreur>}
         <div style={{ display: 'flex', gap: 8 }}>

@@ -11,7 +11,7 @@ type NiveauEvaluation = Database['public']['Tables']['niveau_evaluations']['Row'
    Priorité : la dernière réévaluation de progression (`niveau_evaluations`, ajoutée à la main par
    l'admin depuis le dossier — HistoriqueNiveauModale.tsx) si elle existe, sinon le niveau que
    l'admin a lui-même arrêté à l'appel diagnostic ou au test oral (`diagnostic_calls.niveau_evalue`
-   — voir CreneauxTestVague.tsx). JAMAIS l'estimation automatique du quiz écrit
+   — voir SessionsOraleAdmin.tsx). JAMAIS l'estimation automatique du quiz écrit
    (`test_positionnement_inscriptions.niveau_estime`) : purement indicative avant l'oral, elle
    n'est ni saisie ni validée par l'admin et ne doit pas se faire passer pour le niveau retenu. */
 export function niveauDefinitif(

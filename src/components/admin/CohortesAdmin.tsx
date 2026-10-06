@@ -24,7 +24,7 @@ import { Modale } from '../ui/Modale'
 import { ChampRecherche } from '../ui/BarreOutils'
 import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
 import { formaterHeures } from '../../lib/heures'
-import { CreneauxTestVague } from './CreneauxTestVague'
+import { SessionsOraleAdmin } from './SessionsOraleAdmin'
 import { QuizPositionnementAdmin } from './QuizPositionnementAdmin'
 import { ChampDate } from '../ui/ChampDate'
 
@@ -38,7 +38,7 @@ export function CohortesAdmin() {
   const { profile } = useProfileContext()
   const { cohortes, loading, erreur, recharger } = useCohortes()
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
-  const [onglet, setOnglet] = useState<'vagues' | 'quiz'>('vagues')
+  const [onglet, setOnglet] = useState<'vagues' | 'sessionOrale' | 'quiz'>('vagues')
 
   return (
     <AdminLayout actif="Cours collectifs">
@@ -64,12 +64,15 @@ export function CohortesAdmin() {
           compact
           onglets={[
             { value: 'vagues', label: 'Vagues', compteur: cohortes.length },
+            { value: 'sessionOrale', label: 'Session orale' },
             { value: 'quiz', label: 'Quiz de positionnement' },
           ]}
         />
       </div>
 
-      {onglet === 'quiz' ? (
+      {onglet === 'sessionOrale' ? (
+        <SessionsOraleAdmin />
+      ) : onglet === 'quiz' ? (
         <>
           <GuidePage
             id="admin-quiz-positionnement"
@@ -544,7 +547,6 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
             )
           )}
 
-          <CreneauxTestVague cohorteId={cohorte.id} />
         </div>
       )}
     </div>

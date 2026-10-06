@@ -1,5 +1,5 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
-import { creerEvenementMeet, deplacerEvenement, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
+import { creerEvenementMeet, integrationDeLEtablissement, modifierEvenementMeet, noterErreurGoogle } from '../_lib/google.js'
 import { messageErreur } from '../_lib/creerSeance.js'
 import type { Database } from '../../src/types/database.types.js'
 
@@ -9,6 +9,9 @@ export const config = { runtime: 'edge' }
 
 interface Corps {
   creneauId?: string
+  /* Rattachement à une autre vague (0100, demande client du 2026-10-06 : « rattachement de vague,
+     modifiable par l'utilisateur ») — absent, le rattachement actuel ne change pas. */
+  cohortId?: string
   debut?: string
   dureeMinutes?: number
   capaciteMax?: number | null
@@ -16,11 +19,13 @@ interface Corps {
 }
 
 /**
- * Modification d'une session de test oral déjà créée (date, durée, places, ouverte/fermée) —
- * demande client du 2026-09-21. Passe par le serveur pour tenir l'événement Google Calendar à
- * jour : un changement de date/durée déplace l'événement (le lien Meet ne change pas) ; si la
- * session n'avait encore aucun lien (Google connecté après coup, ou échec précédent), un
- * événement est créé maintenant — même rattrapage que generer-lien-visio.ts pour les séances.
+ * Modification d'une session de test oral déjà créée (date, durée, places, ouverte/fermée,
+ * vague de rattachement) — demande client du 2026-09-21, complétée le 2026-10-06. Passe par le
+ * serveur pour tenir l'événement Google Calendar à jour : un changement de date/durée déplace
+ * l'événement (le lien Meet ne change pas) ; un changement de vague renomme le titre de
+ * l'événement (il porte le nom de la vague) ; si la session n'avait encore aucun lien (Google
+ * connecté après coup, ou échec précédent), un événement est créé maintenant — même rattrapage
+ * que generer-lien-visio.ts pour les séances.
  */
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
@@ -58,21 +63,47 @@ export default async function handler(request: Request): Promise<Response> {
     if (corps.capaciteMax !== undefined) champs.capacite_max = corps.capaciteMax
     if (corps.actif !== undefined) champs.actif = corps.actif
 
-    const integration = dateOuDureeChangee || !creneau.google_event_id
+    // Rattachement à une autre vague : vérifié avant toute écriture, un identifiant inventé ou
+    // appartenant à un autre établissement ne doit pas pouvoir rattacher une session ailleurs.
+    let nouvelleCohorte: { id: string; nom: string } | null = null
+    const cohortChangee = !!corps.cohortId && corps.cohortId !== creneau.cohort_id
+    if (cohortChangee) {
+      const { data } = await serviceClient
+        .from('cohorts')
+        .select('id, nom')
+        .eq('id', corps.cohortId as string)
+        .eq('etablissement_id', etablissementId)
+        .maybeSingle()
+      if (!data) {
+        return Response.json({ error: 'Vague introuvable pour cet établissement.' }, { status: 404 })
+      }
+      nouvelleCohorte = data
+      champs.cohort_id = data.id
+    }
+
+    const integration = dateOuDureeChangee || cohortChangee || !creneau.google_event_id
       ? await integrationDeLEtablissement(serviceClient, etablissementId)
       : null
 
-    if (integration && creneau.google_event_id && dateOuDureeChangee) {
+    if (integration && creneau.google_event_id && (dateOuDureeChangee || cohortChangee)) {
       try {
-        await deplacerEvenement(integration, creneau.google_event_id, nouveauDebut, nouvelleDuree)
+        // Un seul appel, PATCH : seuls les champs fournis changent côté Google — la date/durée si
+        // elles ont bougé, le titre (qui porte le nom de la vague) si le rattachement a changé.
+        await modifierEvenementMeet(integration, creneau.google_event_id, {
+          ...(dateOuDureeChangee ? { debut: nouveauDebut, dureeMinutes: nouvelleDuree } : {}),
+          ...(nouvelleCohorte ? { titre: `Test de positionnement — ${nouvelleCohorte.nom}` } : {}),
+        })
         await noterErreurGoogle(serviceClient, etablissementId, null)
       } catch (erreurGoogle) {
         await noterErreurGoogle(serviceClient, etablissementId, messageErreur(erreurGoogle))
       }
     } else if (integration && !creneau.google_event_id) {
       // Rattrapage : aucun événement n'existait (Google pas encore connecté à l'ouverture de la
-      // session, ou échec de création à l'époque).
-      const { data: cohorte } = await serviceClient.from('cohorts').select('nom').eq('id', creneau.cohort_id).maybeSingle()
+      // session, ou échec de création à l'époque). Le nom de vague à utiliser est le nouveau s'il
+      // vient de changer, sinon celui déjà rattaché.
+      const { data: cohorte } = nouvelleCohorte
+        ? { data: nouvelleCohorte as { nom: string } }
+        : await serviceClient.from('cohorts').select('nom').eq('id', creneau.cohort_id).maybeSingle()
       try {
         const { eventId, lienMeet } = await creerEvenementMeet(integration, {
           titre: `Test de positionnement — ${cohorte?.nom ?? 'vague'}`,
