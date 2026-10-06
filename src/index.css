@@ -2114,6 +2114,71 @@ body.sans-defilement {
   max-height: clamp(140px, 33vh, 300px);
 }
 
+/* Grille des membres de l'équipe pédagogique (demande client du 2026-10-06) : portraits
+   individuels circulaires, un par personne — repris du visuel de référence fourni par le client
+   (photo ronde, nom, poste, chacun sur sa propre ligne), en dessous des deux cartes éditoriales
+   « Notre directrice »/« Notre équipe » qui restent inchangées. */
+.grille-equipe-pedagogique {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  gap: 22px 16px;
+  margin-top: 24px;
+  width: 100%;
+}
+.carte-membre-equipe {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+}
+.photo-membre-equipe {
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid var(--hoc-or-vif);
+  box-shadow: 0 0 0 4px rgba(255, 201, 98, 0.14), 0 14px 26px rgba(0, 0, 0, 0.35);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.carte-membre-equipe:hover .photo-membre-equipe {
+  transform: translateY(-3px);
+  box-shadow: 0 0 0 5px rgba(255, 201, 98, 0.2), 0 18px 32px rgba(0, 0, 0, 0.4);
+}
+.photo-membre-equipe img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 18%;
+}
+.carte-membre-equipe .nom-professeur {
+  font-size: 13.5px;
+  margin-top: 6px;
+}
+.carte-membre-equipe .page-claire .role-professeur,
+.page-claire .carte-membre-equipe .role-professeur {
+  font-size: 11.5px;
+}
+.carte-membre-equipe .slogan-membre-equipe {
+  margin: 2px 0 0;
+  max-width: 180px;
+  font-size: 11px;
+  line-height: 1.45;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.72);
+}
+@media (max-width: 560px) {
+  .grille-equipe-pedagogique {
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    gap: 18px 12px;
+  }
+  .photo-membre-equipe {
+    width: 88px;
+    height: 88px;
+  }
+}
+
 /* ── Fenêtre de réservation ────────────────────────────────────────────────── */
 .voile-modale {
   position: fixed;

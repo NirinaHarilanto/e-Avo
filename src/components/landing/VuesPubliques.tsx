@@ -422,9 +422,80 @@ export function VueProfesseurs({
           </div>
         </article>
       </div>
+
+      <div className="grille-equipe-pedagogique">
+        {EQUIPE_PEDAGOGIQUE.map((membre) => (
+          <article key={membre.id} className="carte-membre-equipe">
+            <div className="photo-membre-equipe">
+              <img src={`${dossierAssets}/equipe/equipe-${membre.id}.webp`} alt={membre.nom} loading="lazy" />
+            </div>
+            {/* Les 3 professeures d'anglais pas encore nommées (demande client du 2026-10-07 :
+                « pour le reste, ne mets pas de nom pour l'instant ») n'affichent pas de ligne de
+                nom plutôt qu'une ligne vide ou un espace réservé — le rôle suffit à les présenter
+                en attendant. */}
+            {membre.nom && <span className="nom-professeur">{membre.nom}</span>}
+            <h3 className="role-professeur">{membre.role}</h3>
+            <p className="slogan-membre-equipe">{membre.slogan}</p>
+          </article>
+        ))}
+      </div>
     </CadreVue>
   )
 }
+
+/* Équipe pédagogique, un portrait par personne — demande client du 2026-10-06, sur le modèle
+   d'une grille d'équipe classique (photo ronde, nom puis poste, chacun sur sa propre ligne) dont
+   le client a fourni l'image de référence. Les 7 photos (dossier « Musique » du client, toutes
+   issues de la même séance du studio Mim'SARY) sont préparées dans public/etablissements/
+   hari-online-course/equipe/ (voir le script de préparation, scratchpad de la session).
+
+   Noms et rôles communiqués par le client le 2026-10-07 pour 4 des 7 personnes ; les 3 dernières
+   restent volontairement sans nom pour l'instant (demande explicite : « pour le reste, ne mets
+   pas de nom pour l'instant, on le fera plus tard »), avec pour seul rôle « Professeure
+   d'anglais ». `id` reste le numéro d'origine de la photo (IMG-Hari-<id>.jpg), pour s'y retrouver
+   le jour où ces 3 noms arrivent. Slogans inventés (demande client explicite), réécrits pour
+   chaque rôle précisé plutôt que laissés tels quels écrits pour « Professeure d'anglais ». */
+const EQUIPE_PEDAGOGIQUE: { id: number; nom?: string; role: string; slogan: string }[] = [
+  {
+    id: 16,
+    nom: 'Harinjo',
+    role: 'Fondatrice',
+    slogan: 'Elle a fondé Hari Online Club avec une conviction simple : aucune application ne remplace le regard d’un professeur qui croit en vous.',
+  },
+  {
+    id: 15,
+    nom: 'Manda',
+    role: 'Ingénieur pédagogue',
+    slogan: 'Elle conçoit les parcours et les outils qui structurent chaque cours, pour que la pédagogie HOC reste cohérente du premier au dernier élève.',
+  },
+  {
+    id: 11,
+    nom: 'Anael',
+    role: 'Assistante admin',
+    slogan: 'Souvent le premier contact de chaque élève, elle veille à ce que chaque dossier avance sans accroc, du premier message à la première séance.',
+  },
+  {
+    id: 12,
+    nom: 'Rado',
+    role: 'Formateur',
+    slogan: 'Engagé et exigeant, il mise sur des mises en situation concrètes pour faire décoller l’aisance à l’oral de chaque élève.',
+  },
+  {
+    id: 9,
+    role: 'Professeure d’anglais',
+    slogan: 'Patiente et exigeante à la fois, elle pousse chaque élève un peu plus loin sans jamais le brusquer.',
+  },
+  {
+    id: 14,
+    role: 'Professeure d’anglais',
+    slogan: 'Minutieuse et à l’écoute, elle construit avec chaque élève un parcours taillé pour son objectif réel.',
+  },
+  {
+    id: 17,
+    role: 'Professeure d’anglais',
+    slogan: 'Créative et moderne, elle construit des cours vivants qui collent aux usages réels de l’anglais d’aujourd’hui.',
+  },
+]
 
 function CadreVue({
   surtitre,
