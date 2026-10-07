@@ -1,5 +1,5 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
-import { creerEvenementMeet, integrationDeLEtablissement, modifierEvenementMeet, noterErreurGoogle } from '../_lib/google.js'
+import { creerEvenementVisio, integrationDeLEtablissement, modifierEvenementVisio, noterErreurGoogle } from '../_lib/google.js'
 import { messageErreur } from '../_lib/creerSeance.js'
 import type { Database } from '../../src/types/database.types.js'
 
@@ -89,7 +89,7 @@ export default async function handler(request: Request): Promise<Response> {
       try {
         // Un seul appel, PATCH : seuls les champs fournis changent côté Google — la date/durée si
         // elles ont bougé, le titre (qui porte le nom de la vague) si le rattachement a changé.
-        await modifierEvenementMeet(integration, creneau.google_event_id, {
+        await modifierEvenementVisio(integration, creneau.google_event_id, {
           ...(dateOuDureeChangee ? { debut: nouveauDebut, dureeMinutes: nouvelleDuree } : {}),
           ...(nouvelleCohorte ? { titre: `Test de positionnement — ${nouvelleCohorte.nom}` } : {}),
         })
@@ -105,7 +105,7 @@ export default async function handler(request: Request): Promise<Response> {
         ? { data: nouvelleCohorte as { nom: string } }
         : await serviceClient.from('cohorts').select('nom').eq('id', creneau.cohort_id).maybeSingle()
       try {
-        const { eventId, lienMeet } = await creerEvenementMeet(integration, {
+        const { eventId, lienVisio } = await creerEvenementVisio(integration, {
           titre: `Test de positionnement — ${cohorte?.nom ?? 'vague'}`,
           description: 'Test oral de positionnement Hari Online Club, généré automatiquement.',
           debut: nouveauDebut,
@@ -113,7 +113,7 @@ export default async function handler(request: Request): Promise<Response> {
           emailsInvites: [],
         })
         champs.google_event_id = eventId
-        champs.lien_visio = lienMeet
+        champs.lien_visio = lienVisio
         await noterErreurGoogle(serviceClient, etablissementId, null)
       } catch (erreurGoogle) {
         await noterErreurGoogle(serviceClient, etablissementId, messageErreur(erreurGoogle))

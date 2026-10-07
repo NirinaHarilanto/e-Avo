@@ -103,7 +103,7 @@ export async function notifierParticipantsSeance(
  *  - AJOUTÉES : nouvelle invitation ;
  *  - déjà PRÉSENTES : mise à jour des informations, seulement si quelque chose a réellement changé.
  * L'auteur de la modification n'est jamais notifié de sa propre action. Google Calendar envoie de
- * son côté ses propres e-mails aux invités (`sendUpdates=all`, voir modifierEvenementMeet) ; ces
+ * son côté ses propres e-mails aux invités (`sendUpdates=all`, voir modifierEvenementVisio) ; ces
  * notifications sont le pendant interne, celui qui compte pour qui n'a pas d'adresse ou de Google.
  */
 export async function notifierModificationEvenement(

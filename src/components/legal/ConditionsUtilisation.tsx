@@ -24,8 +24,9 @@ export function ConditionsUtilisation() {
       <BlocLegal titre="Cours et visioconférence">
         <p>
           Les séances sont planifiées par l'établissement ou le professeur selon le forfait souscrit.
-          Quand un compte Google est connecté côté établissement, chaque séance génère un lien Google
-          Meet réel ; en son absence, un lien de remplacement est utilisé jusqu'à connexion du compte.
+          Chaque séance reçoit un lien de visioconférence Jitsi, qui s'ouvre dans le navigateur sans
+          qu'aucun compte ne soit nécessaire. Quand un compte Google est connecté côté établissement,
+          la séance est également inscrite à l'agenda et les participants reçoivent une invitation.
           Une séance reprogrammée ou annulée met à jour l'agenda et prévient les participants.
         </p>
       </BlocLegal>
@@ -50,7 +51,7 @@ export function ConditionsUtilisation() {
         <p>
           Nous mettons en œuvre des moyens raisonnables pour assurer la disponibilité du service, sans
           garantie d'absence totale d'interruption (maintenance, panne d'un prestataire tiers comme
-          Google Meet). En cas d'indisponibilité de la visioconférence, l'établissement reprogramme la
+          Jitsi ou Google). En cas d'indisponibilité de la visioconférence, l'établissement reprogramme la
           séance concernée.
         </p>
       </BlocLegal>

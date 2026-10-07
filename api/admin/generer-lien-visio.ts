@@ -1,5 +1,5 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
-import { creerEvenementMeet, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
+import { creerEvenementVisio, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
 import { emailsParticipants, messageErreur } from '../_lib/creerSeance.js'
 
 export const config = { runtime: 'edge' }
@@ -53,7 +53,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     try {
       const participants = await emailsParticipants(serviceClient, session.teacher_id, studentIds)
-      const { eventId, lienMeet } = await creerEvenementMeet(integration, {
+      const { eventId, lienVisio } = await creerEvenementVisio(integration, {
         titre: participants.titreCours,
         description: 'Cours planifié depuis e-Avo.',
         debut: session.debut,
@@ -66,8 +66,8 @@ export default async function handler(request: Request): Promise<Response> {
       const { error } = await serviceClient.from('video_sessions').upsert(
         {
           session_id: session.id,
-          provider: 'google_meet',
-          room_ref: lienMeet,
+          provider: 'jitsi',
+          room_ref: lienVisio,
           statut: 'planifiee',
           google_event_id: eventId,
           organisateur_email: integration.googleEmail,
@@ -79,7 +79,7 @@ export default async function handler(request: Request): Promise<Response> {
       }
 
       await noterErreurGoogle(serviceClient, etablissementId, null)
-      return Response.json({ lienMeet })
+      return Response.json({ lienMeet: lienVisio })
     } catch (error) {
       await noterErreurGoogle(serviceClient, etablissementId, messageErreur(error))
       return Response.json({ error: messageErreur(error) }, { status: 502 })

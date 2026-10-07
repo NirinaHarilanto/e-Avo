@@ -121,7 +121,7 @@ export function CohortesAdmin() {
             Le bouton <strong>Voir les inscrits</strong> déplie la liste des élèves rattachés, et donne accès aux{' '}
             <strong>sessions de test oral</strong> que vous ouvrez pour cette vague : c’est ce que les candidats au
             collectif réservent depuis la page publique. Une session peut être <strong>modifiée</strong> après coup ;
-            son lien Google Meet se génère tout seul.
+            son lien de visioconférence se génère tout seul.
           </>,
           <>
             <strong>Cliquez sur une session</strong> pour dérouler la liste des candidats qui s’y sont inscrits, avec

@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { AdminAuthError, requireAdmin } from '../_lib/adminAuth.js'
-import { creerEvenementMeet, integrationDeLEtablissement, noterErreurGoogle, supprimerEvenement } from '../_lib/google.js'
+import { creerEvenementVisio, integrationDeLEtablissement, noterErreurGoogle, supprimerEvenement } from '../_lib/google.js'
 import { envoyerEmail, modeleRendezVousConfirme, modeleRendezVousRefuse } from '../_lib/email.js'
 
 export const config = { runtime: 'edge' }
@@ -119,7 +119,7 @@ export default async function handler(request: Request): Promise<Response> {
           prospect.objectif ? `Objectif : ${prospect.objectif}` : null,
         ].filter(Boolean)
 
-        const evenement = await creerEvenementMeet(integration, {
+        const evenement = await creerEvenementVisio(integration, {
           titre: `Appel diagnostic — ${prospect.prenom} ${prospect.nom}`,
           description: details.join('\n') || undefined,
           debut: rendezVous.debut,
@@ -127,7 +127,7 @@ export default async function handler(request: Request): Promise<Response> {
           emailsInvites: [prospect.email],
         })
         eventId = evenement.eventId
-        lienMeet = evenement.lienMeet
+        lienMeet = evenement.lienVisio
         await noterErreurGoogle(serviceClient, etablissementId, null)
       }
     } catch (erreur) {

@@ -321,7 +321,7 @@ export function SessionsOraleAdmin() {
                       <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                         {creneau.duree_minutes} min
                         {!creneau.actif && ' · fermée aux inscriptions'}
-                        {creneau.lien_visio ? ' · lien Meet prêt' : ' · lien Meet en préparation'}
+                        {creneau.lien_visio ? ' · lien visio prêt' : ' · lien visio en préparation'}
                       </span>
                     </div>
                   </div>
@@ -345,7 +345,7 @@ export function SessionsOraleAdmin() {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid var(--border-soft)', paddingTop: 9 }}>
                   {creneau.lien_visio && (
                     <a href={creneau.lien_visio} target="_blank" rel="noopener noreferrer" style={{ ...boutonSecondaireStyle, textDecoration: 'none', display: 'inline-flex' }}>
-                      Ouvrir le lien Meet
+                      Ouvrir le lien visio
                     </a>
                   )}
                   <button onClick={() => setCreneauEnEdition(creneau)} style={boutonSecondaireStyle}>
@@ -480,7 +480,7 @@ function FormulaireSessionOrale({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: 0, lineHeight: 1.55 }}>
           Les candidats intéressés par le collectif choisiront cette session depuis la page publique, puis répondront au
-          questionnaire de positionnement pour valider leur place. Le lien Google Meet se génère automatiquement.
+          questionnaire de positionnement pour valider leur place. Le lien de visioconférence se génère automatiquement.
         </p>
         <Champ label="Vague" obligatoire aide={enModification ? 'Changer la vague rattache aussitôt cette session à la nouvelle promotion.' : undefined}>
           <select value={cohortId} onChange={(e) => setCohortId(e.target.value)} style={champStyle}>
@@ -505,7 +505,7 @@ function FormulaireSessionOrale({
         </div>
         {enModification && (
           <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0 }}>
-            Changer la date ou la durée déplace l’événement Google Calendar existant : le lien Meet ne change pas.
+            Changer la date ou la durée déplace l’événement Google Calendar existant : le lien visio ne change pas.
           </p>
         )}
         {erreur && <MessageErreur>{erreur}</MessageErreur>}

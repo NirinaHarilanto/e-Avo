@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
-import { integrationDeLEtablissement, modifierEvenementMeet } from '../_lib/google.js'
+import { integrationDeLEtablissement, modifierEvenementVisio } from '../_lib/google.js'
 import { notifierModificationEvenement } from '../_lib/notifications.js'
 import type { Database } from '../../src/types/database.types.js'
 
@@ -41,7 +41,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: evenement } = await serviceClient
       .from('evenements_admin')
-      .select('id, etablissement_id, cree_par, google_event_id, annule, debut, duree_minutes, titre, notes, participants_obligatoires, participants_optionnels')
+      .select('id, etablissement_id, cree_par, google_event_id, lien_meet, annule, debut, duree_minutes, titre, notes, participants_obligatoires, participants_optionnels')
       .eq('id', corps.evenementId)
       .maybeSingle()
     if (!evenement || evenement.etablissement_id !== etablissementId || evenement.cree_par !== profileId) {
@@ -111,12 +111,13 @@ export default async function handler(request: Request): Promise<Response> {
       const integration = await integrationDeLEtablissement(serviceClient, etablissementId).catch(() => null)
       if (integration) {
         const horaireChange = corps.debut !== undefined || corps.dureeMinutes !== undefined
-        await modifierEvenementMeet(integration, evenement.google_event_id, {
+        await modifierEvenementVisio(integration, evenement.google_event_id, {
           titre,
           debut: horaireChange ? (corps.debut !== undefined ? new Date(corps.debut).toISOString() : evenement.debut) : undefined,
           dureeMinutes: horaireChange ? (corps.dureeMinutes ?? evenement.duree_minutes) : undefined,
           description: corps.notes?.trim(),
           emailsInvites,
+          lienVisio: evenement.lien_meet ?? undefined,
         }).catch(() => {})
       }
     }

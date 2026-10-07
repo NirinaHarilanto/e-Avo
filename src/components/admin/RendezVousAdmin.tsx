@@ -103,7 +103,7 @@ export function RendezVousAdmin() {
             <strong>À valider</strong> et vous recevez une notification (cloche en haut à droite).
           </>,
           <>
-            <strong>Confirmer</strong> crée l’événement dans l’agenda Google de l’établissement avec un lien Meet, et
+            <strong>Confirmer</strong> crée l’événement dans l’agenda Google de l’établissement avec un lien de visioconférence, et
             envoie l’invitation au prospect. <strong>Refuser</strong> libère le créneau pour quelqu’un d’autre.
           </>,
           <>

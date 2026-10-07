@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { waitUntil } from '@vercel/functions'
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
-import { creerEvenementMeet, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
+import { creerEvenementVisio, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
 
 export const config = { runtime: 'edge' }
 
@@ -98,14 +98,14 @@ export default async function handler(request: Request): Promise<Response> {
         (async () => {
           try {
             const emailsInvites = tousLesIds.map((id) => parId.get(id)?.email).filter((email): email is string => !!email)
-            const { eventId, lienMeet } = await creerEvenementMeet(integration, {
+            const { eventId, lienVisio } = await creerEvenementVisio(integration, {
               titre,
               description: corps.notes?.trim() || undefined,
               debut: debutIso,
               dureeMinutes,
               emailsInvites,
             })
-            await serviceClient.from('evenements_admin').update({ google_event_id: eventId, lien_meet: lienMeet }).eq('id', evenement.id)
+            await serviceClient.from('evenements_admin').update({ google_event_id: eventId, lien_meet: lienVisio }).eq('id', evenement.id)
             await noterErreurGoogle(serviceClient, etablissementId, null)
           } catch (erreurGoogle) {
             await noterErreurGoogle(

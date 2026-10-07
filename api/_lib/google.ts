@@ -1,16 +1,19 @@
 /// <reference types="node" />
 import type { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
+import { creerLienJitsi } from '../../src/lib/visio.js'
 
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
 /**
- * Intégration Google Calendar / Google Meet.
+ * Intégration Google Calendar.
  *
- * Pourquoi Calendar pour obtenir un lien Meet : Google ne publie aucune API « créer une réunion
- * Meet ». Le seul moyen gratuit et automatisable est de créer un événement Calendar en demandant
- * une conférence (`conferenceData.createRequest`) — Google renvoie alors un `hangoutLink`
- * meet.google.com, définitif, réutilisable, et l'événement porte l'invitation des participants.
+ * Calendar sert à l'agenda et aux invitations : il tient le planning de l'établissement et envoie
+ * lui-même les convocations aux participants (`sendUpdates=all`). Il ne fournit PLUS le lien de
+ * visioconférence depuis le 2026-10-07 : une réunion Meet hébergée par un compte Gmail gratuit —
+ * celui de l'établissement — est fermée à toute personne non connectée à un compte Google, ce qui
+ * excluait une partie des élèves de HOC. Le lien est désormais une salle Jitsi (voir
+ * `creerEvenementVisio` et src/lib/visio.ts), qui n'exige aucun compte.
  *
  * Un seul compte Google est connecté, celui de l'établissement : les séances de tous les
  * professeurs sont créées dans son agenda, professeur et élèves étant ajoutés en invités. Aucun
@@ -337,44 +340,56 @@ function bornes(debut: string, dureeMinutes: number) {
   return { start: { dateTime: depart.toISOString() }, end: { dateTime: fin.toISOString() } }
 }
 
-export async function creerEvenementMeet(
+/**
+ * Bloc d'en-tête placé en tête de description de l'événement Calendar. La mention « aucun compte
+ * n'est nécessaire » n'est pas décorative : c'est précisément le problème que la bascule vers
+ * Jitsi résout, et les élèves habitués à devoir se connecter à Google doivent le lire.
+ */
+export function descriptionAvecLienVisio(lienVisio: string, description?: string): string {
+  const entete = [
+    `Lien de connexion : ${lienVisio}`,
+    "Aucun compte n'est nécessaire : le lien s'ouvre directement dans votre navigateur.",
+  ].join('\n')
+  const reste = description?.trim()
+  return reste ? `${entete}\n\n${reste}` : entete
+}
+
+/**
+ * Crée l'événement Calendar et son lien de visioconférence.
+ *
+ * Le lien n'est plus un lien Meet : Google refuse l'accès à toute personne non connectée à un
+ * compte Google dès lors que la réunion est hébergée par un compte Gmail gratuit — celui de
+ * l'établissement. Une partie des élèves de HOC n'ont pas de compte Google, et aucune API ne lève
+ * cette restriction (celle qui le permettrait, Meet API v2 `accessType: OPEN`, exige Workspace).
+ * Le lien est donc une salle Jitsi, générée ici puis portée par l'événement : Calendar continue
+ * d'assurer l'agenda et l'envoi des invitations, qui n'ont jamais posé problème.
+ *
+ * Le lien va dans `location` ET en tête de description. `location` est la source de vérité : les
+ * modifications ultérieures d'un événement réécrivent la description, jamais le lieu.
+ */
+export async function creerEvenementVisio(
   integration: IntegrationGoogle,
   params: ParamsEvenement,
-): Promise<{ eventId: string; lienMeet: string }> {
-  const reponse = await fetch(`${CALENDAR_URL}?conferenceDataVersion=1&sendUpdates=all`, {
+): Promise<{ eventId: string; lienVisio: string }> {
+  const lienVisio = creerLienJitsi()
+  const reponse = await fetch(`${CALENDAR_URL}?sendUpdates=all`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${integration.accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       summary: params.titre,
-      description: params.description,
+      description: descriptionAvecLienVisio(lienVisio, params.description),
+      location: lienVisio,
       ...bornes(params.debut, params.dureeMinutes),
       attendees: params.emailsInvites.map((email) => ({ email })),
-      // C'est ce bloc, et lui seul, qui fait naître le lien Meet.
-      conferenceData: {
-        createRequest: {
-          requestId: crypto.randomUUID(),
-          conferenceSolutionKey: { type: 'hangoutsMeet' },
-        },
-      },
     }),
   })
 
-  const corps = (await reponse.json()) as {
-    id?: string
-    hangoutLink?: string
-    conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] }
-    error?: { message?: string }
-  }
+  const corps = (await reponse.json()) as { id?: string; error?: { message?: string } }
   if (!reponse.ok || !corps.id) {
     throw new GoogleError(corps.error?.message ?? "Google Calendar a refusé la création de l'événement.")
   }
 
-  const lienMeet =
-    corps.hangoutLink ?? corps.conferenceData?.entryPoints?.find((e) => e.entryPointType === 'video')?.uri
-  if (!lienMeet) {
-    throw new GoogleError('Événement créé sans lien Meet.')
-  }
-  return { eventId: corps.id, lienMeet }
+  return { eventId: corps.id, lienVisio }
 }
 
 /** Déplace un événement existant : le lien Meet, lui, ne change pas. */
@@ -398,21 +413,37 @@ export async function deplacerEvenement(
 /**
  * Modifie un événement « autre » existant (voir api/admin/modifier-evenement.ts) : horaire,
  * titre, description et/ou liste d'invités en un seul PATCH, avec `sendUpdates=all` — c'est ce
- * paramètre, déjà utilisé par `creerEvenementMeet`/`deplacerEvenement`, qui fait que Google
+ * paramètre, déjà utilisé par `creerEvenementVisio`/`deplacerEvenement`, qui fait que Google
  * envoie lui-même une invitation mise à jour à chaque participant : exactement la « nouvelle
  * invitation » demandée par le client le 2026-09-29, sans avoir à écrire de modèle d'e-mail
  * dédié. Plus général que `deplacerEvenement` (horaire seul) : les champs omis dans `params`
  * restent inchangés côté Google (sémantique PATCH), donc un appelant qui ne change QUE l'horaire
  * peut aussi n'en passer que les deux champs concernés.
  */
-export async function modifierEvenementMeet(
+export async function modifierEvenementVisio(
   integration: IntegrationGoogle,
   eventId: string,
-  params: { titre?: string; description?: string; debut?: string; dureeMinutes?: number; emailsInvites?: string[] },
+  params: {
+    titre?: string
+    description?: string
+    debut?: string
+    dureeMinutes?: number
+    emailsInvites?: string[]
+    /* Le lien de visioconférence de l'événement, quand l'appelant l'a sous la main. Réécrire la
+       description sans lui effacerait l'en-tête qui porte le lien ; le passer ici le réinstalle.
+       Fournir ce champ SEUL (sans description) sert au rattrapage des événements créés avant la
+       bascule : il remplace le lien Meet de l'événement par la salle Jitsi. */
+    lienVisio?: string
+  },
 ): Promise<void> {
   const corps: Record<string, unknown> = {}
   if (params.titre !== undefined) corps.summary = params.titre
-  if (params.description !== undefined) corps.description = params.description
+  if (params.lienVisio !== undefined) {
+    corps.location = params.lienVisio
+    corps.description = descriptionAvecLienVisio(params.lienVisio, params.description)
+  } else if (params.description !== undefined) {
+    corps.description = params.description
+  }
   if (params.debut !== undefined && params.dureeMinutes !== undefined) Object.assign(corps, bornes(params.debut, params.dureeMinutes))
   if (params.emailsInvites !== undefined) corps.attendees = params.emailsInvites.map((email) => ({ email }))
 

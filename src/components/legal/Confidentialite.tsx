@@ -25,17 +25,23 @@ export function Confidentialite() {
         </ul>
       </BlocLegal>
 
-      <BlocLegal titre="Intégration Google Calendar et Google Meet">
+      <BlocLegal titre="Intégration Google Calendar et visioconférence Jitsi">
         <p>
           Lorsqu'un professeur ou un administrateur connecte son compte Google, l'application crée un
-          événement dans son agenda Google pour chaque séance planifiée, avec une visioconférence Google
-          Meet associée. Les élèves et le professeur concernés sont ajoutés comme invités à cet événement
-          et reçoivent l'invitation par e-mail.
+          événement dans son agenda Google pour chaque séance planifiée. Les élèves et le professeur
+          concernés sont ajoutés comme invités à cet événement et reçoivent l'invitation par e-mail,
+          qui porte le lien de visioconférence.
         </p>
         <p>
-          Nous n'accédons qu'aux événements que nous créons nous-mêmes : nous ne lisons pas le reste de
-          votre agenda Google, et nous ne partageons ces informations avec aucun tiers en dehors de Google
-          (nécessaire au fonctionnement de Calendar et Meet). Le jeton d'accès Google est chiffré et
+          La visioconférence elle-même est assurée par Jitsi Meet, et non par Google : rejoindre une
+          séance ne demande donc aucun compte. Le lien est le seul élément transmis à ce service ;
+          nous ne lui communiquons ni votre nom, ni votre adresse e-mail, et le nom que vous saisissez
+          en entrant dans la salle reste entre les participants de la séance.
+        </p>
+        <p>
+          Côté Google, nous n'accédons qu'aux événements que nous créons nous-mêmes : nous ne lisons pas
+          le reste de votre agenda, et nous ne partageons ces informations avec aucun tiers en dehors de
+          Google (nécessaire au fonctionnement de Calendar). Le jeton d'accès Google est chiffré et
           accessible uniquement par notre infrastructure serveur, jamais par les autres utilisateurs de
           l'application.
         </p>

@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import type { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
-import { creerEvenementMeet, integrationDeLEtablissement, noterErreurGoogle } from './google.js'
+import { creerEvenementVisio, integrationDeLEtablissement, noterErreurGoogle } from './google.js'
 
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
@@ -113,7 +113,7 @@ export async function creerVisioconference(serviceClient: ServiceClient, params:
   if (integration) {
     try {
       const participants = await emailsParticipants(serviceClient, params.teacherId, params.studentIds)
-      const { eventId, lienMeet } = await creerEvenementMeet(integration, {
+      const { eventId, lienVisio } = await creerEvenementVisio(integration, {
         titre: participants.titreCours,
         description: 'Cours planifié depuis e-Avo.',
         debut: params.debut,
@@ -122,8 +122,8 @@ export async function creerVisioconference(serviceClient: ServiceClient, params:
       })
       await serviceClient.from('video_sessions').insert({
         session_id: params.sessionId,
-        provider: 'google_meet',
-        room_ref: lienMeet,
+        provider: 'jitsi',
+        room_ref: lienVisio,
         statut: 'planifiee',
         google_event_id: eventId,
         organisateur_email: integration.googleEmail,

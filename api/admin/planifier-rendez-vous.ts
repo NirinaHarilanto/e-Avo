@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { AdminAuthError, requireAdmin } from '../_lib/adminAuth.js'
-import { creerEvenementMeet, deplacerEvenement, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
+import { creerEvenementVisio, deplacerEvenement, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
 import { envoyerEmail, modeleRendezVousConfirme, modeleRendezVousDeplace } from '../_lib/email.js'
 import { creerNotification } from '../_lib/notifications.js'
 
@@ -90,14 +90,14 @@ export default async function handler(request: Request): Promise<Response> {
         }
       } else if (integration && !eventId) {
         try {
-          const evenement = await creerEvenementMeet(integration, {
+          const evenement = await creerEvenementVisio(integration, {
             titre: `Appel diagnostic — ${prospect.prenom} ${prospect.nom}`,
             debut,
             dureeMinutes,
             emailsInvites: [prospect.email],
           })
           eventId = evenement.eventId
-          lienMeetActuel = evenement.lienMeet
+          lienMeetActuel = evenement.lienVisio
           await noterErreurGoogle(serviceClient, etablissementId, null)
         } catch (erreurGoogle) {
           await noterErreurGoogle(serviceClient, etablissementId, erreurGoogle instanceof Error ? erreurGoogle.message : 'Création Meet impossible.')
@@ -160,7 +160,7 @@ export default async function handler(request: Request): Promise<Response> {
     let lienMeet: string | null = null
     if (integration) {
       try {
-        const evenement = await creerEvenementMeet(integration, {
+        const evenement = await creerEvenementVisio(integration, {
           titre: `Appel diagnostic — ${prospect.prenom} ${prospect.nom}`,
           description: [prospect.langue_visee ? `Langue visée : ${prospect.langue_visee}` : null, prospect.objectif ? `Objectif : ${prospect.objectif}` : null]
             .filter(Boolean)
@@ -170,7 +170,7 @@ export default async function handler(request: Request): Promise<Response> {
           emailsInvites: [prospect.email],
         })
         eventId = evenement.eventId
-        lienMeet = evenement.lienMeet
+        lienMeet = evenement.lienVisio
         await noterErreurGoogle(serviceClient, etablissementId, null)
       } catch (erreurGoogle) {
         await noterErreurGoogle(serviceClient, etablissementId, erreurGoogle instanceof Error ? erreurGoogle.message : 'Création Meet impossible.')

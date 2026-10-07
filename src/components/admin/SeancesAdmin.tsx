@@ -188,8 +188,8 @@ export function SeancesAdmin() {
             geste qui alimente les compteurs d’heures et le taux d’assiduité.
           </>,
           <>
-            Le <strong>lien Google Meet</strong> de chaque séance à venir apparaît sur sa ligne. S’il manque — séance
-            créée avant la connexion du compte Google — le bouton <strong>Générer le lien Meet</strong> le crée et
+            Le <strong>lien de visioconférence</strong> de chaque séance à venir apparaît sur sa ligne. S’il manque — séance
+            créée avant la connexion du compte Google — le bouton <strong>Générer le lien visio</strong> le crée et
             prévient les participants.
           </>,
           <>
@@ -491,7 +491,7 @@ function LigneSeance({ seance, onChange }: { seance: SeanceAdmin; maintenant: st
             onClick={(e) => e.stopPropagation()}
             style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-teal)' }}
           >
-            Lien Meet
+            Lien visio
           </a>
         ) : (
           <button
@@ -503,7 +503,7 @@ function LigneSeance({ seance, onChange }: { seance: SeanceAdmin; maintenant: st
             disabled={generationEnCours}
             style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
           >
-            {generationEnCours ? 'Génération…' : 'Générer le lien Meet'}
+            {generationEnCours ? 'Génération…' : 'Générer le lien visio'}
           </button>
         ))}
 

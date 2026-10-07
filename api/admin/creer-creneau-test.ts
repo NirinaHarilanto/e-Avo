@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { waitUntil } from '@vercel/functions'
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
-import { creerEvenementMeet, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
+import { creerEvenementVisio, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
 import { messageErreur } from '../_lib/creerSeance.js'
 
 export const config = { runtime: 'edge' }
@@ -70,7 +70,7 @@ export default async function handler(request: Request): Promise<Response> {
       waitUntil(
         (async () => {
           try {
-            const { eventId, lienMeet } = await creerEvenementMeet(integration, {
+            const { eventId, lienVisio } = await creerEvenementVisio(integration, {
               titre: `Test de positionnement — ${cohorte.nom}`,
               description: 'Test oral de positionnement Hari Online Club, généré automatiquement.',
               debut: creneau.debut,
@@ -83,7 +83,7 @@ export default async function handler(request: Request): Promise<Response> {
             })
             await serviceClient
               .from('creneaux_test_positionnement')
-              .update({ google_event_id: eventId, lien_visio: lienMeet })
+              .update({ google_event_id: eventId, lien_visio: lienVisio })
               .eq('id', creneau.id)
             await noterErreurGoogle(serviceClient, etablissementId, null)
           } catch (erreurGoogle) {
