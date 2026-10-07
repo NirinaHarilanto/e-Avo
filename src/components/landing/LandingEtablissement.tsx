@@ -85,6 +85,19 @@ export function LandingEtablissement() {
     setParametresUrl(parametresUrl, { replace: true })
   }, [parametresUrl, setParametresUrl])
 
+  /* `?vue=programmes` ouvre la page directement sur l'onglet demandé — l'écran de connexion y
+     renvoie le visiteur qui n'a pas de compte, pour qu'il arrive sur les formules de cours plutôt
+     que sur l'accueil, où il devrait les chercher. Liste blanche : la valeur vient de l'URL et
+     alimente un état de navigation. */
+  useEffect(() => {
+    const demandee = parametresUrl.get('vue')
+    if (!demandee) return
+    const connues: Vue[] = ['accueil', 'programmes', 'tarifs', 'professeurs', 'avis']
+    if (connues.includes(demandee as Vue)) setVue(demandee as Vue)
+    parametresUrl.delete('vue')
+    setParametresUrl(parametresUrl, { replace: true })
+  }, [parametresUrl, setParametresUrl])
+
   if (loading) {
     return (
       <div className="page-claire" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>

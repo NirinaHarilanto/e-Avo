@@ -9,6 +9,47 @@ type Etape = 'email' | 'inconnu' | 'sans_mot_de_passe' | 'lien_envoye' | 'mot_de
 
 const EMAIL_VALIDE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+/* Les deux seules façons d'entrer chez HOC quand on n'a pas de compte : suivre un cours, ou en
+   donner. `principal` les empile en pleine largeur — sur l'écran « aucun compte » ce sont les
+   actions attendues ; dans l'encart au-dessus du formulaire, elles restent côte à côte et
+   discrètes, pour ne pas prendre le pas sur le bouton de connexion lui-même. */
+function PortesDEntree({ principal = false }: { principal?: boolean }) {
+  const commun = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    textDecoration: 'none',
+    fontWeight: 700,
+    textAlign: 'center' as const,
+    whiteSpace: 'nowrap' as const,
+    flex: '1 1 0',
+    padding: principal ? '13px 10px' : '9px 6px',
+    fontSize: principal ? 14 : 12,
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: principal ? 'column' : 'row', gap: 9 }}>
+      <a
+        href="/?vue=programmes"
+        className={principal ? 'btn-shine' : undefined}
+        style={
+          principal
+            ? { ...commun, background: 'var(--accent-blue-gradient)', color: '#fff' }
+            : { ...commun, border: '1px solid var(--border)', color: 'var(--ink)' }
+        }
+      >
+        Découvrir nos cours
+      </a>
+      <a
+        href="/rejoignez-nous"
+        style={{ ...commun, border: '1px solid var(--border)', color: principal ? 'var(--ink)' : 'var(--ink-2)' }}
+      >
+        Devenir formateur
+      </a>
+    </div>
+  )
+}
+
 export function Connexion() {
   const { session, profile, loading, platformAdmin, platformAdminLoading, seConnecter } = useProfileContext()
   const navigate = useNavigate()
@@ -139,6 +180,26 @@ export function Connexion() {
         {etape === 'email' && (
           <form onSubmit={verifierEmail} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <h1 style={{ fontSize: 22, color: 'var(--ink)' }}>Se connecter</h1>
+            {/* Demande client du 2026-10-07 : dire d'emblée à qui cette page s'adresse. Le message
+                existait, mais seulement après la saisie d'une adresse inconnue — un visiteur sans
+                compte perdait un aller-retour avant de l'apprendre. */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 10,
+                padding: '13px 15px',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: 'rgba(0,0,0,.16)',
+              }}
+            >
+              <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--ink-2)', margin: 0 }}>
+                <strong style={{ color: 'var(--ink)' }}>Espace réservé aux membres de Hari Online Club.</strong> La
+                connexion est destinée à nos élèves et à nos formateurs. Pas encore inscrit&#8239;?
+              </p>
+              <PortesDEntree />
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>E-mail</label>
               <input
@@ -164,33 +225,17 @@ export function Connexion() {
 
         {etape === 'inconnu' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <h1 style={{ fontSize: 22, color: 'var(--ink)' }}>Cette page est réservée à nos élèves et formateurs</h1>
+            <h1 style={{ fontSize: 22, color: 'var(--ink)' }}>Aucun compte associé à cette adresse</h1>
             {/* Demande client du 2026-10-05 : un visiteur non inscrit qui tombe sur l'écran de
                 connexion doit être guidé vers la vitrine plutôt que vers un e-mail de contact —
                 « se connecter » n'est pas la bonne porte d'entrée pour quelqu'un qui n'a pas
-                encore de compte, « réserver un appel » ou « un créneau de test » l'est. */}
+                encore de compte. */}
             <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink-2)' }}>
-              L'adresse <strong>{email}</strong> ne correspond à aucun compte. Cette page s'adresse aux personnes déjà
-              inscrites chez Hari Online Club — élèves et formateurs. Vous découvrez tout juste nos cours ?
-              Retournez sur notre page d'accueil et cliquez sur <strong>« Commencer »</strong> pour réserver un appel
-              diagnostic ou un créneau de test de positionnement, selon votre besoin.
+              L’adresse <strong>{email}</strong> n’est rattachée à aucun compte. L’accès à cet espace est réservé aux
+              élèves et aux formateurs de Hari Online Club. Pour nous rejoindre, choisissez la voie qui vous
+              correspond :
             </p>
-            <a
-              href="/?reserver=1"
-              className="btn-shine"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'var(--accent-blue-gradient)',
-                color: '#fff',
-                padding: '14px',
-                fontSize: 14.5,
-                textDecoration: 'none',
-              }}
-            >
-              Retourner à l’accueil et commencer
-            </a>
+            <PortesDEntree principal />
             <button
               type="button"
               onClick={revenirALEmail}
