@@ -11,13 +11,33 @@ import { surSynchro } from '../lib/synchro'
    rafraîchissement tourne en silence — le principe « stale-while-revalidate ». */
 const cache = new Map<string, unknown>()
 
+/* Requêtes actuellement en vol, par clé. Plusieurs composants d'un même écran demandent souvent la
+   même donnée (la liste des élèves, l'établissement, les tarifs…), et `surSynchro` les relance
+   TOUS en même temps : sans ce partage, un seul signal de synchronisation déclenchait autant de
+   requêtes identiques que de hooks montés sur cette clé. Elles partent désormais une seule fois et
+   la réponse est distribuée à tous. L'entrée est retirée dès la promesse réglée, de sorte qu'un
+   `recharger()` ultérieur refasse bien un appel réseau — ce n'est pas un cache de résultats, mais
+   une fusion d'appels simultanés. */
+const enVol = new Map<string, Promise<unknown>>()
+
+function executerPartagee<T>(cle: string, requete: () => Promise<T>): Promise<T> {
+  const dejaEnVol = enVol.get(cle)
+  if (dejaEnVol) return dejaEnVol as Promise<T>
+  const promesse = requete().finally(() => {
+    enVol.delete(cle)
+  })
+  enVol.set(cle, promesse)
+  return promesse
+}
+
 /* Exécute `requete` et tient à jour un état `{valeur, loading, erreur}` sous clé `cle`,
    réutilisable par la quasi-totalité des hooks `useXxx` de l'app (liste ou dossier chargé au
    montage, avec un `recharger()` appelé après une mutation). `cle` à `null`/`undefined`
    suspend la requête — utile tant qu'un id de route n'est pas encore connu.
 
-   Volontairement minimal : pas d'expiration, pas de déduplication de requêtes concurrentes pour
-   une même clé. Deux garanties restent nécessaires dès qu'une INSTANCE DÉJÀ MONTÉE change de
+   Volontairement minimal : pas d'expiration. Les requêtes concurrentes portant la même clé sont
+   en revanche fusionnées (voir `executerPartagee`). Deux garanties restent nécessaires dès qu'une
+   INSTANCE DÉJÀ MONTÉE change de
    clé — ce qui arrive dès qu'un id d'URL change sans remonter le composant (React Router ne
    remonte pas un élément de route quand seul `useParams()` change), par exemple en cliquant un
    autre étudiant dans une liste maître-détail :
@@ -109,7 +129,7 @@ export function useCacheRequete<T>(
     if (cleDeCetAppel == null) return
     setErreur(null)
     try {
-      const resultat = await requeteRef.current()
+      const resultat = await executerPartagee(cleDeCetAppel, () => requeteRef.current())
       if (cleActuelleRef.current !== cleDeCetAppel) return
       cache.set(cleDeCetAppel, resultat)
       setValeur(resultat)

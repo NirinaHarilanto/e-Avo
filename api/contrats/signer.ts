@@ -110,16 +110,18 @@ export default async function handler(request: Request): Promise<Response> {
     const { error: updateError } = await serviceClient.from('contracts').update(update).eq('id', contrat.id)
     if (updateError) return Response.json({ error: updateError.message }, { status: 500 })
 
-    for (const notification of notifications) {
-      await creerNotification(serviceClient, {
-        etablissementId: profile.etablissement_id,
-        destinataireProfileId: notification.destinataireProfileId,
-        type: 'contrat_signature',
-        titre: `Signature en attente · ${contrat.titre}`,
-        message: notification.message,
-        lien: notification.lien,
-      })
-    }
+    await Promise.all(
+      notifications.map((notification) =>
+        creerNotification(serviceClient, {
+          etablissementId: profile.etablissement_id,
+          destinataireProfileId: notification.destinataireProfileId,
+          type: 'contrat_signature',
+          titre: `Signature en attente · ${contrat.titre}`,
+          message: notification.message,
+          lien: notification.lien,
+        }),
+      ),
+    )
 
     return Response.json({ ok: true })
   } catch {

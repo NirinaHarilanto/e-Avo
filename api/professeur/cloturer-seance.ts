@@ -71,15 +71,21 @@ export default async function handler(request: Request): Promise<Response> {
       }
     }
 
-    for (const presence of body.presences) {
-      const { error } = await serviceClient
-        .from('session_enrollments')
-        .update({ present: presence.present, minutes_connecte: presence.minutesConnecte ?? null })
-        .eq('session_id', session.id)
-        .eq('student_id', presence.studentId)
-      if (error) {
-        return Response.json({ error: error.message }, { status: 500 })
-      }
+    /* Toutes les présences partent ensemble : une ligne par élève, aucune ne dépend d'une autre.
+       En série, clôturer une séance de vague de dix élèves coûtait dix allers-retours successifs
+       à l'enregistrement — le bouton paraissait lent à proportion de l'effectif. */
+    const ecritures = await Promise.all(
+      body.presences.map((presence) =>
+        serviceClient
+          .from('session_enrollments')
+          .update({ present: presence.present, minutes_connecte: presence.minutesConnecte ?? null })
+          .eq('session_id', session.id)
+          .eq('student_id', presence.studentId),
+      ),
+    )
+    const echec = ecritures.find((e) => e.error)
+    if (echec?.error) {
+      return Response.json({ error: echec.error.message }, { status: 500 })
     }
 
     /* « Reporter » (0085) : la séance n'a pas eu lieu, elle est simplement décalée à plus tard —

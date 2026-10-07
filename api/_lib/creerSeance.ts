@@ -34,31 +34,38 @@ export async function creerSeanceAvecInscriptions(
   serviceClient: ServiceClient,
   params: ParamsSeance,
 ): Promise<{ sessionId: string } | { error: string }> {
-  const { data: session, error: sessionError } = await serviceClient
-    .from('sessions')
-    .insert({
-      etablissement_id: params.etablissementId,
-      teacher_id: params.teacherId,
-      type: params.type,
-      debut: params.debut,
-      duree_minutes: params.dureeMinutes,
-      statut: 'planifiee',
-      cohort_id: params.cohortId ?? null,
-      cohort_class_id: params.cohortClassId ?? null,
-    })
-    .select('id')
-    .single()
+  /* Les deux requêtes partent ensemble : la lecture des affectations ne dépend pas de la séance
+     créée, seul l'insert des inscriptions a besoin des deux. Les enchaîner coûtait un
+     aller-retour réseau de plus à chaque séance — multiplié par le nombre de dates lors d'une
+     planification prévisionnelle, qui les crée en boucle. */
+  const [creation, { data: affectations }] = await Promise.all([
+    serviceClient
+      .from('sessions')
+      .insert({
+        etablissement_id: params.etablissementId,
+        teacher_id: params.teacherId,
+        type: params.type,
+        debut: params.debut,
+        duree_minutes: params.dureeMinutes,
+        statut: 'planifiee',
+        cohort_id: params.cohortId ?? null,
+        cohort_class_id: params.cohortClassId ?? null,
+      })
+      .select('id')
+      .single(),
+    serviceClient
+      .from('teacher_assignments')
+      .select('id, student_id')
+      .eq('teacher_id', params.teacherId)
+      .in('student_id', params.studentIds)
+      .is('date_fin', null),
+  ])
 
+  const { data: session, error: sessionError } = creation
   if (sessionError || !session) {
     return { error: sessionError?.message ?? 'Échec de la création de la séance.' }
   }
 
-  const { data: affectations } = await serviceClient
-    .from('teacher_assignments')
-    .select('id, student_id')
-    .eq('teacher_id', params.teacherId)
-    .in('student_id', params.studentIds)
-    .is('date_fin', null)
   const affectationParEtudiant = new Map((affectations ?? []).map((a) => [a.student_id, a.id]))
 
   const { error: enrollError } = await serviceClient.from('session_enrollments').insert(
@@ -103,16 +110,27 @@ interface ParamsVisio {
  * conservé dans `google_integrations.derniere_erreur` pour être affiché dans les paramètres.
  */
 export async function creerVisioconference(serviceClient: ServiceClient, params: ParamsVisio): Promise<void> {
-  let integration = null
-  try {
-    integration = await integrationDeLEtablissement(serviceClient, params.etablissementId)
-  } catch (error) {
-    await noterErreurGoogle(serviceClient, params.etablissementId, messageErreur(error))
+  /* Les deux lectures partent ensemble : la liste des participants ne dépend pas du compte Google
+     connecté. Elle est demandée même quand aucune intégration n'existe — un appel de plus dans ce
+     cas, contre un aller-retour économisé dans le cas courant, où elle est toujours nécessaire. */
+  const [resultatIntegration, resultatParticipants] = await Promise.allSettled([
+    integrationDeLEtablissement(serviceClient, params.etablissementId),
+    emailsParticipants(serviceClient, params.teacherId, params.studentIds),
+  ])
+
+  const integration = resultatIntegration.status === 'fulfilled' ? resultatIntegration.value : null
+  const participants = resultatParticipants.status === 'fulfilled' ? resultatParticipants.value : null
+
+  /* Un échec de l'une ou l'autre reste tracé dans `google_integrations.derniere_erreur`, d'où les
+     paramètres l'affichent : une séance qui se retrouve sans lien ne doit jamais l'être en
+     silence. */
+  const panne = [resultatIntegration, resultatParticipants].find((r) => r.status === 'rejected')
+  if (panne?.status === 'rejected') {
+    await noterErreurGoogle(serviceClient, params.etablissementId, messageErreur(panne.reason))
   }
 
-  if (integration) {
+  if (integration && participants) {
     try {
-      const participants = await emailsParticipants(serviceClient, params.teacherId, params.studentIds)
       const { eventId, lienVisio } = await creerEvenementVisio(integration, {
         titre: participants.titreCours,
         description: 'Cours planifié depuis e-Avo.',

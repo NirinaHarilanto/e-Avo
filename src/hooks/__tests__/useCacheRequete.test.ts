@@ -123,4 +123,46 @@ describe('useCacheRequete', () => {
     await new Promise((r) => setTimeout(r, 0))
     expect(result.current.valeur).toBe('donnee-B')
   })
+
+  it('ne lance qu’une requête quand plusieurs composants demandent la même clé en même temps', async () => {
+    // Cas courant : un écran monte plusieurs composants qui veulent la même donnée, et un signal
+    // de synchronisation les relance tous à la même seconde.
+    const cle = cleUnique()
+    const differee = creerPromesseDifferee<string>()
+    const requete = vi.fn().mockReturnValue(differee.promesse)
+
+    const premier = renderHook(() => useCacheRequete(cle, requete))
+    const second = renderHook(() => useCacheRequete(cle, requete))
+    const troisieme = renderHook(() => useCacheRequete(cle, requete))
+
+    expect(requete).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      differee.resoudre('donnee-partagee')
+      await differee.promesse
+    })
+
+    // La réponse unique alimente bien les trois.
+    for (const rendu of [premier, second, troisieme]) {
+      await waitFor(() => expect(rendu.result.current.valeur).toBe('donnee-partagee'))
+    }
+  })
+
+  it('refait un appel réseau quand on recharge après coup', async () => {
+    // La fusion ne vaut que pour les appels SIMULTANÉS : un rechargement ultérieur doit
+    // réinterroger le serveur, sinon la donnée ne se rafraîchirait jamais après une mutation.
+    const cle = cleUnique()
+    const requete = vi.fn().mockResolvedValue('v1')
+    const { result } = renderHook(() => useCacheRequete(cle, requete))
+    await waitFor(() => expect(result.current.valeur).toBe('v1'))
+    expect(requete).toHaveBeenCalledTimes(1)
+
+    requete.mockResolvedValue('v2')
+    await act(async () => {
+      await result.current.recharger()
+    })
+
+    expect(requete).toHaveBeenCalledTimes(2)
+    expect(result.current.valeur).toBe('v2')
+  })
 })
