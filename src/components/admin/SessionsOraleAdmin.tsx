@@ -300,24 +300,44 @@ export function SessionsOraleAdmin() {
                         {vague?.nom ?? 'Vague supprimée'}
                       </span>
                     </div>
-                    <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>
-                      {creneau.duree_minutes} min · {candidats.length} inscrit(s)
-                      {creneau.capacite_max ? ` / ${creneau.capacite_max}` : ''}
-                      {!creneau.actif && ' · fermée aux inscriptions'}
-                      {creneau.lien_visio ? ' · lien Meet prêt' : ' · lien Meet en préparation'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', marginTop: 4 }}>
+                      {/* Nombre d'inscrits : l'information la plus consultée de cette carte,
+                          noyée jusqu'ici dans la ligne grise du dessous (retour client du
+                          2026-10-07, capture à l'appui) — sortie à part, en couleur vive. */}
+                      <span
+                        style={{
+                          fontSize: 12.5,
+                          fontWeight: 800,
+                          color: 'var(--accent-teal)',
+                          background: 'rgba(111,227,192,.16)',
+                          border: '1px solid rgba(111,227,192,.4)',
+                          borderRadius: 999,
+                          padding: '2px 10px',
+                        }}
+                      >
+                        {candidats.length} inscrit{candidats.length > 1 ? 's' : ''}
+                        {creneau.capacite_max ? ` / ${creneau.capacite_max}` : ''}
+                      </span>
+                      <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                        {creneau.duree_minutes} min
+                        {!creneau.actif && ' · fermée aux inscriptions'}
+                        {creneau.lien_visio ? ' · lien Meet prêt' : ' · lien Meet en préparation'}
+                      </span>
                     </div>
                   </div>
 
                   {/* Bouton brillant demandé par le client : « très visible » — c'est l'action la
                       plus fréquente sur cet écran (vérifier qui s'est inscrit), elle mérite de se
-                      distinguer des actions de gestion ci-dessous. */}
+                      distinguer des actions de gestion ci-dessous. Resserré le 2026-10-07 (retour
+                      client : trop imposant à côté des boutons de gestion) — reste brillant, mais
+                      à la taille des autres boutons de la carte plutôt que plus grand qu'eux. */}
                   <button
                     type="button"
                     onClick={() => setInscritsOuvertPour(creneau)}
                     className="btn-shine"
-                    style={{ ...boutonPrimaireStyle, fontSize: 12.5, padding: '9px 16px', flexShrink: 0 }}
+                    style={{ ...boutonPrimaireStyle, fontSize: 11, padding: '6px 12px', flexShrink: 0 }}
                   >
-                    <Icone nom="etudiants" taille={14} />
+                    <Icone nom="etudiants" taille={12} />
                     Voir les inscrits {candidats.length > 0 ? `(${candidats.length})` : ''}
                   </button>
                 </div>
