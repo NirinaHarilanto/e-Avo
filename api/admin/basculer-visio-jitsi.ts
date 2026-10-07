@@ -16,8 +16,10 @@ export const config = { runtime: 'edge' }
  * Idempotente et relançable : seules les lignes portant encore un lien meet.google.com sont
  * traitées, donc un second appel ne redistribue pas de nouveaux liens à ceux déjà basculés.
  *
- * Les réunions passées sont laissées telles quelles : régénérer le lien d'un cours déjà donné
- * n'apporte rien et enverrait une invitation inutile à ses participants.
+ * Portée : les réunions EN COURS et À VENIR, c'est-à-dire celles dont la fin n'est pas passée.
+ * Une réunion commencée il y a dix minutes et prévue pour une heure est donc traitée — un élève
+ * peut encore essayer de la rejoindre. Les réunions terminées sont laissées telles quelles :
+ * régénérer le lien d'un cours déjà donné n'apporte rien et enverrait une invitation inutile.
  */
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
@@ -26,8 +28,16 @@ export default async function handler(request: Request): Promise<Response> {
 
   try {
     const { serviceClient, etablissementId } = await requireAdmin(request)
-    const maintenant = new Date().toISOString()
     const integration = await integrationDeLEtablissement(serviceClient, etablissementId).catch(() => null)
+
+    /* Inclure les réunions EN COURS suppose de comparer `debut + duree_minutes` à l'instant
+       présent, ce que PostgREST ne sait pas exprimer dans un filtre. On élargit donc la requête
+       de six heures en arrière — au-delà de toute durée de séance plausible — puis on écarte en
+       mémoire celles réellement terminées. */
+    const maintenant = Date.now()
+    const plancher = new Date(maintenant - 6 * 60 * 60 * 1000).toISOString()
+    const enCoursOuAVenir = (debut: string, dureeMinutes: number | null) =>
+      new Date(debut).getTime() + (dureeMinutes ?? 60) * 60_000 > maintenant
 
     const rapport: { table: string; id: string; calendrier: 'mis a jour' | 'non synchronise' }[] = []
     const echecs: { table: string; id: string; raison: string }[] = []
@@ -35,12 +45,12 @@ export default async function handler(request: Request): Promise<Response> {
     // ── Rendez-vous de prospection ────────────────────────────────────────────
     const { data: rdv } = await serviceClient
       .from('rendez_vous')
-      .select('id, google_event_id, lien_meet')
+      .select('id, google_event_id, lien_meet, debut, duree_minutes')
       .eq('etablissement_id', etablissementId)
       .like('lien_meet', '%meet.google.com%')
-      .gte('debut', maintenant)
+      .gte('debut', plancher)
 
-    for (const ligne of rdv ?? []) {
+    for (const ligne of (rdv ?? []).filter((l) => enCoursOuAVenir(l.debut, l.duree_minutes))) {
       const lienVisio = creerLienJitsi()
       const { error } = await serviceClient.from('rendez_vous').update({ lien_meet: lienVisio }).eq('id', ligne.id)
       if (error) {
@@ -54,12 +64,12 @@ export default async function handler(request: Request): Promise<Response> {
     // ── Événements d'agenda (admin et professeurs) ────────────────────────────
     const { data: evenements } = await serviceClient
       .from('evenements_admin')
-      .select('id, google_event_id, lien_meet')
+      .select('id, google_event_id, lien_meet, debut, duree_minutes')
       .eq('etablissement_id', etablissementId)
       .like('lien_meet', '%meet.google.com%')
-      .gte('debut', maintenant)
+      .gte('debut', plancher)
 
-    for (const ligne of evenements ?? []) {
+    for (const ligne of (evenements ?? []).filter((l) => enCoursOuAVenir(l.debut, l.duree_minutes))) {
       const lienVisio = creerLienJitsi()
       const { error } = await serviceClient.from('evenements_admin').update({ lien_meet: lienVisio }).eq('id', ligne.id)
       if (error) {
@@ -73,12 +83,12 @@ export default async function handler(request: Request): Promise<Response> {
     // ── Sessions de test oral ─────────────────────────────────────────────────
     const { data: creneaux } = await serviceClient
       .from('creneaux_test_positionnement')
-      .select('id, google_event_id, lien_visio')
+      .select('id, google_event_id, lien_visio, debut, duree_minutes')
       .eq('etablissement_id', etablissementId)
       .like('lien_visio', '%meet.google.com%')
-      .gte('debut', maintenant)
+      .gte('debut', plancher)
 
-    for (const ligne of creneaux ?? []) {
+    for (const ligne of (creneaux ?? []).filter((l) => enCoursOuAVenir(l.debut, l.duree_minutes))) {
       const lienVisio = creerLienJitsi()
       const { error } = await serviceClient
         .from('creneaux_test_positionnement')
@@ -93,15 +103,27 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     // ── Séances de cours ──────────────────────────────────────────────────────
+    /* Deux requêtes plutôt qu'une jointure : PostgREST ne reconnaît pas la relation entre
+       `video_sessions` et `sessions`, et une jointure non résolue ne lève pas d'erreur — elle
+       renvoie simplement zéro ligne, et aucune séance ne serait basculée sans que rien ne le
+       signale. */
+    const { data: seances } = await serviceClient
+      .from('sessions')
+      .select('id, debut, duree_minutes')
+      .eq('etablissement_id', etablissementId)
+      .eq('statut', 'planifiee')
+      .gte('debut', plancher)
+
+    const seancesConcernees = new Map(
+      (seances ?? []).filter((s) => enCoursOuAVenir(s.debut, s.duree_minutes)).map((s) => [s.id, s]),
+    )
+
     const { data: visios } = await serviceClient
       .from('video_sessions')
-      .select('session_id, google_event_id, sessions!inner(debut, etablissement_id, statut)')
+      .select('session_id, google_event_id')
       .eq('provider', 'google_meet')
-      .eq('sessions.etablissement_id', etablissementId)
-      .eq('sessions.statut', 'planifiee')
-      .gte('sessions.debut', maintenant)
 
-    for (const visio of visios ?? []) {
+    for (const visio of (visios ?? []).filter((v) => seancesConcernees.has(v.session_id))) {
       const lienVisio = creerLienJitsi()
       const { error } = await serviceClient
         .from('video_sessions')
