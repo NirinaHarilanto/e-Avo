@@ -2026,9 +2026,9 @@ body.sans-defilement {
   flex-wrap: wrap;
   justify-content: center;
   align-content: center;
-  gap: clamp(14px, 3.4vh, 30px) 24px;
+  gap: clamp(10px, 2.6vh, 30px) 22px;
   width: 100%;
-  max-width: 940px;
+  max-width: 1030px;
   margin: 0 auto;
 }
 .carte-membre-equipe {
@@ -2036,17 +2036,25 @@ body.sans-defilement {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 3px;
-  width: 200px;
+  gap: 2px;
+  width: 238px;
 }
 /* Tout est dimensionné en `vh` borné : la section doit tenir sur un seul écran, sans barre de
    défilement, quelle que soit la hauteur disponible (demande client du 2026-10-07). Des tailles
    fixes débordaient de 34 px sur un 1366×768 et de 107 px sur un 1280×720. Les bornes basses
    gardent des portraits lisibles sur un écran très court, les hautes évitent qu'ils enflent sur
-   un grand écran. */
+   un grand écran.
+
+   La carte est volontairement large (238 px) : c'est ce qui fait tenir chaque slogan sur trois
+   lignes au lieu de quatre, et deux rangées de cartes font donc gagner deux lignes de hauteur —
+   plus efficace que de rapetisser encore le texte. */
+/* `calc(18.9vh - 46px)` plutôt qu'un simple pourcentage : une pente plus raide, décalée, qui
+   donne 58 px sur un écran de 550 px de haut (le minimum pour que les 7 portraits tiennent) et
+   atteint 124 px dès 900 px de haut, là où la place abonde. Un simple `vh` obligeait à choisir
+   entre déborder sur écran court et des portraits riquiqui sur grand écran. */
 .photo-membre-equipe {
-  width: clamp(76px, 13.4vh, 124px);
-  height: clamp(76px, 13.4vh, 124px);
+  width: clamp(58px, calc(18.9vh - 46px), 124px);
+  height: clamp(58px, calc(18.9vh - 46px), 124px);
   border-radius: 50%;
   overflow: hidden;
   border: 3px solid var(--hoc-or-vif);
@@ -2065,18 +2073,18 @@ body.sans-defilement {
   object-position: center 18%;
 }
 .carte-membre-equipe .nom-professeur {
-  font-size: clamp(13px, 1.7vh, 15px);
-  margin-top: clamp(5px, 1.1vh, 10px);
+  font-size: clamp(12px, 1.5vh, 15px);
+  margin-top: clamp(3px, 0.8vh, 10px);
 }
 .carte-membre-equipe .page-claire .role-professeur,
 .page-claire .carte-membre-equipe .role-professeur {
-  font-size: clamp(10.5px, 1.35vh, 12px);
+  font-size: clamp(9.5px, 1.2vh, 12px);
 }
 .carte-membre-equipe .slogan-membre-equipe {
-  margin: clamp(2px, 0.6vh, 5px) 0 0;
-  max-width: 190px;
-  font-size: clamp(10px, 1.3vh, 11.5px);
-  line-height: 1.45;
+  margin: clamp(1px, 0.5vh, 5px) 0 0;
+  max-width: 228px;
+  font-size: clamp(9.5px, 1.18vh, 11.5px);
+  line-height: 1.4;
   font-style: italic;
   color: rgba(255, 255, 255, 0.72);
 }
@@ -2084,7 +2092,23 @@ body.sans-defilement {
   display: flex;
   justify-content: center;
   flex: 0 0 auto;
-  margin-top: clamp(12px, 3.2vh, 30px);
+  margin-top: clamp(8px, 2.2vh, 30px);
+}
+/* L'en-tête de la vue (titre + sous-titre) et la bande réservée à la barre de navigation prennent
+   à elles seules près de 170 px : sur un écran court, c'est autant que la grille ne peut pas
+   occuper. On les resserre, mais pour cette vue seulement — les autres vues n'ont pas ce
+   problème de hauteur et doivent garder leur respiration. */
+.vue-secondaire:has(.grille-equipe-pedagogique) {
+  /* Borne basse à 78 px, pas moins : la barre de navigation flotte par-dessus le contenu et
+     mesure ~76 px avec sa marge haute — en dessous, le titre de la vue passe dessous. */
+  padding-top: clamp(78px, 9.5vh, 92px);
+}
+.vue-secondaire:has(.grille-equipe-pedagogique) .entete-vue {
+  gap: clamp(1px, 0.5vh, 5px);
+  margin-bottom: clamp(4px, 1.4vh, 12px);
+}
+.vue-secondaire:has(.grille-equipe-pedagogique) .soustitre-vue {
+  font-size: clamp(11px, 1.45vh, 13px);
 }
 @media (max-width: 560px) {
   .grille-equipe-pedagogique {
