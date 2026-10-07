@@ -179,10 +179,11 @@ export function Connexion() {
 
         {etape === 'email' && (
           <form onSubmit={verifierEmail} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <h1 style={{ fontSize: 22, color: 'var(--ink)' }}>Se connecter</h1>
-            {/* Demande client du 2026-10-07 : dire d'emblée à qui cette page s'adresse. Le message
-                existait, mais seulement après la saisie d'une adresse inconnue — un visiteur sans
-                compte perdait un aller-retour avant de l'apprendre. */}
+            {/* Demande client du 2026-10-07 : dire d'emblée à qui cette page s'adresse, au-dessus
+                du titre pour que ce soit la toute première chose lue — et dans un encart doré, pas
+                neutre, pour qu'il attire l'œil plutôt que de se fondre dans le reste de la carte.
+                Le message existait déjà, mais seulement après la saisie d'une adresse inconnue :
+                un visiteur sans compte perdait un aller-retour avant de l'apprendre. */}
             <div
               style={{
                 display: 'flex',
@@ -190,16 +191,27 @@ export function Connexion() {
                 gap: 10,
                 padding: '13px 15px',
                 borderRadius: 12,
-                border: '1px solid var(--border)',
-                background: 'rgba(0,0,0,.16)',
+                border: '1px solid rgba(233, 207, 148, 0.45)',
+                background: 'linear-gradient(135deg, rgba(233, 207, 148, 0.14), rgba(199, 156, 79, 0.05))',
+                boxShadow: '0 0 0 1px rgba(233, 207, 148, 0.08), 0 8px 24px rgba(199, 156, 79, 0.12)',
               }}
             >
               <p style={{ fontSize: 12.5, lineHeight: 1.6, color: 'var(--ink-2)', margin: 0 }}>
-                <strong style={{ color: 'var(--ink)' }}>Espace réservé aux membres de Hari Online Club.</strong> La
-                connexion est destinée à nos élèves et à nos formateurs. Pas encore inscrit&#8239;?
+                <strong
+                  style={{
+                    background: 'var(--accent-gradient)',
+                    WebkitBackgroundClip: 'text',
+                    backgroundClip: 'text',
+                    color: 'transparent',
+                  }}
+                >
+                  Espace réservé aux membres de Hari Online Club.
+                </strong>{' '}
+                La connexion est destinée à nos élèves et à nos formateurs. Pas encore inscrit&#8239;?
               </p>
               <PortesDEntree />
             </div>
+            <h1 style={{ fontSize: 22, color: 'var(--ink)' }}>Se connecter</h1>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>E-mail</label>
               <input
