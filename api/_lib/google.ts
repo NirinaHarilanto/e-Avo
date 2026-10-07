@@ -1,7 +1,19 @@
 /// <reference types="node" />
 import type { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
-import { creerLienJitsi } from '../../src/lib/visio.js'
+import { creerLienJitsi, DOMAINE_JITSI } from '../../src/lib/visio.js'
+
+/* Instance de visioconférence effectivement utilisée. `VISIO_DOMAINE` permet d'en changer depuis
+   les variables d'environnement, sans redéploiement : une instance publique peut fermer ou se
+   mettre à exiger un compte du jour au lendemain — c'est précisément ce qui est arrivé à
+   meet.jit.si, et ce qui a motivé ce réglage. */
+export function domaineVisio(): string {
+  return process.env.VISIO_DOMAINE?.trim() || DOMAINE_JITSI
+}
+
+export function nouveauLienVisio(): string {
+  return creerLienJitsi(domaineVisio())
+}
 
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
@@ -371,7 +383,7 @@ export async function creerEvenementVisio(
   integration: IntegrationGoogle,
   params: ParamsEvenement,
 ): Promise<{ eventId: string; lienVisio: string }> {
-  const lienVisio = creerLienJitsi()
+  const lienVisio = nouveauLienVisio()
   const reponse = await fetch(`${CALENDAR_URL}?sendUpdates=all`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${integration.accessToken}`, 'Content-Type': 'application/json' },

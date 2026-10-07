@@ -63,6 +63,19 @@ describe('creerLienJitsi', () => {
     expect(url.search).toBe('')
     expect(url.hash).toBe('')
   })
+
+  it('n’utilise pas meet.jit.si ni 8x8.vc', () => {
+    // Ces deux instances exigent qu'un modérateur AUTHENTIFIÉ arrive en premier, sinon les
+    // participants restent en salle d'attente — ce qui réintroduirait l'obligation de compte que
+    // toute cette bascule sert à supprimer. Vérifié le 2026-10-07 sur les deux.
+    expect(DOMAINE_JITSI).not.toMatch(/meet\.jit\.si|8x8\.vc/)
+  })
+
+  it('accepte une instance différente, pour en changer sans toucher au code', () => {
+    expect(creerLienJitsi('https://visio.exemple.org')).toMatch(/^https:\/\/visio\.exemple\.org\/hoc[a-z]{24}$/)
+    // Une barre finale ne doit pas produire une double barre dans le lien.
+    expect(creerLienJitsi('https://visio.exemple.org/')).toMatch(/^https:\/\/visio\.exemple\.org\/hoc[a-z]{24}$/)
+  })
 })
 
 describe('getRecordingUrl', () => {

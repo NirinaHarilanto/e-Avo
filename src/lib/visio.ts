@@ -18,7 +18,18 @@ type VideoSession = Database['public']['Tables']['video_sessions']['Row']
    - `stub` : aucune visio réelle n'a pu être créée. Le lien reste factice, les séances déjà
      créées ainsi le gardent jusqu'à ce qu'un admin le régénère depuis la page Séances. */
 
-export const DOMAINE_JITSI = 'https://meet.jit.si'
+/* Instance Jitsi utilisée pour les cours. CE N'EST PAS `meet.jit.si` : l'instance officielle exige
+   depuis 2024 qu'un modérateur AUTHENTIFIÉ (compte 8x8/Google) arrive en premier, sinon tout le
+   monde reste en salle d'attente — « La conférence n'a pas encore commencé car aucun modérateur
+   n'est encore arrivé ». Cela reintroduisait exactement le probleme qu'on fuyait : un compte
+   obligatoire. Verifie le 2026-10-07 sur 8 instances : `meet.jit.si` et `8x8.vc` bloquent,
+   `meet.ffmuc.net` (Freifunk München e.V.) laisse entrer librement et donne le role de moderateur
+   au premier arrive — donc a HOC, qui ouvre toujours la salle.
+
+   Si cette instance venait a fermer ou a changer de politique, la variable d'environnement
+   `VISIO_DOMAINE` permet d'en designer une autre sans toucher au code (voir api/_lib/google.ts),
+   et la route de bascule regenere les liens existants. */
+export const DOMAINE_JITSI = 'https://meet.ffmuc.net'
 
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyz'
 const LONGUEUR_SALLE = 24
@@ -31,7 +42,7 @@ const LONGUEUR_SALLE = 24
    Que des lettres, aucun chiffre : Jitsi affiche le nom de la salle en gros sur son écran
    d'accueil, en le découpant à chaque passage lettre/chiffre. Un UUID y donnait
    « Hoc 1 A 9 B 3822 5 A 91 4489 », illisible ; des lettres seules restent un mot unique. */
-export function creerLienJitsi(): string {
+export function creerLienJitsi(domaine: string = DOMAINE_JITSI): string {
   const octets = new Uint8Array(LONGUEUR_SALLE * 2)
   crypto.getRandomValues(octets)
   let salle = ''
@@ -44,7 +55,7 @@ export function creerLienJitsi(): string {
   }
   // Réserve épuisée (improbable : il faudrait que plus de la moitié des 48 octets soient écartés).
   while (salle.length < LONGUEUR_SALLE) salle += ALPHABET[Math.floor(Math.random() * 26)]
-  return `${DOMAINE_JITSI}/hoc${salle}`
+  return `${domaine.replace(/\/+$/, '')}/hoc${salle}`
 }
 
 export function getJoinUrl(videoSession: Pick<VideoSession, 'room_ref' | 'provider'>): string {
