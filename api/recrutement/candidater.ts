@@ -4,6 +4,7 @@ import type { Database, FichierCandidature } from '../../src/types/database.type
 import { creerNotification } from '../_lib/notifications.js'
 import { adminsDeLEtablissement } from '../_lib/reservation.js'
 import { envoyerEmail, modeleCandidatureRecue } from '../_lib/email.js'
+import { verifierDebit } from '../_lib/limiteDebit.js'
 
 export const config = { runtime: 'edge' }
 
@@ -65,6 +66,9 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const serviceClient = createClient<Database>(url, serviceKey)
+    const refus = await verifierDebit(request, serviceClient, { route: 'candidater', max: 5, fenetreSecondes: 3600 })
+    if (refus) return refus
+
     const { data: etablissement } = await serviceClient.from('etablissements').select('id, nom').eq('slug', c.etablissementSlug).maybeSingle()
     if (!etablissement) {
       return Response.json({ error: 'Établissement introuvable.' }, { status: 404 })

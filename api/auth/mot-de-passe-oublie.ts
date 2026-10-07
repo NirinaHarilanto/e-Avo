@@ -2,6 +2,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
 import { envoyerEmail, modeleReinitialisationMotDePasse } from '../_lib/email.js'
+import { verifierDebit } from '../_lib/limiteDebit.js'
 
 export const config = { runtime: 'edge' }
 
@@ -33,6 +34,11 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const serviceClient = createClient<Database>(url, serviceKey)
+    /* Seuil bas (5/h) : cette route envoie un vrai e-mail — sans limite, elle permettrait de
+       harceler n'importe quelle adresse connue d'un flot de messages de réinitialisation. */
+    const refus = await verifierDebit(request, serviceClient, { route: 'mot-de-passe-oublie', max: 5, fenetreSecondes: 3600 })
+    if (refus) return refus
+
     /* `.neq('status', 'suspended')` AVANT `.maybeSingle()` — même correctif que
        api/auth/verifier-email.ts : un compte supprimé partageant encore le même e-mail qu'un
        compte réel plus récent faisait échouer `.maybeSingle()` (plus d'une ligne trouvée), pas

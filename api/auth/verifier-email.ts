@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
+import { verifierDebit } from '../_lib/limiteDebit.js'
 
 export const config = { runtime: 'edge' }
 
@@ -31,6 +32,8 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const serviceClient = createClient<Database>(url, serviceKey)
+    const refus = await verifierDebit(request, serviceClient, { route: 'verifier-email', max: 10, fenetreSecondes: 3600 })
+    if (refus) return refus
     /* `.neq('status', 'suspended')` AVANT `.maybeSingle()`, pas après : un compte supprimé garde
        (gardait, voir le correctif de api/admin/supprimer-utilisateur.ts) le même e-mail que le
        compte réel qui le remplace après une nouvelle inscription — deux lignes `profiles` pour

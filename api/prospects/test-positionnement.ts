@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
+import { verifierDebit } from '../_lib/limiteDebit.js'
 
 export const config = { runtime: 'edge' }
 
@@ -30,6 +31,11 @@ export default async function handler(request: Request): Promise<Response> {
 
   try {
     const serviceClient = createClient<Database>(url, serviceKey)
+    // Lecture seule, déjà en cache d'arête 30 s (voir plus bas) — seuil large, même raisonnement
+    // que api/prospects/creneaux.ts.
+    const refus = await verifierDebit(request, serviceClient, { route: 'test-positionnement', max: 30, fenetreSecondes: 3600 })
+    if (refus) return refus
+
     const { data: etablissement } = await serviceClient.from('etablissements').select('id').eq('slug', slug).maybeSingle()
     if (!etablissement) {
       return Response.json({ error: 'Établissement introuvable.' }, { status: 404 })

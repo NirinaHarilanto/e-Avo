@@ -5,6 +5,7 @@ import { creerNotification } from '../_lib/notifications.js'
 import { adminsDeLEtablissement, creneauxLibres } from '../_lib/reservation.js'
 import { envoyerEmail, modeleDemandeRecue } from '../_lib/email.js'
 import { trouverHomonymeProspect, messageHomonymeProspect } from '../_lib/nomDuplique.js'
+import { verifierDebit } from '../_lib/limiteDebit.js'
 
 export const config = { runtime: 'edge' }
 
@@ -87,6 +88,8 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const serviceClient = createClient<Database>(url, serviceKey)
+    const refus = await verifierDebit(request, serviceClient, { route: 'reserver', max: 5, fenetreSecondes: 3600 })
+    if (refus) return refus
 
     const { data: etablissement } = await serviceClient
       .from('etablissements')

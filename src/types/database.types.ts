@@ -1784,6 +1784,10 @@ export interface Database {
         Args: { p_payment_id: string }
         Returns: string
       }
+      verifier_limite_debit: {
+        Args: { p_cle: string; p_max: number; p_fenetre_secondes: number }
+        Returns: boolean
+      }
     }
   }
 }

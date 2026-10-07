@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
+import { verifierDebit } from '../_lib/limiteDebit.js'
 
 export const config = { runtime: 'edge' }
 
@@ -54,6 +55,12 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const serviceClient = createClient<Database>(url, serviceKey)
+    /* La route la plus sensible des neuf : chaque appel délivre jusqu'à 6 autorisations de dépôt
+       de 10 Mo, sans qu'aucun compte ni aucune candidature n'existe encore. Sans limite, c'était
+       la porte ouverte la plus large vers une saturation du stockage Supabase. */
+    const refus = await verifierDebit(request, serviceClient, { route: 'preparer-envoi', max: 5, fenetreSecondes: 3600 })
+    if (refus) return refus
+
     const { data: etablissement } = await serviceClient.from('etablissements').select('id').eq('slug', corps.etablissementSlug).maybeSingle()
     if (!etablissement) {
       return Response.json({ error: 'Établissement introuvable.' }, { status: 404 })

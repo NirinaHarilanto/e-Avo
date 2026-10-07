@@ -2,6 +2,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
 import { creneauxLibres } from '../_lib/reservation.js'
+import { verifierDebit } from '../_lib/limiteDebit.js'
 
 export const config = { runtime: 'edge' }
 
@@ -29,6 +30,12 @@ export default async function handler(request: Request): Promise<Response> {
 
   try {
     const serviceClient = createClient<Database>(url, serviceKey)
+    /* Seuil plus large que les routes d'écriture : lecture seule, déjà protégée par un cache
+       d'arête de 60 s (`s-maxage` ci-dessous) — la limite ici vise surtout à éviter de marteler
+       l'agenda Google que `creneauxLibres` interroge à chaque appel non mis en cache. */
+    const refus = await verifierDebit(request, serviceClient, { route: 'creneaux', max: 30, fenetreSecondes: 3600 })
+    if (refus) return refus
+
     const { data: etablissement } = await serviceClient
       .from('etablissements')
       .select('id')

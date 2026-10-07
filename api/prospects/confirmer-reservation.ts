@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
+import { verifierDebit } from '../_lib/limiteDebit.js'
 
 export const config = { runtime: 'edge' }
 
@@ -27,6 +28,9 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const serviceClient = createClient<Database>(url, serviceKey)
+    const refus = await verifierDebit(request, serviceClient, { route: 'confirmer-reservation', max: 10, fenetreSecondes: 3600 })
+    if (refus) return refus
+
     const { error } = await serviceClient
       .from('prospects')
       .update({ statut: 'diagnostic_planifie' })
