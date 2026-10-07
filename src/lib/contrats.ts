@@ -63,6 +63,7 @@ export type SourceVariable =
   | 'etablissement_site_web'
   | 'etablissement_nif'
   | 'etablissement_stat'
+  | 'etablissement_forme_juridique'
   | 'date_du_jour'
   | 'annee'
   | 'langue_programme'
@@ -117,6 +118,7 @@ export const SOURCES_VARIABLE: { valeur: SourceVariable; label: string; groupe: 
   { valeur: 'etablissement_site_web', label: "Site web de l'établissement", groupe: 'Établissement' },
   { valeur: 'etablissement_nif', label: 'NIF', groupe: 'Établissement' },
   { valeur: 'etablissement_stat', label: 'STAT', groupe: 'Établissement' },
+  { valeur: 'etablissement_forme_juridique', label: "Forme juridique de l'établissement", groupe: 'Établissement' },
   { valeur: 'date_du_jour', label: 'Date du jour', groupe: 'Date' },
   { valeur: 'annee', label: 'Année en cours', groupe: 'Date' },
 ]
@@ -250,6 +252,8 @@ export function resoudreSource(
       return etablissement?.nif ?? null
     case 'etablissement_stat':
       return etablissement?.stat ?? null
+    case 'etablissement_forme_juridique':
+      return etablissement?.forme_juridique ?? null
     case 'date_du_jour':
       return new Date().toLocaleDateString('fr-FR')
     case 'annee':
@@ -354,6 +358,7 @@ export function deduireSource(cle: string, label: string): SourceVariable | unde
     if (/site ?web/.test(texte) || mots.includes('site')) return 'etablissement_site_web'
     if (mots.includes('nif')) return 'etablissement_nif'
     if (mots.includes('stat')) return 'etablissement_stat'
+    if (mots.includes('forme') && mots.includes('juridique')) return 'etablissement_forme_juridique'
     if (mots.includes('nom') || mots.includes('denomination')) return 'etablissement_nom'
     return undefined
   }

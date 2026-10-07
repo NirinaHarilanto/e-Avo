@@ -71,6 +71,7 @@ const etablissement: Etablissement = {
   site_web: null,
   nif: null,
   stat: null,
+  forme_juridique: null,
   created_at: '2026-01-01T00:00:00Z',
 }
 
@@ -114,6 +115,20 @@ describe('deduireSource', () => {
 
   it("rattache les champs d'établissement à l'établissement", () => {
     expect(deduireSource('nom_etablissement', "Nom de l'établissement")).toBe('etablissement_nom')
+  })
+
+  // Les modèles de contrat écrivent directement le nom canonique de la variable (0100, demande
+  // client du 2026-10-07 : mettre à jour les mentions figées « [forme juridique à compléter] »,
+  // « Harinjo Andriamahenina » en dur… avec les variables du Profil HOC) — sans libellé déclaré
+  // en base, `preparerVariables` retombe sur le `cle` lui-même comme libellé (voir son
+  // commentaire : `declaree?.label || cle`). Ces clés canoniques doivent donc se résoudre
+  // toutes seules, uniquement à partir d'elles-mêmes.
+  it('résout les clés canoniques « etablissement_… » directement, sans libellé déclaré', () => {
+    expect(deduireSource('etablissement_directrice', 'etablissement_directrice')).toBe('etablissement_directrice')
+    expect(deduireSource('etablissement_adresse', 'etablissement_adresse')).toBe('etablissement_adresse')
+    expect(deduireSource('etablissement_nif', 'etablissement_nif')).toBe('etablissement_nif')
+    expect(deduireSource('etablissement_stat', 'etablissement_stat')).toBe('etablissement_stat')
+    expect(deduireSource('etablissement_forme_juridique', 'etablissement_forme_juridique')).toBe('etablissement_forme_juridique')
   })
 
   it('rattache un « prestataire » explicitement nommé professeur/étudiant à la personne, pas à l’établissement', () => {

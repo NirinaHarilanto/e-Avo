@@ -73,6 +73,7 @@ function IdentiteEtablissement() {
     site_web: '',
     nif: '',
     stat: '',
+    forme_juridique: '',
   })
   const [enregistrement, setEnregistrement] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -95,6 +96,7 @@ function IdentiteEtablissement() {
       site_web: etablissement.site_web ?? '',
       nif: etablissement.nif ?? '',
       stat: etablissement.stat ?? '',
+      forme_juridique: etablissement.forme_juridique ?? '',
     })
   }, [etablissement])
 
@@ -140,6 +142,7 @@ function IdentiteEtablissement() {
           site_web: champs.site_web.trim() || null,
           nif: champs.nif.trim() || null,
           stat: champs.stat.trim() || null,
+          forme_juridique: champs.forme_juridique.trim() || null,
         })
         .eq('id', etablissement.id),
       supabase
@@ -194,6 +197,13 @@ function IdentiteEtablissement() {
         </div>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <Champ
+            label="Forme juridique"
+            aide="Ex. Entreprise Individuelle, SARL…"
+            style={{ flexGrow: 1, minWidth: 160 }}
+          >
+            <input value={champs.forme_juridique} onChange={majChamp('forme_juridique')} style={champStyle} />
+          </Champ>
           <Champ label="NIF" style={{ flexGrow: 1, minWidth: 160 }}>
             <input value={champs.nif} onChange={majChamp('nif')} style={champStyle} />
           </Champ>

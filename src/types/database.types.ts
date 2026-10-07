@@ -106,6 +106,9 @@ export interface Database {
           site_web: string | null
           nif: string | null
           stat: string | null
+          /* Forme juridique (0100, demande client du 2026-10-07) : dernière mention d'identité
+             figée en dur dans les modèles de contrat (« [forme juridique à compléter] »). */
+          forme_juridique: string | null
           created_at: string
         }
         Insert: {
@@ -129,6 +132,7 @@ export interface Database {
           site_web?: string | null
           nif?: string | null
           stat?: string | null
+          forme_juridique?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['etablissements']['Insert']>
