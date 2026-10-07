@@ -350,14 +350,14 @@ function BlocTarif({
   )
 }
 
-/* Directrice et équipe réunies : l'ancienne page leur donnait deux sections séparées, le client a
-   demandé le 2026-09-15 qu'elles vivent toutes les deux derrière l'entrée « Professeurs ». */
+/* Toute l'équipe sur une seule grille de portraits. Les deux cartes éditoriales « Notre
+   directrice »/« Notre équipe » qui occupaient cette vue ont été retirées le 2026-10-07 : elles se
+   chevauchaient avec la grille (elles réclamaient toute la hauteur disponible et l'écrasaient), et
+   le client a demandé de n'en garder que les portraits. */
 export function VueProfesseurs({
-  nomEtablissement,
   dossierAssets,
   onReserver,
 }: {
-  nomEtablissement: string
   dossierAssets: string
   accent: AccentPalette
   onReserver: () => void
@@ -369,65 +369,15 @@ export function VueProfesseurs({
       sousTitre="Des professeurs choisis pour leur pédagogie autant que pour leur passion des langues."
       theme="nuit"
     >
-      <div className="grille-professeurs">
-        {/* Deux blocs par carte — la photo, puis le texte — pour que les deux cartes partagent
-            leurs rangées (voir .grille-professeurs dans index.css) : la photo occupe la place
-            laissée libre par le texte, sans jamais créer de barre de défilement. */}
-        <article className="carte-professeur">
-          <div className="cadre-photo-prof">
-            <div className="panneau-photo">
-              <img
-                src={`${dossierAssets}/Directrice.jpg`}
-                alt={`Directrice de ${nomEtablissement}`}
-                onError={(e) => {
-                  ;(e.currentTarget.parentElement as HTMLDivElement).style.display = 'none'
-                }}
-              />
-            </div>
-          </div>
-          <div className="texte-prof">
-            <span className="nom-professeur">Notre directrice</span>
-            <h3 className="role-professeur">Une pédagogie pensée pour des résultats réels</h3>
-            <p className="texte-professeur">
-              Persuadée qu’aucune application ne remplace le regard d’un professeur qui croit en vous, notre
-              directrice a fondé {nomEtablissement} pour redonner sa juste place à la relation humaine dans
-              l’apprentissage des langues. Son exigence : un accompagnement sur-mesure, taillé pour votre objectif,
-              votre rythme et votre vie. Chaque élève qui progresse ici en est la preuve vivante.
-            </p>
-          </div>
-        </article>
-
-        <article className="carte-professeur">
-          <div className="cadre-photo-prof">
-            <div className="panneau-photo">
-              <img
-                src={`${dossierAssets}/equipe.jpg`}
-                alt={`L’équipe de ${nomEtablissement}`}
-                onError={(e) => {
-                  ;(e.currentTarget.parentElement as HTMLDivElement).style.display = 'none'
-                }}
-              />
-            </div>
-          </div>
-          <div className="texte-prof">
-            <span className="nom-professeur">Notre équipe</span>
-            <h3 className="role-professeur">Des professeurs choisis pour votre objectif</h3>
-            <p className="texte-professeur">
-              Une équipe soudée, choisie pour sa pédagogie autant que pour sa passion des langues — la même exigence
-              bienveillante à chaque cours, quel que soit le professeur qui vous accompagne.
-            </p>
-            <button type="button" onClick={onReserver} className="btn-shine bouton-or bouton-or--pilule">
-              Rencontrer un professeur →
-            </button>
-          </div>
-        </article>
-      </div>
-
       <div className="grille-equipe-pedagogique">
         {EQUIPE_PEDAGOGIQUE.map((membre) => (
           <article key={membre.id} className="carte-membre-equipe">
             <div className="photo-membre-equipe">
-              <img src={`${dossierAssets}/equipe/equipe-${membre.id}.webp`} alt={membre.nom} loading="lazy" />
+              <img
+                src={`${dossierAssets}/equipe/equipe-${membre.id}.webp`}
+                alt={membre.nom ? `${membre.nom}, ${membre.role}` : membre.role}
+                loading="lazy"
+              />
             </div>
             {/* Les 3 professeures d'anglais pas encore nommées (demande client du 2026-10-07 :
                 « pour le reste, ne mets pas de nom pour l'instant ») n'affichent pas de ligne de
@@ -438,6 +388,12 @@ export function VueProfesseurs({
             <p className="slogan-membre-equipe">{membre.slogan}</p>
           </article>
         ))}
+      </div>
+
+      <div className="pied-equipe-pedagogique">
+        <button type="button" onClick={onReserver} className="btn-shine bouton-or bouton-or--pilule">
+          Rencontrer un professeur →
+        </button>
       </div>
     </CadreVue>
   )

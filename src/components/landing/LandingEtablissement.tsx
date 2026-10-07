@@ -177,7 +177,6 @@ export function LandingEtablissement() {
         {vue === 'tarifs' && <VueTarifs tarifs={tarifs} accent={accent} onReserver={ouvrirReservation} />}
         {vue === 'professeurs' && (
           <VueProfesseurs
-            nomEtablissement={etablissement.nom}
             dossierAssets={dossierAssets}
             accent={accent}
             onReserver={() => ouvrirReservation()}

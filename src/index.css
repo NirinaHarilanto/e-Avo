@@ -1697,62 +1697,6 @@ body.sans-defilement {
   margin: 0 auto;
 }
 
-.grille-professeurs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 22px;
-  width: 100%;
-  max-width: 1000px;
-  margin: 0 auto;
-}
-/* Section Professeurs sans barre de défilement (demande client du 2026-09-29), quelle que soit
-   la hauteur de l'écran : au lieu d'une hauteur de photo fixée à l'avance (qui pouvait dépasser
-   la place disponible sur certains écrans), les deux cartes partagent deux rangées — photo, puis
-   texte — et la rangée photo prend exactement la place que le texte laisse libre. La photo s'y
-   inscrit en entier, sans recadrage ni déformation, grâce aux unités de conteneur (`cqw`/`cqh`)
-   mesurées sur son cadre : le liseré doré continue d'épouser exactement ses bords. */
-.texte-prof {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 7px;
-}
-@media (min-width: 821px) {
-  .grille-professeurs {
-    flex: 1 1 auto;
-    min-height: 0;
-    max-height: 660px;
-    grid-template-rows: minmax(0, 1fr) auto;
-    row-gap: 0;
-    align-self: center;
-  }
-  .grille-professeurs .carte-professeur {
-    display: grid;
-    grid-row: span 2;
-    grid-template-rows: subgrid;
-    row-gap: 0;
-    justify-items: center;
-    /* La carte hérite d'un `align-items: center` (mise en page mobile en colonne) : sans ce
-       retour à `stretch`, le cadre photo ne s'étire pas sur sa rangée et la photo tombe à 0 px. */
-    align-items: stretch;
-    min-height: 0;
-  }
-  .cadre-photo-prof {
-    container-type: size;
-    width: 100%;
-    min-height: 0;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    padding: 14px 0 12px;
-  }
-  /* 10 px : les 5 px de liseré doré de chaque côté. */
-  .cadre-photo-prof .panneau-photo img {
-    max-width: calc(100cqw - 10px);
-    max-height: calc(100cqh - 10px);
-  }
-}
-
 /* Thème « violet » (visuel de référence n° 2) : fond prune, halos discrets, cartes #63438e. */
 .vue-theme-violet {
   background:
@@ -2053,22 +1997,6 @@ body.sans-defilement {
   color: var(--hoc-or-vif);
 }
 
-.carte-professeur {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 7px;
-  text-align: center;
-  padding: 4px 10px 6px;
-}
-.carte-professeur .texte-professeur {
-  margin: 0;
-  max-width: 440px;
-  font-size: 12.5px;
-  line-height: 1.55;
-  font-style: italic;
-  color: rgba(255, 255, 255, 0.78);
-}
 .nom-professeur {
   font-family: 'Poppins', 'Inter', sans-serif;
   font-size: 15.5px;
@@ -2085,56 +2013,35 @@ body.sans-defilement {
   color: #fff;
 }
 
-/* Panneau photo (directrice / équipe) : la photo ENTIÈRE, sans recadrage — demande client du
-   2026-09-15 : « les rendre plus visibles et complètes ». Le cadre doré épouse EXACTEMENT les
-   bords de la photo (demande client du 2026-09-29 : plus aucune zone blanche) : le panneau n'a
-   plus de largeur imposée, il prend celle de l'image, qui se dimensionne sur la hauteur du
-   panneau en gardant ses proportions. `max-width: 100%` la fait se réduire sur un écran étroit
-   plutôt que déborder — la hauteur suit alors, toujours sans déformation. */
-.panneau-photo {
-  display: inline-flex;
-  max-width: 100%;
-  border-radius: 22px;
-  overflow: hidden;
-  border: 5px solid var(--hoc-or-vif);
-  box-shadow: 0 0 0 6px rgba(255, 201, 98, 0.12), 0 22px 44px rgba(0, 0, 0, 0.35);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-.carte-professeur:hover .panneau-photo {
-  transform: translateY(-4px);
-  box-shadow: 0 0 0 8px rgba(255, 201, 98, 0.2), 0 28px 50px rgba(0, 0, 0, 0.4);
-}
-/* Largeur et hauteur automatiques, bornées toutes les deux : le navigateur réduit alors la photo
-   en conservant ses proportions, quelle que soit la borne atteinte — jamais de vide dans le cadre. */
-.panneau-photo img {
-  display: block;
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: clamp(140px, 33vh, 300px);
-}
+/* Grille des membres de l'équipe pédagogique : portraits individuels circulaires, un par
+   personne — repris du visuel de référence fourni par le client (photo ronde, nom, poste, chacun
+   sur sa propre ligne). Seul contenu de la vue Professeurs depuis le 2026-10-07.
 
-/* Grille des membres de l'équipe pédagogique (demande client du 2026-10-06) : portraits
-   individuels circulaires, un par personne — repris du visuel de référence fourni par le client
-   (photo ronde, nom, poste, chacun sur sa propre ligne), en dessous des deux cartes éditoriales
-   « Notre directrice »/« Notre équipe » qui restent inchangées. */
+   Flexbox et non grille : avec 7 membres sur 4 colonnes, une grille laisserait la rangée
+   incomplète collée à gauche (CSS Grid aligne toujours sur les colonnes). Ici les 3 dernières
+   cartes se centrent sous les 4 premières. Largeur fixe sur la carte pour que toutes gardent la
+   même d'une rangée à l'autre. */
 .grille-equipe-pedagogique {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-  gap: 22px 16px;
-  margin-top: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: center;
+  gap: 30px 24px;
   width: 100%;
+  max-width: 940px;
+  margin: 0 auto;
 }
 .carte-membre-equipe {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 4px;
+  gap: 3px;
+  width: 200px;
 }
 .photo-membre-equipe {
-  width: 108px;
-  height: 108px;
+  width: 124px;
+  height: 124px;
   border-radius: 50%;
   overflow: hidden;
   border: 3px solid var(--hoc-or-vif);
@@ -2153,29 +2060,40 @@ body.sans-defilement {
   object-position: center 18%;
 }
 .carte-membre-equipe .nom-professeur {
-  font-size: 13.5px;
-  margin-top: 6px;
+  font-size: 15px;
+  margin-top: 10px;
 }
 .carte-membre-equipe .page-claire .role-professeur,
 .page-claire .carte-membre-equipe .role-professeur {
-  font-size: 11.5px;
+  font-size: 12px;
 }
 .carte-membre-equipe .slogan-membre-equipe {
-  margin: 2px 0 0;
-  max-width: 180px;
-  font-size: 11px;
-  line-height: 1.45;
+  margin: 5px 0 0;
+  max-width: 190px;
+  font-size: 11.5px;
+  line-height: 1.5;
   font-style: italic;
   color: rgba(255, 255, 255, 0.72);
 }
+.pied-equipe-pedagogique {
+  display: flex;
+  justify-content: center;
+  flex: 0 0 auto;
+  margin-top: 30px;
+}
 @media (max-width: 560px) {
   .grille-equipe-pedagogique {
-    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-    gap: 18px 12px;
+    gap: 22px 14px;
+  }
+  .carte-membre-equipe {
+    width: 142px;
   }
   .photo-membre-equipe {
-    width: 88px;
-    height: 88px;
+    width: 96px;
+    height: 96px;
+  }
+  .carte-membre-equipe .slogan-membre-equipe {
+    max-width: 142px;
   }
 }
 
@@ -2378,13 +2296,6 @@ body.sans-defilement {
   .ligne-tarif-description {
     font-size: 10px;
   }
-  .carte-professeur {
-    gap: 5px;
-  }
-  .carte-professeur .texte-professeur {
-    font-size: 11.5px;
-    line-height: 1.45;
-  }
   .nom-professeur {
     font-size: 14px;
   }
@@ -2484,9 +2395,6 @@ body.sans-defilement {
   }
   .vue-secondaire-corps {
     overflow: visible;
-  }
-  .panneau-photo img {
-    max-height: 320px;
   }
   .grille-cours {
     max-height: none;
