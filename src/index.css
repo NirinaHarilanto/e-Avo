@@ -1774,7 +1774,13 @@ body.sans-defilement {
   min-height: 0;
   border-radius: 2px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
+  /* Un seul fond du haut de la photo jusque sous les boutons (demande client du 2026-10-08,
+     nuancier joint) : le cadre de l'illustration portait un voile blanc translucide et les trois
+     aquarelles arrivaient avec leur propre fond blanc, ce qui découpait un bandeau clair en haut
+     de chaque carte. Le fond blanc des fichiers a été rendu transparent (remplissage connexe
+     depuis les bords, les blancs intérieurs — écrans, chemises — sont intacts) et le cadre reprend
+     exactement le violet de la carte : plus aucune rupture de couleur dans le bloc. */
+  background: var(--hoc-prune-carte);
 }
 .carte-cours-visuel img {
   position: absolute;
@@ -2007,6 +2013,13 @@ body.sans-defilement {
   gap: 10px;
   padding: 16px;
 }
+/* Témoignages affichés en entier : sans troncature, les textes vont de 2 à 10 lignes. Avec
+   l'étirement par défaut de `.grille-vue`, toute une rangée prenait la hauteur du plus long et
+   laissait de grands vides sous les courts. `start` laisse chaque carte à sa hauteur réelle — la
+   grille est décalée, ce qui est la mise en page habituelle d'un mur de témoignages. */
+.grille-temoignages {
+  align-items: start;
+}
 .etoiles-avis {
   font-size: 13px;
   letter-spacing: 2.5px;
@@ -2018,14 +2031,11 @@ body.sans-defilement {
   line-height: 1.6;
   font-style: italic;
   color: rgba(255, 255, 255, 0.88);
-  /* 18 vrais témoignages (2026-10-08) sont de longueur très inégale : le clamp garde des cartes
-     de hauteur comparable dans la grille plutôt que des trous béants à côté de pavés de texte.
-     Le texte complet reste dans le DOM (lu par les lecteurs d'écran, indexé), seul l'affichage
-     visuel est tronqué. */
-  display: -webkit-box;
-  -webkit-line-clamp: 7;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  /* Aucune troncature (demande client du 2026-10-08). Un `-webkit-line-clamp: 7` égalisait la
+     hauteur des cartes, mais coupait les témoignages longs en plein milieu d'une phrase — celui
+     de Stéphane Rakotonjanahary s'arrêtait avant « to the next level. ». Un témoignage amputé
+     dessert la personne qui l'a écrit : il s'affiche désormais en entier, et c'est la grille qui
+     s'adapte (voir `.grille-temoignages`). */
 }
 .avatar-avis {
   width: 38px;
@@ -2357,7 +2367,7 @@ body.sans-defilement {
   object-fit: cover;
   object-position: center 18%;
 }
-/* Remplace la photo quand aucune n'est encore disponible (ex. Aina, 2026-10-08) : mêmes
+/* Remplace la photo quand aucune n'est encore disponible : mêmes
    dimensions que .photo-membre-equipe (hérite du cercle, de la bordure et de l'ombre du parent),
    juste rempli d'initiales au lieu d'une image. */
 .initiales-membre-equipe {
@@ -2731,7 +2741,9 @@ body.sans-defilement {
   }
   .carte-cours-visuel {
     flex: none;
-    height: 200px;
+    /* `auto` et non une hauteur fixe : avec `aspect-ratio`, le cadre suit la largeur de la carte,
+       donc l'illustration n'est jamais rognée sur mobile. */
+    height: auto;
   }
 }
 

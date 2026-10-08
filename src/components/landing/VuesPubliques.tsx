@@ -248,8 +248,9 @@ export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
       <h3 className="titre-bloc-temoignages">Témoignages de nos stagiaires</h3>
 
       {/* Pas de limite d'affichage : rien dans le document de retours du 2026-10-08 (demande 13)
-          n'impose un nombre maximal de témoignages visibles — les 18 s'affichent d'un coup. */}
-      <div className="grille-vue">
+          n'impose un nombre maximal de témoignages visibles — les 18 s'affichent d'un coup, et
+          chacun en entier (plus de troncature à 7 lignes depuis le 2026-10-08). */}
+      <div className="grille-vue grille-temoignages">
         {TEMOIGNAGES.map((temoignage) => (
           <article key={temoignage.id} className="carte-hoc carte-avis">
             <div className="entete-carte-avis">
@@ -648,9 +649,9 @@ function PortraitMembre({
           loading="lazy"
         />
       ) : (
-        /* Pas encore de photo exploitable pour cette personne (cas d'Aina, 2026-10-08 : le
-           fichier transmis par le client n'est pas un portrait) — avatar à initiales en
-           attendant, plutôt qu'une photo manquante cassée. */
+        /* Filet de sécurité quand une fiche n'a pas encore de photo exploitable : avatar à
+           initiales plutôt qu'une image cassée. Plus personne n'est dans ce cas depuis l'arrivée
+           de la photo d'Ashley (2026-10-08), mais la règle reste pour les prochaines arrivées. */
         <span className="initiales-membre-equipe" aria-hidden="true">
           {initialesDe(membre.nom ?? membre.role)}
         </span>
@@ -677,9 +678,9 @@ function PortraitMembre({
    — 4 nouvelles professeures/professeurs d'anglais ajoutés (Miangaly, Raissa, Aina, Rado), fournis
      par le client dans le même dossier. Slogans inventés (demande client explicite, même ton que
      les rôles déjà précisés) ; rôle genré selon la personne sur la photo. Le fichier transmis pour
-     Aina n'est pas un portrait (icône de coffre-fort) : `id` reste absent pour elle (demande
-     client du 2026-10-08 : l'afficher quand même, avec un avatar à initiales en attendant la
-     vraie photo — voir le rendu conditionnel dans `VueProfesseurs`).
+     Aina n'était pas un portrait (icône de coffre-fort) ; le client l'a remplacée par Ashley le
+     2026-10-08 et a fourni sa photo, désormais sous l'id 21 — plus personne n'est affiché sans
+     photo.
 
    Photo d'id 16 (Harinjo) remplacée le 2026-10-08 (demande 12 du document de retours) par le
    fichier « FONDATRICE.jpg » fourni par le client : recadrée en buste pour exclure le filigrane
@@ -765,7 +766,9 @@ const EQUIPE_PEDAGOGIQUE: {
     slogan: 'Dynamique et bienveillant, il pousse chaque élève à oser parler, erreurs comprises, pour progresser plus vite.',
   },
   {
-    nom: 'Aina',
+    // Remplace Aina le 2026-10-08, à la demande du client, photo fournie dans la foulée.
+    id: 21,
+    nom: 'Ashley',
     role: 'Professeure d’anglais',
     niveau: 4,
     slogan: 'Appliquée et chaleureuse, elle prend le temps de comprendre l’objectif de chaque élève avant de tracer son parcours.',
