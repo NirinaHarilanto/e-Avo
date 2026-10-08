@@ -514,15 +514,15 @@ function ModaleDetailProgramme({
   )
 }
 
-/* Photos Unsplash (licence Unsplash : usage commercial libre, sans attribution obligatoire),
-   réduites à 960 px et converties en WebP dans public/programmes :
-   — individuel : Julio Lopez, unsplash.com/photos/Imz-pn2LMbg
-   — duo : Chidera Faustina Okeke, unsplash.com/photos/2FDdgn0-W_o
-   — collectif : Vitaly Gariev, unsplash.com/photos/-X4Qx4_4iMU */
+/* Illustrations aquarelle générées (demande 5 du document de retours du 2026-10-08, règle B :
+   uniquement des personnages illustrés aux traits africains/afro-asiatiques, jamais de photo de
+   personne réelle) — remplacent les photos Unsplash utilisées jusqu'ici. Recadrées pour retirer
+   le cadre blanc arrondi que l'outil de génération intègre à l'image, afin qu'elles occupent toute
+   la carte comme les photos précédentes. */
 const PHOTOS_FORMULE: Record<TypeProgrammeProspect, { src: string; alt: string }> = {
-  individuel: { src: '/programmes/individuel.webp', alt: 'Une élève étudie seule avec son casque, devant son ordinateur' },
-  duo: { src: '/programmes/duo.webp', alt: 'Deux amies suivent ensemble un cours en ligne sur un ordinateur portable' },
-  collectif: { src: '/programmes/collectif.webp', alt: 'Un groupe d’élèves souriants suit un cours en ligne autour d’un ordinateur' },
+  individuel: { src: '/programmes/individuel.webp', alt: 'Illustration aquarelle d’un élève en appel vidéo avec son formateur sur son ordinateur portable' },
+  duo: { src: '/programmes/duo.webp', alt: 'Illustration aquarelle de deux élèves côte à côte en appel vidéo avec leur professeur' },
+  collectif: { src: '/programmes/collectif.webp', alt: 'Illustration aquarelle d’un petit groupe d’élèves qui échange autour d’un appel vidéo collectif' },
 }
 
 const LIMITE_TARIFS_VISIBLES = 4
@@ -681,6 +681,10 @@ function PortraitMembre({
      Aina n'est pas un portrait (icône de coffre-fort) : `id` reste absent pour elle (demande
      client du 2026-10-08 : l'afficher quand même, avec un avatar à initiales en attendant la
      vraie photo — voir le rendu conditionnel dans `VueProfesseurs`).
+
+   Photo d'id 16 (Harinjo) remplacée le 2026-10-08 (demande 12 du document de retours) par le
+   fichier « FONDATRICE.jpg » fourni par le client : recadrée en buste pour exclure le filigrane
+   du photographe et l'ordinateur portable visibles sur la photo d'origine.
 
    `niveau` (demande 11 du document de retours + hiérarchie précisée par le client le 2026-10-08) :
    1 Harinjo, 2 Manda et Anael, 3 Koloina, 4 les formateurs. Les niveaux 1 à 3 forment l'équipe

@@ -118,9 +118,13 @@ export function HeroPublic({
           <div className="hero-cadre-3d">
             <span className="hero-cercle" aria-hidden="true" />
             <div className="hero-cadre">
+              {/* Illustration aquarelle générée (demande 3 du document de retours du
+                  2026-10-08, règle B) : remplace la photo d'élèves utilisée jusqu'ici, aucun
+                  personnage de type caucasien, aucun texte hors le mot « HOC » sur l'écran
+                  stylisé de l'ordinateur portable représenté dans l'image. */}
               <img
                 src="/hero-illustration.webp"
-                alt={`Deux élèves de ${nomEtablissement} suivent ensemble un cours d’anglais en ligne`}
+                alt={`Illustration aquarelle représentant un ordinateur portable ${nomEtablissement} entouré de personnages connectés au monde par la langue anglaise`}
                 fetchPriority="high"
                 draggable={false}
               />
