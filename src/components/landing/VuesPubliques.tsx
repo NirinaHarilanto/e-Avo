@@ -235,8 +235,13 @@ export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
       theme="violet"
     >
       {/* Bloc de présentation (demande 10), puis les témoignages (demande 13) : les deux vivent
-          sur la même page « À propos », dans cet ordre, comme demandé. */}
+          sur la même page « À propos », dans cet ordre, comme demandé. Photo d'équipe fournie par
+          le client le 2026-10-08, recadrée pour retirer le crédit du studio photo visible en
+          haut de l'image d'origine. */}
       <section className="bloc-presentation-hoc">
+        <div className="photo-presentation-hoc">
+          <img src={`${dossierAssets}/equipe-groupe.webp`} alt="L’équipe Hari Online Club réunie" loading="lazy" />
+        </div>
         <div className="texte-presentation-hoc">
           {PRESENTATION_HOC.map((ligne) => (
             <p key={ligne.texte} className={ligne.fort ? 'ligne-presentation ligne-presentation--forte' : 'ligne-presentation'}>
@@ -244,9 +249,6 @@ export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
             </p>
           ))}
         </div>
-        {/* La photo d'équipe HOC reste à fournir par le client (liste « Ce que HOC doit fournir »
-            du document du 2026-10-08) : l'emplacement est prêt et réservé, rien ne s'affiche tant
-            que le fichier n'est pas déposé — mieux qu'une image cassée ou un visuel d'emprunt. */}
       </section>
 
       <h3 className="titre-bloc-temoignages">Témoignages de nos stagiaires</h3>

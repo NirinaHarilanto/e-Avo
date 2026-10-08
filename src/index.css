@@ -2038,17 +2038,36 @@ body.sans-defilement {
   gap: 8px;
 }
 
-/* Page « À propos » : texte de présentation de la fondatrice (demande 10 du 2026-10-08), puis
-   les témoignages. Colonne de lecture bornée à 760 px — au-delà, l'œil perd la ligne suivante. */
+/* Page « À propos » : texte de présentation de la fondatrice (demande 10 du 2026-10-08), avec la
+   photo d'équipe à côté (fournie par le client le 2026-10-08), puis les témoignages. Colonne de
+   texte bornée en largeur propre (`flex-basis`) — au-delà, l'œil perd la ligne suivante. */
 .bloc-presentation-hoc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 28px;
   width: 100%;
-  max-width: 760px;
+  max-width: 980px;
   margin: 0 auto 10px;
+}
+.photo-presentation-hoc {
+  flex: 1 1 280px;
+  max-width: 320px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(20, 8, 45, 0.35);
+}
+.photo-presentation-hoc img {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 .texte-presentation-hoc {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 2 1 380px;
+  min-width: 0;
 }
 .ligne-presentation {
   margin: 0;
