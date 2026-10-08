@@ -1986,18 +1986,18 @@ body.sans-defilement {
 }
 
 .carte-avis {
-  gap: 12px;
-  padding: 20px;
+  gap: 10px;
+  padding: 16px;
 }
 .etoiles-avis {
-  font-size: 15px;
-  letter-spacing: 3px;
+  font-size: 13px;
+  letter-spacing: 2.5px;
   color: var(--hoc-or-vif);
 }
 .citation-avis {
   margin: 0;
-  font-size: 13px;
-  line-height: 1.65;
+  font-size: 12px;
+  line-height: 1.6;
   font-style: italic;
   color: rgba(255, 255, 255, 0.88);
   /* 18 vrais témoignages (2026-10-08) sont de longueur très inégale : le clamp garde des cartes
@@ -2036,7 +2036,7 @@ body.sans-defilement {
   object-position: center 20%;
 }
 .nom-avis {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--hoc-or);
 }
@@ -2080,13 +2080,13 @@ body.sans-defilement {
 }
 .ligne-presentation {
   margin: 0;
-  font-size: 13.5px;
-  line-height: 1.75;
+  font-size: 12.5px;
+  line-height: 1.7;
   color: rgba(255, 255, 255, 0.86);
 }
 .ligne-presentation--forte {
   font-family: 'Poppins', 'Inter', sans-serif;
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 700;
   line-height: 1.5;
   color: var(--hoc-or-vif);
@@ -2094,9 +2094,9 @@ body.sans-defilement {
 .titre-bloc-temoignages {
   width: 100%;
   max-width: 760px;
-  margin: 26px auto 14px;
+  margin: 20px auto 12px;
   font-family: 'Poppins', 'Inter', sans-serif;
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 700;
   color: #fff;
   text-align: center;

@@ -13,6 +13,7 @@ import { EtatChargement, MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonDangerStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
+import { PanneauSignature } from '../shared/PanneauSignature'
 
 /* Section « Profil HOC » — demande client du 2026-10-05, au même niveau de navigation que
    Contrats/Paiements/Facturation (voir AdminLayout.tsx). Deux blocs qui vivent ensemble ici
@@ -48,8 +49,24 @@ export function ProfilHOC() {
       />
 
       <IdentiteEtablissement />
+      <MaSignature />
       <EquipeAdmins />
     </AdminLayout>
+  )
+}
+
+/* Déménagée depuis « Mon profil » le 2026-10-08 (demande client) : la signature d'un admin se
+   gère désormais ici, à côté de l'identité de l'établissement et de l'équipe qui la partage,
+   plutôt que sur un écran séparé. Self-service comme avant — chaque admin ne voit et ne modifie
+   que SA PROPRE signature, jamais celle d'un collègue listé dans « Administrateurs » plus bas. */
+function MaSignature() {
+  const { profile, rafraichirProfil } = useProfileContext()
+  if (!profile) return null
+
+  return (
+    <Section titre="Ma signature" description="Utilisée automatiquement quand vous signez un contrat, à la place de votre nom tapé.">
+      <PanneauSignature profile={profile} onChange={rafraichirProfil} avecEntete={false} />
+    </Section>
   )
 }
 

@@ -180,8 +180,6 @@ const TEMOIGNAGES: Temoignage[] = [
   },
 ]
 
-const LIMITE_TEMOIGNAGES_VISIBLES = 7
-
 function initialesDe(nom: string) {
   return nom
     .split(' ')
@@ -223,10 +221,6 @@ const PRESENTATION_HOC: { texte: string; fort?: boolean }[] = [
 ]
 
 export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
-  const [etendu, setEtendu] = useState(false)
-  const visibles = etendu ? TEMOIGNAGES : TEMOIGNAGES.slice(0, LIMITE_TEMOIGNAGES_VISIBLES)
-  const masques = TEMOIGNAGES.length - LIMITE_TEMOIGNAGES_VISIBLES
-
   return (
     <CadreVue
       surtitre="À propos"
@@ -253,8 +247,10 @@ export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
 
       <h3 className="titre-bloc-temoignages">Témoignages de nos stagiaires</h3>
 
+      {/* Pas de limite d'affichage : rien dans le document de retours du 2026-10-08 (demande 13)
+          n'impose un nombre maximal de témoignages visibles — les 18 s'affichent d'un coup. */}
       <div className="grille-vue">
-        {visibles.map((temoignage) => (
+        {TEMOIGNAGES.map((temoignage) => (
           <article key={temoignage.id} className="carte-hoc carte-avis">
             <div className="entete-carte-avis">
               <span aria-hidden className="etoiles-avis">
@@ -281,11 +277,6 @@ export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
         ))}
       </div>
 
-      {masques > 0 && (
-        <button type="button" onClick={() => setEtendu((v) => !v)} className="lien-deplier lien-deplier--centre">
-          {etendu ? 'Réduire ↑' : `Voir tous les témoignages (+${masques}) ↓`}
-        </button>
-      )}
     </CadreVue>
   )
 }
@@ -708,6 +699,8 @@ const EQUIPE_PEDAGOGIQUE: {
     role: 'Fondatrice',
     niveau: 1,
     slogan: 'Elle a fondé Hari Online Club avec une conviction simple : aucune application ne remplace le regard d’un professeur qui croit en vous.',
+    // Lien transmis par le client le 2026-10-08 (demande 11).
+    linkedin: 'https://www.linkedin.com/in/harinjo-andriamahenina-2488721b3/',
   },
   {
     id: 15,

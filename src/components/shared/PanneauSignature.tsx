@@ -9,6 +9,12 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 interface PanneauSignatureProps {
   profile: Profile
   onChange: () => void
+  /* `false` quand le panneau constitue tout le contenu d'une Section qui porte déjà son propre
+     titre (cas de « Ma signature » dans Profil HOC, 2026-10-08) : la marge/bordure du haut et le
+     libellé « Signature » internes n'ont alors plus de raison d'être, ils dédoubleraient le titre
+     de la Section. Par défaut `true` : comportement inchangé pour professeur/étudiant, où ce
+     panneau continue le bloc Informations personnelles au sein d'une même carte. */
+  avecEntete?: boolean
 }
 
 /* Signature de contrat sous forme d'image (demande client du 2026-09-17) : déposée ici une fois,
@@ -17,7 +23,7 @@ interface PanneauSignatureProps {
    l'AUTRE partie du contrat, un besoin que les policies de `documents` ne couvrent pas. Chemin fixe
    {etablissement_id}/{profile_id}/signature.png, upsert à chaque dépôt — pas de table de
    métadonnées nécessaire pour un seul fichier par profil, pas d'orphelin à nettoyer. */
-export function PanneauSignature({ profile, onChange }: PanneauSignatureProps) {
+export function PanneauSignature({ profile, onChange, avecEntete = true }: PanneauSignatureProps) {
   const [urlSignee, setUrlSignee] = useState<string | null>(null)
   const [chargementApercu, setChargementApercu] = useState(true)
   const [enCours, setEnCours] = useState(false)
@@ -79,8 +85,14 @@ export function PanneauSignature({ profile, onChange }: PanneauSignatureProps) {
   }
 
   return (
-    <div style={{ marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border-soft, var(--border))', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Signature</span>
+    <div
+      style={
+        avecEntete
+          ? { marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border-soft, var(--border))', display: 'flex', flexDirection: 'column', gap: 10 }
+          : { display: 'flex', flexDirection: 'column', gap: 10 }
+      }
+    >
+      {avecEntete && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Signature</span>}
       <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
         Utilisée automatiquement quand vous signez un contrat. Sans signature déposée, le contrat affiche « Vu et approuvé par{' '}
         {profile.prenom} {profile.nom} ».
