@@ -1582,14 +1582,25 @@ body.sans-defilement {
    hauteur du cadre et les prix débordaient sous le bouton sur un écran court ; ici la carte prend
    la hauteur qu'il lui faut et c'est le corps de la vue qui défile (comportement déjà en place
    pour les vues denses). */
+/* `flex: 0 0 auto` et `min-content`, et non plus `flex: 1 1 auto` avec `min-height: 0` et
+   `minmax(0, auto)` (correction du 2026-10-08, signalée au zoom du navigateur) : ces trois
+   réglages autorisaient la grille à se comprimer SOUS la hauteur de son contenu quand la place
+   manquait. Les cartes devenaient alors plus courtes que ce qu'elles portaient, et les derniers
+   prix, le lien « Voir tous les tarifs » et les boutons sortaient du cadre, par-dessus le fond de
+   la vue. Invisible à 100 %, flagrant dès qu'on zoomait : zoomer réduit la hauteur disponible en
+   pixels CSS, exactement le cas où la compression se déclenchait. La grille prend désormais la
+   hauteur de son contenu, quoi qu'il arrive, et c'est le corps de la vue qui défile quand la
+   place manque — il est déjà en `overflow-y: auto`. Le rendu est donc identique à tout niveau de
+   zoom. Effet de bord bienvenu : les cartes ne sont plus étirées à la hauteur de l'écran, le
+   grand vide entre les prix et les boutons disparaît. */
 .grille-cours {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
+  min-height: min-content;
   /* Élargi le 2026-10-08 à la demande du client (1320px → 1500px) : les 3 cartes contiennent
      maintenant la grille de prix en plus du texte (fusion Cours + Tarifs du 2026-10-08), elles
      ont besoin d'un peu plus de largeur pour que les lignes de prix respirent. */
   max-width: 1500px;
-  grid-template-rows: minmax(0, auto);
+  grid-template-rows: auto;
   align-self: center;
 }
 /* Depuis la fusion Cours + Tarifs (2026-10-08), la carte porte aussi la grille de prix, en plus
@@ -1606,7 +1617,9 @@ body.sans-defilement {
    query ne servait donc à rien sur desktop, c'est cette règle-ci qui s'appliquait en silence. Une
    seule déclaration désormais, pour ne plus jamais reproduire ce piège. */
 .carte-cours {
-  min-height: 0;
+  /* `min-content` et non `0` : même raison que `.grille-cours` juste au-dessus — une carte ne doit
+     jamais pouvoir devenir plus courte que ce qu'elle contient. */
+  min-height: min-content;
   padding: 12px;
   gap: 0;
 }
@@ -1659,7 +1672,9 @@ body.sans-defilement {
 }
 .carte-cours-corps {
   flex: 1 1 auto;
-  min-height: 0;
+  /* `min-content` et non `0`, pour la même raison que la carte et la grille : le texte, les prix
+     et les boutons ne doivent jamais être comprimés hors de leur cadre. */
+  min-height: min-content;
   display: flex;
   flex-direction: column;
   gap: 5px;
