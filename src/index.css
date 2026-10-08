@@ -1739,35 +1739,19 @@ body.sans-defilement {
   grid-template-rows: minmax(0, auto);
   align-self: center;
 }
-/* Informations en bas de chaque carte, photo au-dessus (demande client du 2026-09-29, avec
-   capture annotée : « faire descendre les informations […] afin de libérer plus d'espace pour
-   les images »). Chaque carte est une colonne : le bloc texte garde sa hauteur naturelle et se
-   cale en bas, juste au-dessus du bouton ; la photo prend TOUTE la hauteur restante. La carte
-   « Cours particuliers », qui a un paragraphe de plus, a donc une photo un peu moins haute que
-   les deux autres, mais aucune carte ne garde de vide entre son texte et son bouton — ce vide
-   (32 à 45 px) revient à la photo. Les trois cartes ont la même hauteur, donc les boutons
-   restent alignés en bas. */
-/* Depuis la fusion Cours + Tarifs (2026-10-08), la carte porte aussi la grille de prix : le
-   visuel ne prend plus toute la hauteur restante (il écraserait les prix), il est borné en
-   hauteur et c'est le corps de la carte qui occupe le reste. */
-@media (min-width: 821px) {
-  .grille-cours .carte-cours {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-  .grille-cours .carte-cours-visuel {
-    flex: 0 0 auto;
-    height: clamp(110px, 20vh, 190px);
-    min-height: 0;
-  }
-  .grille-cours .carte-cours-corps {
-    flex: 1 1 auto;
-    min-height: 0;
-    padding-top: 8px;
-    gap: 4px;
-  }
-}
+/* Depuis la fusion Cours + Tarifs (2026-10-08), la carte porte aussi la grille de prix, en plus
+   de la photo. Avant la fusion, la photo prenait « toute la hauteur restante » (`flex: 1 1 auto`)
+   et le texte gardait sa hauteur naturelle (`flex: 0 0 auto`) — avec la liste de prix en plus,
+   ce réglage affamait le texte : la photo continuait à grandir et poussait les dernières lignes
+   de prix et le bouton « Voir tous les tarifs » hors de la carte (ils s'affichaient par-dessus le
+   fond de la vue, sous le bord arrondi). Les deux rôles sont donc inversés : la photo est bornée
+   en hauteur (`clamp`), c'est le corps (texte + prix) qui prend le reste et grandit avec son
+   contenu.
+   Panne du 2026-10-08 à retenir : ce fichier avait DEUX déclarations pour ces deux classes, une
+   dans une media query `(min-width: 821px)` juste au-dessus et une autre ici, non scoping. À
+   spécificité égale, c'est la règle la plus BASSE dans le fichier qui gagne la cascade — la media
+   query ne servait donc à rien sur desktop, c'est cette règle-ci qui s'appliquait en silence. Une
+   seule déclaration désormais, pour ne plus jamais reproduire ce piège. */
 .carte-cours {
   min-height: 0;
   padding: 12px;
@@ -1775,8 +1759,9 @@ body.sans-defilement {
 }
 .carte-cours-visuel {
   position: relative;
-  flex: 1 1 auto;
-  min-height: 120px;
+  flex: 0 0 auto;
+  height: clamp(100px, 17vh, 170px);
+  min-height: 0;
   border-radius: 2px;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.08);
@@ -1805,7 +1790,8 @@ body.sans-defilement {
   top: 10px;
 }
 .carte-cours-corps {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -1825,6 +1811,29 @@ body.sans-defilement {
 }
 .carte-cours .bouton-or {
   margin-top: 4px;
+}
+/* Grille de prix dans la carte Cours (fusion du 2026-10-08) : textes resserrés pour que le titre,
+   la description, les prix de chaque palier et le bouton « Voir tous les tarifs » tiennent tous
+   lisiblement dans la carte, sans qu'aucun ne déborde ni ne chevauche le suivant. */
+.carte-cours .bloc-tarifs-carte {
+  gap: 1px;
+  margin-top: 2px;
+}
+.carte-cours .ligne-tarif {
+  padding: 3px 7px;
+}
+.carte-cours .ligne-tarif-titre {
+  font-size: 11px;
+}
+.carte-cours .ligne-tarif-prix {
+  font-size: 11px;
+}
+.carte-cours .ligne-tarif-description {
+  font-size: 9px;
+  line-height: 1.3;
+}
+.carte-cours .lien-deplier {
+  margin-top: 2px;
 }
 
 /* « En savoir plus » (demande client du 2026-10-06) : posé à côté du bouton de réservation, en
@@ -2199,9 +2208,13 @@ body.sans-defilement {
 }
 /* Portrait un cran plus grand que dans la grille des formateurs : c'est ce qui distingue
    visuellement l'équipe administrative, comme demandé (« des cartes plus grandes »). */
+/* Portrait nettement plus grand que la grille des formateurs (clamp 58-124px) : c'est ce qui fait
+   « des cartes plus grandes » pour l'équipe administrative, comme demandé (demande 11). Agrandi
+   le 2026-10-08 à la demande du client pour la photo de la fondatrice, recadrée en carré pour
+   cette taille. */
 .carte-equipe-admin .photo-membre-equipe {
-  width: clamp(76px, 12vh, 112px);
-  height: clamp(76px, 12vh, 112px);
+  width: clamp(96px, 15vh, 148px);
+  height: clamp(96px, 15vh, 148px);
 }
 .nom-equipe-admin {
   font-family: 'Poppins', 'Inter', sans-serif;
