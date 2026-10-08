@@ -1763,7 +1763,14 @@ body.sans-defilement {
 .carte-cours-visuel {
   position: relative;
   flex: 0 0 auto;
-  height: clamp(100px, 17vh, 170px);
+  /* Hauteur calée sur les proportions exactes des illustrations (1011 × 603) plutôt qu'un `clamp`
+     en pixels (demande client du 2026-10-08 : « beaucoup plus visibles »). Deux gains : l'image
+     occupe toute la largeur de la carte à sa hauteur naturelle, donc la plus grande taille
+     possible, et `cover` ne rogne plus rien — un cadre plus haut que ce rapport zoomerait dans
+     l'illustration et en montrerait MOINS, pas plus. La place vient de l'espace vide que les
+     cartes gardaient sous les prix. */
+  height: auto;
+  aspect-ratio: 1011 / 603;
   min-height: 0;
   border-radius: 2px;
   overflow: hidden;
@@ -1824,6 +1831,14 @@ body.sans-defilement {
 }
 .carte-cours .ligne-tarif {
   padding: 3px 7px;
+}
+/* Fond uniforme dans toute la carte (demande client du 2026-10-08, capture annotée) : la règle
+   partagée `.ligne-tarif:nth-child(odd)` pose un fond une ligne sur deux, qui faisait ressortir la
+   grille de prix comme un bloc distinct du titre et de la description au-dessus. Ici les prix
+   reposent sur le même violet que le reste de la carte ; ce sont l'espacement et la graisse du
+   prix qui séparent les lignes, plus un aplat de couleur. */
+.carte-cours .ligne-tarif:nth-child(odd) {
+  background: transparent;
 }
 .carte-cours .ligne-tarif-titre {
   font-size: 11px;
@@ -2226,9 +2241,19 @@ body.sans-defilement {
    jurerait avec les coins arrondis utilisés partout ailleurs sur cette page (cartes, boutons,
    étiquettes). */
 .carte-equipe-admin--fondatrice .photo-membre-equipe {
-  width: clamp(140px, 20vh, 210px);
-  height: clamp(140px, 20vh, 210px);
+  width: clamp(150px, 21vh, 215px);
+  /* `aspect-ratio` calé sur les proportions exactes du fichier (700 × 913) plutôt qu'un carré :
+     le cadre épouse ainsi les bords de la photo, qui s'affiche entière, sans rognage ni zoom
+     (demande client du 2026-10-08). `height: auto` est indispensable — la règle partagée
+     `.photo-membre-equipe` impose une hauteur fixe, qui écraserait le rapport. */
+  height: auto;
+  aspect-ratio: 700 / 913;
   border-radius: 14px;
+}
+/* Sans décalage vertical : le cadre ayant le même rapport que l'image, `cover` ne coupe rien et
+   le cadrage haut (18 %) des portraits ronds n'a plus lieu d'être. */
+.carte-equipe-admin--fondatrice .photo-membre-equipe img {
+  object-position: center;
 }
 .nom-equipe-admin {
   font-family: 'Poppins', 'Inter', sans-serif;
