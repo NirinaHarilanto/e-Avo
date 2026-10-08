@@ -1735,7 +1735,10 @@ body.sans-defilement {
 .grille-cours {
   flex: 1 1 auto;
   min-height: 0;
-  max-width: 1320px;
+  /* Élargi le 2026-10-08 à la demande du client (1320px → 1500px) : les 3 cartes contiennent
+     maintenant la grille de prix en plus du texte (fusion Cours + Tarifs du 2026-10-08), elles
+     ont besoin d'un peu plus de largeur pour que les lignes de prix respirent. */
+  max-width: 1500px;
   grid-template-rows: minmax(0, auto);
   align-self: center;
 }
@@ -2216,11 +2219,15 @@ body.sans-defilement {
   width: clamp(96px, 15vh, 148px);
   height: clamp(96px, 15vh, 148px);
 }
-/* Photo de la fondatrice en carré, à sa demande du 2026-10-08 — seule exception au cadre rond
-   partagé par le reste de l'équipe (`.photo-membre-equipe` plus haut). Coins légèrement arrondis
-   plutôt que des angles droits : un carré parfait jurerait avec les coins arrondis utilisés
-   partout ailleurs sur cette page (cartes, boutons, étiquettes). */
+/* Photo de la fondatrice en carré et agrandie, à sa demande du 2026-10-08 — seule exception au
+   cadre rond partagé par le reste de l'équipe (`.photo-membre-equipe` plus haut) et à la taille
+   commune du reste de l'équipe administrative (`.carte-equipe-admin .photo-membre-equipe`
+   juste au-dessus). Coins légèrement arrondis plutôt que des angles droits : un carré parfait
+   jurerait avec les coins arrondis utilisés partout ailleurs sur cette page (cartes, boutons,
+   étiquettes). */
 .carte-equipe-admin--fondatrice .photo-membre-equipe {
+  width: clamp(140px, 20vh, 210px);
+  height: clamp(140px, 20vh, 210px);
   border-radius: 14px;
 }
 .nom-equipe-admin {
