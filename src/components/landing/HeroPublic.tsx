@@ -120,8 +120,9 @@ export function HeroPublic({
             <div className="hero-cadre">
               {/* Illustration aquarelle générée (demande 3 du document de retours du
                   2026-10-08, règle B) : remplace la photo d'élèves utilisée jusqu'ici, aucun
-                  personnage de type caucasien, aucun texte hors le mot « HOC » sur l'écran
-                  stylisé de l'ordinateur portable représenté dans l'image. */}
+                  personnage de type caucasien, aucun texte dans l'image. Le générateur avait
+                  inscrit « HOC » sur l'écran du portable malgré la consigne ; le mot a été
+                  effacé le 2026-10-08, le document exigeant « aucun texte dans l'image ». */}
               <img
                 src="/hero-illustration.webp"
                 alt={`Illustration aquarelle représentant un ordinateur portable ${nomEtablissement} entouré de personnages connectés au monde par la langue anglaise`}
