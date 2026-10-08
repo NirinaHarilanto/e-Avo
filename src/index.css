@@ -2216,6 +2216,13 @@ body.sans-defilement {
   width: clamp(96px, 15vh, 148px);
   height: clamp(96px, 15vh, 148px);
 }
+/* Photo de la fondatrice en carré, à sa demande du 2026-10-08 — seule exception au cadre rond
+   partagé par le reste de l'équipe (`.photo-membre-equipe` plus haut). Coins légèrement arrondis
+   plutôt que des angles droits : un carré parfait jurerait avec les coins arrondis utilisés
+   partout ailleurs sur cette page (cartes, boutons, étiquettes). */
+.carte-equipe-admin--fondatrice .photo-membre-equipe {
+  border-radius: 14px;
+}
 .nom-equipe-admin {
   font-family: 'Poppins', 'Inter', sans-serif;
   font-size: 17px;

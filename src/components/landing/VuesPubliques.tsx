@@ -585,7 +585,13 @@ export function VueProfesseurs({
           return (
             <div key={niveau} className="rangee-equipe-admin">
               {membres.map((membre) => (
-                <article key={membre.id ?? membre.nom} className="carte-equipe-admin">
+                <article
+                  key={membre.id ?? membre.nom}
+                  className={niveau === 1 ? 'carte-equipe-admin carte-equipe-admin--fondatrice' : 'carte-equipe-admin'}
+                >
+                  {/* Niveau 1 = la fondatrice, seule à ce niveau par construction : seule sa photo
+                      est carrée (demande client du 2026-10-08), le reste de l'équipe garde le
+                      cadre rond d'origine (visuel de référence du 2026-10-06). */}
                   <PortraitMembre membre={membre} dossierAssets={dossierAssets} />
                   {membre.nom && <span className="nom-equipe-admin">{membre.nom}</span>}
                   <span className="etiquette-fonction">{membre.role}</span>
