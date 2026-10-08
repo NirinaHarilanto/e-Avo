@@ -195,7 +195,7 @@ export function LandingEtablissement() {
             onReserver={() => ouvrirReservation()}
           />
         )}
-        {vue === 'avis' && <VueAvis />}
+        {vue === 'avis' && <VueAvis dossierAssets={dossierAssets} />}
       </main>
 
       {/* Bande légale : les liens de confidentialité et de conditions d'utilisation exigés par

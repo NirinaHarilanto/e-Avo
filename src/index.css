@@ -1958,10 +1958,19 @@ body.sans-defilement {
   line-height: 1.65;
   font-style: italic;
   color: rgba(255, 255, 255, 0.88);
+  /* 18 vrais témoignages (2026-10-08) sont de longueur très inégale : le clamp garde des cartes
+     de hauteur comparable dans la grille plutôt que des trous béants à côté de pavés de texte.
+     Le texte complet reste dans le DOM (lu par les lecteurs d'écran, indexé), seul l'affichage
+     visuel est tronqué. */
+  display: -webkit-box;
+  -webkit-line-clamp: 7;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .avatar-avis {
   width: 38px;
   height: 38px;
+  flex: 0 0 auto;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -1972,10 +1981,41 @@ body.sans-defilement {
   background: linear-gradient(135deg, var(--hoc-violet-clair), var(--hoc-violet-fonce));
   border: 2px solid var(--hoc-or-vif);
 }
+/* Avatar photo (témoignages avec portrait fourni par le client) : même cercle doré que les
+   initiales, juste rempli d'une image au lieu d'un fond dégradé. */
+.avatar-avis--photo {
+  padding: 0;
+  overflow: hidden;
+}
+.avatar-avis--photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+}
 .nom-avis {
   font-size: 13px;
   font-weight: 600;
   color: var(--hoc-or);
+}
+.entete-carte-avis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.badge-annee-avis {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.lien-deplier--centre {
+  align-self: center;
+  margin-top: 16px;
 }
 
 /* Thème « nuit » (visuel de référence n° 1) : bleu nuit sarcelle, fines stries, or. */
@@ -2071,6 +2111,21 @@ body.sans-defilement {
   height: 100%;
   object-fit: cover;
   object-position: center 18%;
+}
+/* Remplace la photo quand aucune n'est encore disponible (ex. Aina, 2026-10-08) : mêmes
+   dimensions que .photo-membre-equipe (hérite du cercle, de la bordure et de l'ombre du parent),
+   juste rempli d'initiales au lieu d'une image. */
+.initiales-membre-equipe {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: clamp(16px, 4vh, 32px);
+  color: #fff;
+  background: linear-gradient(135deg, var(--hoc-violet-clair), var(--hoc-violet-fonce));
 }
 .carte-membre-equipe .nom-professeur {
   font-size: clamp(12px, 1.5vh, 15px);

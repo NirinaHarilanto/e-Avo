@@ -9,46 +9,233 @@ import type { AccentPalette } from '../../lib/accent'
    perdue au passage.
 
    Refonte visuelle du 2026-09-29, d'après les visuels de référence fournis par le client (qui
-   remplace l'ambiance marine et or du 2026-09-22) :
-   — Cours, Tarifs et À propos (thème « violet ») : fond violet profond, cartes violettes, titres
-     et boutons jaune doré, trait doré sous le titre ;
-   — Professeurs (thème « nuit ») : fond bleu nuit sarcelle, photos cerclées d'or, titre blanc et
-     sous-titre doré en italique.
+   remplace l'ambiance marine et or du 2026-09-22) : fond violet profond (code couleur officiel
+   HOC, `--hoc-violet`/`--hoc-prune`), cartes violettes, titres et boutons jaune doré, trait doré
+   sous le titre.
+
+   Depuis le 2026-10-08 (demande client explicite, échantillon de couleur fourni, qui correspond
+   au violet de marque déjà utilisé ailleurs dans l'app à quelques nuances de compression près) :
+   les 4 sections Cours, Professeurs, Tarifs et À propos partagent toutes ce thème « violet », pour
+   une ambiance unifiée sur toute la vitrine publique. Le thème « nuit » (fond bleu nuit sarcelle)
+   reste disponible dans `CadreVue` mais n'est plus utilisé par aucune vue pour l'instant.
    Aucune donnée ni aucun mécanisme ne change (forfaits, programmes, extension de la liste des
    tarifs, réservation) : seuls les classes et les styles de présentation sont neufs. */
 
 type Tarif = Database['public']['Tables']['tarifs']['Row']
 
-/* Repris de l'ancien pied de page de la landing, désormais atteignable depuis son propre onglet
-   plutôt que noyé en bas de l'écran d'accueil. */
-export const TEMOIGNAGES = [
-  { initiales: 'AL', nom: 'A. L.', texte: 'Un vrai suivi, un professeur qui connaît mes objectifs semaine après semaine.' },
-  { initiales: 'MK', nom: 'M. K.', texte: 'Les cours en petit groupe m’ont redonné confiance pour parler sans hésiter.' },
-  { initiales: 'SB', nom: 'S. B.', texte: 'L’appel diagnostic a tout de suite posé un cap clair pour mes cours.' },
+/* Vrais témoignages d'élèves, fournis par le client le 2026-10-07/08 (documents « testimonial »/
+   « Testimonial 2 »), en remplacement des 3 exemples de démonstration. Texte repris tel quel
+   (langue d'origine : anglais — ce sont des citations de vrais élèves, pas un texte de l'app à
+   traduire), seulement nettoyé des sauts de ligne de mise en forme Word.
+
+   7 des 18 témoignages ont une vraie photo (les autres n'en avaient aucune dans les documents
+   fournis) : ceux-là sont placés en tête de liste, pour que la section ouvre sur des visages
+   réels — plus marquant qu'une suite de pastilles à initiales. Les 11 suivants gardent un avatar
+   à initiales, comme avant. `annee` (donnée par les en-têtes 2024/2025/2026 du document client)
+   s'affiche en petit badge sur chaque carte, pour montrer que les retours s'étalent dans la durée
+   plutôt que d'être un lot ponctuel. */
+type Temoignage = {
+  id: string
+  annee: 2024 | 2025 | 2026
+  nom: string
+  texte: string
+  photo?: string
+}
+
+const TEMOIGNAGES: Temoignage[] = [
+  // ── Avec photo ──────────────────────────────────────────────────────────
+  {
+    id: 'dia',
+    annee: 2026,
+    nom: 'Dia',
+    photo: 'temoignage-dia.webp',
+    texte:
+      'I really enjoy my English lessons with Hari. She is kind, patient, and always willing to help. She creates a positive and comfortable learning environment, which makes it easier for me to speak and improve my English with confidence. Thanks to her support, encouragement, and clear explanations, I have made noticeable progress and feel much more confident using English in everyday situations. Thank you, Hari, for your dedication and continuous support!',
+  },
+  {
+    id: 'miora',
+    annee: 2025,
+    nom: 'Miora Christelle',
+    photo: 'temoignage-miora.webp',
+    texte:
+      'Thank you from the bottom of my heart for everything you have done for me. Thanks to you, Harinjo English has become a place where I found not only knowledge, but also support, motivation, and a true family. Because of your support, I’ve improved, regained confidence, and most of all, I’ve come to love this language. Thank you, Mrs. Hari, Mrs. Manda and Mr. Landry : there are people you never forget — and you are one of them.',
+  },
+  {
+    id: 'mihanta',
+    annee: 2025,
+    nom: 'Mihanta Andriantsoa',
+    photo: 'temoignage-mihanta.webp',
+    texte:
+      'I started English classes to be more fluent and confident when speaking. The courses were more than just a learning session, they became a real hobby for me — a great way to disconnect from daily stress and talk about different topics in English. If you are looking for a way to learn and have fun at the same time, I definitely recommend this adventure. Thank you to the whole team for this great experience!',
+  },
+  {
+    id: 'frederica',
+    annee: 2025,
+    nom: 'Frederica Andriananténaina',
+    photo: 'temoignage-frederica.webp',
+    texte:
+      'Personally, I really loved my online classes with the team, especially with Miss Sandra. I’ve already learned so much, and I truly feel like I’ve made incredible progress in a short amount of time. Her approach was clear, dynamic, and encouraging — she really helped me build confidence and speak without fear of making mistakes. A big thank you to the whole team, and especially to Miss Sandra, for this wonderful experience!',
+  },
+  {
+    id: 'cynthia',
+    annee: 2025,
+    nom: 'Cynthia Raobelina',
+    photo: 'temoignage-cynthia.webp',
+    texte:
+      'I would like to sincerely thank you for your support and dedication throughout this English course. Your lessons have truly helped me improve my language skills, especially in speaking and vocabulary. I have noticed a real difference in my confidence and fluency, and I’m very grateful for the motivating learning environment you created.',
+  },
+  {
+    id: 'fanirisoa',
+    annee: 2025,
+    nom: 'Fanirisoa Randria',
+    photo: 'temoignage-fanirisoa.webp',
+    texte:
+      'I was so sad that my sessions had ended because I truly enjoyed them. It wasn’t just an English course; it was a discovery of a new world and an opportunity to meet wonderful people. A huge thank you to Harinjo’s team, from the bottom of my heart — especially my teacher Patricia, for her support and incredible patience with me. I’ve improved so much and I’m no longer worried about speaking with native English speakers. I’ll be back.',
+  },
+  {
+    id: 'stephane',
+    annee: 2024,
+    nom: 'Stéphane Rakotonjanahary',
+    photo: 'temoignage-stephane.webp',
+    texte:
+      'Hari’s Online Courses has truly impressed me with the quality and professionalism of its courses. The lessons are clear, engaging, well-structured, and highly practical — complex topics explained in a simple and easy-to-understand way. I highly recommend Hari’s Online Courses to anyone looking to improve their skills, gain confidence, and take their learning to the next level.',
+  },
+  // ── Sans photo (avatar à initiales) ─────────────────────────────────────
+  {
+    id: 'fara',
+    annee: 2026,
+    nom: 'Fara',
+    texte:
+      'I really enjoyed learning English with Manda. She is very kind, always willing to help, and ready to listen to what I needed so that I could improve my English-speaking skills with confidence. I will definitely come back, and I also encourage others to study here.',
+  },
+  {
+    id: 'leonardo',
+    annee: 2026,
+    nom: 'Leonardo',
+    texte:
+      'When I first started, I didn’t know anything about English, but after just one month, I saw significant progress. I’m not a pro yet, but Hari Online Club has taught me how to study on my own, and I’m confident that one day I will speak like a native. A big thank you to Teacher Manda and Teacher Lucie for their guidance and support.',
+  },
+  {
+    id: 'henintsoa',
+    annee: 2026,
+    nom: 'Henintsoa',
+    texte:
+      'Even though I didn’t reach my ideal score for the IELTS Speaking test, I still achieved my target overall IELTS band score of 7.5, and I couldn’t have reached that without you. Thank you, Manda, for being such a great and kind teacher. And thank you to the whole HOC team for being so organised and attentive to my needs.',
+  },
+  {
+    id: 'mahery',
+    annee: 2025,
+    nom: 'Mahery',
+    texte:
+      'I’ve been taking online English courses with Hari, a passionate young Malagasy teacher, and I’m very satisfied. The lessons are pedagogical and well-structured, making it easy to learn new words in a natural way. The organization is professional, and I have absolutely no regrets about having devoted my time and money. I wish her every success in developing her online courses.',
+  },
+  {
+    id: 'nancy',
+    annee: 2025,
+    nom: 'Nancy',
+    texte:
+      'I’ve been taking English lessons with Hari for about a month now, and I’ve truly enjoyed the experience. The lessons are tailored to my needs and goals. Hari is very supportive and encouraging, always prompting me to speak freely and gently correcting me when I make mistakes. Her positive energy makes the lessons enjoyable — we laugh a lot, but we always stay focused on learning English!',
+  },
+  {
+    id: 'manoa',
+    annee: 2025,
+    nom: 'Manoa Finoana',
+    texte:
+      'I would like to sincerely thank the wonderful Manda for my 15 hours of lessons. Her pedagogy and good humor, as well as our laughter, helped me break the wall so I could practice my spoken English. I’ll be back soon and yes, I’d love to continue with Harinjo and her team, especially Manda.',
+  },
+  {
+    id: 'rianah',
+    annee: 2025,
+    nom: 'Rianah',
+    texte:
+      'I finally found exactly what I needed with Teacher Manda and Harinjo. Their teaching skills are excellent; they explain everything clearly and never hesitate to answer any questions I have, no matter how specific. They have helped me significantly improve my English, especially when it comes to expressing myself and organizing my ideas. It has been a wonderful experience!',
+  },
+  {
+    id: 'nekena',
+    annee: 2025,
+    nom: 'Nekena',
+    texte:
+      'I want to thank Hari’s team, especially Patricia, who supported me throughout my learning journey. From the first session, Patricia immediately understood how to adapt the lessons to my needs. I was learning without even noticing it, simply because I was enjoying the process. For anyone looking to improve their English in a practical and engaging way, I genuinely recommend Hari’s team.',
+  },
+  {
+    id: 'carol',
+    annee: 2025,
+    nom: 'Carol',
+    texte:
+      'I just wanted to say thank you. Thanks to Harinjo’s support, I’ve finally been able to express myself in English, something I had never managed to do elsewhere or on my own. She is truly a gifted and inspiring teacher. I’m incredibly grateful. She really makes it easy.',
+  },
+  {
+    id: 'lovatiana',
+    annee: 2025,
+    nom: 'Only Lovatiana Rahajanirina',
+    texte:
+      'This was my first time attending an online English class, and it was a great experience. What I appreciated the most: the energy and enthusiasm of the teachers, the friendly and welcoming atmosphere, and most importantly the kindness — it truly felt like a safe space for learning. I was corrected with kindness, and that made a big difference. I’m even planning to sign up for more courses.',
+  },
+  {
+    id: 'nathalie',
+    annee: 2024,
+    nom: 'Nathalie Delpierre',
+    texte:
+      'I am very satisfied with Hari’s online courses. In 20 hours of lessons, I’ve expanded my vocabulary, improved my grammar, and learned many common expressions. The strength of Hari’s lessons lies in the audios, which are interesting, easy to understand, and encourage us to talk about subjects we enjoy. Try the Hari method, you’ll love it.',
+  },
 ]
 
-export function VueAvis() {
+const LIMITE_TEMOIGNAGES_VISIBLES = 7
+
+function initialesDe(nom: string) {
+  return nom
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((mot) => mot[0]?.toUpperCase())
+    .join('')
+}
+
+export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
+  const [etendu, setEtendu] = useState(false)
+  const visibles = etendu ? TEMOIGNAGES : TEMOIGNAGES.slice(0, LIMITE_TEMOIGNAGES_VISIBLES)
+  const masques = TEMOIGNAGES.length - LIMITE_TEMOIGNAGES_VISIBLES
+
   return (
     <CadreVue
       surtitre="À propos"
       titre="Ce qu’en disent nos élèves"
-      sousTitre="Exemples d’avis — à remplacer par de vrais témoignages avant mise en ligne."
+      sousTitre="Des retours authentiques, recueillis depuis 2024 auprès de nos élèves."
       theme="violet"
     >
       <div className="grille-vue">
-        {TEMOIGNAGES.map((temoignage) => (
-          <article key={temoignage.nom} className="carte-hoc carte-avis">
-            <span aria-hidden className="etoiles-avis">
-              ★★★★★
-            </span>
+        {visibles.map((temoignage) => (
+          <article key={temoignage.id} className="carte-hoc carte-avis">
+            <div className="entete-carte-avis">
+              <span aria-hidden className="etoiles-avis">
+                ★★★★★
+              </span>
+              <span className="badge-annee-avis">{temoignage.annee}</span>
+            </div>
             <p className="citation-avis">« {temoignage.texte} »</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 'auto' }}>
-              <span className="avatar-avis">{temoignage.initiales}</span>
+              {temoignage.photo ? (
+                <span className="avatar-avis avatar-avis--photo">
+                  <img
+                    src={`${dossierAssets}/temoignages/${temoignage.photo}`}
+                    alt={temoignage.nom}
+                    loading="lazy"
+                  />
+                </span>
+              ) : (
+                <span className="avatar-avis">{initialesDe(temoignage.nom)}</span>
+              )}
               <span className="nom-avis">{temoignage.nom}</span>
             </div>
           </article>
         ))}
       </div>
+
+      {masques > 0 && (
+        <button type="button" onClick={() => setEtendu((v) => !v)} className="lien-deplier lien-deplier--centre">
+          {etendu ? 'Réduire ↑' : `Voir tous les témoignages (+${masques}) ↓`}
+        </button>
+      )}
     </CadreVue>
   )
 }
@@ -367,22 +554,30 @@ export function VueProfesseurs({
       surtitre="Professeurs"
       titre="Notre équipe"
       sousTitre="Des professeurs choisis pour leur pédagogie autant que pour leur passion des langues."
-      theme="nuit"
+      theme="violet"
     >
       <div className="grille-equipe-pedagogique">
         {EQUIPE_PEDAGOGIQUE.map((membre) => (
-          <article key={membre.id} className="carte-membre-equipe">
+          <article key={membre.id ?? membre.nom} className="carte-membre-equipe">
             <div className="photo-membre-equipe">
-              <img
-                src={`${dossierAssets}/equipe/equipe-${membre.id}.webp`}
-                alt={membre.nom ? `${membre.nom}, ${membre.role}` : membre.role}
-                loading="lazy"
-              />
+              {membre.id ? (
+                <img
+                  src={`${dossierAssets}/equipe/equipe-${membre.id}.webp`}
+                  alt={membre.nom ? `${membre.nom}, ${membre.role}` : membre.role}
+                  loading="lazy"
+                />
+              ) : (
+                /* Pas encore de photo exploitable pour cette personne (cas d'Aina, 2026-10-08 :
+                   le fichier transmis par le client n'est pas un portrait) — avatar à initiales
+                   en attendant, plutôt qu'une photo manquante cassée. */
+                <span className="initiales-membre-equipe" aria-hidden="true">
+                  {initialesDe(membre.nom ?? membre.role)}
+                </span>
+              )}
             </div>
-            {/* Les 3 professeures d'anglais pas encore nommées (demande client du 2026-10-07 :
-                « pour le reste, ne mets pas de nom pour l'instant ») n'affichent pas de ligne de
-                nom plutôt qu'une ligne vide ou un espace réservé — le rôle suffit à les présenter
-                en attendant. */}
+            {/* Toutes les personnes de l'équipe sont nommées depuis le 2026-10-08. `nom` reste
+                optionnel dans le type pour pouvoir ajouter quelqu'un sans nom en attendant sa
+                photo ou son identité définitive, sans casser l'affichage (le rôle suffit alors). */}
             {membre.nom && <span className="nom-professeur">{membre.nom}</span>}
             <h3 className="role-professeur">{membre.role}</h3>
             <p className="slogan-membre-equipe">{membre.slogan}</p>
@@ -401,17 +596,26 @@ export function VueProfesseurs({
 
 /* Équipe pédagogique, un portrait par personne — demande client du 2026-10-06, sur le modèle
    d'une grille d'équipe classique (photo ronde, nom puis poste, chacun sur sa propre ligne) dont
-   le client a fourni l'image de référence. Les 7 photos (dossier « Musique » du client, toutes
-   issues de la même séance du studio Mim'SARY) sont préparées dans public/etablissements/
+   le client a fourni l'image de référence. Photos préparées dans public/etablissements/
    hari-online-course/equipe/ (voir le script de préparation, scratchpad de la session).
 
-   Noms et rôles communiqués par le client le 2026-10-07 pour 4 des 7 personnes ; les 3 dernières
-   restent volontairement sans nom pour l'instant (demande explicite : « pour le reste, ne mets
-   pas de nom pour l'instant, on le fera plus tard »), avec pour seul rôle « Professeure
-   d'anglais ». `id` reste le numéro d'origine de la photo (IMG-Hari-<id>.jpg), pour s'y retrouver
-   le jour où ces 3 noms arrivent. Slogans inventés (demande client explicite), réécrits pour
-   chaque rôle précisé plutôt que laissés tels quels écrits pour « Professeure d'anglais ». */
-const EQUIPE_PEDAGOGIQUE: { id: number; nom?: string; role: string; slogan: string }[] = [
+   Mise à jour du 2026-10-08 (demande client, capture annotée) :
+   — l'ancienne 3ᵉ « Professeure d'anglais » (id 17) retirée : photo fournie par le client sous le
+     nom explicite « A supprimer.jpg » dans son dossier Musique, et marquée d'une croix rouge sur
+     la capture d'écran envoyée ;
+   — id 12 (ex-« Rado », Formateur) renommé en Koloina, Community Manager — même photo, seul le
+     nom et le rôle changent, confirmé photo pour photo avec le fichier « Koloina.jpg » du client ;
+   — id 9 et id 14 nommées Pamella et Patricia (confirmé photo pour photo avec les fichiers
+     « Pamella.jpg »/« Patricia.jpg » du client, malgré un ordre gauche/droite annoncé qui ne
+     correspondait pas à l'identité réelle des photos — l'identité de chaque personne prime sur sa
+     position à l'écran) ;
+   — 4 nouvelles professeures/professeurs d'anglais ajoutés (Miangaly, Raissa, Aina, Rado), fournis
+     par le client dans le même dossier. Slogans inventés (demande client explicite, même ton que
+     les rôles déjà précisés) ; rôle genré selon la personne sur la photo. Le fichier transmis pour
+     Aina n'est pas un portrait (icône de coffre-fort) : `id` reste absent pour elle (demande
+     client du 2026-10-08 : l'afficher quand même, avec un avatar à initiales en attendant la
+     vraie photo — voir le rendu conditionnel dans `VueProfesseurs`). */
+const EQUIPE_PEDAGOGIQUE: { id?: number; nom?: string; role: string; slogan: string }[] = [
   {
     id: 16,
     nom: 'Harinjo',
@@ -432,24 +636,44 @@ const EQUIPE_PEDAGOGIQUE: { id: number; nom?: string; role: string; slogan: stri
   },
   {
     id: 12,
-    nom: 'Rado',
-    role: 'Formateur',
-    slogan: 'Engagé et exigeant, il mise sur des mises en situation concrètes pour faire décoller l’aisance à l’oral de chaque élève.',
+    nom: 'Koloina',
+    role: 'Community Manager',
+    slogan: 'Elle anime la communauté HOC au quotidien et veille à ce que chaque élève se sente attendu, suivi et entendu.',
   },
   {
     id: 9,
+    nom: 'Pamella',
     role: 'Professeure d’anglais',
     slogan: 'Patiente et exigeante à la fois, elle pousse chaque élève un peu plus loin sans jamais le brusquer.',
   },
   {
     id: 14,
+    nom: 'Patricia',
     role: 'Professeure d’anglais',
     slogan: 'Minutieuse et à l’écoute, elle construit avec chaque élève un parcours taillé pour son objectif réel.',
   },
   {
-    id: 17,
+    id: 18,
+    nom: 'Miangaly',
     role: 'Professeure d’anglais',
-    slogan: 'Créative et moderne, elle construit des cours vivants qui collent aux usages réels de l’anglais d’aujourd’hui.',
+    slogan: 'Souriante et rigoureuse, elle installe tout de suite un climat de confiance qui donne envie de prendre la parole.',
+  },
+  {
+    id: 19,
+    nom: 'Raissa',
+    role: 'Professeure d’anglais',
+    slogan: 'À l’écoute et méthodique, elle avance pas à pas avec chaque élève pour consolider durablement ses acquis.',
+  },
+  {
+    id: 20,
+    nom: 'Rado',
+    role: 'Professeur d’anglais',
+    slogan: 'Dynamique et bienveillant, il pousse chaque élève à oser parler, erreurs comprises, pour progresser plus vite.',
+  },
+  {
+    nom: 'Aina',
+    role: 'Professeure d’anglais',
+    slogan: 'Appliquée et chaleureuse, elle prend le temps de comprendre l’objectif de chaque élève avant de tracer son parcours.',
   },
 ]
 
