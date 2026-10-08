@@ -1492,14 +1492,18 @@ body.sans-defilement {
   justify-content: safe center;
 }
 
+/* Espacé le 2026-10-08 (capture annotée du client, cercle rouge sur l'en-tête « Cours & tarifs ») :
+   le kicker, le titre, le trait et le sous-titre étaient collés les uns aux autres. L'en-tête est
+   partagée par `CadreVue`, donc par les quatre vues secondaires (Cours & tarifs, Professeurs,
+   Témoignages, À propos) : une seule correction ici profite à toutes. */
 .entete-vue {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 5px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 26px;
 }
 .surtitre-vue {
   font-size: 11px;
@@ -1515,11 +1519,12 @@ body.sans-defilement {
   font-weight: 700;
   letter-spacing: -0.4px;
   color: var(--hoc-encre);
+  line-height: 1.3;
 }
 .trait-vue {
   width: 90px;
   height: 3px;
-  margin: 2px 0 1px;
+  margin: 6px 0 4px;
   border-radius: 4px;
   background: linear-gradient(90deg, var(--hoc-violet-clair), var(--hoc-violet));
 }
@@ -1621,7 +1626,18 @@ body.sans-defilement {
      jamais pouvoir devenir plus courte que ce qu'elle contient. */
   min-height: min-content;
   padding: 12px;
-  gap: 0;
+  /* Non nul depuis la réorganisation du 2026-10-08 (ordre demandé par le client : intitulé,
+     description, photo, tarifs, boutons) : la carte a maintenant trois blocs empilés (entête,
+     photo, corps) au lieu de deux, c'est ce `gap` qui les espace. */
+  gap: 10px;
+}
+/* Intitulé + description, au-dessus de la photo depuis le 2026-10-08 (demande client : « Intitulé,
+   ensuite la description, la photo, les tarifs et enfin les boutons »). */
+.carte-cours-entete {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 0 2px;
 }
 .carte-cours-visuel {
   position: relative;
@@ -1670,15 +1686,19 @@ body.sans-defilement {
   left: 10px;
   top: 10px;
 }
+/* Ne porte plus que les tarifs et les boutons depuis la réorganisation du 2026-10-08 — l'intitulé
+   et la description ont leur propre bloc (`.carte-cours-entete`) au-dessus de la photo. Toujours
+   `flex: 1 1 auto` : c'est ce bloc qui absorbe la hauteur laissée libre par `align-items: stretch`
+   sur `.grille-vue`, pour que les boutons restent alignés au même niveau d'une carte à l'autre. */
 .carte-cours-corps {
   flex: 1 1 auto;
-  /* `min-content` et non `0`, pour la même raison que la carte et la grille : le texte, les prix
-     et les boutons ne doivent jamais être comprimés hors de leur cadre. */
+  /* `min-content` et non `0`, pour la même raison que la carte et la grille : les prix et les
+     boutons ne doivent jamais être comprimés hors de leur cadre. */
   min-height: min-content;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  padding: 10px 2px 0;
+  padding: 0 2px;
 }
 /* Textes des cartes Cours un cran plus petits, pour laisser la place aux photos. */
 .page-claire .carte-cours .titre-carte-hoc {
@@ -1948,33 +1968,63 @@ body.sans-defilement {
    photo d'équipe à côté (fournie par le client le 2026-10-08). Les témoignages ont leur propre
    page depuis le 2026-10-08. Colonne de texte bornée en largeur propre (`flex-basis`) — au-delà,
    l'œil perd la ligne suivante. */
+/* Photo d'abord, texte ensuite, dans un cadre élégant (demande client du 2026-10-08) : empilement
+   vertical et non plus côte à côte — la photo d'équipe ouvre le bloc, bien visible et centrée,
+   puis le texte vient en dessous. */
 .bloc-presentation-hoc {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 28px;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
   width: 100%;
-  max-width: 980px;
+  max-width: 740px;
   margin: 0 auto 10px;
 }
+/* « En bonne et due forme » : une taille propre et assumée plutôt qu'écrasée dans une colonne
+   étroite, un double liseré (blanc puis violet très clair) pour que la photo se détache
+   légèrement du fond de la vue, qui est de la même famille de blanc. */
 .photo-presentation-hoc {
-  flex: 1 1 280px;
-  max-width: 320px;
-  border-radius: 14px;
+  width: 100%;
+  max-width: 380px;
+  border-radius: 20px;
   overflow: hidden;
-  box-shadow: 0 16px 36px rgba(38, 20, 90, 0.14);
+  border: 5px solid #fff;
+  outline: 1px solid rgba(109, 59, 209, 0.16);
+  outline-offset: -1px;
+  box-shadow: 0 22px 46px rgba(38, 20, 90, 0.18);
 }
 .photo-presentation-hoc img {
   display: block;
   width: 100%;
   height: auto;
 }
+/* Cadre « magnifique et élégant », en harmonie avec le thème blanc/violet du reste du site
+   (demande client du 2026-10-08) : le texte ne repose plus nu sur le fond de la vue, il est posé
+   sur une carte à son tour — léger dégradé blanc vers lavande, liseré violet discret, grand
+   guillemet décoratif en filigrane, comme une citation mise en avant. */
 .texte-presentation-hoc {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  flex: 2 1 380px;
-  min-width: 0;
+  gap: 13px;
+  width: 100%;
+  padding: 44px 36px 32px;
+  border-radius: 22px;
+  background: linear-gradient(165deg, #fff 0%, var(--hoc-lavande) 100%);
+  border: 1px solid rgba(109, 59, 209, 0.14);
+  box-shadow: 0 20px 44px rgba(38, 20, 90, 0.1);
+}
+.guillemet-presentation-hoc {
+  position: absolute;
+  top: 4px;
+  left: 26px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 72px;
+  line-height: 1;
+  color: var(--hoc-violet-clair);
+  opacity: 0.5;
+  pointer-events: none;
+  user-select: none;
 }
 .ligne-presentation {
   margin: 0;
@@ -2082,41 +2132,13 @@ body.sans-defilement {
   transform: translateY(-4px);
   box-shadow: 0 22px 44px rgba(85, 54, 201, 0.18), 0 0 0 1px rgba(109, 59, 209, 0.16);
 }
-/* Portrait un cran plus grand que dans la grille des formateurs : c'est ce qui distingue
-   visuellement l'équipe administrative, comme demandé (« des cartes plus grandes »). */
-/* Portrait nettement plus grand que la grille des formateurs (clamp 58-124px) : c'est ce qui fait
-   « des cartes plus grandes » pour l'équipe administrative, comme demandé (demande 11). Agrandi
-   le 2026-10-08 à la demande du client pour la photo de la fondatrice, recadrée en carré pour
-   cette taille. */
-.carte-equipe-admin .photo-membre-equipe {
-  width: clamp(96px, 15vh, 148px);
-  height: clamp(96px, 15vh, 148px);
-}
-/* Photo de la fondatrice en carré et agrandie, à sa demande du 2026-10-08 — seule exception au
-   cadre rond partagé par le reste de l'équipe (`.photo-membre-equipe` plus haut) et à la taille
-   commune du reste de l'équipe administrative (`.carte-equipe-admin .photo-membre-equipe`
-   juste au-dessus). Coins légèrement arrondis plutôt que des angles droits : un carré parfait
-   jurerait avec les coins arrondis utilisés partout ailleurs sur cette page (cartes, boutons,
-   étiquettes). */
-.carte-equipe-admin--fondatrice .photo-membre-equipe {
-  /* Depuis le passage des quatre fiches sur une seule rangée (2026-10-08), c'est la HAUTEUR qui
-     est imposée, identique à celle des portraits ronds voisins, et la largeur qui suit. Une photo
-     plus haute que les autres décalait vers le bas le nom, la fonction et le texte de la
-     fondatrice : les quatre fiches étaient sur la même ligne, mais leur contenu ne l'était pas,
-     alors que le client demandait justement le même niveau horizontal. */
-  height: clamp(96px, 15vh, 148px);
-  /* `aspect-ratio` calé sur les proportions exactes du fichier (700 × 913) plutôt qu'un carré :
-     le cadre épouse ainsi les bords de la photo, qui s'affiche entière, sans rognage ni zoom
-     (demande client du 2026-10-08). */
-  width: auto;
-  aspect-ratio: 700 / 913;
-  border-radius: 14px;
-}
-/* Sans décalage vertical : le cadre ayant le même rapport que l'image, `cover` ne coupe rien et
-   le cadrage haut (18 %) des portraits ronds n'a plus lieu d'être. */
-.carte-equipe-admin--fondatrice .photo-membre-equipe img {
-  object-position: center;
-}
+/* Les photos de l'équipe administrative, fondatrice comprise, partagent désormais exactement la
+   structure des photos de professeurs (demande client du 2026-10-08 : « même structure
+   d'affichage et d'animation [...] cadre rond, même animation de survol, et même dimension ») :
+   plus de règle à part ici, `.photo-membre-equipe` et son survol (plus bas) s'appliquent telles
+   quelles. La fondatrice perd son cadre rectangulaire propre — sa photo est recadrée au cercle
+   comme les autres, sans zoom ni perte d'information autre que ce que le cercle masque déjà pour
+   le reste de l'équipe. */
 .nom-equipe-admin {
   font-family: 'Poppins', 'Inter', sans-serif;
   font-size: 16.5px;
@@ -2232,13 +2254,15 @@ html:has(.page-connexion-hoc) {
    La carte est volontairement large (238 px) : c'est ce qui fait tenir chaque slogan sur trois
    lignes au lieu de quatre, et deux rangées de cartes font donc gagner deux lignes de hauteur —
    plus efficace que de rapetisser encore le texte. */
-/* `calc(18.9vh - 46px)` plutôt qu'un simple pourcentage : une pente plus raide, décalée, qui
-   donne 58 px sur un écran de 550 px de haut (le minimum pour que les 7 portraits tiennent) et
-   atteint 124 px dès 900 px de haut, là où la place abonde. Un simple `vh` obligeait à choisir
-   entre déborder sur écran court et des portraits riquiqui sur grand écran. */
+/* `calc(20vh - 40px)` plutôt qu'un simple pourcentage : une pente plus raide, décalée, qui
+   donne 70 px sur un écran de 550 px de haut (le minimum pour que les 7 portraits tiennent) et
+   atteint 140 px dès 900 px de haut, là où la place abonde. Un simple `vh` obligeait à choisir
+   entre déborder sur écran court et des portraits riquiqui sur grand écran. Agrandi le
+   2026-10-08 (58-124 → 70-140) à la demande du client, en même temps que cette règle est devenue
+   commune aux portraits des professeurs ET de l'équipe administrative (voir plus haut). */
 .photo-membre-equipe {
-  width: clamp(58px, calc(18.9vh - 46px), 124px);
-  height: clamp(58px, calc(18.9vh - 46px), 124px);
+  width: clamp(70px, calc(20vh - 40px), 140px);
+  height: clamp(70px, calc(20vh - 40px), 140px);
   border-radius: 50%;
   overflow: hidden;
   /* Cerne lavande et non doré depuis le passage à l'ambiance claire (2026-10-08) : sur fond
@@ -2247,7 +2271,10 @@ html:has(.page-connexion-hoc) {
   box-shadow: 0 0 0 1px rgba(109, 59, 209, 0.1), 0 12px 24px rgba(38, 20, 90, 0.14);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
-.carte-membre-equipe:hover .photo-membre-equipe {
+/* Même animation de survol pour l'équipe administrative que pour les professeurs (demande client
+   du 2026-10-08) : la photo se soulève légèrement, quelle que soit la carte qui la contient. */
+.carte-membre-equipe:hover .photo-membre-equipe,
+.carte-equipe-admin:hover .photo-membre-equipe {
   transform: translateY(-3px);
   box-shadow: 0 0 0 2px rgba(109, 59, 209, 0.22), 0 16px 30px rgba(38, 20, 90, 0.2);
 }
@@ -2304,9 +2331,14 @@ html:has(.page-connexion-hoc) {
      mesure ~76 px avec sa marge haute — en dessous, le titre de la vue passe dessous. */
   padding-top: clamp(78px, 9.5vh, 92px);
 }
+/* Desserré le 2026-10-08 (même correction que `.entete-vue` par défaut, appliquée ici aussi) :
+   un `clamp` presque nul collait le kicker, le titre et le sous-titre les uns aux autres sur un
+   écran court. La vue défile désormais au besoin (`.vue-secondaire-corps` est en
+   `overflow-y: auto`), elle n'a donc plus besoin d'être comprimée à ce point pour tenir sans
+   barre de défilement. */
 .vue-secondaire:has(.grille-equipe-pedagogique) .entete-vue {
-  gap: clamp(1px, 0.5vh, 5px);
-  margin-bottom: clamp(4px, 1.4vh, 12px);
+  gap: clamp(5px, 1vh, 10px);
+  margin-bottom: clamp(10px, 2vh, 20px);
 }
 .vue-secondaire:has(.grille-equipe-pedagogique) .soustitre-vue {
   font-size: clamp(11px, 1.45vh, 13px);
@@ -2474,9 +2506,12 @@ html:has(.page-connexion-hoc) {
   .vue-secondaire {
     padding-top: 90px;
   }
+  /* Resserré, mais pas recollé : depuis que `.grille-cours` ne se comprime plus sous son contenu
+     (correction du 2026-10-08, voir plus haut), la vue défile au besoin — l'en-tête peut donc
+     garder un minimum d'air même sur un écran court. */
   .entete-vue {
-    gap: 4px;
-    margin-bottom: 10px;
+    gap: 7px;
+    margin-bottom: 16px;
   }
   .surtitre-vue {
     font-size: 10px;
@@ -2492,9 +2527,9 @@ html:has(.page-connexion-hoc) {
     padding: 11px;
     gap: 6px;
   }
+  .carte-cours-entete,
   .carte-cours-corps {
-    gap: 5px;
-    padding-top: 9px;
+    gap: 4px;
   }
   .page-claire .titre-carte-hoc {
     font-size: 15.5px;

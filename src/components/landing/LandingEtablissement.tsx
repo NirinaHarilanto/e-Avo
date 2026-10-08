@@ -29,7 +29,7 @@ type Vue = 'accueil' | 'programmes' | 'professeurs' | 'avis' | 'temoignages'
    continue de fonctionner et bascule sur cette page fusionnée (voir plus bas).
 
    « Témoignages » est une entrée à part depuis le 2026-10-08, à la demande du client : les
-   témoignages des stagiaires partageaient la page « À propos » avec le récit de la fondatrice,
+   témoignages des étudiants partageaient la page « À propos » avec le récit de la fondatrice,
    deux sujets qui n'ont rien à voir et que le visiteur ne vient pas chercher au même moment. */
 const ENTREES: { vue: Vue; libelle: string }[] = [
   { vue: 'accueil', libelle: 'Accueil' },

@@ -3,23 +3,16 @@ import type { Database, TypeProgrammeProspect } from '../../types/database.types
 import type { AccentPalette } from '../../lib/accent'
 
 /* Les vues atteintes depuis la barre de navigation. Chacune remplace l'écran d'accueil au lieu de
-   s'empiler dessous : la page publique tient désormais dans une seule vue, sans défilement
+   s'empiler dessous : la page publique tient désormais dans une seule vue, sans défilement forcé
    (demande client du 2026-09-15). Seul le contenu d'une vue peut défiler à l'intérieur de son
    propre cadre quand il est dense — les tarifs, typiquement — pour qu'aucune information ne soit
    perdue au passage.
 
-   Refonte visuelle du 2026-09-29, d'après les visuels de référence fournis par le client (qui
-   remplace l'ambiance marine et or du 2026-09-22) : fond violet profond (code couleur officiel
-   HOC, `--hoc-violet`/`--hoc-prune`), cartes violettes, titres et boutons jaune doré, trait doré
-   sous le titre.
-
-   Depuis le 2026-10-08 (demande client explicite, échantillon de couleur fourni, qui correspond
-   au violet de marque déjà utilisé ailleurs dans l'app à quelques nuances de compression près) :
-   les 4 sections Cours, Professeurs, Tarifs et À propos partagent toutes ce thème « violet », pour
-   une ambiance unifiée sur toute la vitrine publique. Le thème « nuit » (fond bleu nuit sarcelle)
-   reste disponible dans `CadreVue` mais n'est plus utilisé par aucune vue pour l'instant.
-   Aucune donnée ni aucun mécanisme ne change (forfaits, programmes, extension de la liste des
-   tarifs, réservation) : seuls les classes et les styles de présentation sont neufs. */
+   Ambiance claire depuis le 2026-10-08 (demande client : « il y a trop de violet dans les autres
+   pages que la page Hero ») : les cinq vues secondaires (Cours & tarifs, Professeurs, Témoignages,
+   À propos, et la page de connexion) reprennent l'habillage blanc/lavande de l'accueil, violet en
+   accent — voir `.vue-claire` dans index.css. Les deux thèmes sombres antérieurs (prune, puis bleu
+   nuit sarcelle) ont été entièrement retirés, `CadreVue` n'a donc plus de prop `theme`. */
 
 type Tarif = Database['public']['Tables']['tarifs']['Row']
 
@@ -223,7 +216,7 @@ const PRESENTATION_HOC: { texte: string; fort?: boolean }[] = [
 /* « À propos » ne porte plus que l'histoire de HOC. Les témoignages, qui partageaient cette page
    depuis le 2026-10-08, ont leur propre entrée de menu depuis le 2026-10-08 (demande client) :
    deux sujets distincts, deux pages — le récit de la fondatrice d'un côté, la parole des
-   stagiaires de l'autre. Voir `VueTemoignages` juste en dessous. */
+   étudiants de l'autre. Voir `VueTemoignages` juste en dessous. */
 export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
   return (
     <CadreVue
@@ -231,13 +224,20 @@ export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
       titre="L’histoire de Hari Online Club"
       sousTitre="Par Harinjo, fondatrice."
     >
-      {/* Bloc de présentation (demande 10). Photo d'équipe fournie par le client le 2026-10-08,
-          recadrée pour retirer le crédit du studio photo visible en haut de l'image d'origine. */}
+      {/* Photo d'abord, texte ensuite (demande client du 2026-10-08) : la photo d'équipe,
+          fournie par le client le 2026-10-08 et recadrée pour retirer le crédit du studio photo
+          visible en haut de l'image d'origine, ouvre désormais le bloc, bien visible et centrée ;
+          le texte vient après, dans un cadre élégant en harmonie avec le thème blanc/violet du
+          reste du site (fond clair, bordure violette discrète, grand guillemet décoratif) plutôt
+          que posé nu sur le fond de la vue. */}
       <section className="bloc-presentation-hoc">
         <div className="photo-presentation-hoc">
           <img src={`${dossierAssets}/equipe-groupe.webp`} alt="L’équipe Hari Online Club réunie" loading="lazy" />
         </div>
         <div className="texte-presentation-hoc">
+          <span className="guillemet-presentation-hoc" aria-hidden="true">
+            “
+          </span>
           {PRESENTATION_HOC.map((ligne) => (
             <p key={ligne.texte} className={ligne.fort ? 'ligne-presentation ligne-presentation--forte' : 'ligne-presentation'}>
               {ligne.texte}
@@ -249,13 +249,13 @@ export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
   )
 }
 
-/* Témoignages des stagiaires (demande 13 du 2026-10-08), sur leur propre page depuis le
+/* Témoignages des étudiants (demande 13 du 2026-10-08), sur leur propre page depuis le
    2026-10-08. */
 export function VueTemoignages({ dossierAssets }: { dossierAssets: string }) {
   return (
     <CadreVue
       surtitre="Témoignages"
-      titre="Ce que disent nos stagiaires"
+      titre="Ce que disent nos étudiants"
       sousTitre="Des parcours réels, racontés par celles et ceux qui les ont suivis."
     >
       {/* Pas de limite d'affichage : rien dans le document de retours du 2026-10-08 (demande 13)
@@ -339,7 +339,7 @@ const DETAIL_PROGRAMMES: Record<
   individuel: {
     accroche: 'Un accompagnement sur-mesure, de la première minute à votre objectif',
     description:
-      'Le cours individuel, c’est vous et votre formateur ou formatrice dédié·e, sur le rythme et les sujets qui comptent vraiment pour vous. Nous construisons votre parcours selon vos attentes et vos objectifs : préparer un entretien, développer votre anglais professionnel, préparer un projet de voyage ou d’immigration, réussir une certification (TOEIC, TOEFL, IELTS…) ou renforcer l’anglais de vos enfants. Chaque séance s’ajuste à la précédente : votre formateur ou formatrice suit votre progression et adapte le contenu en conséquence.',
+      'Le cours individuel, c’est vous et votre professeur ou professeure dédié·e, sur le rythme et les sujets qui comptent vraiment pour vous. Nous construisons votre parcours selon vos attentes et vos objectifs : préparer un entretien, développer votre anglais professionnel, préparer un projet de voyage ou d’immigration, réussir une certification (TOEIC, TOEFL, IELTS…) ou renforcer l’anglais de vos enfants. Chaque séance s’ajuste à la précédente : votre professeur ou professeure suit votre progression et adapte le contenu en conséquence.',
     etapes: [
       'Réservez un appel diagnostic gratuit et sans engagement : nous évaluons votre niveau réel et clarifions votre objectif.',
       'Choisissez votre forfait d’heures et votre rythme hebdomadaire — vous gardez la main sur votre planning.',
@@ -397,8 +397,14 @@ export function VueProgrammes({
       <div className="grille-vue grille-cours">
         {PROGRAMMES.map((programme) => (
           <article key={programme.titre} className="carte-hoc carte-cours">
-            {/* Photo en tête de carte, comme sur le visuel de référence (demande client du
-                2026-09-29) : une personne seule, un duo en ligne, un groupe. */}
+            {/* Ordre de lecture demandé par le client le 2026-10-08 : intitulé, description,
+                photo, tarifs, puis boutons — l'illustration n'ouvre plus la carte, elle vient
+                illustrer le texte qui la précède désormais. */}
+            <div className="carte-cours-entete">
+              <h3 className="titre-carte-hoc">{programme.titre}</h3>
+              <p className="texte-carte-hoc">{programme.texte}</p>
+              {programme.detail && <p className="detail-carte-hoc">{programme.detail}</p>}
+            </div>
             <div className={`carte-cours-visuel carte-cours-visuel--${programme.type}`}>
               <img src={PHOTOS_FORMULE[programme.type].src} alt={PHOTOS_FORMULE[programme.type].alt} loading="lazy" />
               <span className="etiquette-programme">{programme.tag}</span>
@@ -410,10 +416,7 @@ export function VueProgrammes({
               )}
             </div>
             <div className="carte-cours-corps">
-              <h3 className="titre-carte-hoc">{programme.titre}</h3>
-              <p className="texte-carte-hoc">{programme.texte}</p>
-              {programme.detail && <p className="detail-carte-hoc">{programme.detail}</p>}
-              {/* Prix juste sous la description, dans la même carte (demande 4 du 2026-10-08 :
+              {/* Prix juste sous la photo, dans la même carte (demande 4 du 2026-10-08 :
                   « le visiteur a l'information et le prix au même endroit ») — la page Tarifs
                   distincte a disparu au profit de cette page unique « Cours & tarifs ». */}
               <LignesTarif lignes={tarifs.filter((t) => t.type_programme === programme.type)} />
@@ -523,7 +526,7 @@ function ModaleDetailProgramme({
    le cadre blanc arrondi que l'outil de génération intègre à l'image, afin qu'elles occupent toute
    la carte comme les photos précédentes. */
 const PHOTOS_FORMULE: Record<TypeProgrammeProspect, { src: string; alt: string }> = {
-  individuel: { src: '/programmes/individuel.webp', alt: 'Illustration aquarelle d’un élève en appel vidéo avec son formateur sur son ordinateur portable' },
+  individuel: { src: '/programmes/individuel.webp', alt: 'Illustration aquarelle d’un élève en appel vidéo avec son professeur sur son ordinateur portable' },
   duo: { src: '/programmes/duo.webp', alt: 'Illustration aquarelle de deux élèves côte à côte en appel vidéo avec leur professeur' },
   collectif: { src: '/programmes/collectif.webp', alt: 'Illustration aquarelle d’un petit groupe d’élèves qui échange autour d’un appel vidéo collectif' },
 }
@@ -567,11 +570,16 @@ function LignesTarif({ lignes }: { lignes: Tarif[] }) {
   )
 }
 
-/* Équipe administrative puis formateurs (demande 11 du document de retours). L'ordre reste celui
+/* Équipe administrative puis professeurs (demande 11 du document de retours). L'ordre reste celui
    précisé par le client — Harinjo, Manda, Anael, Koloina — mais il n'est plus rendu par un
    empilement d'étages : depuis le 2026-10-08, à sa demande, ces quatre personnes sont alignées
    sur une seule rangée, la fondatrice comprise. L'ordre de lecture, de gauche à droite, porte
-   seul la hiérarchie. Les formateurs gardent la grille compacte de portraits ronds en dessous. */
+   seul la hiérarchie.
+
+   Depuis le 2026-10-08, les photos des quatre cartes admin reprennent exactement la structure
+   des cartes professeurs en dessous : même cadre rond, même animation de survol, même dimension
+   (voir `.photo-membre-equipe` dans index.css, agrandi pour l'occasion) — la fondatrice perd son
+   cadre rectangulaire propre, plus aucune carte n'a de traitement à part. */
 export function VueProfesseurs({
   dossierAssets,
   onReserver,
@@ -580,9 +588,9 @@ export function VueProfesseurs({
   accent: AccentPalette
   onReserver: () => void
 }) {
-  const formateurs = EQUIPE_PEDAGOGIQUE.filter((m) => m.niveau === 4)
+  const professeurs = EQUIPE_PEDAGOGIQUE.filter((m) => m.niveau === 4)
   /* Une seule rangée, dans l'ordre des niveaux : la liste source garde `niveau` parce qu'il
-     distingue toujours l'équipe administrative (1 à 3, grandes cartes) des formateurs (4), et
+     distingue toujours l'équipe administrative (1 à 3, grandes cartes) des professeurs (4), et
      qu'il fixe l'ordre voulu par le client. Il ne crée simplement plus d'étages à l'écran. */
   const equipeAdmin = EQUIPE_PEDAGOGIQUE.filter((m) => m.niveau <= 3).sort((a, b) => a.niveau - b.niveau)
 
@@ -595,16 +603,7 @@ export function VueProfesseurs({
       <div className="hierarchie-equipe">
         <div className="rangee-equipe-admin">
           {equipeAdmin.map((membre) => (
-            <article
-              key={membre.id ?? membre.nom}
-              className={
-                membre.niveau === 1 ? 'carte-equipe-admin carte-equipe-admin--fondatrice' : 'carte-equipe-admin'
-              }
-            >
-              {/* Niveau 1 = la fondatrice : seule sa photo est carrée (demande client du
-                  2026-10-08), le reste de l'équipe garde le cadre rond d'origine (visuel de
-                  référence du 2026-10-06). Les cartes, elles, ont toutes la même largeur, pour
-                  que les quatre soient alignées sur la même ligne. */}
+            <article key={membre.id ?? membre.nom} className="carte-equipe-admin">
               <PortraitMembre membre={membre} dossierAssets={dossierAssets} />
               {membre.nom && <span className="nom-equipe-admin">{membre.nom}</span>}
               <span className="etiquette-fonction">{membre.role}</span>
@@ -619,9 +618,9 @@ export function VueProfesseurs({
         </div>
       </div>
 
-      <h3 className="titre-bloc-formateurs">Nos formateurs et formatrices</h3>
+      <h3 className="titre-bloc-formateurs">Nos professeurs et professeures</h3>
       <div className="grille-equipe-pedagogique">
-        {formateurs.map((membre) => (
+        {professeurs.map((membre) => (
           <article key={membre.id ?? membre.nom} className="carte-membre-equipe">
             <PortraitMembre membre={membre} dossierAssets={dossierAssets} />
             {/* Toutes les personnes de l'équipe sont nommées depuis le 2026-10-08. `nom` reste
@@ -697,11 +696,15 @@ function PortraitMembre({
    du photographe et l'ordinateur portable visibles sur la photo d'origine.
 
    `niveau` (demande 11 du document de retours + hiérarchie précisée par le client le 2026-10-08) :
-   1 Harinjo, 2 Manda et Anael, 3 Koloina, 4 les formateurs. Les niveaux 1 à 3 forment l'équipe
+   1 Harinjo, 2 Manda et Anael, 3 Koloina, 4 les professeurs. Les niveaux 1 à 3 forment l'équipe
    administrative, présentée en grandes cartes (photo, nom, fonction en étiquette, présentation,
    LinkedIn) ; le niveau 4 reste une grille compacte de portraits. `linkedin` n'est renseigné pour
    personne pour l'instant : les liens font partie de ce que HOC doit encore fournir — le bouton
-   n'apparaît que sur les fiches qui en ont un. */
+   n'apparaît que sur les fiches qui en ont un.
+
+   `role` du niveau 4 réduit à la matière enseignée (« Anglais ») depuis le 2026-10-08, à la
+   demande du client : le mot « Professeur » disparaît de la fiche individuelle, devenu redondant
+   une fois la page intitulée « Professeurs » et le bloc « Nos professeurs et professeures ». */
 const EQUIPE_PEDAGOGIQUE: {
   id?: number
   nom?: string
@@ -743,7 +746,7 @@ const EQUIPE_PEDAGOGIQUE: {
   {
     id: 9,
     nom: 'Pamella',
-    role: 'Professeure d’anglais',
+    role: 'Anglais',
     niveau: 4,
     // Texte fourni par le client le 2026-10-08, en remplacement du slogan rédigé par défaut.
     slogan:
@@ -752,28 +755,28 @@ const EQUIPE_PEDAGOGIQUE: {
   {
     id: 14,
     nom: 'Patricia',
-    role: 'Professeure d’anglais',
+    role: 'Anglais',
     niveau: 4,
     slogan: 'Minutieuse et à l’écoute, elle construit avec chaque élève un parcours taillé pour son objectif réel.',
   },
   {
     id: 18,
     nom: 'Miangaly',
-    role: 'Professeure d’anglais',
+    role: 'Anglais',
     niveau: 4,
     slogan: 'Souriante et rigoureuse, elle installe tout de suite un climat de confiance qui donne envie de prendre la parole.',
   },
   {
     id: 19,
     nom: 'Raissa',
-    role: 'Professeure d’anglais',
+    role: 'Anglais',
     niveau: 4,
     slogan: 'À l’écoute et méthodique, elle avance pas à pas avec chaque élève pour consolider durablement ses acquis.',
   },
   {
     id: 20,
     nom: 'Rado',
-    role: 'Professeur d’anglais',
+    role: 'Anglais',
     niveau: 4,
     slogan: 'Dynamique et bienveillant, il pousse chaque élève à oser parler, erreurs comprises, pour progresser plus vite.',
   },
@@ -781,7 +784,7 @@ const EQUIPE_PEDAGOGIQUE: {
     // Remplace Aina le 2026-10-08, à la demande du client, photo fournie dans la foulée.
     id: 21,
     nom: 'Ashley',
-    role: 'Professeure d’anglais',
+    role: 'Anglais',
     niveau: 4,
     slogan: 'Appliquée et chaleureuse, elle prend le temps de comprendre l’objectif de chaque élève avant de tracer son parcours.',
   },
