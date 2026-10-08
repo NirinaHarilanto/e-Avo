@@ -20,13 +20,11 @@ import { Scene3DHero } from './Scene3DHero'
 
 const GARANTIES = ['100% en ligne', 'Professeurs certifiés', 'Accès 24/7']
 
-const PILIERS: { libelle: string; icone: 'groupe' | 'mallette' | 'globe' }[] = [
-  { libelle: 'Confiance', icone: 'groupe' },
-  { libelle: 'Opportunités', icone: 'mallette' },
-  { libelle: 'Avenir global', icone: 'globe' },
-]
-
-const COMPETENCES = ['Speaking', 'Listening', 'Reading', 'Writing']
+/* Les trois cartes flottantes posées sur l'illustration — « Progression / Level B1 », les piliers
+   (Confiance, Opportunités, Avenir global) et les compétences (Speaking, Listening, Reading,
+   Writing) — ont été supprimées le 2026-10-08, le client les ayant barrées sur une capture. Elles
+   venaient de la maquette d'origine et recouvraient l'aquarelle d'étiquettes de texte, ce que la
+   demande 3 du document de retours cherchait précisément à éviter. */
 
 /* Vue secondaire vers laquelle une carte de bénéfice renvoie, ou réservation (même fenêtre que
    « Commencer maintenant ») — demande client du 2026-09-29 : chaque carte doit mener quelque
@@ -130,38 +128,6 @@ export function HeroPublic({
                 draggable={false}
               />
             </div>
-
-            <div className="hero-flottant hero-progression">
-              <span className="hero-progression-icone" aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </span>
-              <span className="hero-progression-texte">
-                <small>Progression</small>
-                <strong>Level B1</strong>
-                <span className="hero-progression-barre" aria-hidden="true">
-                  <span />
-                </span>
-              </span>
-              {/* Plus de flèche ronde à droite (demande client du 2026-09-29) : sur certains
-                  écrans, elle recouvrait « Progression » et « Level B1 ». */}
-            </div>
-
-            <ul className="hero-flottant hero-piliers">
-              {PILIERS.map((pilier) => (
-                <li key={pilier.libelle}>
-                  <Icone nom={pilier.icone} />
-                  {pilier.libelle}
-                </li>
-              ))}
-            </ul>
-
-            <ul className="hero-flottant hero-livres">
-              {COMPETENCES.map((competence) => (
-                <li key={competence}>{competence}</li>
-              ))}
-            </ul>
           </div>
         </div>
       </div>

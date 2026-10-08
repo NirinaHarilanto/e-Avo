@@ -220,18 +220,19 @@ const PRESENTATION_HOC: { texte: string; fort?: boolean }[] = [
   { texte: 'HOC, l’anglais sur mesure, où que vous soyez.', fort: true },
 ]
 
+/* « À propos » ne porte plus que l'histoire de HOC. Les témoignages, qui partageaient cette page
+   depuis le 2026-10-08, ont leur propre entrée de menu depuis le 2026-10-08 (demande client) :
+   deux sujets distincts, deux pages — le récit de la fondatrice d'un côté, la parole des
+   stagiaires de l'autre. Voir `VueTemoignages` juste en dessous. */
 export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
   return (
     <CadreVue
       surtitre="À propos"
       titre="L’histoire de Hari Online Club"
       sousTitre="Par Harinjo, fondatrice."
-      theme="violet"
     >
-      {/* Bloc de présentation (demande 10), puis les témoignages (demande 13) : les deux vivent
-          sur la même page « À propos », dans cet ordre, comme demandé. Photo d'équipe fournie par
-          le client le 2026-10-08, recadrée pour retirer le crédit du studio photo visible en
-          haut de l'image d'origine. */}
+      {/* Bloc de présentation (demande 10). Photo d'équipe fournie par le client le 2026-10-08,
+          recadrée pour retirer le crédit du studio photo visible en haut de l'image d'origine. */}
       <section className="bloc-presentation-hoc">
         <div className="photo-presentation-hoc">
           <img src={`${dossierAssets}/equipe-groupe.webp`} alt="L’équipe Hari Online Club réunie" loading="lazy" />
@@ -244,9 +245,19 @@ export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
           ))}
         </div>
       </section>
+    </CadreVue>
+  )
+}
 
-      <h3 className="titre-bloc-temoignages">Témoignages de nos stagiaires</h3>
-
+/* Témoignages des stagiaires (demande 13 du 2026-10-08), sur leur propre page depuis le
+   2026-10-08. */
+export function VueTemoignages({ dossierAssets }: { dossierAssets: string }) {
+  return (
+    <CadreVue
+      surtitre="Témoignages"
+      titre="Ce que disent nos stagiaires"
+      sousTitre="Des parcours réels, racontés par celles et ceux qui les ont suivis."
+    >
       {/* Pas de limite d'affichage : rien dans le document de retours du 2026-10-08 (demande 13)
           n'impose un nombre maximal de témoignages visibles — les 18 s'affichent d'un coup, et
           chacun en entier (plus de troncature à 7 lignes depuis le 2026-10-08). */}
@@ -277,7 +288,6 @@ export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
           </article>
         ))}
       </div>
-
     </CadreVue>
   )
 }
@@ -383,7 +393,6 @@ export function VueProgrammes({
       surtitre="Cours & tarifs"
       titre="Trois façons d’apprendre, un seul cap : votre objectif."
       sousTitre="Choisissez la formule qui correspond à votre rythme et à votre budget — prix compris."
-      theme="violet"
     >
       <div className="grille-vue grille-cours">
         {PROGRAMMES.map((programme) => (
@@ -558,10 +567,11 @@ function LignesTarif({ lignes }: { lignes: Tarif[] }) {
   )
 }
 
-/* Équipe présentée en hiérarchie depuis le 2026-10-08 (demande 11 du document de retours, et
-   ordre précisé par le client) : Harinjo seule en tête, puis Manda et Anael, puis Koloina, puis
-   les formateurs. Les trois premiers niveaux sont l'équipe administrative, en grandes cartes ;
-   les formateurs gardent la grille compacte de portraits ronds. */
+/* Équipe administrative puis formateurs (demande 11 du document de retours). L'ordre reste celui
+   précisé par le client — Harinjo, Manda, Anael, Koloina — mais il n'est plus rendu par un
+   empilement d'étages : depuis le 2026-10-08, à sa demande, ces quatre personnes sont alignées
+   sur une seule rangée, la fondatrice comprise. L'ordre de lecture, de gauche à droite, porte
+   seul la hiérarchie. Les formateurs gardent la grille compacte de portraits ronds en dessous. */
 export function VueProfesseurs({
   dossierAssets,
   onReserver,
@@ -571,42 +581,42 @@ export function VueProfesseurs({
   onReserver: () => void
 }) {
   const formateurs = EQUIPE_PEDAGOGIQUE.filter((m) => m.niveau === 4)
+  /* Une seule rangée, dans l'ordre des niveaux : la liste source garde `niveau` parce qu'il
+     distingue toujours l'équipe administrative (1 à 3, grandes cartes) des formateurs (4), et
+     qu'il fixe l'ordre voulu par le client. Il ne crée simplement plus d'étages à l'écran. */
+  const equipeAdmin = EQUIPE_PEDAGOGIQUE.filter((m) => m.niveau <= 3).sort((a, b) => a.niveau - b.niveau)
 
   return (
     <CadreVue
       surtitre="Professeurs"
       titre="Notre équipe"
       sousTitre="Des professeurs choisis pour leur pédagogie autant que pour leur passion des langues."
-      theme="violet"
     >
       <div className="hierarchie-equipe">
-        {([1, 2, 3] as const).map((niveau) => {
-          const membres = EQUIPE_PEDAGOGIQUE.filter((m) => m.niveau === niveau)
-          if (membres.length === 0) return null
-          return (
-            <div key={niveau} className="rangee-equipe-admin">
-              {membres.map((membre) => (
-                <article
-                  key={membre.id ?? membre.nom}
-                  className={niveau === 1 ? 'carte-equipe-admin carte-equipe-admin--fondatrice' : 'carte-equipe-admin'}
-                >
-                  {/* Niveau 1 = la fondatrice, seule à ce niveau par construction : seule sa photo
-                      est carrée (demande client du 2026-10-08), le reste de l'équipe garde le
-                      cadre rond d'origine (visuel de référence du 2026-10-06). */}
-                  <PortraitMembre membre={membre} dossierAssets={dossierAssets} />
-                  {membre.nom && <span className="nom-equipe-admin">{membre.nom}</span>}
-                  <span className="etiquette-fonction">{membre.role}</span>
-                  <p className="presentation-equipe-admin">{membre.slogan}</p>
-                  {membre.linkedin && (
-                    <a href={membre.linkedin} target="_blank" rel="noreferrer" className="lien-linkedin">
-                      LinkedIn
-                    </a>
-                  )}
-                </article>
-              ))}
-            </div>
-          )
-        })}
+        <div className="rangee-equipe-admin">
+          {equipeAdmin.map((membre) => (
+            <article
+              key={membre.id ?? membre.nom}
+              className={
+                membre.niveau === 1 ? 'carte-equipe-admin carte-equipe-admin--fondatrice' : 'carte-equipe-admin'
+              }
+            >
+              {/* Niveau 1 = la fondatrice : seule sa photo est carrée (demande client du
+                  2026-10-08), le reste de l'équipe garde le cadre rond d'origine (visuel de
+                  référence du 2026-10-06). Les cartes, elles, ont toutes la même largeur, pour
+                  que les quatre soient alignées sur la même ligne. */}
+              <PortraitMembre membre={membre} dossierAssets={dossierAssets} />
+              {membre.nom && <span className="nom-equipe-admin">{membre.nom}</span>}
+              <span className="etiquette-fonction">{membre.role}</span>
+              <p className="presentation-equipe-admin">{membre.slogan}</p>
+              {membre.linkedin && (
+                <a href={membre.linkedin} target="_blank" rel="noreferrer" className="lien-linkedin">
+                  LinkedIn
+                </a>
+              )}
+            </article>
+          ))}
+        </div>
       </div>
 
       <h3 className="titre-bloc-formateurs">Nos formateurs et formatrices</h3>
@@ -735,7 +745,9 @@ const EQUIPE_PEDAGOGIQUE: {
     nom: 'Pamella',
     role: 'Professeure d’anglais',
     niveau: 4,
-    slogan: 'Patiente et exigeante à la fois, elle pousse chaque élève un peu plus loin sans jamais le brusquer.',
+    // Texte fourni par le client le 2026-10-08, en remplacement du slogan rédigé par défaut.
+    slogan:
+      'Patiente et à l’écoute, elle crée un environnement où chaque élève peut prendre confiance et oser s’exprimer en anglais à son rythme.',
   },
   {
     id: 14,
@@ -775,26 +787,29 @@ const EQUIPE_PEDAGOGIQUE: {
   },
 ]
 
+/* Cadre commun à toutes les vues secondaires. Le thème sombre (fond prune, cartes violettes,
+   texte blanc) a été abandonné le 2026-10-08 à la demande du client : « il y a trop de violet
+   dans les autres pages que la page Hero ». Les vues reprennent désormais l'ambiance claire de
+   l'accueil — fond blanc lavande, cartes blanches, violet en accent — d'où une seule classe de
+   thème, `vue-claire`, et plus de prop `theme`. */
 function CadreVue({
   surtitre,
   titre,
   sousTitre,
-  theme,
   children,
 }: {
-  /* Petit libellé doré au-dessus du titre : l'intitulé de l'onglet de navigation, rien de plus. */
+  /* Petit libellé violet au-dessus du titre : l'intitulé de l'onglet de navigation, rien de plus. */
   surtitre: string
   titre: string
   sousTitre: string
-  theme: 'violet' | 'nuit'
   children: ReactNode
 }) {
   return (
-    <section className={`vue-secondaire vue-theme-${theme}`}>
+    <section className="vue-secondaire vue-claire">
       <header className="entete-vue">
-        {theme === 'violet' && <span className="surtitre-vue">{surtitre}</span>}
+        <span className="surtitre-vue">{surtitre}</span>
         <h2 className="titre-vue">{titre}</h2>
-        {theme === 'violet' && <span className="trait-vue" aria-hidden="true" />}
+        <span className="trait-vue" aria-hidden="true" />
         <p className="soustitre-vue">{sousTitre}</p>
       </header>
       <div className="vue-secondaire-corps">{children}</div>

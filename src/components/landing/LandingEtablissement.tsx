@@ -6,7 +6,7 @@ import { deriveAccent } from '../../lib/accent'
 import { SLUG_ETABLISSEMENT_PRINCIPAL } from '../../lib/etablissement'
 import { useTarifs } from '../../hooks/useTarifs'
 import { HeroPublic } from './HeroPublic'
-import { VueAvis, VueProfesseurs, VueProgrammes } from './VuesPubliques'
+import { VueAvis, VueProfesseurs, VueProgrammes, VueTemoignages } from './VuesPubliques'
 import { ModaleReservation } from '../prospects/ModaleReservation'
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
@@ -17,7 +17,7 @@ type Etablissement = Database['public']['Tables']['etablissements']['Row']
    contrasté sur fond blanc, serait illisible ici. */
 const VIOLET_MARQUE = '#6d3bd1'
 
-type Vue = 'accueil' | 'programmes' | 'professeurs' | 'avis'
+type Vue = 'accueil' | 'programmes' | 'professeurs' | 'avis' | 'temoignages'
 
 /* Mêmes intitulés, dans le même ordre, que la barre de navigation dessinée dans la maquette du
    hero (voir HeroPublic.tsx) : en passant de l'accueil à une vue secondaire, on doit retrouver
@@ -26,11 +26,16 @@ type Vue = 'accueil' | 'programmes' | 'professeurs' | 'avis'
    Depuis le 2026-10-08 (demande 4 du document de retours), « Cours » et « Tarifs » ne font plus
    qu'une seule entrée : chaque formule affiche son prix dans sa propre carte, pour que le
    visiteur ait la description et le prix au même endroit. L'ancienne adresse `?vue=tarifs`
-   continue de fonctionner et bascule sur cette page fusionnée (voir plus bas). */
+   continue de fonctionner et bascule sur cette page fusionnée (voir plus bas).
+
+   « Témoignages » est une entrée à part depuis le 2026-10-08, à la demande du client : les
+   témoignages des stagiaires partageaient la page « À propos » avec le récit de la fondatrice,
+   deux sujets qui n'ont rien à voir et que le visiteur ne vient pas chercher au même moment. */
 const ENTREES: { vue: Vue; libelle: string }[] = [
   { vue: 'accueil', libelle: 'Accueil' },
   { vue: 'programmes', libelle: 'Cours & tarifs' },
   { vue: 'professeurs', libelle: 'Professeurs' },
+  { vue: 'temoignages', libelle: 'Témoignages' },
   { vue: 'avis', libelle: 'À propos' },
 ]
 
@@ -117,7 +122,7 @@ export function LandingEtablissement() {
        déjà partagés vers l'ancienne page Tarifs doivent arriver sur la page fusionnée plutôt que
        sur l'accueil (demande 4, « l'ancienne adresse renvoie automatiquement vers la nouvelle »). */
     const cible = demandee === 'tarifs' ? 'programmes' : demandee
-    const connues: Vue[] = ['accueil', 'programmes', 'professeurs', 'avis']
+    const connues: Vue[] = ['accueil', 'programmes', 'professeurs', 'avis', 'temoignages']
     if (connues.includes(cible as Vue)) setVue(cible as Vue)
     parametresUrl.delete('vue')
     setParametresUrl(parametresUrl, { replace: true })
@@ -168,7 +173,7 @@ export function LandingEtablissement() {
   const accueil = vue === 'accueil'
 
   return (
-    <div className={`page-claire page-unique${accueil ? ' page-unique--accueil' : ' page-unique--sombre'}`}>
+    <div className={`page-claire page-unique${accueil ? ' page-unique--accueil' : ' page-unique--secondaire'}`}>
       <header className="en-tete-public">
         <button type="button" onClick={() => setVue('accueil')} className="bloc-logo" aria-label={`Accueil ${etablissement.nom}`}>
           <img src="/logo-hoc.png" alt={etablissement.nom} style={{ height: 42, width: 'auto', display: 'block' }} />
@@ -236,6 +241,7 @@ export function LandingEtablissement() {
             onReserver={() => ouvrirReservation()}
           />
         )}
+        {vue === 'temoignages' && <VueTemoignages dossierAssets={dossierAssets} />}
         {vue === 'avis' && <VueAvis dossierAssets={dossierAssets} />}
       </main>
 

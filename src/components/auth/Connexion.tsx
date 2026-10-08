@@ -165,7 +165,7 @@ export function Connexion() {
        l'application en thème sombre (admin, professeur, étudiant) garde ses variables globales. */
     <div className="page-connexion-hoc" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, padding: 24 }}>
       <a href="/">
-        <Logo />
+        <Logo fond="clair" />
       </a>
       <div className="card" style={{ width: '100%', maxWidth: 380, padding: 30, display: 'flex', flexDirection: 'column', gap: 16 }}>
         {/* Demande client du 2026-09-16 : un moyen de revenir à la page Hero sans passer par le

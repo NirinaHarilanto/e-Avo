@@ -79,7 +79,7 @@ export function ReinitialiserMotDePasse() {
   return (
     <div className="page-connexion-hoc" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, padding: 24 }}>
       <a href="/">
-        <Logo />
+        <Logo fond="clair" />
       </a>
       <div className="card" style={{ width: '100%', maxWidth: 380, padding: 30, display: 'flex', flexDirection: 'column', gap: 16 }}>
         {loading || platformAdminLoading ? (

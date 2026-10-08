@@ -864,14 +864,20 @@ input[type='search']::-webkit-search-cancel-button {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Vitrine publique — refonte visuelle du 2026-09-29.
-   Trois visuels de référence fournis par le client, un par famille de vues :
-   — accueil : page « learning center » claire, violet franc (#8263e4), cartes blanches ;
-   — Cours / Tarifs / À propos : violet prune (#42246e), cartes #63438e, or #f0b85b ;
-   — Professeurs : bleu nuit sarcelle (#023249), portraits cerclés d'or (#ffc962).
-   Couleurs relevées au pixel sur les visuels. Seule la présentation est concernée : les
-   composants gardent leurs données et leurs actions.
-   ───────────────────────────────────────────────────────────────────────────── */
+   Palette Hari Online Club, relevée au pixel sur les visuels de référence fournis par le client
+   (refonte visuelle du 2026-09-29).
+
+   Depuis le 2026-10-08, toute la vitrine publique est sur une seule ambiance, celle de l'accueil :
+   fond blanc lavande, cartes blanches, violet en accent, doré réservé aux appels à l'action. Les
+   deux thèmes sombres d'origine (prune pour Cours/Tarifs/À propos, bleu nuit pour Professeurs) ont
+   été abandonnés à la demande du client — « il y a trop de violet dans les autres pages que la
+   page Hero ». `--hoc-prune`, `--hoc-prune-carte` et `--hoc-nuit` restent déclarés, ils servent
+   encore à des halos et à des ombres.
+
+   Déclarée sur `:root` et non plus sur `.page-claire` seule : la page de connexion ne porte pas
+   cette classe, et ses `var(--hoc-…)` ne se résolvaient donc pas — toute déclaration qui en
+   contenait une était purement et simplement ignorée. */
+:root,
 .page-claire {
   --hoc-violet: #7657e6;
   --hoc-violet-fonce: #5536c9;
@@ -1093,22 +1099,23 @@ body.sans-defilement {
   position: relative;
   z-index: 3;
 }
-.page-unique--sombre .pied-unique {
-  color: rgba(255, 255, 255, 0.6);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+/* Vues secondaires, en clair depuis le 2026-10-08 (« il y a trop de violet dans les autres pages
+   que la page Hero ») : le pied de page suit, en texte gris et liens violets. La classe s'appelait
+   `--sombre` tant que ces vues étaient sur fond prune. */
+.page-unique--secondaire .pied-unique {
+  color: var(--hoc-texte);
+  border-top: 1px solid rgba(109, 59, 209, 0.12);
 }
-.page-unique--sombre .pied-unique a {
-  color: var(--hoc-or);
+.page-unique--secondaire .pied-unique a {
+  color: var(--hoc-violet);
 }
-.page-unique--sombre .pied-unique a:hover {
-  color: #fff;
+.page-unique--secondaire .pied-unique a:hover {
+  color: var(--hoc-violet-fonce);
 }
-/* Le pied de page prend la couleur de la vue qu'il clôt. */
-.page-unique--sombre:has(.vue-theme-violet) {
-  background: var(--hoc-prune);
-}
-.page-unique--sombre:has(.vue-theme-nuit) {
-  background: #03293b;
+/* Le pied de page prend la couleur de la vue qu'il clôt : le bas du dégradé de `.vue-claire`,
+   pour qu'aucune ligne de démarcation n'apparaisse entre la vue et sa bande légale. */
+.page-unique--secondaire {
+  background: #f1edfb;
 }
 
 /* ── Accueil ───────────────────────────────────────────────────────────────── */
@@ -1345,165 +1352,6 @@ body.sans-defilement {
   -webkit-user-drag: none;
 }
 
-/* Cartes flottantes : chacune à sa profondeur (translateZ), donc un décalage différent quand le
-   cadre s'incline — c'est ce qui donne la sensation de relief. */
-.hero-flottant {
-  position: absolute;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-family: 'Poppins', 'Inter', sans-serif;
-}
-
-/* Carte « Progression » : ses pièces intérieures (icône, textes, flèche) sont dimensionnées en
-   unités de conteneur (cqw), PAS en pixels fixes. La carte elle-même est une part fixe (%) de
-   `.hero-cadre-3d`, qui rétrécit avec l'écran (voir sa formule `min(74cqw, 72cqh * 1.235)`) — des
-   pièces intérieures en pixels fixes ne rétrécissaient pas avec elle, si bien qu'à certaines
-   largeurs (~1024 px) « Level B1 » débordait de son espace et se retrouvait recouvert par la
-   flèche ronde à sa droite (signalé par le client le 2026-09-29). En cqw, tout rétrécit à la même
-   vitesse que la carte : le rapport texte / espace disponible reste constant, donc plus jamais de
-   recouvrement, à n'importe quelle taille d'écran. */
-.hero-progression {
-  right: -9%;
-  top: 19.5%;
-  width: 39%;
-  /* Jamais plus étroite que son texte : sur un écran agrandi (zoom du navigateur, mise à
-     l'échelle Windows), « Progression » et « Level B1 » étaient coupés (signalé le 2026-09-29).
-     La carte s'élargit alors vers la gauche, par-dessus l'illustration. */
-  min-width: max-content;
-  /* Recouvre entièrement la carte « Progression » dessinée dans l'illustration. */
-  min-height: 19.5%;
-  display: flex;
-  align-items: center;
-  gap: clamp(5px, 1.5cqw, 10px);
-  padding: clamp(7px, 1.7cqw, 12px) clamp(7px, 1.7cqw, 12px) clamp(7px, 1.7cqw, 12px) clamp(9px, 2cqw, 14px);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 20px 44px rgba(38, 20, 90, 0.22);
-  transform: translateZ(70px);
-  animation: heroFlotte 6s ease-in-out infinite;
-}
-.hero-progression-icone {
-  flex: 0 0 auto;
-  width: clamp(20px, 5.4cqw, 34px);
-  height: clamp(20px, 5.4cqw, 34px);
-  border-radius: 10px;
-  display: inline-flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 3px;
-  padding-bottom: clamp(4px, 1.3cqw, 9px);
-  background: #eaf8ee;
-}
-.hero-progression-icone i {
-  width: 4px;
-  border-radius: 2px;
-  background: #2fbf71;
-}
-.hero-progression-icone i:nth-child(1) { height: 40%; }
-.hero-progression-icone i:nth-child(2) { height: 65%; }
-.hero-progression-icone i:nth-child(3) { height: 92%; }
-.hero-progression-texte {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.hero-progression-texte small {
-  font-size: clamp(8px, 2cqw, 10px);
-  color: var(--hoc-texte);
-}
-.hero-progression-texte strong {
-  white-space: nowrap;
-  font-size: clamp(9.5px, 2.6cqw, 12.5px);
-  color: var(--hoc-encre);
-}
-.hero-progression-barre {
-  display: block;
-  height: 5px;
-  margin-top: 4px;
-  border-radius: 6px;
-  background: var(--hoc-lavande);
-  overflow: hidden;
-}
-.hero-progression-barre span {
-  display: block;
-  width: 64%;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--hoc-violet-clair), var(--hoc-violet));
-  animation: heroProgression 2.4s 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-
-.hero-piliers {
-  right: -12%;
-  top: 47%;
-  display: flex;
-  flex-direction: column;
-  gap: clamp(5px, 1.3cqw, 8px);
-  transform: translateZ(90px);
-  animation: heroFlotte 7s 0.8s ease-in-out infinite;
-}
-.hero-piliers li {
-  display: flex;
-  align-items: center;
-  gap: clamp(6px, 1.5cqw, 9px);
-  padding: clamp(5px, 1.3cqw, 8px) clamp(10px, 2.6cqw, 16px) clamp(5px, 1.3cqw, 8px) clamp(5px, 1.3cqw, 8px);
-  border-radius: 999px;
-  font-size: clamp(10.5px, 2.1cqw, 12.5px);
-  font-weight: 600;
-  color: #fff;
-  white-space: nowrap;
-  background: linear-gradient(135deg, var(--hoc-violet-clair), var(--hoc-violet-fonce));
-  box-shadow: 0 12px 26px rgba(85, 54, 201, 0.35);
-}
-.hero-piliers li:nth-child(2) { margin-left: -10px; }
-.hero-piliers li:nth-child(3) { margin-left: -20px; }
-.hero-piliers .icone-hero {
-  width: clamp(18px, 4.2cqw, 24px);
-  height: clamp(18px, 4.2cqw, 24px);
-  padding: 5px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* Les quatre livres de la maquette, en relief : chaque tranche a sa couleur et son épaisseur. */
-.hero-livres {
-  left: -8%;
-  bottom: 3%;
-  width: 34%;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  transform: translateZ(60px) rotate(-3deg);
-  animation: heroFlotte 8s 1.6s ease-in-out infinite;
-}
-.hero-livres li {
-  position: relative;
-  padding: clamp(5px, 1.2cqw, 7px) clamp(10px, 2.4cqw, 14px);
-  border-radius: 6px 10px 10px 6px;
-  font-size: clamp(10.5px, 2.1cqw, 12.5px);
-  font-weight: 700;
-  color: #fff;
-  letter-spacing: 0.2px;
-  box-shadow: 0 8px 16px rgba(38, 20, 90, 0.22), inset 0 -3px 0 rgba(0, 0, 0, 0.15), inset 0 2px 0 rgba(255, 255, 255, 0.25);
-}
-.hero-livres li::after {
-  content: '';
-  position: absolute;
-  right: 6px;
-  top: 4px;
-  bottom: 4px;
-  width: 22%;
-  border-radius: 3px;
-  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0 2px, rgba(235, 230, 250, 0.9) 2px 3px);
-}
-.hero-livres li:nth-child(1) { background: linear-gradient(90deg, #a23ce0, #c25cf0); margin-left: 6px; }
-.hero-livres li:nth-child(2) { background: linear-gradient(90deg, #5b45e0, #7b67f0); }
-.hero-livres li:nth-child(3) { background: linear-gradient(90deg, #2d73d8, #4f97ee); margin-left: 4px; }
-.hero-livres li:nth-child(4) { background: linear-gradient(90deg, #13a39a, #2cc3b5); margin-left: -2px; }
 
 /* Bande des bénéfices : quatre cartes blanches, la deuxième mise en avant en violet, comme la
    carte centrale du visuel de référence. */
@@ -1614,9 +1462,7 @@ body.sans-defilement {
 @media (prefers-reduced-motion: reduce) {
   .hero-texte,
   .hero-cadre-3d,
-  .hero-benefices,
-  .hero-flottant,
-  .hero-progression-barre span {
+  .hero-benefices {
     animation: none;
   }
   .hero-cadre-3d {
@@ -1660,7 +1506,7 @@ body.sans-defilement {
   font-weight: 700;
   letter-spacing: 2.4px;
   text-transform: uppercase;
-  color: var(--hoc-or);
+  color: var(--hoc-violet);
 }
 .page-claire .titre-vue {
   margin: 0;
@@ -1668,19 +1514,19 @@ body.sans-defilement {
   font-size: clamp(20px, 2.1vw, 28px);
   font-weight: 700;
   letter-spacing: -0.4px;
-  color: #fff;
+  color: var(--hoc-encre);
 }
 .trait-vue {
   width: 90px;
   height: 3px;
   margin: 2px 0 1px;
   border-radius: 4px;
-  background: var(--hoc-or);
+  background: linear-gradient(90deg, var(--hoc-violet-clair), var(--hoc-violet));
 }
 .soustitre-vue {
   margin: 0;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--hoc-texte);
 }
 
 /* `width: 100%` n'est pas décoratif : ces grilles sont des éléments flex de .vue-secondaire-corps,
@@ -1697,12 +1543,16 @@ body.sans-defilement {
   margin: 0 auto;
 }
 
-/* Thème « violet » (visuel de référence n° 2) : fond prune, halos discrets, cartes #63438e. */
-.vue-theme-violet {
+/* Ambiance claire des vues secondaires, reprise telle quelle de l'accueil (`.hero-hoc`) —
+   demande client du 2026-10-08 : « il y a trop de violet dans les autres pages que la page Hero,
+   on devrait avoir la même ambiance : du blanc, violet ». Le fond prune et les cartes #63438e qui
+   venaient du visuel de référence n° 2 sont donc abandonnés : blanc lavande en fond, cartes
+   blanches, violet en accent, doré réservé aux appels à l'action. */
+.vue-claire {
   background:
-    radial-gradient(700px 380px at 12% 0%, rgba(152, 126, 233, 0.22), transparent 65%),
-    radial-gradient(600px 360px at 92% 100%, rgba(240, 184, 91, 0.1), transparent 65%),
-    var(--hoc-prune);
+    radial-gradient(60% 70% at 85% 25%, rgba(152, 126, 233, 0.2), transparent 70%),
+    radial-gradient(45% 55% at 8% 95%, rgba(240, 184, 91, 0.1), transparent 70%),
+    linear-gradient(180deg, #faf9fe 0%, #f1edfb 100%);
 }
 
 .carte-hoc {
@@ -1711,14 +1561,14 @@ body.sans-defilement {
   flex-direction: column;
   gap: 8px;
   padding: 14px;
-  border-radius: 6px;
-  background: var(--hoc-prune-carte);
-  box-shadow: 0 18px 40px rgba(20, 8, 45, 0.35);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(38, 20, 90, 0.1);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 .carte-hoc:hover {
   transform: translateY(-5px);
-  box-shadow: 0 26px 50px rgba(20, 8, 45, 0.5), 0 0 0 1px rgba(240, 184, 91, 0.45);
+  box-shadow: 0 22px 44px rgba(85, 54, 201, 0.18), 0 0 0 1px rgba(109, 59, 209, 0.16);
 }
 
 /* Section Cours : les photos prennent toute la hauteur que l'écran laisse libre (demande client
@@ -1775,12 +1625,14 @@ body.sans-defilement {
   border-radius: 2px;
   overflow: hidden;
   /* Un seul fond du haut de la photo jusque sous les boutons (demande client du 2026-10-08,
-     nuancier joint) : le cadre de l'illustration portait un voile blanc translucide et les trois
-     aquarelles arrivaient avec leur propre fond blanc, ce qui découpait un bandeau clair en haut
-     de chaque carte. Le fond blanc des fichiers a été rendu transparent (remplissage connexe
-     depuis les bords, les blancs intérieurs — écrans, chemises — sont intacts) et le cadre reprend
-     exactement le violet de la carte : plus aucune rupture de couleur dans le bloc. */
-  background: var(--hoc-prune-carte);
+     nuancier joint) : le cadre de l'illustration portait un voile blanc translucide, ce qui
+     découpait un bandeau plus clair en haut de chaque carte. Il reprend maintenant exactement le
+     fond de la carte, plus aucune rupture de couleur dans le bloc. Les fichiers eux-mêmes ont été
+     détourés (fond blanc rendu transparent par remplissage connexe depuis les bords, les blancs
+     intérieurs — écrans, chemises — sont intacts) : l'illustration se pose donc sur la couleur de
+     la carte, quelle qu'elle soit, ce qui a permis de passer la carte du violet au blanc sans
+     retoucher les images. */
+  background: #fff;
 }
 .carte-cours-visuel img {
   position: absolute;
@@ -1871,17 +1723,20 @@ body.sans-defilement {
   letter-spacing: 0.4px;
   padding: 8px 14px;
   border-radius: 3px;
-  color: var(--hoc-or);
+  color: var(--hoc-violet);
   background: transparent;
-  border: 1px solid rgba(240, 184, 91, 0.5);
+  border: 1px solid rgba(109, 59, 209, 0.35);
   cursor: pointer;
   transition: background 0.18s ease, border-color 0.18s ease;
 }
 .bouton-savoir-plus:hover {
-  background: rgba(240, 184, 91, 0.12);
-  border-color: var(--hoc-or);
+  background: var(--hoc-lavande);
+  border-color: var(--hoc-violet);
 }
 
+/* Posée sur l'illustration, dont le fond est maintenant blanc : il faut donc une pastille
+   lavande cernée, et non plus un aplat blanc translucide, invisible depuis le passage des cartes
+   au blanc (2026-10-08). */
 .etiquette-programme {
   align-self: flex-start;
   font-size: 10.5px;
@@ -1890,13 +1745,9 @@ body.sans-defilement {
   text-transform: uppercase;
   padding: 4px 10px;
   border-radius: 999px;
-  color: #2a1646;
-  background: rgba(255, 255, 255, 0.9);
-}
-.vue-theme-violet .carte-tarif .etiquette-programme {
-  color: var(--hoc-or);
-  background: rgba(240, 184, 91, 0.12);
-  border: 1px solid rgba(240, 184, 91, 0.45);
+  color: var(--hoc-violet-fonce);
+  background: var(--hoc-lavande);
+  border: 1px solid rgba(109, 59, 209, 0.18);
 }
 
 /* Date de la prochaine vague, posée sous l'étiquette « COLLECTIF » au même endroit du visuel
@@ -1913,7 +1764,7 @@ body.sans-defilement {
   border-radius: 999px;
   color: #2a1646;
   background: var(--hoc-or-vif);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 16px rgba(38, 20, 90, 0.22);
 }
 
 /* Prix de la formule, dans la carte de la page « Cours & tarifs » (fusion du 2026-10-08). */
@@ -1927,22 +1778,22 @@ body.sans-defilement {
   margin: 0;
   font-family: 'Poppins', 'Inter', sans-serif;
   font-size: 17px;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0;
-  color: var(--hoc-or);
+  color: var(--hoc-encre);
 }
 .texte-carte-hoc {
   margin: 0;
   font-size: 12.5px;
   line-height: 1.55;
   font-style: italic;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--hoc-texte);
 }
 .detail-carte-hoc {
   margin: 0;
   font-size: 11.5px;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.6);
+  color: #817fa0;
 }
 
 /* Bouton rectangulaire jaune doré en capitales, comme « MORE » sur le visuel de référence. */
@@ -1977,22 +1828,24 @@ body.sans-defilement {
   border-radius: 4px;
 }
 .ligne-tarif:nth-child(odd) {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(109, 59, 209, 0.04);
 }
 .ligne-tarif-titre {
   font-size: 12.5px;
   font-weight: 600;
-  color: #fff;
+  color: var(--hoc-encre);
 }
 .ligne-tarif-prix {
   font-size: 13.5px;
   font-weight: 800;
   white-space: nowrap;
-  color: var(--hoc-or-vif);
+  /* Violet et non doré depuis le passage des cartes au blanc (2026-10-08) : le doré de la charte
+     passe très mal sur blanc, le prix est l'information qu'on vient chercher dans cette carte. */
+  color: var(--hoc-violet-fonce);
 }
 .ligne-tarif-description {
   font-size: 10.5px;
-  color: rgba(255, 255, 255, 0.6);
+  color: #817fa0;
 }
 .lien-deplier {
   align-self: flex-start;
@@ -2003,10 +1856,10 @@ body.sans-defilement {
   font-family: inherit;
   font-size: 11.5px;
   font-weight: 700;
-  color: var(--hoc-or);
+  color: var(--hoc-violet);
 }
 .lien-deplier:hover {
-  color: var(--hoc-or-vif);
+  color: var(--hoc-violet-fonce);
 }
 
 .carte-avis {
@@ -2023,14 +1876,15 @@ body.sans-defilement {
 .etoiles-avis {
   font-size: 13px;
   letter-spacing: 2.5px;
-  color: var(--hoc-or-vif);
+  /* Doré plus soutenu que `--hoc-or-vif`, qui disparaît sur fond blanc. */
+  color: #e0a23f;
 }
 .citation-avis {
   margin: 0;
   font-size: 12px;
   line-height: 1.6;
   font-style: italic;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--hoc-texte);
   /* Aucune troncature (demande client du 2026-10-08). Un `-webkit-line-clamp: 7` égalisait la
      hauteur des cartes, mais coupait les témoignages longs en plein milieu d'une phrase — celui
      de Stéphane Rakotonjanahary s'arrêtait avant « to the next level. ». Un témoignage amputé
@@ -2049,7 +1903,7 @@ body.sans-defilement {
   font-weight: 700;
   color: #fff;
   background: linear-gradient(135deg, var(--hoc-violet-clair), var(--hoc-violet-fonce));
-  border: 2px solid var(--hoc-or-vif);
+  border: 2px solid var(--hoc-lavande);
 }
 /* Avatar photo (témoignages avec portrait fourni par le client) : même cercle doré que les
    initiales, juste rempli d'une image au lieu d'un fond dégradé. */
@@ -2066,7 +1920,7 @@ body.sans-defilement {
 .nom-avis {
   font-size: 12px;
   font-weight: 600;
-  color: var(--hoc-or);
+  color: var(--hoc-violet-fonce);
 }
 .entete-carte-avis {
   display: flex;
@@ -2076,8 +1930,9 @@ body.sans-defilement {
 }
 
 /* Page « À propos » : texte de présentation de la fondatrice (demande 10 du 2026-10-08), avec la
-   photo d'équipe à côté (fournie par le client le 2026-10-08), puis les témoignages. Colonne de
-   texte bornée en largeur propre (`flex-basis`) — au-delà, l'œil perd la ligne suivante. */
+   photo d'équipe à côté (fournie par le client le 2026-10-08). Les témoignages ont leur propre
+   page depuis le 2026-10-08. Colonne de texte bornée en largeur propre (`flex-basis`) — au-delà,
+   l'œil perd la ligne suivante. */
 .bloc-presentation-hoc {
   display: flex;
   flex-wrap: wrap;
@@ -2090,9 +1945,9 @@ body.sans-defilement {
 .photo-presentation-hoc {
   flex: 1 1 280px;
   max-width: 320px;
-  border-radius: 10px;
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 18px 40px rgba(20, 8, 45, 0.35);
+  box-shadow: 0 16px 36px rgba(38, 20, 90, 0.14);
 }
 .photo-presentation-hoc img {
   display: block;
@@ -2110,31 +1965,21 @@ body.sans-defilement {
   margin: 0;
   font-size: 12.5px;
   line-height: 1.7;
-  color: rgba(255, 255, 255, 0.86);
+  color: var(--hoc-texte);
 }
 .ligne-presentation--forte {
   font-family: 'Poppins', 'Inter', sans-serif;
   font-size: 13.5px;
   font-weight: 700;
   line-height: 1.5;
-  color: var(--hoc-or-vif);
-}
-.titre-bloc-temoignages {
-  width: 100%;
-  max-width: 760px;
-  margin: 20px auto 12px;
-  font-family: 'Poppins', 'Inter', sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  color: #fff;
-  text-align: center;
+  color: var(--hoc-violet-fonce);
 }
 .badge-annee-avis {
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.4px;
-  color: rgba(255, 255, 255, 0.65);
-  background: rgba(255, 255, 255, 0.1);
+  color: var(--hoc-violet);
+  background: var(--hoc-lavande);
   border-radius: 999px;
   padding: 3px 9px;
 }
@@ -2143,30 +1988,15 @@ body.sans-defilement {
   margin-top: 16px;
 }
 
-/* Thème « nuit » (visuel de référence n° 1) : bleu nuit sarcelle, fines stries, or. */
-.vue-theme-nuit {
-  background:
-    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.018) 0 2px, transparent 2px 9px),
-    radial-gradient(800px 420px at 20% 0%, rgba(30, 110, 140, 0.35), transparent 70%),
-    linear-gradient(160deg, var(--hoc-nuit) 0%, #083344 55%, #133743 100%);
-}
-.vue-theme-nuit .titre-vue {
-  font-size: clamp(24px, 2.5vw, 32px);
-  font-weight: 800;
-  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
-}
-.vue-theme-nuit .soustitre-vue {
-  font-family: 'Caveat', cursive;
-  font-size: 19px;
-  font-weight: 700;
-  color: var(--hoc-or-vif);
-}
+/* Le thème « nuit » (bleu nuit sarcelle, visuel de référence n° 1) a disparu le 2026-10-08 : la
+   demande 11 du document de retours l'avait déjà chassé de la vue Professeurs, et le passage de
+   toutes les vues à l'ambiance claire de l'accueil l'a rendu inutilisable. */
 
 .nom-professeur {
   font-family: 'Poppins', 'Inter', sans-serif;
   font-size: 15.5px;
   font-weight: 700;
-  color: var(--hoc-or-vif);
+  color: var(--hoc-violet-fonce);
 }
 .page-claire .role-professeur {
   margin: 0;
@@ -2175,7 +2005,7 @@ body.sans-defilement {
   font-weight: 600;
   font-style: italic;
   letter-spacing: 0;
-  color: #fff;
+  color: var(--hoc-texte);
 }
 
 /* Grille des membres de l'équipe pédagogique : portraits individuels circulaires, un par
@@ -2197,24 +2027,27 @@ body.sans-defilement {
   margin: 0 auto;
 }
 
-/* Hiérarchie de l'équipe administrative (demande 11 du 2026-10-08) : une rangée par niveau,
-   centrée, du haut (la fondatrice) vers le bas. Chaque rangée se lit comme un étage de
-   l'organigramme — d'où des rangées distinctes plutôt qu'une grille unique qui les mélangerait
-   dès que la largeur change. */
+/* Équipe administrative (demande 11 du 2026-10-08). Les quatre fiches tenaient sur trois étages,
+   un par niveau de hiérarchie ; depuis le 2026-10-08 le client les veut sur une seule rangée, la
+   fondatrice comprise. Elles gardent donc toutes la même largeur, et c'est l'ordre de lecture qui
+   porte la hiérarchie. Largeur ramenée de 290 à 248 px : quatre cartes de 290 px plus leurs
+   gouttières dépassaient la largeur utile de la vue et repassaient à la ligne, ce qui recréait
+   les étages qu'on venait de supprimer. */
 .hierarchie-equipe {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 18px;
   width: 100%;
-  max-width: 1030px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 .rangee-equipe-admin {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 18px;
+  align-items: stretch;
+  gap: 16px;
   width: 100%;
 }
 .carte-equipe-admin {
@@ -2223,16 +2056,16 @@ body.sans-defilement {
   align-items: center;
   text-align: center;
   gap: 6px;
-  width: 290px;
-  padding: 18px 16px;
-  border-radius: 8px;
-  background: var(--hoc-prune-carte);
-  box-shadow: 0 18px 40px rgba(20, 8, 45, 0.35);
+  width: 248px;
+  padding: 18px 14px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(38, 20, 90, 0.1);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 .carte-equipe-admin:hover {
   transform: translateY(-4px);
-  box-shadow: 0 26px 50px rgba(20, 8, 45, 0.5), 0 0 0 1px rgba(240, 184, 91, 0.45);
+  box-shadow: 0 22px 44px rgba(85, 54, 201, 0.18), 0 0 0 1px rgba(109, 59, 209, 0.16);
 }
 /* Portrait un cran plus grand que dans la grille des formateurs : c'est ce qui distingue
    visuellement l'équipe administrative, comme demandé (« des cartes plus grandes »). */
@@ -2251,12 +2084,16 @@ body.sans-defilement {
    jurerait avec les coins arrondis utilisés partout ailleurs sur cette page (cartes, boutons,
    étiquettes). */
 .carte-equipe-admin--fondatrice .photo-membre-equipe {
-  width: clamp(150px, 21vh, 215px);
+  /* Depuis le passage des quatre fiches sur une seule rangée (2026-10-08), c'est la HAUTEUR qui
+     est imposée, identique à celle des portraits ronds voisins, et la largeur qui suit. Une photo
+     plus haute que les autres décalait vers le bas le nom, la fonction et le texte de la
+     fondatrice : les quatre fiches étaient sur la même ligne, mais leur contenu ne l'était pas,
+     alors que le client demandait justement le même niveau horizontal. */
+  height: clamp(96px, 15vh, 148px);
   /* `aspect-ratio` calé sur les proportions exactes du fichier (700 × 913) plutôt qu'un carré :
      le cadre épouse ainsi les bords de la photo, qui s'affiche entière, sans rognage ni zoom
-     (demande client du 2026-10-08). `height: auto` est indispensable — la règle partagée
-     `.photo-membre-equipe` impose une hauteur fixe, qui écraserait le rapport. */
-  height: auto;
+     (demande client du 2026-10-08). */
+  width: auto;
   aspect-ratio: 700 / 913;
   border-radius: 14px;
 }
@@ -2267,10 +2104,13 @@ body.sans-defilement {
 }
 .nom-equipe-admin {
   font-family: 'Poppins', 'Inter', sans-serif;
-  font-size: 17px;
+  font-size: 16.5px;
   font-weight: 700;
-  color: #fff;
+  color: var(--hoc-encre);
 }
+/* « Fonction dans une étiquette de couleur » (demande 11). Violet plein plutôt que doré depuis le
+   passage des cartes au blanc : le doré sur blanc ne se lit pas, et le violet est la couleur
+   d'accent de la charte. */
 .etiquette-fonction {
   font-size: 10.5px;
   font-weight: 700;
@@ -2278,43 +2118,77 @@ body.sans-defilement {
   text-transform: uppercase;
   padding: 4px 12px;
   border-radius: 999px;
-  color: #2a1646;
-  background: var(--hoc-or-vif);
+  color: #fff;
+  background: linear-gradient(135deg, var(--hoc-violet-clair), var(--hoc-violet));
 }
 .presentation-equipe-admin {
   margin: 4px 0 0;
   font-size: 11.5px;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--hoc-texte);
 }
 .lien-linkedin {
-  margin-top: 4px;
+  margin-top: auto;
   padding: 5px 14px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  color: #2a1646;
-  background: #fff;
+  color: #fff;
+  background: var(--hoc-violet);
   text-decoration: none;
 }
 .lien-linkedin:hover {
-  background: var(--hoc-or-vif);
+  background: var(--hoc-violet-fonce);
 }
 /* Page de connexion aux couleurs HOC (demande 14 du 2026-10-08). Les variables ne sont
    redéfinies QUE dans cette portée : `--bg-page` et `--accent-blue-gradient` du `:root` servent
    à tout l'espace connecté (admin, professeur, étudiant), les toucher globalement repeindrait
    l'application entière. */
+/* Le document de retours laissait le choix (demande 14 : « fond violet ou lavande ») ; c'est le
+   violet plein qui avait été retenu. Repassé en lavande le 2026-10-08, le client trouvant trop de
+   violet partout ailleurs que sur l'accueil : la page reprend donc exactement l'ambiance de
+   l'accueil, ce qui sert encore mieux le critère de la demande 14 (« on a l'impression de rester
+   sur le même site »). */
+/* `body { zoom: 0.9 }` : un bloc en `min-height: 100vh` ne couvre en réalité que 90 % de la
+   hauteur de la fenêtre, et le fond sombre de l'application apparaissait en bande sous la carte
+   de connexion. On peint donc le canevas lui-même en clair tant que cette page est à l'écran.
+   Le reste de l'application n'est pas concerné : la bande y est de la même couleur que le fond. */
+html:has(.page-connexion-hoc) {
+  /* Aplat, et non le dégradé : c'est la couleur de FIN du dégradé de la page, donc le raccord
+     sous la carte est invisible. */
+  background: #f1edfb;
+}
 .page-connexion-hoc {
   background:
-    radial-gradient(760px 420px at 15% 0%, rgba(152, 126, 233, 0.3), transparent 65%),
-    radial-gradient(620px 380px at 88% 100%, rgba(240, 184, 91, 0.12), transparent 65%),
-    var(--hoc-prune);
+    radial-gradient(60% 70% at 85% 25%, rgba(152, 126, 233, 0.2), transparent 70%),
+    radial-gradient(45% 55% at 8% 95%, rgba(240, 184, 91, 0.1), transparent 70%),
+    linear-gradient(180deg, #faf9fe 0%, #f1edfb 100%);
   --cta-connexion: linear-gradient(135deg, var(--hoc-or-vif), var(--hoc-or));
   --cta-connexion-texte: #2a1646;
+  /* Tout l'espace connecté est en thème sombre : `--ink`, `--border` et consorts du `:root`
+     visent un fond foncé, et ces deux écrans les utilisent dans leurs styles en ligne. On les
+     redéfinit ici, dans cette portée seulement, pour ne pas repeindre l'application entière. */
+  --ink: var(--hoc-encre);
+  --ink-2: var(--hoc-texte);
+  --muted: #817fa0;
+  --muted-2: #a09eb8;
+  --border: rgba(109, 59, 209, 0.18);
+  --border-soft: rgba(109, 59, 209, 0.1);
+  --accent-gradient: linear-gradient(135deg, var(--hoc-violet-clair), var(--hoc-violet-fonce));
+  color: var(--hoc-encre);
 }
 .page-connexion-hoc .card {
-  background: var(--hoc-prune-carte);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: #fff;
+  border-color: rgba(109, 59, 209, 0.14);
+  box-shadow: 0 16px 36px rgba(38, 20, 90, 0.1);
+}
+/* `!important` à contrecœur : le fond sombre des champs est écrit en style en ligne dans
+   Connexion.tsx et ReinitialiserMotDePasse.tsx, et rien d'autre ne peut le battre. */
+.page-connexion-hoc input,
+.page-connexion-hoc select,
+.page-connexion-hoc textarea {
+  background: #fff !important;
+  color: var(--hoc-encre);
 }
 
 .titre-bloc-formateurs {
@@ -2323,7 +2197,7 @@ body.sans-defilement {
   font-family: 'Poppins', 'Inter', sans-serif;
   font-size: 16px;
   font-weight: 700;
-  color: #fff;
+  color: var(--hoc-encre);
   text-align: center;
 }
 .carte-membre-equipe {
@@ -2352,13 +2226,15 @@ body.sans-defilement {
   height: clamp(58px, calc(18.9vh - 46px), 124px);
   border-radius: 50%;
   overflow: hidden;
-  border: 3px solid var(--hoc-or-vif);
-  box-shadow: 0 0 0 4px rgba(255, 201, 98, 0.14), 0 14px 26px rgba(0, 0, 0, 0.35);
+  /* Cerne lavande et non doré depuis le passage à l'ambiance claire (2026-10-08) : sur fond
+     blanc, l'anneau doré se confondait avec la carte. */
+  border: 3px solid var(--hoc-lavande);
+  box-shadow: 0 0 0 1px rgba(109, 59, 209, 0.1), 0 12px 24px rgba(38, 20, 90, 0.14);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 .carte-membre-equipe:hover .photo-membre-equipe {
   transform: translateY(-3px);
-  box-shadow: 0 0 0 5px rgba(255, 201, 98, 0.2), 0 18px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 0 2px rgba(109, 59, 209, 0.22), 0 16px 30px rgba(38, 20, 90, 0.2);
 }
 .photo-membre-equipe img {
   display: block;
@@ -2396,7 +2272,7 @@ body.sans-defilement {
   font-size: clamp(9.5px, 1.18vh, 11.5px);
   line-height: 1.4;
   font-style: italic;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--hoc-texte);
 }
 .pied-equipe-pedagogique {
   display: flex;
@@ -2596,9 +2472,6 @@ body.sans-defilement {
   .soustitre-vue {
     font-size: 12px;
   }
-  .vue-theme-nuit .soustitre-vue {
-    font-size: 17px;
-  }
   .carte-hoc,
   .carte-cours {
     padding: 11px;
@@ -2673,12 +2546,6 @@ body.sans-defilement {
   .actions-publiques {
     justify-content: center;
   }
-  .hero-piliers {
-    right: -6%;
-  }
-  .hero-livres {
-    left: -5%;
-  }
   .pied-unique {
     padding-left: 18px;
     padding-right: 18px;
@@ -2750,26 +2617,5 @@ body.sans-defilement {
 @media (max-width: 520px) {
   .hero-benefices {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .hero-progression {
-    width: 50%;
-    padding: 8px;
-    gap: 6px;
-  }
-  .hero-progression-icone {
-    display: none;
-  }
-  .hero-piliers li {
-    font-size: 11px;
-    padding: 5px 10px 5px 5px;
-  }
-  .hero-piliers .icone-hero {
-    width: 20px;
-    height: 20px;
-    padding: 4px;
-  }
-  .hero-livres li {
-    font-size: 11px;
-    padding: 5px 10px;
   }
 }
