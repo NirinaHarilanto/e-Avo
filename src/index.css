@@ -1901,12 +1901,29 @@ body.sans-defilement {
   gap: 10px;
   padding: 16px;
 }
-/* Témoignages affichés en entier : sans troncature, les textes vont de 2 à 10 lignes. Avec
-   l'étirement par défaut de `.grille-vue`, toute une rangée prenait la hauteur du plus long et
-   laissait de grands vides sous les courts. `start` laisse chaque carte à sa hauteur réelle — la
-   grille est décalée, ce qui est la mise en page habituelle d'un mur de témoignages. */
+/* Toutes les cartes à la même dimension (demande client du 2026-10-08). Les témoignages vont de 2
+   à 10 lignes et s'affichent en entier, sans troncature : la mise en page décalée essayée d'abord
+   (`align-items: start`, chaque carte à sa hauteur réelle) donnait donc des blocs tous différents.
+
+   `grid-auto-rows: 1fr` force TOUTES les rangées à la même hauteur, celle du témoignage le plus
+   long de la page — et non seulement les cartes d'une même rangée entre elles, ce que
+   `align-items: stretch` seul aurait fait. Le nom et la photo de l'auteur restent collés en bas de
+   chaque carte (`margin-top: auto` posé dans le composant), donc le vide des témoignages courts se
+   place entre la citation et la signature, jamais après. */
 .grille-temoignages {
-  align-items: start;
+  align-items: stretch;
+  grid-auto-rows: 1fr;
+}
+/* Sauf en une seule colonne : là, « toutes les rangées à la hauteur de la plus haute » voudrait
+   dire que les 18 cartes prennent la hauteur du témoignage le plus long, soit des écrans de vide
+   sous les plus courts. En une colonne il n'y a de toute façon jamais deux cartes côte à côte à
+   comparer, donc chacune reprend sa hauteur réelle. Seuil calé sur le point où
+   `repeat(auto-fit, minmax(260px, 1fr))` retombe à une colonne. */
+@media (max-width: 580px) {
+  .grille-temoignages {
+    align-items: start;
+    grid-auto-rows: auto;
+  }
 }
 .etoiles-avis {
   font-size: 13px;
@@ -1998,33 +2015,101 @@ body.sans-defilement {
   width: 100%;
   height: auto;
 }
-/* Cadre « magnifique et élégant », en harmonie avec le thème blanc/violet du reste du site
-   (demande client du 2026-10-08) : le texte ne repose plus nu sur le fond de la vue, il est posé
-   sur une carte à son tour — léger dégradé blanc vers lavande, liseré violet discret, grand
-   guillemet décoratif en filigrane, comme une citation mise en avant. */
+/* Cadre doré brillant (demande client du 2026-10-08 : « un cadre doré brillant magnifique stylé et
+   attractif, comme dans un spot publicitaire »). Le liseré violet discret de la première version
+   était jugé trop simple.
+
+   Mécanique du contour : DEUX fonds superposés sur le même élément, l'un cadré sur la boîte de
+   padding, l'autre sur la boîte de bordure. La bordure étant transparente, c'est le second qui
+   s'y voit — c'est la seule façon d'avoir un contour en DÉGRADÉ avec des coins arrondis, qu'un
+   `border-color` simple ne permet pas (et `border-image` ne suit pas le `border-radius`).
+
+   Le dégradé n'est pas un or plat : il alterne or profond et or très clair pour imiter le
+   relief d'un métal poli, et un reflet blanc le balaie en boucle (`::before`) — c'est ce
+   mouvement qui donne l'effet « spot publicitaire ». Le halo doré sous la carte et le liseré
+   blanc intérieur complètent le relief. L'animation est coupée d'office pour qui demande moins
+   de mouvement (règle globale `prefers-reduced-motion` en haut du fichier). */
 .texte-presentation-hoc {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: 13px;
   width: 100%;
-  padding: 44px 36px 32px;
-  border-radius: 22px;
-  background: linear-gradient(165deg, #fff 0%, var(--hoc-lavande) 100%);
-  border: 1px solid rgba(109, 59, 209, 0.14);
-  box-shadow: 0 20px 44px rgba(38, 20, 90, 0.1);
+  padding: 46px 38px 34px;
+  border: 3px solid transparent;
+  border-radius: 24px;
+  background:
+    linear-gradient(170deg, #fff 0%, #fffdf7 45%, var(--hoc-lavande) 100%) padding-box,
+    linear-gradient(
+        135deg,
+        #c9972f 0%,
+        #f7d383 14%,
+        #fff6dd 26%,
+        #e8b451 42%,
+        #c9972f 56%,
+        #f7d383 72%,
+        #fff6dd 84%,
+        #d8a63c 100%
+      )
+      border-box;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.85) inset,
+    0 10px 28px rgba(201, 151, 47, 0.26),
+    0 26px 56px rgba(38, 20, 90, 0.14);
+  overflow: hidden;
+}
+/* Reflet qui balaie la carte en diagonale, comme la lumière sur du métal. `overflow: hidden` sur
+   le parent le contient dans les coins arrondis ; `pointer-events: none` pour qu'il ne gêne
+   jamais la sélection du texte. */
+.texte-presentation-hoc::before {
+  content: '';
+  position: absolute;
+  top: -60%;
+  left: -40%;
+  width: 40%;
+  height: 220%;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 245, 214, 0.55) 45%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(255, 245, 214, 0.55) 55%,
+    transparent 100%
+  );
+  transform: rotate(8deg);
+  animation: refletDore 6.5s ease-in-out 1.2s infinite;
+}
+@keyframes refletDore {
+  0%,
+  72%,
+  100% {
+    left: -45%;
+    opacity: 0;
+  }
+  76% {
+    opacity: 1;
+  }
+  96% {
+    left: 115%;
+    opacity: 0;
+  }
 }
 .guillemet-presentation-hoc {
   position: absolute;
-  top: 4px;
+  top: 2px;
   left: 26px;
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 72px;
+  font-size: 78px;
   line-height: 1;
-  color: var(--hoc-violet-clair);
-  opacity: 0.5;
   pointer-events: none;
   user-select: none;
+  /* Doré dégradé plutôt qu'un aplat violet, pour répondre au cadre. */
+  background: linear-gradient(140deg, #e8b451, #c9972f 55%, #f7d383);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  opacity: 0.85;
 }
 .ligne-presentation {
   margin: 0;
@@ -2092,90 +2177,25 @@ body.sans-defilement {
   margin: 0 auto;
 }
 
-/* Équipe administrative (demande 11 du 2026-10-08). Les quatre fiches tenaient sur trois étages,
-   un par niveau de hiérarchie ; depuis le 2026-10-08 le client les veut sur une seule rangée, la
-   fondatrice comprise. Elles gardent donc toutes la même largeur, et c'est l'ordre de lecture qui
-   porte la hiérarchie. Largeur ramenée de 290 à 248 px : quatre cartes de 290 px plus leurs
-   gouttières dépassaient la largeur utile de la vue et repassaient à la ligne, ce qui recréait
-   les étages qu'on venait de supprimer. */
-.hierarchie-equipe {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-  width: 100%;
-  max-width: 1100px;
-  margin: 0 auto;
-}
-.rangee-equipe-admin {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: stretch;
-  gap: 16px;
-  width: 100%;
-}
-.carte-equipe-admin {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 6px;
-  width: 248px;
-  padding: 18px 14px;
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 16px 36px rgba(38, 20, 90, 0.1);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-}
-.carte-equipe-admin:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 22px 44px rgba(85, 54, 201, 0.18), 0 0 0 1px rgba(109, 59, 209, 0.16);
-}
-/* Les photos de l'équipe administrative, fondatrice comprise, partagent désormais exactement la
-   structure des photos de professeurs (demande client du 2026-10-08 : « même structure
-   d'affichage et d'animation [...] cadre rond, même animation de survol, et même dimension ») :
-   plus de règle à part ici, `.photo-membre-equipe` et son survol (plus bas) s'appliquent telles
-   quelles. La fondatrice perd son cadre rectangulaire propre — sa photo est recadrée au cercle
-   comme les autres, sans zoom ni perte d'information autre que ce que le cercle masque déjà pour
-   le reste de l'équipe. */
-.nom-equipe-admin {
-  font-family: 'Poppins', 'Inter', sans-serif;
-  font-size: 16.5px;
-  font-weight: 700;
-  color: var(--hoc-encre);
-}
-/* « Fonction dans une étiquette de couleur » (demande 11). Violet plein plutôt que doré depuis le
-   passage des cartes au blanc : le doré sur blanc ne se lit pas, et le violet est la couleur
-   d'accent de la charte. */
-.etiquette-fonction {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  padding: 4px 12px;
-  border-radius: 999px;
-  color: #fff;
-  background: linear-gradient(135deg, var(--hoc-violet-clair), var(--hoc-violet));
-}
-.presentation-equipe-admin {
-  margin: 4px 0 0;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--hoc-texte);
-}
+/* L'équipe administrative n'a plus de cartes à elle depuis le 2026-10-08 (demande client : « il
+   faut que l'affichage des quatre premières personnes soit exactement le même que les autres
+   professeurs ») : les classes `.hierarchie-equipe`, `.rangee-equipe-admin`, `.carte-equipe-admin`,
+   `.nom-equipe-admin`, `.etiquette-fonction` et `.presentation-equipe-admin` ont été supprimées,
+   les deux groupes passent par `.grille-equipe-pedagogique` et `.carte-membre-equipe`. Seul
+   subsiste le lien LinkedIn, que la demande 11 du document client impose sur les fiches de
+   l'équipe administrative : rendu en lien discret pour ne pas rompre l'uniformité des cartes. */
 .lien-linkedin {
-  margin-top: auto;
-  padding: 5px 14px;
-  border-radius: 999px;
+  margin-top: 4px;
   font-size: 11px;
   font-weight: 700;
-  color: #fff;
-  background: var(--hoc-violet);
+  color: var(--hoc-violet);
   text-decoration: none;
+  border-bottom: 1px solid rgba(109, 59, 209, 0.35);
+  line-height: 1.2;
 }
 .lien-linkedin:hover {
-  background: var(--hoc-violet-fonce);
+  color: var(--hoc-violet-fonce);
+  border-bottom-color: var(--hoc-violet-fonce);
 }
 /* Page de connexion aux couleurs HOC (demande 14 du 2026-10-08). Les variables ne sont
    redéfinies QUE dans cette portée : `--bg-page` et `--accent-blue-gradient` du `:root` servent
@@ -2271,10 +2291,9 @@ html:has(.page-connexion-hoc) {
   box-shadow: 0 0 0 1px rgba(109, 59, 209, 0.1), 0 12px 24px rgba(38, 20, 90, 0.14);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
-/* Même animation de survol pour l'équipe administrative que pour les professeurs (demande client
-   du 2026-10-08) : la photo se soulève légèrement, quelle que soit la carte qui la contient. */
-.carte-membre-equipe:hover .photo-membre-equipe,
-.carte-equipe-admin:hover .photo-membre-equipe {
+/* Survol unique, toutes fiches confondues depuis que l'équipe administrative et les professeurs
+   partagent `.carte-membre-equipe` (2026-10-08) : la photo se soulève légèrement. */
+.carte-membre-equipe:hover .photo-membre-equipe {
   transform: translateY(-3px);
   box-shadow: 0 0 0 2px rgba(109, 59, 209, 0.22), 0 16px 30px rgba(38, 20, 90, 0.2);
 }

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+﻿import { useState, type ReactNode } from 'react'
 import type { Database, TypeProgrammeProspect } from '../../types/database.types'
 import type { AccentPalette } from '../../lib/accent'
 
@@ -576,10 +576,14 @@ function LignesTarif({ lignes }: { lignes: Tarif[] }) {
    sur une seule rangée, la fondatrice comprise. L'ordre de lecture, de gauche à droite, porte
    seul la hiérarchie.
 
-   Depuis le 2026-10-08, les photos des quatre cartes admin reprennent exactement la structure
-   des cartes professeurs en dessous : même cadre rond, même animation de survol, même dimension
-   (voir `.photo-membre-equipe` dans index.css, agrandi pour l'occasion) — la fondatrice perd son
-   cadre rectangulaire propre, plus aucune carte n'a de traitement à part. */
+   Depuis le 2026-10-08 (deuxième passe, demande client : « il faut que l'affichage des quatre
+   premières personnes soit exactement le même que les autres professeurs »), les deux groupes
+   partagent le MÊME composant de carte, `CarteMembreEquipe` : même portrait rond, même nom, même
+   ligne de rôle, même présentation, même grille, même survol. Les grandes cartes blanches de
+   l'équipe administrative — fond, étiquette de fonction en pastille violette, bouton LinkedIn
+   plein — ont donc disparu. Seul reste propre à l'équipe administrative le lien LinkedIn, que la
+   demande 11 du document client impose sur ces fiches et qui n'existe pas pour les professeurs :
+   il est rendu en lien discret, sans pastille, pour ne pas rompre l'uniformité. */
 export function VueProfesseurs({
   dossierAssets,
   onReserver,
@@ -589,47 +593,29 @@ export function VueProfesseurs({
   onReserver: () => void
 }) {
   const professeurs = EQUIPE_PEDAGOGIQUE.filter((m) => m.niveau === 4)
-  /* Une seule rangée, dans l'ordre des niveaux : la liste source garde `niveau` parce qu'il
-     distingue toujours l'équipe administrative (1 à 3, grandes cartes) des professeurs (4), et
-     qu'il fixe l'ordre voulu par le client. Il ne crée simplement plus d'étages à l'écran. */
+  /* La liste source garde `niveau` parce qu'il sépare toujours l'équipe administrative (1 à 3) des
+     professeurs (4) en deux blocs, et qu'il fixe l'ordre voulu par le client à l'intérieur du
+     premier. Il ne change plus rien à l'apparence des cartes. */
   const equipeAdmin = EQUIPE_PEDAGOGIQUE.filter((m) => m.niveau <= 3).sort((a, b) => a.niveau - b.niveau)
 
   return (
     <CadreVue
-      surtitre="Professeurs"
+      /* Pas de surtitre ici (demande client du 2026-10-08, croix rouge sur la capture) : le mot
+         « PROFESSEURS » au-dessus de « Notre équipe » répétait l'entrée de menu déjà surlignée
+         juste au-dessus. `CadreVue` l'omet proprement quand il n'est pas fourni. */
       titre="Notre équipe"
       sousTitre="Des professeurs choisis pour leur pédagogie autant que pour leur passion des langues."
     >
-      <div className="hierarchie-equipe">
-        <div className="rangee-equipe-admin">
-          {equipeAdmin.map((membre) => (
-            <article key={membre.id ?? membre.nom} className="carte-equipe-admin">
-              <PortraitMembre membre={membre} dossierAssets={dossierAssets} />
-              {membre.nom && <span className="nom-equipe-admin">{membre.nom}</span>}
-              <span className="etiquette-fonction">{membre.role}</span>
-              <p className="presentation-equipe-admin">{membre.slogan}</p>
-              {membre.linkedin && (
-                <a href={membre.linkedin} target="_blank" rel="noreferrer" className="lien-linkedin">
-                  LinkedIn
-                </a>
-              )}
-            </article>
-          ))}
-        </div>
+      <div className="grille-equipe-pedagogique">
+        {equipeAdmin.map((membre) => (
+          <CarteMembreEquipe key={membre.id ?? membre.nom} membre={membre} dossierAssets={dossierAssets} />
+        ))}
       </div>
 
       <h3 className="titre-bloc-formateurs">Nos professeurs et professeures</h3>
       <div className="grille-equipe-pedagogique">
         {professeurs.map((membre) => (
-          <article key={membre.id ?? membre.nom} className="carte-membre-equipe">
-            <PortraitMembre membre={membre} dossierAssets={dossierAssets} />
-            {/* Toutes les personnes de l'équipe sont nommées depuis le 2026-10-08. `nom` reste
-                optionnel dans le type pour pouvoir ajouter quelqu'un sans nom en attendant sa
-                photo ou son identité définitive, sans casser l'affichage (le rôle suffit alors). */}
-            {membre.nom && <span className="nom-professeur">{membre.nom}</span>}
-            <h3 className="role-professeur">{membre.role}</h3>
-            <p className="slogan-membre-equipe">{membre.slogan}</p>
-          </article>
+          <CarteMembreEquipe key={membre.id ?? membre.nom} membre={membre} dossierAssets={dossierAssets} />
         ))}
       </div>
 
@@ -639,6 +625,33 @@ export function VueProfesseurs({
         </button>
       </div>
     </CadreVue>
+  )
+}
+
+/* Carte unique de l'équipe, administration et professeurs confondus (demande client du
+   2026-10-08). */
+function CarteMembreEquipe({
+  membre,
+  dossierAssets,
+}: {
+  membre: (typeof EQUIPE_PEDAGOGIQUE)[number]
+  dossierAssets: string
+}) {
+  return (
+    <article className="carte-membre-equipe">
+      <PortraitMembre membre={membre} dossierAssets={dossierAssets} />
+      {/* Toutes les personnes de l'équipe sont nommées depuis le 2026-10-08. `nom` reste
+          optionnel dans le type pour pouvoir ajouter quelqu'un sans nom en attendant sa photo ou
+          son identité définitive, sans casser l'affichage (le rôle suffit alors). */}
+      {membre.nom && <span className="nom-professeur">{membre.nom}</span>}
+      <h3 className="role-professeur">{membre.role}</h3>
+      <p className="slogan-membre-equipe">{membre.slogan}</p>
+      {membre.linkedin && (
+        <a href={membre.linkedin} target="_blank" rel="noreferrer" className="lien-linkedin">
+          LinkedIn
+        </a>
+      )}
+    </article>
   )
 }
 
@@ -702,9 +715,10 @@ function PortraitMembre({
    personne pour l'instant : les liens font partie de ce que HOC doit encore fournir — le bouton
    n'apparaît que sur les fiches qui en ont un.
 
-   `role` du niveau 4 réduit à la matière enseignée (« Anglais ») depuis le 2026-10-08, à la
-   demande du client : le mot « Professeur » disparaît de la fiche individuelle, devenu redondant
-   une fois la page intitulée « Professeurs » et le bloc « Nos professeurs et professeures ». */
+   Le `role` du niveau 4 avait été réduit à « Anglais » le 2026-10-08, sur une lecture erronée de
+   la demande « supprimer le mot Professeur » : la capture annotée reçue ensuite montre que la
+   croix portait sur le surtitre « PROFESSEURS » de la vue, pas sur les fiches. Le rôle complet est
+   donc rétabli. */
 const EQUIPE_PEDAGOGIQUE: {
   id?: number
   nom?: string
@@ -746,7 +760,7 @@ const EQUIPE_PEDAGOGIQUE: {
   {
     id: 9,
     nom: 'Pamella',
-    role: 'Anglais',
+    role: 'Professeure d’anglais',
     niveau: 4,
     // Texte fourni par le client le 2026-10-08, en remplacement du slogan rédigé par défaut.
     slogan:
@@ -755,28 +769,28 @@ const EQUIPE_PEDAGOGIQUE: {
   {
     id: 14,
     nom: 'Patricia',
-    role: 'Anglais',
+    role: 'Professeure d’anglais',
     niveau: 4,
     slogan: 'Minutieuse et à l’écoute, elle construit avec chaque élève un parcours taillé pour son objectif réel.',
   },
   {
     id: 18,
     nom: 'Miangaly',
-    role: 'Anglais',
+    role: 'Professeure d’anglais',
     niveau: 4,
     slogan: 'Souriante et rigoureuse, elle installe tout de suite un climat de confiance qui donne envie de prendre la parole.',
   },
   {
     id: 19,
     nom: 'Raissa',
-    role: 'Anglais',
+    role: 'Professeure d’anglais',
     niveau: 4,
     slogan: 'À l’écoute et méthodique, elle avance pas à pas avec chaque élève pour consolider durablement ses acquis.',
   },
   {
     id: 20,
     nom: 'Rado',
-    role: 'Anglais',
+    role: 'Professeur d’anglais',
     niveau: 4,
     slogan: 'Dynamique et bienveillant, il pousse chaque élève à oser parler, erreurs comprises, pour progresser plus vite.',
   },
@@ -784,7 +798,7 @@ const EQUIPE_PEDAGOGIQUE: {
     // Remplace Aina le 2026-10-08, à la demande du client, photo fournie dans la foulée.
     id: 21,
     nom: 'Ashley',
-    role: 'Anglais',
+    role: 'Professeure d’anglais',
     niveau: 4,
     slogan: 'Appliquée et chaleureuse, elle prend le temps de comprendre l’objectif de chaque élève avant de tracer son parcours.',
   },
@@ -801,8 +815,10 @@ function CadreVue({
   sousTitre,
   children,
 }: {
-  /* Petit libellé violet au-dessus du titre : l'intitulé de l'onglet de navigation, rien de plus. */
-  surtitre: string
+  /* Petit libellé violet au-dessus du titre : l'intitulé de l'onglet de navigation, rien de plus.
+     Facultatif depuis le 2026-10-08 : sur la vue Professeurs, le client l'a barré sur une capture
+     — il répétait mot pour mot l'entrée de menu déjà surlignée juste au-dessus. */
+  surtitre?: string
   titre: string
   sousTitre: string
   children: ReactNode
@@ -810,7 +826,7 @@ function CadreVue({
   return (
     <section className="vue-secondaire vue-claire">
       <header className="entete-vue">
-        <span className="surtitre-vue">{surtitre}</span>
+        {surtitre && <span className="surtitre-vue">{surtitre}</span>}
         <h2 className="titre-vue">{titre}</h2>
         <span className="trait-vue" aria-hidden="true" />
         <p className="soustitre-vue">{sousTitre}</p>
