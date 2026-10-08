@@ -191,6 +191,37 @@ function initialesDe(nom: string) {
     .join('')
 }
 
+/* Texte de présentation de la fondatrice (demande 10 du 2026-10-08), fourni mot pour mot par
+   Harinjo. Les lignes isolées sont ses respirations à elle (« J'ai fait le pari inverse. »,
+   « Elle se vit. ») : elles comptent autant que les paragraphes et s'affichent en relief, pas
+   noyées dans le bloc précédent. `fort: true` = ligne mise en avant. */
+const PRESENTATION_HOC: { texte: string; fort?: boolean }[] = [
+  { texte: 'Je n’ai pas fondé HOC pour répondre à une demande. Je l’ai fondé pour en créer une.', fort: true },
+  {
+    texte:
+      'Il y a encore dix ans, à Madagascar, apprendre signifiait une chose : une salle de classe, un tableau blanc, un professeur face à des rangées d’élèves. Les cours en ligne ? Peu y croyaient. Trop distants, trop impersonnels, pas « sérieux ».',
+  },
+  { texte: 'J’ai fait le pari inverse.', fort: true },
+  {
+    texte:
+      'Forte de mes années passées à concevoir et piloter des formations à distance, j’ai voulu prouver qu’apprendre l’anglais en ligne pouvait être aussi humain, aussi exigeant et bien plus vivant qu’en salle. Pour les Malgaches d’ici, et pour notre diaspora, partout dans le monde.',
+  },
+  { texte: 'Ainsi est né Hari Online Club.', fort: true },
+  { texte: 'Chez HOC, l’anglais se commande à la carte.', fort: true },
+  {
+    texte:
+      'Imaginez un restaurant où vous ne subissez pas un menu imposé : vous choisissez ce dont vous avez envie, à votre rythme, selon vos goûts et vos objectifs. Décrocher votre certification (IELTS, TOEIC, TOEFL), préparer un entretien, voyager sereinement, prendre la parole en réunion, aider vos enfants, ou simplement oser parler : votre parcours est construit pour vous, et seulement pour vous.',
+  },
+  { texte: 'Notre vision est simple : vous faire aimer l’anglais.', fort: true },
+  {
+    texte:
+      'Pas le subir. Pas le réviser par obligation. L’aimer. Grâce à une approche accessible, interactive et centrée sur la conversation, pensée pour tous les âges et tous les parcours.',
+  },
+  { texte: 'Parce qu’une langue ne s’apprend pas sur un tableau blanc.', fort: true },
+  { texte: 'Elle se vit.', fort: true },
+  { texte: 'HOC, l’anglais sur mesure, où que vous soyez.', fort: true },
+]
+
 export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
   const [etendu, setEtendu] = useState(false)
   const visibles = etendu ? TEMOIGNAGES : TEMOIGNAGES.slice(0, LIMITE_TEMOIGNAGES_VISIBLES)
@@ -199,10 +230,27 @@ export function VueAvis({ dossierAssets }: { dossierAssets: string }) {
   return (
     <CadreVue
       surtitre="À propos"
-      titre="Ce qu’en disent nos élèves"
-      sousTitre="Des retours authentiques, recueillis depuis 2024 auprès de nos élèves."
+      titre="L’histoire de Hari Online Club"
+      sousTitre="Par Harinjo, fondatrice."
       theme="violet"
     >
+      {/* Bloc de présentation (demande 10), puis les témoignages (demande 13) : les deux vivent
+          sur la même page « À propos », dans cet ordre, comme demandé. */}
+      <section className="bloc-presentation-hoc">
+        <div className="texte-presentation-hoc">
+          {PRESENTATION_HOC.map((ligne) => (
+            <p key={ligne.texte} className={ligne.fort ? 'ligne-presentation ligne-presentation--forte' : 'ligne-presentation'}>
+              {ligne.texte}
+            </p>
+          ))}
+        </div>
+        {/* La photo d'équipe HOC reste à fournir par le client (liste « Ce que HOC doit fournir »
+            du document du 2026-10-08) : l'emplacement est prêt et réservé, rien ne s'affiche tant
+            que le fichier n'est pas déposé — mieux qu'une image cassée ou un visuel d'emprunt. */}
+      </section>
+
+      <h3 className="titre-bloc-temoignages">Témoignages de nos stagiaires</h3>
+
       <div className="grille-vue">
         {visibles.map((temoignage) => (
           <article key={temoignage.id} className="carte-hoc carte-avis">
@@ -268,36 +316,38 @@ const PROGRAMMES: { type: TypeProgrammeProspect; tag: string; titre: string; tex
   },
 ]
 
-const PROGRAMME_LABEL: Record<TypeProgrammeProspect, string> = {
-  individuel: 'Individuel',
-  duo: 'Duo',
-  collectif: 'Collectif',
-}
-
 /* Description marketing + déroulé réel, formule par formule — demande client du 2026-10-06 :
    « une description marketing du cours et une explication du process [...] par rapport aux
    différents process définis dans HOC ». Chaque étape reprend un mécanisme qui existe vraiment
    dans l'application (appel diagnostic, forfait/rythme, professeur attitré, compte rendu et
    enquête de satisfaction après chaque séance pour l'individuel/duo ; quiz écrit puis test oral,
    conversion automatique et rattachement à une classe de niveau pour le collectif) — jamais une
-   promesse que l'outil ne tient pas. */
-const DETAIL_PROGRAMMES: Record<TypeProgrammeProspect, { accroche: string; description: string; etapes: string[] }> = {
+   promesse que l'outil ne tient pas.
+
+   Textes réécrits par la fondatrice le 2026-10-08 (demandes 7, 8 et 9 du document de retours) :
+   paragraphe d'introduction de l'individuel et du duo remplacé, paragraphe supplémentaire ajouté
+   au collectif (`descriptionComplement`), et étape 5 revue pour l'individuel et le collectif —
+   l'enquête de satisfaction a lieu une seule fois, à la fin du parcours, et non à chaque séance. */
+const DETAIL_PROGRAMMES: Record<
+  TypeProgrammeProspect,
+  { accroche: string; description: string; descriptionComplement?: string; etapes: string[] }
+> = {
   individuel: {
     accroche: 'Un accompagnement sur-mesure, de la première minute à votre objectif',
     description:
-      'Le cours individuel va droit au but : vous seul·e face à votre professeur, sur le rythme et les sujets qui comptent vraiment pour vous — préparation d’un entretien, anglais des affaires, remise à niveau avant un départ à l’étranger, ou simplement le plaisir de progresser sans contrainte de groupe. Chaque séance s’ajuste à ce qui s’est passé à la précédente : votre professeur suit votre progression de près et adapte le contenu en conséquence.',
+      'Le cours individuel, c’est vous et votre formateur ou formatrice dédié·e, sur le rythme et les sujets qui comptent vraiment pour vous. Nous construisons votre parcours selon vos attentes et vos objectifs : préparer un entretien, développer votre anglais professionnel, préparer un projet de voyage ou d’immigration, réussir une certification (TOEIC, TOEFL, IELTS…) ou renforcer l’anglais de vos enfants. Chaque séance s’ajuste à la précédente : votre formateur ou formatrice suit votre progression et adapte le contenu en conséquence.',
     etapes: [
       'Réservez un appel diagnostic gratuit et sans engagement : nous évaluons votre niveau réel et clarifions votre objectif.',
       'Choisissez votre forfait d’heures et votre rythme hebdomadaire — vous gardez la main sur votre planning.',
       'Un professeur vous est attribué et devient votre interlocuteur unique pour toute la durée du forfait.',
       'Chaque séance se déroule en visioconférence, avec un compte rendu rédigé par votre professeur juste après.',
-      'Votre progression est suivie séance après séance, avec une enquête de satisfaction à chaque fin de cours.',
+      'Votre progression est suivie séance après séance. À la fin de votre parcours, nous vous demandons de répondre à une enquête de satisfaction.',
     ],
   },
   duo: {
     accroche: 'Progressez à deux, sur un seul et même créneau',
     description:
-      'Le cours en duo reprend exactement le fonctionnement du cours individuel — même professeur attitré, même suivi personnalisé — mais partagé entre deux personnes qui avancent ensemble : conjoints, amis, collègues ou membres d’une même famille. L’émulation du binôme garde la motivation intacte, sans jamais sacrifier l’attention portée à chacun : votre professeur veille à ce que les deux objectifs, même différents, soient servis à chaque séance.',
+      'Le cours en duo, c’est un professeur attitré et un suivi personnalisé, partagés entre deux personnes qui avancent ensemble : conjoints, amis, collègues ou membres d’une même famille. L’émulation du binôme entretient la motivation, sans jamais sacrifier l’attention portée à chacun : votre professeur veille à ce que les deux objectifs, même différents, soient servis à chaque séance. Les deux membres du duo doivent avoir le même niveau, ou des niveaux proches : nous les évaluons lors de l’appel diagnostic.',
     etapes: [
       'Réservez un appel diagnostic à deux : nous évaluons le niveau et l’objectif de chacun des deux membres du duo.',
       'Choisissez ensemble votre forfait d’heures et votre rythme hebdomadaire.',
@@ -310,29 +360,35 @@ const DETAIL_PROGRAMMES: Record<TypeProgrammeProspect, { accroche: string; descr
     accroche: 'Apprendre ensemble, au bon niveau, sur un planning établi',
     description:
       'Le cours collectif réunit un petit groupe d’élèves de niveau comparable au sein d’une même vague, sur un planning fixé à l’avance par l’établissement. C’est la formule la plus accessible pour qui aime apprendre au contact des autres, dans une dynamique de groupe qui pousse à parler, se corriger et progresser ensemble — sans jamais perdre en exigence pédagogique.',
+    descriptionComplement:
+      'Un cycle de cours collectifs dure 2 mois, à raison de 32 séances d’une heure. Nos cours collectifs n’ont rien d’élémentaire : nous avons développé une méthode interactive et communicative. Ici, pas de textes à trous pendant la séance. Les exercices se font en dehors du cours et sont remis à l’équipe pédagogique, pour que la séance en ligne reste un espace d’échange où chacun participe à des activités interactives.',
     etapes: [
       'Réservez une session de test oral rattachée à la prochaine vague qui vous intéresse.',
       'Répondez d’abord à un court questionnaire écrit de positionnement, qui situe un premier niveau indicatif.',
       'Passez le test oral en visioconférence : c’est lui qui confirme votre niveau définitif avec l’équipe pédagogique.',
       'Votre niveau validé, vous êtes automatiquement rattaché·e à la classe correspondante au sein de la vague.',
-      'Les cours démarrent sur le planning de la vague, avec le même suivi — comptes rendus et enquêtes de satisfaction — que les autres formules.',
+      'Les cours démarrent sur le planning de la vague. À la fin de chaque niveau, un test valide votre passage au niveau suivant. Un certificat vous est remis à la fin du niveau Advanced.',
     ],
   },
 }
 
 export function VueProgrammes({
   onReserver,
+  tarifs,
+  prochaineVague,
 }: {
   accent: AccentPalette
   onReserver: (type: TypeProgrammeProspect) => void
+  tarifs: Tarif[]
+  prochaineVague: string | null
 }) {
   const [detailOuvert, setDetailOuvert] = useState<TypeProgrammeProspect | null>(null)
 
   return (
     <CadreVue
-      surtitre="Cours"
+      surtitre="Cours & tarifs"
       titre="Trois façons d’apprendre, un seul cap : votre objectif."
-      sousTitre="Choisissez la formule qui correspond à votre rythme et à votre budget."
+      sousTitre="Choisissez la formule qui correspond à votre rythme et à votre budget — prix compris."
       theme="violet"
     >
       <div className="grille-vue grille-cours">
@@ -343,11 +399,21 @@ export function VueProgrammes({
             <div className={`carte-cours-visuel carte-cours-visuel--${programme.type}`}>
               <img src={PHOTOS_FORMULE[programme.type].src} alt={PHOTOS_FORMULE[programme.type].alt} loading="lazy" />
               <span className="etiquette-programme">{programme.tag}</span>
+              {/* Date de démarrage de la prochaine vague, à côté de l'étiquette « COLLECTIF »
+                  (demande 6 du 2026-10-08). Renseignée depuis Paramètres (admin) : tant qu'elle
+                  est vide, rien ne s'affiche plutôt qu'une date fausse ou un « à venir » creux. */}
+              {programme.type === 'collectif' && prochaineVague && (
+                <span className="etiquette-prochaine-vague">Prochaine vague : {prochaineVague}</span>
+              )}
             </div>
             <div className="carte-cours-corps">
               <h3 className="titre-carte-hoc">{programme.titre}</h3>
               <p className="texte-carte-hoc">{programme.texte}</p>
               {programme.detail && <p className="detail-carte-hoc">{programme.detail}</p>}
+              {/* Prix juste sous la description, dans la même carte (demande 4 du 2026-10-08 :
+                  « le visiteur a l'information et le prix au même endroit ») — la page Tarifs
+                  distincte a disparu au profit de cette page unique « Cours & tarifs ». */}
+              <LignesTarif lignes={tarifs.filter((t) => t.type_programme === programme.type)} />
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 'auto' }}>
                 <button type="button" onClick={() => onReserver(programme.type)} className="btn-shine bouton-or" style={{ marginTop: 0 }}>
                   {programme.type === 'collectif' ? 'Réserver mon test →' : 'Réserver mon appel →'}
@@ -405,6 +471,9 @@ function ModaleDetailProgramme({
 
         <div className="corps-reservation" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <p style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--ink-2)', margin: 0 }}>{detail.description}</p>
+          {detail.descriptionComplement && (
+            <p style={{ fontSize: 13.5, lineHeight: 1.7, color: 'var(--ink-2)', margin: 0 }}>{detail.descriptionComplement}</p>
+          )}
 
           <div>
             <h3 style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.6, color: 'var(--muted)', margin: '0 0 10px' }}>
@@ -458,89 +527,47 @@ const PHOTOS_FORMULE: Record<TypeProgrammeProspect, { src: string; alt: string }
 
 const LIMITE_TARIFS_VISIBLES = 4
 
-export function VueTarifs({
-  tarifs,
-  onReserver,
-}: {
-  tarifs: Tarif[]
-  accent: AccentPalette
-  onReserver: (type: TypeProgrammeProspect) => void
-}) {
-  return (
-    <CadreVue
-      surtitre="Tarifs"
-      titre="Tarifs"
-      sousTitre="Des formules claires, sans frais cachés. Le premier appel est toujours gratuit."
-      theme="violet"
-    >
-      {tarifs.length === 0 ? (
-        <p className="texte-carte-hoc" style={{ textAlign: 'center' }}>
-          Les tarifs seront publiés très prochainement.
-        </p>
-      ) : (
-        <div className="grille-vue">
-          {(['individuel', 'duo', 'collectif'] as const).map((type) => {
-            const lignes = tarifs.filter((t) => t.type_programme === type)
-            if (lignes.length === 0) return null
-            return <BlocTarif key={type} type={type} lignes={lignes} onReserver={onReserver} />
-          })}
-        </div>
-      )}
-    </CadreVue>
-  )
-}
-
-function BlocTarif({
-  type,
-  lignes,
-  onReserver,
-}: {
-  type: TypeProgrammeProspect
-  lignes: Tarif[]
-  onReserver: (type: TypeProgrammeProspect) => void
-}) {
+/* Grille de prix d'une formule, affichée dans sa propre carte de la page « Cours & tarifs »
+   (demande 4 du 2026-10-08 : la page Tarifs séparée a été fusionnée ici). Les 4 premières lignes
+   sont visibles, le reste se déplie — un forfait individuel compte une dizaine de paliers, qui
+   écraseraient la carte s'ils s'affichaient tous d'emblée. */
+function LignesTarif({ lignes }: { lignes: Tarif[] }) {
   const [etendu, setEtendu] = useState(false)
+
+  if (lignes.length === 0) {
+    return <p className="detail-carte-hoc">Tarifs communiqués lors de l’appel diagnostic.</p>
+  }
+
   const visibles = etendu ? lignes : lignes.slice(0, LIMITE_TARIFS_VISIBLES)
   const masquees = lignes.length - visibles.length
 
   return (
-    <article className="carte-hoc carte-tarif">
-      <span className="etiquette-programme">{PROGRAMME_LABEL[type]}</span>
-      <h3 className="titre-carte-hoc">
-        {type === 'individuel' ? 'Cours particuliers' : type === 'duo' ? 'Cours en duo' : 'Cours en petit groupe'}
-      </h3>
-
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {visibles.map((ligne) => (
-          <div key={ligne.id} className="ligne-tarif">
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
-              <span className="ligne-tarif-titre">{ligne.titre}</span>
-              <span className="ligne-tarif-prix">
-                {ligne.prix.toLocaleString('fr-FR')} {ligne.unite}
-              </span>
-            </div>
-            {ligne.description && <span className="ligne-tarif-description">{ligne.description}</span>}
+    <div className="bloc-tarifs-carte">
+      {visibles.map((ligne) => (
+        <div key={ligne.id} className="ligne-tarif">
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+            <span className="ligne-tarif-titre">{ligne.titre}</span>
+            <span className="ligne-tarif-prix">
+              {ligne.prix.toLocaleString('fr-FR')} {ligne.unite}
+            </span>
           </div>
-        ))}
-      </div>
+          {ligne.description && <span className="ligne-tarif-description">{ligne.description}</span>}
+        </div>
+      ))}
 
       {lignes.length > LIMITE_TARIFS_VISIBLES && (
         <button type="button" onClick={() => setEtendu((v) => !v)} className="lien-deplier">
           {etendu ? 'Réduire ↑' : `Voir tous les tarifs (+${masquees}) ↓`}
         </button>
       )}
-
-      <button type="button" onClick={() => onReserver(type)} className="btn-shine bouton-or">
-        Réserver →
-      </button>
-    </article>
+    </div>
   )
 }
 
-/* Toute l'équipe sur une seule grille de portraits. Les deux cartes éditoriales « Notre
-   directrice »/« Notre équipe » qui occupaient cette vue ont été retirées le 2026-10-07 : elles se
-   chevauchaient avec la grille (elles réclamaient toute la hauteur disponible et l'écrasaient), et
-   le client a demandé de n'en garder que les portraits. */
+/* Équipe présentée en hiérarchie depuis le 2026-10-08 (demande 11 du document de retours, et
+   ordre précisé par le client) : Harinjo seule en tête, puis Manda et Anael, puis Koloina, puis
+   les formateurs. Les trois premiers niveaux sont l'équipe administrative, en grandes cartes ;
+   les formateurs gardent la grille compacte de portraits ronds. */
 export function VueProfesseurs({
   dossierAssets,
   onReserver,
@@ -549,6 +576,8 @@ export function VueProfesseurs({
   accent: AccentPalette
   onReserver: () => void
 }) {
+  const formateurs = EQUIPE_PEDAGOGIQUE.filter((m) => m.niveau === 4)
+
   return (
     <CadreVue
       surtitre="Professeurs"
@@ -556,25 +585,35 @@ export function VueProfesseurs({
       sousTitre="Des professeurs choisis pour leur pédagogie autant que pour leur passion des langues."
       theme="violet"
     >
-      <div className="grille-equipe-pedagogique">
-        {EQUIPE_PEDAGOGIQUE.map((membre) => (
-          <article key={membre.id ?? membre.nom} className="carte-membre-equipe">
-            <div className="photo-membre-equipe">
-              {membre.id ? (
-                <img
-                  src={`${dossierAssets}/equipe/equipe-${membre.id}.webp`}
-                  alt={membre.nom ? `${membre.nom}, ${membre.role}` : membre.role}
-                  loading="lazy"
-                />
-              ) : (
-                /* Pas encore de photo exploitable pour cette personne (cas d'Aina, 2026-10-08 :
-                   le fichier transmis par le client n'est pas un portrait) — avatar à initiales
-                   en attendant, plutôt qu'une photo manquante cassée. */
-                <span className="initiales-membre-equipe" aria-hidden="true">
-                  {initialesDe(membre.nom ?? membre.role)}
-                </span>
-              )}
+      <div className="hierarchie-equipe">
+        {([1, 2, 3] as const).map((niveau) => {
+          const membres = EQUIPE_PEDAGOGIQUE.filter((m) => m.niveau === niveau)
+          if (membres.length === 0) return null
+          return (
+            <div key={niveau} className="rangee-equipe-admin">
+              {membres.map((membre) => (
+                <article key={membre.id ?? membre.nom} className="carte-equipe-admin">
+                  <PortraitMembre membre={membre} dossierAssets={dossierAssets} />
+                  {membre.nom && <span className="nom-equipe-admin">{membre.nom}</span>}
+                  <span className="etiquette-fonction">{membre.role}</span>
+                  <p className="presentation-equipe-admin">{membre.slogan}</p>
+                  {membre.linkedin && (
+                    <a href={membre.linkedin} target="_blank" rel="noreferrer" className="lien-linkedin">
+                      LinkedIn
+                    </a>
+                  )}
+                </article>
+              ))}
             </div>
+          )
+        })}
+      </div>
+
+      <h3 className="titre-bloc-formateurs">Nos formateurs et formatrices</h3>
+      <div className="grille-equipe-pedagogique">
+        {formateurs.map((membre) => (
+          <article key={membre.id ?? membre.nom} className="carte-membre-equipe">
+            <PortraitMembre membre={membre} dossierAssets={dossierAssets} />
             {/* Toutes les personnes de l'équipe sont nommées depuis le 2026-10-08. `nom` reste
                 optionnel dans le type pour pouvoir ajouter quelqu'un sans nom en attendant sa
                 photo ou son identité définitive, sans casser l'affichage (le rôle suffit alors). */}
@@ -591,6 +630,33 @@ export function VueProfesseurs({
         </button>
       </div>
     </CadreVue>
+  )
+}
+
+function PortraitMembre({
+  membre,
+  dossierAssets,
+}: {
+  membre: (typeof EQUIPE_PEDAGOGIQUE)[number]
+  dossierAssets: string
+}) {
+  return (
+    <div className="photo-membre-equipe">
+      {membre.id ? (
+        <img
+          src={`${dossierAssets}/equipe/equipe-${membre.id}.webp`}
+          alt={membre.nom ? `${membre.nom}, ${membre.role}` : membre.role}
+          loading="lazy"
+        />
+      ) : (
+        /* Pas encore de photo exploitable pour cette personne (cas d'Aina, 2026-10-08 : le
+           fichier transmis par le client n'est pas un portrait) — avatar à initiales en
+           attendant, plutôt qu'une photo manquante cassée. */
+        <span className="initiales-membre-equipe" aria-hidden="true">
+          {initialesDe(membre.nom ?? membre.role)}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -614,65 +680,89 @@ export function VueProfesseurs({
      les rôles déjà précisés) ; rôle genré selon la personne sur la photo. Le fichier transmis pour
      Aina n'est pas un portrait (icône de coffre-fort) : `id` reste absent pour elle (demande
      client du 2026-10-08 : l'afficher quand même, avec un avatar à initiales en attendant la
-     vraie photo — voir le rendu conditionnel dans `VueProfesseurs`). */
-const EQUIPE_PEDAGOGIQUE: { id?: number; nom?: string; role: string; slogan: string }[] = [
+     vraie photo — voir le rendu conditionnel dans `VueProfesseurs`).
+
+   `niveau` (demande 11 du document de retours + hiérarchie précisée par le client le 2026-10-08) :
+   1 Harinjo, 2 Manda et Anael, 3 Koloina, 4 les formateurs. Les niveaux 1 à 3 forment l'équipe
+   administrative, présentée en grandes cartes (photo, nom, fonction en étiquette, présentation,
+   LinkedIn) ; le niveau 4 reste une grille compacte de portraits. `linkedin` n'est renseigné pour
+   personne pour l'instant : les liens font partie de ce que HOC doit encore fournir — le bouton
+   n'apparaît que sur les fiches qui en ont un. */
+const EQUIPE_PEDAGOGIQUE: {
+  id?: number
+  nom?: string
+  role: string
+  slogan: string
+  niveau: 1 | 2 | 3 | 4
+  linkedin?: string
+}[] = [
   {
     id: 16,
     nom: 'Harinjo',
     role: 'Fondatrice',
+    niveau: 1,
     slogan: 'Elle a fondé Hari Online Club avec une conviction simple : aucune application ne remplace le regard d’un professeur qui croit en vous.',
   },
   {
     id: 15,
     nom: 'Manda',
     role: 'Ingénieur pédagogue',
+    niveau: 2,
     slogan: 'Elle conçoit les parcours et les outils qui structurent chaque cours, pour que la pédagogie HOC reste cohérente du premier au dernier élève.',
   },
   {
     id: 11,
     nom: 'Anael',
     role: 'Assistante admin',
+    niveau: 2,
     slogan: 'Souvent le premier contact de chaque élève, elle veille à ce que chaque dossier avance sans accroc, du premier message à la première séance.',
   },
   {
     id: 12,
     nom: 'Koloina',
     role: 'Community Manager',
+    niveau: 3,
     slogan: 'Elle anime la communauté HOC au quotidien et veille à ce que chaque élève se sente attendu, suivi et entendu.',
   },
   {
     id: 9,
     nom: 'Pamella',
     role: 'Professeure d’anglais',
+    niveau: 4,
     slogan: 'Patiente et exigeante à la fois, elle pousse chaque élève un peu plus loin sans jamais le brusquer.',
   },
   {
     id: 14,
     nom: 'Patricia',
     role: 'Professeure d’anglais',
+    niveau: 4,
     slogan: 'Minutieuse et à l’écoute, elle construit avec chaque élève un parcours taillé pour son objectif réel.',
   },
   {
     id: 18,
     nom: 'Miangaly',
     role: 'Professeure d’anglais',
+    niveau: 4,
     slogan: 'Souriante et rigoureuse, elle installe tout de suite un climat de confiance qui donne envie de prendre la parole.',
   },
   {
     id: 19,
     nom: 'Raissa',
     role: 'Professeure d’anglais',
+    niveau: 4,
     slogan: 'À l’écoute et méthodique, elle avance pas à pas avec chaque élève pour consolider durablement ses acquis.',
   },
   {
     id: 20,
     nom: 'Rado',
     role: 'Professeur d’anglais',
+    niveau: 4,
     slogan: 'Dynamique et bienveillant, il pousse chaque élève à oser parler, erreurs comprises, pour progresser plus vite.',
   },
   {
     nom: 'Aina',
     role: 'Professeure d’anglais',
+    niveau: 4,
     slogan: 'Appliquée et chaleureuse, elle prend le temps de comprendre l’objectif de chaque élève avant de tracer son parcours.',
   },
 ]

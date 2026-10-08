@@ -6,7 +6,7 @@ import { deriveAccent } from '../../lib/accent'
 import { SLUG_ETABLISSEMENT_PRINCIPAL } from '../../lib/etablissement'
 import { useTarifs } from '../../hooks/useTarifs'
 import { HeroPublic } from './HeroPublic'
-import { VueAvis, VueProfesseurs, VueProgrammes, VueTarifs } from './VuesPubliques'
+import { VueAvis, VueProfesseurs, VueProgrammes } from './VuesPubliques'
 import { ModaleReservation } from '../prospects/ModaleReservation'
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
@@ -17,17 +17,20 @@ type Etablissement = Database['public']['Tables']['etablissements']['Row']
    contrasté sur fond blanc, serait illisible ici. */
 const VIOLET_MARQUE = '#6d3bd1'
 
-type Vue = 'accueil' | 'programmes' | 'tarifs' | 'professeurs' | 'avis'
+type Vue = 'accueil' | 'programmes' | 'professeurs' | 'avis'
 
 /* Mêmes intitulés, dans le même ordre, que la barre de navigation dessinée dans la maquette du
    hero (voir HeroPublic.tsx) : en passant de l'accueil à une vue secondaire, on doit retrouver
-   le menu qu'on vient de quitter, et non un autre vocabulaire. « À propos » pointe sur les avis,
-   faute de page dédiée. */
+   le menu qu'on vient de quitter, et non un autre vocabulaire.
+
+   Depuis le 2026-10-08 (demande 4 du document de retours), « Cours » et « Tarifs » ne font plus
+   qu'une seule entrée : chaque formule affiche son prix dans sa propre carte, pour que le
+   visiteur ait la description et le prix au même endroit. L'ancienne adresse `?vue=tarifs`
+   continue de fonctionner et bascule sur cette page fusionnée (voir plus bas). */
 const ENTREES: { vue: Vue; libelle: string }[] = [
   { vue: 'accueil', libelle: 'Accueil' },
-  { vue: 'programmes', libelle: 'Cours' },
+  { vue: 'programmes', libelle: 'Cours & tarifs' },
   { vue: 'professeurs', libelle: 'Professeurs' },
-  { vue: 'tarifs', libelle: 'Tarifs' },
   { vue: 'avis', libelle: 'À propos' },
 ]
 
@@ -44,6 +47,24 @@ export function LandingEtablissement() {
   const [reservation, setReservation] = useState<TypeProgrammeProspect | null>(null)
   const { tarifs } = useTarifs(etablissement?.id)
   const [parametresUrl, setParametresUrl] = useSearchParams()
+  const [dateVague, setDateVague] = useState<string | null>(null)
+
+  /* Date de démarrage de la prochaine vague de cours collectifs, affichée sur la carte Collectif
+     (demande 6 du 2026-10-08). Elle est lue directement dans les vagues que l'administration gère
+     déjà (« Cours collectifs »), via une fonction `security definer` qui ne renvoie que cette
+     date : pas de seconde date à ressaisir ailleurs, et la table des vagues reste fermée au
+     public. Une erreur ici n'est pas remontée à l'écran — c'est une information d'appoint, la
+     page doit s'afficher sans elle. */
+  useEffect(() => {
+    if (!slug) return
+    let annule = false
+    supabase.rpc('prochaine_vague_publique', { p_slug: slug }).then(({ data }) => {
+      if (!annule) setDateVague((data as string | null) ?? null)
+    })
+    return () => {
+      annule = true
+    }
+  }, [slug])
 
   useEffect(() => {
     if (!slug) return
@@ -92,8 +113,12 @@ export function LandingEtablissement() {
   useEffect(() => {
     const demandee = parametresUrl.get('vue')
     if (!demandee) return
-    const connues: Vue[] = ['accueil', 'programmes', 'tarifs', 'professeurs', 'avis']
-    if (connues.includes(demandee as Vue)) setVue(demandee as Vue)
+    /* `tarifs` n'est plus une vue depuis la fusion du 2026-10-08, mais reste accepté : les liens
+       déjà partagés vers l'ancienne page Tarifs doivent arriver sur la page fusionnée plutôt que
+       sur l'accueil (demande 4, « l'ancienne adresse renvoie automatiquement vers la nouvelle »). */
+    const cible = demandee === 'tarifs' ? 'programmes' : demandee
+    const connues: Vue[] = ['accueil', 'programmes', 'professeurs', 'avis']
+    if (connues.includes(cible as Vue)) setVue(cible as Vue)
     parametresUrl.delete('vue')
     setParametresUrl(parametresUrl, { replace: true })
   }, [parametresUrl, setParametresUrl])
@@ -119,6 +144,16 @@ export function LandingEtablissement() {
 
   const accent = deriveAccent(VIOLET_MARQUE)
   const dossierAssets = `/etablissements/${etablissement.slug}`
+
+  /* Mise en forme en toutes lettres de la date renvoyée par la base (« 2026-01-12 » →
+     « 12 janvier 2026 »). Le découpage manuel évite `new Date('2026-01-12')`, interprété en UTC,
+     qui reculait la date d'un jour pour un visiteur à l'ouest de Greenwich. */
+  const prochaineVague = dateVague
+    ? (() => {
+        const [annee, mois, jour] = dateVague.split('-').map(Number)
+        return new Date(annee, mois - 1, jour).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+      })()
+    : null
 
   function ouvrirReservation(type: TypeProgrammeProspect = 'individuel') {
     setReservation(type)
@@ -186,8 +221,14 @@ export function LandingEtablissement() {
             onNaviguer={(cible) => setVue(cible)}
           />
         )}
-        {vue === 'programmes' && <VueProgrammes accent={accent} onReserver={ouvrirReservation} />}
-        {vue === 'tarifs' && <VueTarifs tarifs={tarifs} accent={accent} onReserver={ouvrirReservation} />}
+        {vue === 'programmes' && (
+          <VueProgrammes
+            accent={accent}
+            onReserver={ouvrirReservation}
+            tarifs={tarifs}
+            prochaineVague={prochaineVague}
+          />
+        )}
         {vue === 'professeurs' && (
           <VueProfesseurs
             dossierAssets={dossierAssets}

@@ -34,7 +34,7 @@ function PortesDEntree({ principal = false }: { principal?: boolean }) {
         className={principal ? 'btn-shine' : undefined}
         style={
           principal
-            ? { ...commun, background: 'var(--accent-blue-gradient)', color: '#fff' }
+            ? { ...commun, background: 'var(--cta-connexion)', color: 'var(--cta-connexion-texte)' }
             : { ...commun, border: '1px solid var(--border)', color: 'var(--ink)' }
         }
       >
@@ -159,7 +159,11 @@ export function Connexion() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, padding: 24 }}>
+    /* Couleurs HOC et non le bleu nuit des espaces connectés (demande 14 du 2026-10-08 : « quand
+       on clique sur Se connecter, on a l'impression de rester sur le même site »). La classe pose
+       le fond violet ET redéfinit localement les couleurs des boutons d'action : le reste de
+       l'application en thème sombre (admin, professeur, étudiant) garde ses variables globales. */
+    <div className="page-connexion-hoc" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, padding: 24 }}>
       <a href="/">
         <Logo />
       </a>
@@ -228,7 +232,7 @@ export function Connexion() {
               type="submit"
               disabled={envoi}
               className="btn-shine"
-              style={{ background: 'var(--accent-blue-gradient)', color: '#fff', padding: '14px', fontSize: 14.5, opacity: envoi ? 0.7 : 1 }}
+              style={{ background: 'var(--cta-connexion)', color: 'var(--cta-connexion-texte)', padding: '14px', fontSize: 14.5, opacity: envoi ? 0.7 : 1 }}
             >
               {envoi ? 'Vérification…' : 'Continuer'}
             </button>
@@ -271,7 +275,7 @@ export function Connexion() {
               onClick={envoyerLienReinitialisation}
               disabled={envoi}
               className="btn-shine"
-              style={{ background: 'var(--accent-blue-gradient)', color: '#fff', padding: '14px', fontSize: 14.5, opacity: envoi ? 0.7 : 1 }}
+              style={{ background: 'var(--cta-connexion)', color: 'var(--cta-connexion-texte)', padding: '14px', fontSize: 14.5, opacity: envoi ? 0.7 : 1 }}
             >
               {envoi ? 'Envoi…' : 'Réinitialiser mon mot de passe'}
             </button>
@@ -321,7 +325,7 @@ export function Connexion() {
               type="submit"
               disabled={envoi}
               className="btn-shine"
-              style={{ background: 'var(--accent-blue-gradient)', color: '#fff', padding: '14px', fontSize: 14.5, opacity: envoi ? 0.7 : 1 }}
+              style={{ background: 'var(--cta-connexion)', color: 'var(--cta-connexion-texte)', padding: '14px', fontSize: 14.5, opacity: envoi ? 0.7 : 1 }}
             >
               {envoi ? 'Connexion…' : 'Se connecter'}
             </button>

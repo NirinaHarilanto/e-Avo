@@ -77,7 +77,7 @@ export function ReinitialiserMotDePasse() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, padding: 24 }}>
+    <div className="page-connexion-hoc" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, padding: 24 }}>
       <a href="/">
         <Logo />
       </a>
@@ -114,7 +114,7 @@ export function ReinitialiserMotDePasse() {
               type="submit"
               disabled={envoi}
               className="btn-shine"
-              style={{ background: 'var(--accent-blue-gradient)', color: '#fff', padding: '14px', fontSize: 14.5, opacity: envoi ? 0.7 : 1 }}
+              style={{ background: 'var(--cta-connexion)', color: 'var(--cta-connexion-texte)', padding: '14px', fontSize: 14.5, opacity: envoi ? 0.7 : 1 }}
             >
               {envoi ? 'Enregistrement…' : 'Enregistrer et me connecter'}
             </button>
@@ -193,7 +193,7 @@ function LienMort() {
         type="submit"
         disabled={etat === 'envoi'}
         className="btn-shine"
-        style={{ background: 'var(--accent-blue-gradient)', color: '#fff', padding: '14px', fontSize: 14.5, opacity: etat === 'envoi' ? 0.7 : 1 }}
+        style={{ background: 'var(--cta-connexion)', color: 'var(--cta-connexion-texte)', padding: '14px', fontSize: 14.5, opacity: etat === 'envoi' ? 0.7 : 1 }}
       >
         {etat === 'envoi' ? 'Envoi…' : 'Recevoir un nouveau lien'}
       </button>

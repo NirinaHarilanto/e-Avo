@@ -15,7 +15,7 @@ import { Scene3DHero } from './Scene3DHero'
    commune à toutes les vues, qui s'affiche désormais aussi sur l'accueil.
 
    Les quatre cartes de bénéfices (demande client du 2026-09-29) renvoient chacune quelque part :
-   Cours interactifs → Cours, Professeurs natifs → Professeurs, Une communauté → À propos, Un
+   Cours interactifs → Cours, Professeurs certifiés → Professeurs, Une communauté → À propos, Un
    suivi personnalisé → la même fenêtre de réservation que « Commencer maintenant ». */
 
 const GARANTIES = ['100% en ligne', 'Professeurs certifiés', 'Accès 24/7']
@@ -36,7 +36,10 @@ type ActionBenefice = { type: 'vue'; vue: VueCible } | { type: 'reserver' }
 
 const BENEFICES: { titre: string; texte: string; icone: 'bulle' | 'groupe' | 'cible' | 'etoile'; action: ActionBenefice }[] = [
   { titre: 'Cours interactifs', texte: 'et pratiques', icone: 'bulle', action: { type: 'vue', vue: 'programmes' } },
-  { titre: 'Professeurs natifs', texte: 'et expérimentés', icone: 'groupe', action: { type: 'vue', vue: 'professeurs' } },
+  /* « certifiés » et non « natifs » (demande 2 du 2026-10-08) : les formateurs HOC sont des
+     Malgaches diplômés/certifiés, pas des anglophones natifs — le mot « natifs » ne doit plus
+     apparaître nulle part sur le site. */
+  { titre: 'Professeurs certifiés', texte: 'et expérimentés', icone: 'groupe', action: { type: 'vue', vue: 'professeurs' } },
   { titre: 'Un suivi personnalisé', texte: 'pour progresser vite', icone: 'cible', action: { type: 'reserver' } },
   { titre: 'Une communauté', texte: 'motivée et bienveillante', icone: 'etoile', action: { type: 'vue', vue: 'avis' } },
 ]
@@ -82,7 +85,9 @@ export function HeroPublic({
         <div className="hero-texte">
           <p className="hero-accroche">
             <span className="hero-accroche-barre" aria-hidden="true" />
-            <span className="mention-manuscrite">Your English, Your Future</span>
+            {/* « future » en minuscule, « English » garde sa majuscule : en anglais, les noms de
+                langue en prennent toujours une (demande 1 du document de retours du 2026-10-08). */}
+            <span className="mention-manuscrite">Your English, your future</span>
           </p>
           <h1 className="hero-titre">
             Apprenez l’anglais <span className="hero-titre-degrade">à votre rythme</span>

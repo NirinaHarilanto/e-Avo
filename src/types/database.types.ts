@@ -1776,6 +1776,12 @@ export interface Database {
         Args: Record<string, never>
         Returns: string
       }
+      /* Date de démarrage de la prochaine vague « à venir » (0102) : seule information des vagues
+         ouverte au public, pour la carte Collectif de la page Cours & tarifs. */
+      prochaine_vague_publique: {
+        Args: { p_slug: string }
+        Returns: string | null
+      }
       is_admin_etablissement: {
         Args: Record<string, never>
         Returns: boolean

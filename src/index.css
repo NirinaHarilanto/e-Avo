@@ -1727,12 +1727,16 @@ body.sans-defilement {
    carte, le texte garde sa taille naturelle tandis que la photo prend tout le reste
    (`flex: 1`). Résultat : la photo est aussi grande que possible SANS jamais créer de barre de
    défilement. */
+/* `auto` et non `1fr` depuis la fusion Cours + Tarifs (2026-10-08) : la carte porte maintenant sa
+   grille de prix, sa hauteur dépend donc de son contenu. Avec `1fr`, la rangée était forcée à la
+   hauteur du cadre et les prix débordaient sous le bouton sur un écran court ; ici la carte prend
+   la hauteur qu'il lui faut et c'est le corps de la vue qui défile (comportement déjà en place
+   pour les vues denses). */
 .grille-cours {
   flex: 1 1 auto;
   min-height: 0;
   max-width: 1320px;
-  max-height: 720px;
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: minmax(0, auto);
   align-self: center;
 }
 /* Informations en bas de chaque carte, photo au-dessus (demande client du 2026-09-29, avec
@@ -1743,6 +1747,9 @@ body.sans-defilement {
    les deux autres, mais aucune carte ne garde de vide entre son texte et son bouton — ce vide
    (32 à 45 px) revient à la photo. Les trois cartes ont la même hauteur, donc les boutons
    restent alignés en bas. */
+/* Depuis la fusion Cours + Tarifs (2026-10-08), la carte porte aussi la grille de prix : le
+   visuel ne prend plus toute la hauteur restante (il écraserait les prix), il est borné en
+   hauteur et c'est le corps de la carte qui occupe le reste. */
 @media (min-width: 821px) {
   .grille-cours .carte-cours {
     display: flex;
@@ -1750,11 +1757,13 @@ body.sans-defilement {
     min-height: 0;
   }
   .grille-cours .carte-cours-visuel {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
+    height: clamp(110px, 20vh, 190px);
     min-height: 0;
   }
   .grille-cours .carte-cours-corps {
-    flex: 0 0 auto;
+    flex: 1 1 auto;
+    min-height: 0;
     padding-top: 8px;
     gap: 4px;
   }
@@ -1855,6 +1864,30 @@ body.sans-defilement {
   color: var(--hoc-or);
   background: rgba(240, 184, 91, 0.12);
   border: 1px solid rgba(240, 184, 91, 0.45);
+}
+
+/* Date de la prochaine vague, posée sous l'étiquette « COLLECTIF » au même endroit du visuel
+   (demande 6 du 2026-10-08). Fond doré plein : c'est une information commerciale datée, elle doit
+   accrocher l'œil plus que l'étiquette de formule elle-même. */
+.etiquette-prochaine-vague {
+  position: absolute;
+  top: 44px;
+  left: 10px;
+  z-index: 2;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #2a1646;
+  background: var(--hoc-or-vif);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Prix de la formule, dans la carte de la page « Cours & tarifs » (fusion du 2026-10-08). */
+.bloc-tarifs-carte {
+  display: flex;
+  flex-direction: column;
+  margin-top: 4px;
 }
 
 .page-claire .titre-carte-hoc {
@@ -2004,6 +2037,42 @@ body.sans-defilement {
   justify-content: space-between;
   gap: 8px;
 }
+
+/* Page « À propos » : texte de présentation de la fondatrice (demande 10 du 2026-10-08), puis
+   les témoignages. Colonne de lecture bornée à 760 px — au-delà, l'œil perd la ligne suivante. */
+.bloc-presentation-hoc {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto 10px;
+}
+.texte-presentation-hoc {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ligne-presentation {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.86);
+}
+.ligne-presentation--forte {
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--hoc-or-vif);
+}
+.titre-bloc-temoignages {
+  width: 100%;
+  max-width: 760px;
+  margin: 26px auto 14px;
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+}
 .badge-annee-avis {
   font-size: 10px;
   font-weight: 700;
@@ -2070,6 +2139,111 @@ body.sans-defilement {
   width: 100%;
   max-width: 1030px;
   margin: 0 auto;
+}
+
+/* Hiérarchie de l'équipe administrative (demande 11 du 2026-10-08) : une rangée par niveau,
+   centrée, du haut (la fondatrice) vers le bas. Chaque rangée se lit comme un étage de
+   l'organigramme — d'où des rangées distinctes plutôt qu'une grille unique qui les mélangerait
+   dès que la largeur change. */
+.hierarchie-equipe {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 1030px;
+  margin: 0 auto;
+}
+.rangee-equipe-admin {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+}
+.carte-equipe-admin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  width: 290px;
+  padding: 18px 16px;
+  border-radius: 8px;
+  background: var(--hoc-prune-carte);
+  box-shadow: 0 18px 40px rgba(20, 8, 45, 0.35);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.carte-equipe-admin:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 26px 50px rgba(20, 8, 45, 0.5), 0 0 0 1px rgba(240, 184, 91, 0.45);
+}
+/* Portrait un cran plus grand que dans la grille des formateurs : c'est ce qui distingue
+   visuellement l'équipe administrative, comme demandé (« des cartes plus grandes »). */
+.carte-equipe-admin .photo-membre-equipe {
+  width: clamp(76px, 12vh, 112px);
+  height: clamp(76px, 12vh, 112px);
+}
+.nom-equipe-admin {
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+}
+.etiquette-fonction {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 999px;
+  color: #2a1646;
+  background: var(--hoc-or-vif);
+}
+.presentation-equipe-admin {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.78);
+}
+.lien-linkedin {
+  margin-top: 4px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #2a1646;
+  background: #fff;
+  text-decoration: none;
+}
+.lien-linkedin:hover {
+  background: var(--hoc-or-vif);
+}
+/* Page de connexion aux couleurs HOC (demande 14 du 2026-10-08). Les variables ne sont
+   redéfinies QUE dans cette portée : `--bg-page` et `--accent-blue-gradient` du `:root` servent
+   à tout l'espace connecté (admin, professeur, étudiant), les toucher globalement repeindrait
+   l'application entière. */
+.page-connexion-hoc {
+  background:
+    radial-gradient(760px 420px at 15% 0%, rgba(152, 126, 233, 0.3), transparent 65%),
+    radial-gradient(620px 380px at 88% 100%, rgba(240, 184, 91, 0.12), transparent 65%),
+    var(--hoc-prune);
+  --cta-connexion: linear-gradient(135deg, var(--hoc-or-vif), var(--hoc-or));
+  --cta-connexion-texte: #2a1646;
+}
+.page-connexion-hoc .card {
+  background: var(--hoc-prune-carte);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.titre-bloc-formateurs {
+  width: 100%;
+  margin: 26px 0 14px;
+  font-family: 'Poppins', 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
 }
 .carte-membre-equipe {
   display: flex;
