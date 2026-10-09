@@ -1,27 +1,29 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { SLUG_ETABLISSEMENT_PRINCIPAL } from '../../lib/etablissement'
 import { DIPLOMES_DECLARES, type DiplomeDeclare } from '../../lib/recrutement'
+import { useFondVitrine } from '../vitrine/animations'
+import { FlecheBouton, IcoHX } from '../vitrine/IconesHX'
 
 const ACCEPT = '.pdf,.doc,.docx,.jpg,.jpeg,.png'
 const TAILLE_MAX = 10 * 1024 * 1024
+const MAX_DIPLOMES = 5
 
-const champ = {
-  width: '100%',
-  boxSizing: 'border-box' as const,
-  border: '1px solid var(--border)',
-  borderRadius: 10,
-  padding: '10px 13px',
-  fontSize: 14,
-  color: 'var(--ink)',
-  background: '#fff',
-  fontFamily: 'inherit',
+/* Candidature formateur, d'après hoc-devenir-formateur.html : barre allégée, hero violet, puis
+   deux blocs blancs numérotés qui chevauchent le bas du hero.
+
+   Un écart assumé avec la maquette : elle propose des cases à cocher multiples, alors que le
+   dossier n'enregistre qu'un diplôme déclaré. Les quatre choix réels de l'application sont donc
+   rendus en boutons radio, avec exactement la pastille dessinée par la maquette — l'apparence
+   est la sienne, la donnée envoyée reste celle qu'attend l'API.
+
+   Le reste du parcours est inchangé : les fichiers partent dans le stockage privé par URL
+   signée (api/recrutement/preparer-envoi.ts), puis le dossier est enregistré (candidater.ts). */
+
+function tailleLisible(octets: number) {
+  return octets > 1048576 ? `${(octets / 1048576).toFixed(1)} Mo` : `${Math.max(1, Math.round(octets / 1024))} Ko`
 }
-const etiquette = { display: 'flex', flexDirection: 'column' as const, gap: 6, fontSize: 13, fontWeight: 600, color: 'var(--ink-2)' }
 
-/* Canal d'entrée des candidats formateurs — bouton « Rejoignez-nous ! » de la vitrine (demande
-   client du 2026-09-29). Les fichiers partent directement dans le stockage privé par URL signée
-   (api/recrutement/preparer-envoi.ts), puis le dossier est enregistré (candidater.ts). */
 export function CandidatureFormateur() {
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
@@ -36,11 +38,38 @@ export function CandidatureFormateur() {
   const [consentement, setConsentement] = useState(false)
   const [etape, setEtape] = useState<string | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
+  const [erreurDiplome, setErreurDiplome] = useState(false)
   const [envoye, setEnvoye] = useState(false)
+
+  useFondVitrine('#F7F4FF')
+
+  /* La maquette cumule les fichiers déposés au lieu de remplacer la sélection précédente, et
+     écarte les doublons sur le couple nom/taille. Même comportement ici, dans l'état React
+     plutôt qu'en recomposant un DataTransfer. */
+  function ajouterDiplomes(evenement: ChangeEvent<HTMLInputElement>) {
+    const choisis = Array.from(evenement.target.files ?? [])
+    setDiplomes((actuels) => {
+      const nouveaux = choisis.filter(
+        (fichier) => !actuels.some((deja) => deja.name === fichier.name && deja.size === fichier.size),
+      )
+      return [...actuels, ...nouveaux].slice(0, MAX_DIPLOMES)
+    })
+    /* Sans cette remise à zéro, rechoisir le même fichier après l'avoir retiré ne déclencherait
+       aucun événement : la valeur de l'input n'aurait pas changé. */
+    evenement.target.value = ''
+  }
+
+  function surSurvolDepot(evenement: DragEvent<HTMLElement>, actif: boolean) {
+    evenement.currentTarget.classList.toggle('over', actif)
+  }
 
   async function envoyer(e: FormEvent) {
     e.preventDefault()
     setErreur(null)
+    if (!diplome) {
+      setErreurDiplome(true)
+      return
+    }
     if (!cv) return setErreur('Joignez votre CV.')
     if (diplomes.length === 0) return setErreur('Joignez votre licence en études anglophones ou votre certificat TEFL.')
     const tous = [
@@ -99,129 +128,215 @@ export function CandidatureFormateur() {
   }
 
   return (
-    <div className="page-claire" style={{ minHeight: '100vh', background: 'var(--bg-page)', padding: '28px 16px 60px' }}>
-      <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 22 }}>
-        <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <a href="/" aria-label="Retour à l’accueil">
-            <img src="/logo-hoc.png" alt="Hari Online Club" style={{ height: 44, width: 'auto', display: 'block' }} />
+    <div className="hx">
+      <div className="jtop">
+        <div className="wrap">
+          <a className="logo" href="/">
+            <img src="/logo-hoc-blanc.png" alt="Hari Online Club" />
           </a>
-          <a href="/" className="bouton-contour">
+          <a className="back" href="/">
             ← Retour au site
           </a>
-        </header>
+        </div>
+      </div>
 
-        <div>
-          <h1 style={{ fontSize: 30, margin: '0 0 8px', color: 'var(--ink)' }}>Rejoignez-nous !</h1>
-          <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--muted)', margin: 0 }}>
-            Vous êtes formateur ou formatrice d’anglais et souhaitez enseigner en ligne avec Hari Online Club ? Présentez-vous
-            ci-dessous. Pièce obligatoire : une <strong>licence en études anglophones</strong> ou une{' '}
-            <strong>certification TEFL reconnue</strong>.
+      <section className="dark phero">
+        <div className="glow g1" />
+        <div className="glow g2" />
+        <div className="spot" />
+        <div className="grain" />
+        <div className="wrap reveal in">
+          <h1 className="h-xl">
+            <span className="line">
+              <span>
+                Rejoignez-<span className="it">nous !</span>
+              </span>
+            </span>
+          </h1>
+          <p className="sub rv in" style={{ transitionDelay: '.25s' }}>
+            Vous êtes formateur ou formatrice d’anglais et souhaitez enseigner en ligne avec Hari Online Club ?
+            Présentez-vous ci-dessous. Pièce obligatoire : une <b>licence en études anglophones</b> ou une{' '}
+            <b>certification TEFL reconnue</b>.
           </p>
         </div>
+      </section>
 
-        {envoye ? (
-          <div className="card" style={{ padding: 28, borderRadius: 16 }}>
-            <h2 style={{ margin: '0 0 10px', color: 'var(--ink)' }}>Merci, votre candidature est bien arrivée</h2>
-            <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: 'var(--ink-2)' }}>
-              Notre équipe étudie votre dossier. Si votre profil correspond à nos besoins, nous vous contacterons pour un
-              premier appel de pré-sélection, suivi de tests d’anglais et d’une simulation de cours sur Google Meet.
-            </p>
-            <a href="/" className="bouton-contour" style={{ display: 'inline-block', marginTop: 18 }}>
-              Retour au site
-            </a>
-          </div>
-        ) : (
-          <form onSubmit={envoyer} className="card" style={{ padding: 26, borderRadius: 16, display: 'flex', flexDirection: 'column', gap: 18 }}>
-            <h2 style={{ margin: 0, fontSize: 18, color: 'var(--ink)' }}>Vos informations</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-              <label style={etiquette}>
-                Prénom *
-                <input required value={prenom} onChange={(e) => setPrenom(e.target.value)} style={champ} autoComplete="given-name" />
-              </label>
-              <label style={etiquette}>
-                Nom *
-                <input required value={nom} onChange={(e) => setNom(e.target.value)} style={champ} autoComplete="family-name" />
-              </label>
-              <label style={etiquette}>
-                E-mail *
-                <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={champ} autoComplete="email" />
-              </label>
-              <label style={etiquette}>
-                Téléphone / WhatsApp
-                <input value={telephone} onChange={(e) => setTelephone(e.target.value)} style={champ} autoComplete="tel" />
-              </label>
-              <label style={etiquette}>
-                Ville
-                <input value={ville} onChange={(e) => setVille(e.target.value)} style={champ} autoComplete="address-level2" />
-              </label>
-              <label style={etiquette}>
-                Diplôme ou certification *
-                <select required value={diplome} onChange={(e) => setDiplome(e.target.value as DiplomeDeclare)} style={champ}>
-                  <option value="">Choisir…</option>
-                  {DIPLOMES_DECLARES.map((d) => (
-                    <option key={d.valeur} value={d.valeur}>
-                      {d.libelle}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <label style={etiquette}>
-              Vos motivations *
-              <textarea required rows={4} maxLength={5000} value={motivation} onChange={(e) => setMotivation(e.target.value)} style={{ ...champ, resize: 'vertical' }} placeholder="Pourquoi souhaitez-vous enseigner avec Hari Online Club ?" />
-            </label>
-            <label style={etiquette}>
-              Vos expériences professionnelles *
-              <textarea required rows={5} maxLength={5000} value={experiences} onChange={(e) => setExperiences(e.target.value)} style={{ ...champ, resize: 'vertical' }} placeholder="Postes occupés, années d’enseignement, publics (adultes, enfants, entreprises), cours en ligne…" />
-            </label>
-
-            <h2 style={{ margin: '6px 0 0', fontSize: 18, color: 'var(--ink)' }}>Vos documents</h2>
-            <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)' }}>PDF, Word, JPEG ou PNG, 10 Mo maximum par fichier.</p>
-            <label style={etiquette}>
-              CV *
-              <input required type="file" accept={ACCEPT} onChange={(e) => setCv(e.target.files?.[0] ?? null)} style={champ} />
-            </label>
-            <label style={etiquette}>
-              Diplômes ou certificats (licence en études anglophones, TEFL…) *
-              <input
-                required
-                type="file"
-                multiple
-                accept={ACCEPT}
-                onChange={(e) => setDiplomes(Array.from(e.target.files ?? []).slice(0, 5))}
-                style={champ}
-              />
-              {diplomes.length > 0 && (
-                <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--muted)' }}>{diplomes.map((d) => d.name).join(', ')}</span>
-              )}
-            </label>
-
-            <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13, color: 'var(--ink-2)' }}>
-              <input type="checkbox" required checked={consentement} onChange={(e) => setConsentement(e.target.checked)} style={{ marginTop: 3 }} />
-              <span>
-                J’accepte que Hari Online Club conserve ces informations et documents pour étudier ma candidature
-                (voir la <a href="/confidentialite">politique de confidentialité</a>).
-              </span>
-            </label>
-
-            {erreur && (
-              <p role="alert" style={{ margin: 0, fontSize: 13, color: '#b3261e', background: 'rgba(179,38,30,.08)', borderRadius: 10, padding: '10px 13px' }}>
-                {erreur}
+      <section className="light apply">
+        <div className="wrap overlap">
+          {envoye ? (
+            <div className="block" style={{ maxWidth: 920, margin: '0 auto' }}>
+              <div className="bh">
+                <b>✦</b>
+                <h2 className="h-l">Merci, votre candidature est bien arrivée</h2>
+              </div>
+              <p>
+                Notre équipe étudie votre dossier. Si votre profil correspond à nos besoins, nous vous contacterons pour
+                un premier appel de pré-sélection, suivi de tests d’anglais et d’une simulation de cours sur Google
+                Meet.
               </p>
-            )}
+              <a className="btn btn-gold" href="/" style={{ marginTop: 18 }}>
+                Retour au site <FlecheBouton />
+              </a>
+            </div>
+          ) : (
+            <form onSubmit={envoyer}>
+              <div className="block rv in">
+                <div className="bh">
+                  <b>1</b>
+                  <h2 className="h-l">Vos informations</h2>
+                </div>
+                <div className="champs-3">
+                  <label className="f">
+                    Prénom <span className="req">*</span>
+                    <input type="text" required autoComplete="given-name" value={prenom} onChange={(e) => setPrenom(e.target.value)} />
+                  </label>
+                  <label className="f">
+                    Nom <span className="req">*</span>
+                    <input type="text" required autoComplete="family-name" value={nom} onChange={(e) => setNom(e.target.value)} />
+                  </label>
+                  <label className="f">
+                    E-mail <span className="req">*</span>
+                    <input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  </label>
+                  <label className="f">
+                    Téléphone / WhatsApp
+                    <input type="tel" autoComplete="tel" value={telephone} onChange={(e) => setTelephone(e.target.value)} />
+                  </label>
+                  <label className="f">
+                    Ville
+                    <input type="text" autoComplete="address-level2" value={ville} onChange={(e) => setVille(e.target.value)} />
+                  </label>
+                </div>
 
-            <button
-              type="submit"
-              disabled={!!etape}
-              className="btn-shine"
-              style={{ background: 'var(--accent-blue-gradient)', color: '#fff', border: 'none', alignSelf: 'flex-start', opacity: etape ? 0.7 : 1 }}
-            >
-              {etape ?? 'Envoyer ma candidature →'}
-            </button>
-          </form>
-        )}
-      </div>
+                <fieldset className="checks">
+                  <legend>
+                    Diplôme ou certification <span className="req">*</span>
+                  </legend>
+                  {DIPLOMES_DECLARES.map((option) => (
+                    <label key={option.valeur} className="chk">
+                      <input
+                        type="radio"
+                        name="diplome"
+                        value={option.valeur}
+                        checked={diplome === option.valeur}
+                        onChange={() => {
+                          setDiplome(option.valeur)
+                          setErreurDiplome(false)
+                        }}
+                      />
+                      <span className="box">✓</span>
+                      {option.libelle}
+                    </label>
+                  ))}
+                  <div className={erreurDiplome ? 'err show' : 'err'}>Indiquez votre diplôme ou votre certification.</div>
+                </fieldset>
+
+                <label className="f">
+                  Vos motivations <span className="req">*</span>
+                  <textarea
+                    required
+                    maxLength={5000}
+                    value={motivation}
+                    onChange={(e) => setMotivation(e.target.value)}
+                    placeholder="Pourquoi souhaitez-vous enseigner avec Hari Online Club ?"
+                  />
+                </label>
+                <label className="f" style={{ marginBottom: 0 }}>
+                  Vos expériences professionnelles <span className="req">*</span>
+                  <textarea
+                    required
+                    maxLength={5000}
+                    value={experiences}
+                    onChange={(e) => setExperiences(e.target.value)}
+                    placeholder="Postes occupés, années d’enseignement, publics (adultes, enfants, entreprises), cours en ligne…"
+                  />
+                </label>
+              </div>
+
+              <div className="block rv in">
+                <div className="bh">
+                  <b>2</b>
+                  <h2 className="h-l">Vos documents</h2>
+                </div>
+                <p className="formats">PDF, Word, JPEG ou PNG, 10 Mo maximum par fichier.</p>
+
+                <label className="f">
+                  CV <span className="req">*</span>
+                  <span
+                    className={cv ? 'drop ok' : 'drop'}
+                    onDragEnter={(e) => surSurvolDepot(e, true)}
+                    onDragOver={(e) => surSurvolDepot(e, true)}
+                    onDragLeave={(e) => surSurvolDepot(e, false)}
+                    onDrop={(e) => surSurvolDepot(e, false)}
+                  >
+                    <input type="file" accept={ACCEPT} onChange={(e) => setCv(e.target.files?.[0] ?? null)} />
+                    <i>
+                      <IcoHX nom="document" />
+                    </i>
+                    <span className="fn">{cv ? cv.name : 'Aucun fichier choisi'}</span>
+                  </span>
+                </label>
+
+                <label className="f" style={{ marginBottom: 10 }}>
+                  Diplômes ou certificats (licence en études anglophones, TEFL…) <span className="req">*</span>
+                  <span
+                    className={diplomes.length > 0 ? 'drop ok' : 'drop'}
+                    onDragEnter={(e) => surSurvolDepot(e, true)}
+                    onDragOver={(e) => surSurvolDepot(e, true)}
+                    onDragLeave={(e) => surSurvolDepot(e, false)}
+                    onDrop={(e) => surSurvolDepot(e, false)}
+                  >
+                    <input type="file" accept={ACCEPT} multiple onChange={ajouterDiplomes} />
+                    <i>
+                      <IcoHX nom="medaille" />
+                    </i>
+                    <span className="fn">
+                      {diplomes.length === 0
+                        ? 'Aucun fichier choisi'
+                        : `${diplomes.length} ${diplomes.length > 1 ? 'fichiers ajoutés' : 'fichier ajouté'} · cliquez pour en ajouter`}
+                    </span>
+                  </span>
+                </label>
+
+                <ul className="files">
+                  {diplomes.map((fichier) => (
+                    <li key={`${fichier.name}-${fichier.size}`}>
+                      <span>{fichier.name}</span>
+                      <small>{tailleLisible(fichier.size)}</small>
+                      <button
+                        type="button"
+                        aria-label={`Retirer ${fichier.name}`}
+                        onClick={() => setDiplomes((actuels) => actuels.filter((f) => f !== fichier))}
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+
+                <label className="ok-line">
+                  <input type="checkbox" required checked={consentement} onChange={(e) => setConsentement(e.target.checked)} />
+                  <span className="box">✓</span>
+                  <span>
+                    J’accepte que Hari Online Club conserve ces informations et documents pour étudier ma candidature
+                    (voir la <a href="/confidentialite">politique de confidentialité</a>).
+                  </span>
+                </label>
+
+                {erreur && (
+                  <p role="alert" className="err show" style={{ marginBottom: 18 }}>
+                    {erreur}
+                  </p>
+                )}
+
+                <button type="submit" className="btn btn-gold send-b" disabled={!!etape}>
+                  {etape ?? 'Envoyer ma candidature'} <FlecheBouton />
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </section>
     </div>
   )
 }

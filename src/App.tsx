@@ -72,7 +72,14 @@ export default function App() {
       <BrowserRouter>
         <Suspense fallback={<ChargementEspace />}>
           <Routes>
+            {/* Les cinq pages de la vitrine ont chacune leur adresse depuis la refonte du
+                2026-10-09 : les maquettes les écrivent ainsi dans leur barre de navigation, et
+                un vrai changement de page est ce qui rejoue les apparitions au défilement. */}
             <Route path="/" element={<LandingEtablissement />} />
+            <Route path="/cours" element={<LandingEtablissement />} />
+            <Route path="/professeurs" element={<LandingEtablissement />} />
+            <Route path="/temoignages" element={<LandingEtablissement />} />
+            <Route path="/a-propos" element={<LandingEtablissement />} />
             <Route path="/e/:slug" element={<LandingEtablissement />} />
             <Route path="/connexion" element={<Connexion />} />
             <Route path="/rejoignez-nous" element={<CandidatureFormateur />} />
