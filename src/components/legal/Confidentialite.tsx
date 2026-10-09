@@ -68,7 +68,7 @@ export function Confidentialite() {
         <p>
           Vous pouvez demander l'accès, la correction ou la suppression de vos données personnelles, ou
           la déconnexion de votre compte Google, en contactant l'établissement via l'adresse indiquée sur
-          votre espace personnel ou à <strong>contact@harionlineclub.app</strong>.
+          votre espace personnel ou à <strong>admin@harionlineclub.com</strong>.
         </p>
       </BlocLegal>
     </PageLegale>

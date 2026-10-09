@@ -142,7 +142,10 @@ export function PageCours({
           <div className="eyebrow">Cours &amp; tarifs</div>
           <h1 className="h-xl">
             <span className="line">
-              <span>Trois façons d’apprendre, un seul cap :</span>
+              {/* Espace insécable avant le « : » (typographie française) : sans elle, un grand
+                  écran peut couper la ligne juste avant le signe et l'isoler sur sa propre
+                  ligne (signalé par le client le 2026-10-09). */}
+              <span>Trois façons d’apprendre, un seul cap&nbsp;:</span>
             </span>
             <span className="line">
               <span className="it" style={{ transitionDelay: '.12s' }}>

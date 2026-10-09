@@ -1132,9 +1132,17 @@ body.vitrine-hx {
     transform: translateY(40px) scale(0.97);
   }
 }
+/* `flex-shrink: 0` (demande client du 2026-10-09) : `.box` est une colonne flexible contrainte
+   à `max-height:92vh`. Sans cette ligne, un écran moins haut (ou un contenu « Découvrir » plus
+   long, comme celui du collectif, avec son paragraphe supplémentaire) pousse flexbox à
+   COMPRIMER `.top` plutôt que de laisser `.content` seul absorber la pression — les onglets se
+   retrouvaient alors rognés par le `overflow:hidden` de `.top`, collés au contenu blanc sans
+   marge. `.content` garde seul la charge de rétrécir, via son `flex:1` et son défilement
+   interne déjà en place. */
 .hx-modal .top {
   position: relative;
   overflow: hidden;
+  flex-shrink: 0;
   padding: 30px 34px 22px;
   color: var(--white);
   background: linear-gradient(150deg, #5a3f7e, var(--purple) 50%, #3a2558);
@@ -1374,15 +1382,34 @@ body.vitrine-hx {
   color: var(--purple);
 }
 /* `.agenda` accueille le module de réservation de l'application (créneaux réels de l'agenda
-   admin, ou session de test oral + quiz) là où la maquette plaçait un agenda externe en iframe. */
+   admin, ou session de test oral + quiz) là où la maquette plaçait un agenda externe en iframe.
+
+   ReserverAppel.tsx et TestPositionnement.tsx sont écrits pour le thème sombre des espaces
+   connectés (index.css, `:root`) : ils lisent `--surface-alt`, `--border`, `--ink`, `--muted`…
+   Sans recadrage, ces variables leur arrivent à moitié remplacées — `.hx` redéfinit `--ink` et
+   `--muted` pour SES propres besoins (texte clair sur fond sombre), mais pas `--surface-alt` ni
+   `--border`, qui restent donc le bleu nuit `#0d1938` d'origine. Résultat observé le
+   2026-10-09 : blocs bleu-noir à peu près illisibles au milieu d'une fenêtre claire. La
+   correction ne touche pas ces deux composants, partagés avec les parcours admin/professeur/
+   étudiant — elle redéfinit seulement leurs variables, ici, pour cette seule portée. */
 .hx-modal .agenda {
   width: 100%;
   border: 0;
   border-radius: 20px;
   background: var(--pale);
+  --surface-alt: var(--lav-soft);
+  --surface: var(--white);
+  --border: #e5daf8;
+  --border-soft: rgba(78, 53, 111, 0.12);
+  --ink: var(--purple-dark);
+  --ink-2: var(--purple);
+  --muted: #776a8f;
+  --muted-2: #8c7fa6;
+  --danger: #c0392b;
 }
 .hx-modal .foot {
   display: flex;
+  flex-shrink: 0;
   justify-content: space-between;
   gap: 12px;
   padding: 18px 34px;
@@ -1476,11 +1503,48 @@ body.vitrine-hx {
   box-shadow: 0 30px 60px -34px rgba(46, 29, 69, 0.35);
   transition:
     transform 0.6s var(--ease),
-    box-shadow 0.6s var(--ease);
+    box-shadow 0.6s var(--ease),
+    background 0.45s ease;
 }
 .hx .m:hover {
   transform: translateY(-10px);
   box-shadow: 0 46px 80px -36px rgba(46, 29, 69, 0.5);
+}
+/* Anneau doré tournant au survol, reprise EXACTE de la mécanique `.card-lift` des espaces
+   connectés (index.css : `@property --glow-angle` + `@keyframes navGlowSpin`, déjà déclarés
+   globalement — ce fichier les réutilise tels quels plutôt que de les redéfinir). Demande
+   client du 2026-10-09 : « le point lumineux doré [...] qui suit exactement le contour du bloc
+   de la personne survolée, comme ce qu'on a déjà [...] à l'intérieur de l'application HOC ». */
+.hx .m::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2.5px;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 76%,
+    #a97c00 83%,
+    #ffd700 88%,
+    #fff6c8 91%,
+    #ffd700 94%,
+    #a97c00 99%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.85));
+  animation: navGlowSpin 3.4s linear infinite;
+  transition: opacity 0.35s;
+}
+.hx .m:hover::before {
+  opacity: 1;
 }
 .hx .m .ph {
   position: relative;
@@ -1517,30 +1581,43 @@ body.vitrine-hx {
   backdrop-filter: blur(6px);
   font: 700 12.5px/1 var(--f-body);
   color: var(--purple);
+  transition:
+    background 0.45s ease,
+    color 0.45s ease;
 }
 .hx .m h3 {
   margin: 20px 12px 8px;
   font: 700 21px/1 var(--f-display);
   letter-spacing: -0.035em;
   color: var(--purple-dark);
+  transition: color 0.45s ease;
 }
 .hx .m p {
   margin: 0 12px;
   font-size: 14px;
   line-height: 1.65;
   color: var(--ink);
+  transition: color 0.45s ease;
 }
-/* `.fondatrice` et non `.lead` : voir l'avertissement en tête de fichier. */
-.hx .m.fondatrice {
+/* `.fondatrice` et non `.lead` : voir l'avertissement en tête de fichier.
+   Le fond violet de la fondatrice se retrouve désormais sur CHAQUE carte au survol (demande
+   client du 2026-10-09, « le fond violet du bloc de la fondatrice devrait se déplacer dans le
+   bloc de la personne survolée ») : elle le porte en permanence, les autres cartes le gagnent
+   le temps du survol, avec la même transition de teinte que le texte et la pastille de rôle. */
+.hx .m.fondatrice,
+.hx .m:hover {
   background: linear-gradient(160deg, #5a3f7e, var(--purple) 50%, #3a2558);
 }
-.hx .m.fondatrice h3 {
+.hx .m.fondatrice h3,
+.hx .m:hover h3 {
   color: var(--white);
 }
-.hx .m.fondatrice p {
+.hx .m.fondatrice p,
+.hx .m:hover p {
   color: var(--lavender);
 }
-.hx .m.fondatrice .role {
+.hx .m.fondatrice .role,
+.hx .m:hover .role {
   background: var(--gold);
   color: var(--night);
 }
@@ -1747,51 +1824,75 @@ body.vitrine-hx {
   gap: 24px;
   margin-top: 6px;
 }
+/* Chevrons dorés brillants (demande client du 2026-10-09, en remplacement des flèches à
+   contour blanc et de la bande de petits points — celle-ci, avec 18 témoignages, s'étirait en
+   une longue ligne qui ressemblait à une barre de défilement plutôt qu'à une pagination). Lueur
+   dorée permanente et respirante pour l'aspect « dynamique », balayage lumineux au survol
+   repris de `.btn-shine` (`@keyframes shimmerSweep`, déjà déclarée globalement dans index.css,
+   réutilisée telle quelle). */
+@keyframes arrRespire {
+  0%,
+  100% {
+    box-shadow: 0 0 18px rgba(242, 184, 75, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(242, 184, 75, 0.7);
+  }
+}
 .hx .arr {
-  width: 58px;
-  height: 58px;
+  position: relative;
+  overflow: hidden;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
-  border: 1.5px solid rgba(254, 255, 250, 0.4);
-  background: transparent;
-  color: var(--white);
+  border: 0;
+  background: var(--gold);
+  color: var(--night);
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: 0.35s var(--ease);
+  animation: arrRespire 3.2s ease-in-out infinite;
+  transition:
+    transform 0.35s var(--ease),
+    opacity 0.35s;
+}
+.hx .arr::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.75) 50%, transparent 80%);
+  background-size: 200% 100%;
+  background-position: -160% 0;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 .hx .arr:hover:not(:disabled) {
-  background: var(--gold);
-  border-color: var(--gold);
-  color: var(--night);
+  transform: translateY(-2px);
+}
+.hx .arr:hover:not(:disabled)::after {
+  opacity: 1;
+  animation: shimmerSweep 1.1s ease-in-out infinite;
 }
 .hx .arr:disabled {
-  opacity: 0.3;
+  opacity: 0.35;
   cursor: default;
+  animation: none;
+  box-shadow: none;
 }
 .hx .arr svg {
-  width: 22px;
-  height: 22px;
+  position: relative;
+  z-index: 1;
+  width: 20px;
+  height: 20px;
 }
-.hx .dots {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
-  max-width: 420px;
-}
-.hx .dots button {
-  width: 10px;
-  height: 10px;
-  padding: 0;
-  border: 0;
-  border-radius: 99px;
-  background: rgba(254, 255, 250, 0.35);
-  cursor: pointer;
-  transition: 0.4s var(--ease);
-}
-.hx .dots button.on {
-  width: 34px;
-  background: var(--gold);
+/* Remplace la bande de points entre les deux chevrons : un simple repère de position, sans
+   ressembler à une barre de défilement. */
+.hx .compteur-temoignages {
+  font: 700 13px/1 var(--f-body);
+  letter-spacing: 0.04em;
+  color: var(--lavender);
+  min-width: 48px;
+  text-align: center;
 }
 @media (max-width: 760px) {
   .hx .testi {

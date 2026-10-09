@@ -255,22 +255,19 @@ export function PageTemoignages({ dossierAssets }: { dossierAssets: string }) {
         ))}
       </div>
 
+      {/* La bande de petits points a disparu (demande client du 2026-10-09) : avec 18
+          témoignages, elle s'étirait en une longue ligne qui ressemblait à une barre de
+          défilement plutôt qu'à une pagination. Les chevrons dorés suffisent à faire
+          comprendre que d'autres témoignages suivent — la carte suivante, déjà visible en
+          partie à droite (`.slide` hors de `.on` reste affichée, juste estompée), le montre
+          aussi. */}
       <div className="nav2">
         <button type="button" className="arr prev" aria-label="Témoignage précédent" disabled={courant === 0} onClick={() => allerA(courant - 1)}>
           <IcoHX nom="fleche-gauche" />
         </button>
-        <div className="dots">
-          {TEMOIGNAGES.map((temoignage, index) => (
-            <button
-              key={temoignage.id}
-              type="button"
-              className={index === courant ? 'on' : undefined}
-              aria-label={`Témoignage ${index + 1}`}
-              aria-current={index === courant ? 'true' : undefined}
-              onClick={() => allerA(index)}
-            />
-          ))}
-        </div>
+        <span aria-live="polite" className="compteur-temoignages">
+          {courant + 1} / {TEMOIGNAGES.length}
+        </span>
         <button
           type="button"
           className="arr next"

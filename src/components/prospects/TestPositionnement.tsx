@@ -245,8 +245,27 @@ export function TestPositionnement({
 
       {etape !== 'creneau' && creneauChoisi && (
         <button type="button" onClick={() => setEtape('creneau')} style={rappelCreneau(accent)}>
-          <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>
-            Session choisie : <strong style={{ color: accent.accent }}>{formaterCreneau(creneauChoisi.debut)}</strong>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span
+              aria-hidden
+              style={{
+                flexShrink: 0,
+                width: 24,
+                height: 24,
+                borderRadius: 999,
+                display: 'grid',
+                placeItems: 'center',
+                background: accent.accentGrad,
+                color: accent.accentInk,
+                fontSize: 13,
+                fontWeight: 700,
+              }}
+            >
+              ✓
+            </span>
+            <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>
+              Session choisie — <strong style={{ color: accent.accent }}>{formaterCreneau(creneauChoisi.debut)}</strong>
+            </span>
           </span>
           <span style={{ fontSize: 12, fontWeight: 700, color: accent.accent, whiteSpace: 'nowrap' }}>Changer ✕</span>
         </button>
@@ -410,16 +429,20 @@ function lienBouton(accent: AccentPalette): CSSProperties {
   }
 }
 
+/* Même traitement que le rappel de créneau de ReserverAppel.tsx (demande client du 2026-10-09,
+   « plus attractive et joviale ») : fond teinté de l'accent, liseré gauche, légère lueur. */
 function rappelCreneau(accent: AccentPalette): CSSProperties {
   return {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
-    padding: '12px 14px',
-    borderRadius: 10,
+    padding: '12px 14px 12px 12px',
+    borderRadius: 12,
     border: `1px solid ${accent.accentBorder}`,
-    background: 'var(--surface-alt)',
+    borderLeft: `4px solid ${accent.accent}`,
+    background: accent.accentSoft,
+    boxShadow: `0 10px 24px -14px ${accent.accentGlow}`,
     cursor: 'pointer',
     fontFamily: 'inherit',
     textAlign: 'left',

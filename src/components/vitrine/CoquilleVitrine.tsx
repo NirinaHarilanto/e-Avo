@@ -96,9 +96,6 @@ function PiedVitrine({ onContact }: { onContact: () => void }) {
           <a href="/confidentialite">Confidentialité</a>
           <a href="/conditions-utilisation">Conditions d’utilisation</a>
           <a href={CHEMIN_CANDIDATURE}>Devenir formateur</a>
-          {/* Seule porte d'entrée de l'admin plateforme vers son espace : conservée du pied de
-              page précédent, qu'aucune maquette ne remplace. */}
-          <a href="/plateforme/etablissements">Admin plateforme</a>
           <button type="button" onClick={onContact}>
             Nous contacter
           </button>

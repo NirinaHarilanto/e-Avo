@@ -59,7 +59,7 @@ export function ConditionsUtilisation() {
       <BlocLegal titre="Contact">
         <p>
           Pour toute question sur ces conditions, contactez l'établissement via votre espace personnel ou
-          à <strong>contact@harionlineclub.app</strong>.
+          à <strong>admin@harionlineclub.com</strong>.
         </p>
       </BlocLegal>
     </PageLegale>

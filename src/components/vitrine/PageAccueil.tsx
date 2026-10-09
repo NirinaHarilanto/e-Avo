@@ -1,6 +1,5 @@
 import { useRef, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useContact } from './contexteContact'
 import { FlecheBouton, IcoHX, type NomIcoHX } from './IconesHX'
 
 /* Accueil, d'après hoc-accueil.html. La maquette tient en une seule section : hero pleine
@@ -21,7 +20,6 @@ const ATOUTS: { icone: NomIcoHX; libelle: string }[] = [
 ]
 
 export function PageAccueil({ nomEtablissement }: { nomEtablissement: string }) {
-  const ouvrirContact = useContact()
   const illustration = useRef<HTMLDivElement>(null)
 
   /* L'illustration s'incline sous la souris. Comme dans la maquette, la position est rapportée à
@@ -68,13 +66,13 @@ export function PageAccueil({ nomEtablissement }: { nomEtablissement: string }) 
                 Des cours interactifs, des professeurs passionnés et une expérience d’apprentissage unique. Rejoignez{' '}
                 {nomEtablissement} dès aujourd’hui !
               </p>
+              {/* Un seul bouton dans le hero (demande client du 2026-10-09) : « Nous
+                  contacter » y faisait doublon avec le même bouton déjà présent en permanence
+                  dans la barre de navigation (`.hx-nav .cta`) et dans le pied de page. */}
               <div className="btns rv" style={{ transitionDelay: '.55s' }}>
                 <Link className="btn btn-gold" to="/cours">
                   Commencer maintenant <FlecheBouton />
                 </Link>
-                <button type="button" className="btn btn-line" onClick={ouvrirContact}>
-                  Nous contacter
-                </button>
               </div>
             </div>
 

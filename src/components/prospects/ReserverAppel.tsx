@@ -244,6 +244,10 @@ export function ReserverAppel({
 
       {jours.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Lecture « créneau choisi » reprise le 2026-10-09 (demande client : « pas top
+              visuellement [...] plus attractive et joviale ») : pastille dorée à coche plutôt
+              qu'un simple deux-points, fond teinté de l'accent au lieu du bloc neutre
+              `--surface-alt`, liseré gauche et légère lueur pour marquer une sélection réussie. */}
           {creneauChoisi && (
             <button
               type="button"
@@ -253,20 +257,41 @@ export function ReserverAppel({
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 gap: 10,
-                padding: '12px 14px',
-                borderRadius: 10,
+                padding: '12px 14px 12px 12px',
+                borderRadius: 12,
                 border: `1px solid ${accent.accentBorder}`,
-                background: 'var(--surface-alt)',
+                borderLeft: `4px solid ${accent.accent}`,
+                background: accent.accentSoft,
+                boxShadow: `0 10px 24px -14px ${accent.accentGlow}`,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
                 textAlign: 'left',
               }}
             >
-              <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>
-                Créneau choisi :{' '}
-                <strong style={{ color: accent.accent }}>
-                  {jourLong(creneauChoisi.slice(0, 10))} à {heure(creneauChoisi)}
-                </strong>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span
+                  aria-hidden
+                  style={{
+                    flexShrink: 0,
+                    width: 24,
+                    height: 24,
+                    borderRadius: 999,
+                    display: 'grid',
+                    placeItems: 'center',
+                    background: accent.accentGrad,
+                    color: accent.accentInk,
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  ✓
+                </span>
+                <span style={{ fontSize: 13.5, color: 'var(--ink-2)' }}>
+                  Créneau choisi —{' '}
+                  <strong style={{ color: accent.accent }}>
+                    {jourLong(creneauChoisi.slice(0, 10))} à {heure(creneauChoisi)}
+                  </strong>
+                </span>
               </span>
               <span style={{ fontSize: 12, fontWeight: 700, color: accent.accent, whiteSpace: 'nowrap' }}>
                 Changer ✕
