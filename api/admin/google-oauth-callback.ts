@@ -5,8 +5,10 @@ import { chiffrer, echangerCode, emailDuCompte, verifierState, GoogleError } fro
 
 export const config = { runtime: 'edge' }
 
+/* Une seule permission exigée pour les deux intégrations depuis 0107 : l'agenda d'établissement
+   comme l'agenda personnel d'un professeur doivent pouvoir recevoir des événements. La lecture
+   seule, qui suffisait à l'intégration personnelle sous le régime de 0098, n'est plus acceptée. */
 const SCOPE_CALENDRIER_ECRITURE = 'https://www.googleapis.com/auth/calendar.events'
-const SCOPE_CALENDRIER_LECTURE = 'https://www.googleapis.com/auth/calendar.readonly'
 
 /**
  * Refuse d'enregistrer une intégration à laquelle Google n'a pas accordé la permission d'agenda.
@@ -76,7 +78,12 @@ export default async function handler(request: Request): Promise<Response> {
       const { data: profil } = await serviceClient.from('profiles').select('role').eq('id', profileId).maybeSingle()
       const retour = new URL(profil?.role === 'professeur' ? '/professeur/mon-profil' : '/admin/mon-profil', url.origin)
 
-      exigerPermission(scope, SCOPE_CALENDRIER_LECTURE, 'Afficher les événements de vos agendas Google')
+      /* L'ÉCRITURE est exigée depuis 0107, là où la lecture suffisait sous le régime de 0098 :
+         l'agenda personnel d'un professeur reçoit désormais les réunions de ses cours. Laisser
+         passer une autorisation en lecture seule installerait une intégration à moitié inerte —
+         l'agenda s'afficherait, mais ses cours continueraient de partir du compte de
+         l'établissement, sans que rien ne le signale au moment de la connexion. */
+      exigerPermission(scope, SCOPE_CALENDRIER_ECRITURE, 'Afficher et modifier les événements de vos agendas Google')
 
       const { error } = await serviceClient.from('google_integrations_personnelles').upsert(
         {

@@ -8,6 +8,7 @@ import { boutonPrimaireStyle } from '../ui/Boutons'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { IntegrationGoogleMeet } from './IntegrationGoogleMeet'
+import { AgendasProfesseursAdmin } from './AgendasProfesseursAdmin'
 import { DisponibilitesAdmin } from './DisponibilitesAdmin'
 import type { Database } from '../../types/database.types'
 import { ChampDate } from '../ui/ChampDate'
@@ -187,6 +188,11 @@ export function ParametresAdmin() {
 
       <div style={{ marginTop: 20 }}>
         <IntegrationGoogleMeet />
+
+        {/* Juste après l'agenda de l'établissement : les deux se lisent ensemble depuis 0107 — ce
+            compte-ci porte les rendez-vous de l'administration, celui de chaque professeur porte
+            ses cours. */}
+        <AgendasProfesseursAdmin />
 
         <DisponibilitesAdmin />
       </div>

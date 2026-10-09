@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
-import { integrationDeLEtablissement, modifierEvenementVisio } from '../_lib/google.js'
+import { integrationHoteReunion, modifierEvenementVisio } from '../_lib/google.js'
 import { notifierModificationEvenement } from '../_lib/notifications.js'
 import type { Database } from '../../src/types/database.types.js'
 
@@ -108,15 +108,19 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     if (evenement.google_event_id) {
-      const integration = await integrationDeLEtablissement(serviceClient, etablissementId).catch(() => null)
-      if (integration) {
+      /* Compte qui héberge l'événement : son créateur (0107), pas l'établissement. */
+      const hote = await integrationHoteReunion(serviceClient, {
+        organisateurId: evenement.cree_par,
+        etablissementId,
+      }).catch(() => null)
+      if (hote) {
         const horaireChange = corps.debut !== undefined || corps.dureeMinutes !== undefined
-        await modifierEvenementVisio(integration, evenement.google_event_id, {
+        await modifierEvenementVisio(hote, evenement.google_event_id, {
           titre,
           debut: horaireChange ? (corps.debut !== undefined ? new Date(corps.debut).toISOString() : evenement.debut) : undefined,
           dureeMinutes: horaireChange ? (corps.dureeMinutes ?? evenement.duree_minutes) : undefined,
           description: corps.notes?.trim(),
-          emailsInvites,
+          emailsInvites: emailsInvites?.filter((email) => email !== hote.googleEmail),
           lienVisio: evenement.lien_meet ?? undefined,
         }).catch(() => {})
       }

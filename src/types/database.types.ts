@@ -1739,6 +1739,24 @@ export interface Database {
           google_email: string
           connecte_le: string
           derniere_erreur: string | null
+          /* Permissions accordées par Google (0107) : sans `calendar.events`, le compte est resté
+             en lecture seule et ne peut pas héberger les réunions de ses cours. */
+          scope: string | null
+        }
+        Relationships: []
+      }
+      /* Qui, parmi les professeurs, a connecté son agenda Google — et avec quelles permissions
+         (0107). Réservée aux admins par la clause WHERE de la vue. */
+      google_agendas_professeurs_statut: {
+        Row: {
+          profile_id: string
+          prenom: string | null
+          nom: string | null
+          email: string | null
+          google_email: string | null
+          connecte_le: string | null
+          derniere_erreur: string | null
+          scope: string | null
         }
         Relationships: []
       }

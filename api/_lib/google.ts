@@ -43,9 +43,11 @@ type ServiceClient = ReturnType<typeof createClient<Database>>
  * excluait une partie des élèves de HOC. Le lien est désormais une salle Jitsi (voir
  * `creerEvenementVisio` et src/lib/visio.ts), qui n'exige aucun compte.
  *
- * Un seul compte Google est connecté, celui de l'établissement : les séances de tous les
- * professeurs sont créées dans son agenda, professeur et élèves étant ajoutés en invités. Aucun
- * professeur n'a donc de compte Google à posséder ni à autoriser.
+ * Depuis le 2026-10-09, le compte de l'établissement n'est plus le seul à créer des réunions :
+ * CHAQUE PROFESSEUR connecte le sien, et c'est depuis son agenda que partent les séances de ses
+ * cours — voir `integrationHoteReunion`, qui choisit l'hôte, et la migration 0107. Le compte de
+ * l'établissement reste l'hôte des rendez-vous de l'administration (appels diagnostic, créneaux de
+ * test, événements admin) et le repli des professeurs qui n'ont encore rien connecté.
  *
  * Tout ce fichier tourne en runtime edge : WebCrypto (`crypto.subtle`), jamais `node:crypto`.
  */
@@ -61,11 +63,24 @@ const CALENDAR_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/e
    connectés gardent leur jeton et leur ancien périmètre ; l'adresse n'apparaîtra qu'à la
    prochaine reconnexion, qui est justement ce qui est en train d'être fait. */
 export const SCOPE_GOOGLE = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email'
-/* Agenda Google PERSONNEL (0098, demande client du 2026-10-05) : lecture seule — contrairement à
-   l'intégration d'établissement ci-dessus, celle-ci n'a jamais besoin de créer d'événement, elle
-   ne fait qu'afficher les événements existants en superposition dans l'agenda HOC de la
-   personne. Un scope plus étroit limite aussi ce qu'une fuite de jeton pourrait permettre. */
-export const SCOPE_GOOGLE_PERSONNEL = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email'
+/* Agenda Google PERSONNEL (0098) : lecture ET écriture depuis le 2026-10-09 (0107). Il était en
+   lecture seule à l'origine — l'intégration ne faisait qu'afficher les événements Google en
+   superposition dans l'agenda HOC. Le client a renversé la règle : « chaque professeur doit
+   synchroniser son agenda gmail avec son agenda de l'application HOC : mode écriture et read »,
+   et c'est désormais depuis le compte du professeur que partent les invitations de ses cours. Même
+   scope que l'établissement, donc : `calendar.events` couvre la lecture des événements comme leur
+   création (`calendar.readonly` ne servait qu'à restreindre, il n'apportait aucune lecture de
+   plus). */
+export const SCOPE_GOOGLE_PERSONNEL = SCOPE_GOOGLE
+
+/* Un compte connecté AVANT le 2026-10-09 n'a qu'un jeton en lecture seule : Google n'élargit pas
+   un scope sans nouveau consentement. Il faut donc pouvoir distinguer les deux états partout où
+   l'on s'apprête à écrire — pour retomber sur le compte de l'établissement plutôt que d'essuyer un
+   403, et pour que l'écran demande une reconnexion au lieu d'annoncer une synchronisation qui
+   n'existe pas. */
+export function peutEcrireDansAgenda(scope: string | null | undefined): boolean {
+  return (scope ?? '').split(/\s+/).includes('https://www.googleapis.com/auth/calendar.events')
+}
 
 export class GoogleError extends Error {}
 
@@ -263,10 +278,22 @@ async function jetonAcces(refreshToken: string): Promise<string> {
 
 /* ---------- Agenda de l'établissement ---------- */
 
-export interface IntegrationGoogle {
-  etablissementId: string
+/**
+ * Compte Google qui HÉBERGE un événement : son jeton le crée, le modifie et le supprime, et c'est
+ * son adresse qui apparaît comme organisateur aux yeux des invités.
+ *
+ * Deux comptes différents peuvent tenir ce rôle depuis le 2026-10-09 — celui de l'établissement et
+ * celui d'un professeur (0107) — et aucune des fonctions d'écriture ci-dessous n'a besoin de savoir
+ * lequel : elles ne lisent que le jeton. C'est ce type minimal qu'elles prennent donc en paramètre,
+ * plutôt que `IntegrationGoogle`, pour accepter indifféremment l'un ou l'autre.
+ */
+export interface HoteAgenda {
   accessToken: string
   googleEmail: string
+}
+
+export interface IntegrationGoogle extends HoteAgenda {
+  etablissementId: string
 }
 
 /** `null` si l'établissement n'a connecté aucun compte : l'appelant retombe alors sur le stub. */
@@ -299,10 +326,12 @@ export async function noterErreurGoogle(serviceClient: ServiceClient, etablissem
 
 /* ---------- Agenda PERSONNEL (0098) ---------- */
 
-export interface IntegrationGooglePersonnelle {
+export interface IntegrationGooglePersonnelle extends HoteAgenda {
   profileId: string
-  accessToken: string
-  googleEmail: string
+  /* Faux pour un compte connecté avant le 2026-10-09 : son jeton ne porte que `calendar.readonly`
+     et Google refusera toute écriture. L'appelant qui veut créer un événement doit le vérifier
+     AVANT d'essayer — voir `integrationHoteReunion`. */
+  peutEcrire: boolean
 }
 
 /** `null` si cette personne n'a connecté aucun compte personnel : l'appelant n'affiche alors
@@ -315,18 +344,117 @@ export async function integrationPersonnelleDeLaPersonne(
   if (!googleEstConfigure()) return null
   const { data } = await serviceClient
     .from('google_integrations_personnelles')
-    .select('profile_id, google_email, refresh_token_chiffre')
+    .select('profile_id, google_email, refresh_token_chiffre, scope')
     .eq('profile_id', profileId)
     .maybeSingle()
   if (!data) return null
 
   const refreshToken = await dechiffrer(data.refresh_token_chiffre)
   const accessToken = await jetonAcces(refreshToken)
-  return { profileId, accessToken, googleEmail: data.google_email }
+  return { profileId, accessToken, googleEmail: data.google_email, peutEcrire: peutEcrireDansAgenda(data.scope) }
 }
 
 export async function noterErreurGooglePersonnelle(serviceClient: ServiceClient, profileId: string, message: string | null) {
   await serviceClient.from('google_integrations_personnelles').update({ derniere_erreur: message }).eq('profile_id', profileId)
+}
+
+/* ---------- Qui héberge la réunion d'une séance (0107) ---------- */
+
+/**
+ * Hôte d'une réunion, avec de quoi retrouver la ligne où noter un incident : les deux tables
+ * d'intégration ont leur propre colonne `derniere_erreur`, et une panne du compte d'un professeur
+ * doit s'afficher dans SON écran, pas dans les paramètres de l'établissement.
+ */
+export type HoteReunion = HoteAgenda &
+  ({ type: 'professeur'; profileId: string } | { type: 'etablissement'; etablissementId: string })
+
+/**
+ * Choisit le compte Google qui doit héberger une réunion : celui de son organisateur réel.
+ *
+ * Règle client du 2026-10-09 : « quand un professeur veut organiser une séance de cours [...]
+ * l'invitation et la génération de lien se fera à partir de son compte personnel professeur », et
+ * cela VAUT AUSSI quand c'est l'admin qui planifie — « quand l'admin planifie les cours d'un
+ * étudiant et professeur depuis l'espace admin, les invitations devraient être initiés à partir du
+ * compte gmail du professeur ». L'hôte se déduit donc de la séance (son `teacher_id`), jamais de la
+ * personne qui clique.
+ *
+ * Conséquence voulue : l'admin n'est plus organisateur des cours, donc ils n'atterrissent plus
+ * d'office dans son agenda Google ni dans sa boîte — « par défaut, l'admin n'est pas censé recevoir
+ * automatiquement et systématiquement d'invitation ». Il garde la vue complète des plannings dans
+ * « Séances & visio », qui lit la base et non Google.
+ *
+ * Repli sur le compte de l'établissement quand le professeur n'a rien connecté, n'a qu'un jeton en
+ * lecture seule (connecté avant 0107) ou que son jeton est devenu invalide : une séance sans aucun
+ * lien de visioconférence serait bien pire qu'une séance dont l'organisateur n'est pas celui
+ * prévu. L'incident est noté sur la ligne du professeur, d'où son écran « Mon profil » l'affiche.
+ */
+export async function integrationHoteReunion(
+  serviceClient: ServiceClient,
+  /* `organisateurId` est la personne dont la réunion émane — le professeur de la séance, ou
+     l'auteur d'un rendez-vous « autre ». Jamais celle qui a cliqué, quand les deux diffèrent. */
+  params: { organisateurId?: string | null; etablissementId: string },
+): Promise<HoteReunion | null> {
+  if (!googleEstConfigure()) return null
+
+  if (params.organisateurId) {
+    try {
+      const personnelle = await integrationPersonnelleDeLaPersonne(serviceClient, params.organisateurId)
+      if (personnelle?.peutEcrire) {
+        return {
+          type: 'professeur',
+          profileId: personnelle.profileId,
+          accessToken: personnelle.accessToken,
+          googleEmail: personnelle.googleEmail,
+        }
+      }
+      if (personnelle) {
+        await noterErreurGooglePersonnelle(
+          serviceClient,
+          params.organisateurId,
+          'Votre compte Google a été connecté en lecture seule : reconnectez-le pour que vos séances soient créées dans votre propre agenda et que vos élèves soient invités depuis votre adresse.',
+        )
+      }
+    } catch (error) {
+      /* Jeton révoqué côté Google, ou compte supprimé : on trace et on retombe sur
+         l'établissement, sans faire échouer la planification. */
+      await noterErreurGooglePersonnelle(serviceClient, params.organisateurId, error instanceof Error ? error.message : 'Connexion Google indisponible.').catch(() => {})
+    }
+  }
+
+  const etablissement = await integrationDeLEtablissement(serviceClient, params.etablissementId)
+  if (!etablissement) return null
+  return {
+    type: 'etablissement',
+    etablissementId: etablissement.etablissementId,
+    accessToken: etablissement.accessToken,
+    googleEmail: etablissement.googleEmail,
+  }
+}
+
+/** Note un incident sur la ligne de l'hôte concerné — professeur ou établissement. */
+export async function noterErreurHote(serviceClient: ServiceClient, hote: HoteReunion, message: string | null) {
+  if (hote.type === 'professeur') {
+    await noterErreurGooglePersonnelle(serviceClient, hote.profileId, message)
+    return
+  }
+  await noterErreurGoogle(serviceClient, hote.etablissementId, message)
+}
+
+/**
+ * Hôte de la réunion d'une séance déjà créée, retrouvé depuis la séance elle-même.
+ *
+ * Indispensable pour MODIFIER ou SUPPRIMER un événement : il vit dans l'agenda du compte qui l'a
+ * créé, et seul ce compte peut y toucher. Viser l'établissement sur un événement hébergé par un
+ * professeur donne un 404 silencieux — l'événement reste en place dans son agenda alors que HOC
+ * croit l'avoir déplacé.
+ */
+export async function integrationHoteDeLaSession(
+  serviceClient: ServiceClient,
+  sessionId: string,
+  etablissementId: string,
+): Promise<HoteReunion | null> {
+  const { data } = await serviceClient.from('sessions').select('teacher_id').eq('id', sessionId).maybeSingle()
+  return integrationHoteReunion(serviceClient, { organisateurId: data?.teacher_id ?? null, etablissementId })
 }
 
 /* Événements du calendrier personnel sur une fenêtre donnée — lecture seule, jamais réutilisés
@@ -599,7 +727,7 @@ function estLienMeet(lien: string): boolean {
  * laisse leurs événements dans l'ancien agenda, où le nouveau jeton n'a aucun droit. Google répond
  * alors 404, et toute tentative de les modifier échoue sans que la cause soit évidente.
  */
-export async function evenementAccessible(integration: IntegrationGoogle, eventId: string): Promise<boolean> {
+export async function evenementAccessible(integration: HoteAgenda, eventId: string): Promise<boolean> {
   const reponse = await fetch(`${CALENDAR_URL}/${encodeURIComponent(eventId)}`, {
     headers: { Authorization: `Bearer ${integration.accessToken}` },
   }).catch(() => null)
@@ -607,7 +735,7 @@ export async function evenementAccessible(integration: IntegrationGoogle, eventI
 }
 
 export async function lienMeetDeLEvenement(
-  integration: IntegrationGoogle,
+  integration: HoteAgenda,
   eventId: string,
 ): Promise<string | null> {
   const reponse = await fetch(
@@ -649,7 +777,7 @@ export async function lienMeetDeLEvenement(
  * modifications ultérieures d'un événement réécrivent la description, jamais le lieu.
  */
 export async function creerEvenementVisio(
-  integration: IntegrationGoogle,
+  integration: HoteAgenda,
   params: ParamsEvenement,
 ): Promise<{ eventId: string; lienVisio: string; fournisseur: FournisseurVisio }> {
   const lienJitsi = nouveauLienVisio()
@@ -688,7 +816,7 @@ export async function creerEvenementVisio(
 
 /** Déplace un événement existant : le lien Meet, lui, ne change pas. */
 export async function deplacerEvenement(
-  integration: IntegrationGoogle,
+  integration: HoteAgenda,
   eventId: string,
   debut: string,
   dureeMinutes: number,
@@ -715,7 +843,7 @@ export async function deplacerEvenement(
  * peut aussi n'en passer que les deux champs concernés.
  */
 export async function modifierEvenementVisio(
-  integration: IntegrationGoogle,
+  integration: HoteAgenda,
   eventId: string,
   params: {
     titre?: string
@@ -767,7 +895,7 @@ export async function modifierEvenementVisio(
  * (anniversaires, jours fériés) qui bloqueraient des journées entières sans raison.
  */
 export async function occupationsAgenda(
-  integration: IntegrationGoogle,
+  integration: HoteAgenda,
   debut: Date,
   fin: Date,
 ): Promise<{ debut: string; fin: string }[]> {
@@ -795,7 +923,7 @@ export async function occupationsAgenda(
     .filter((e): e is { debut: string; fin: string } => Boolean(e.debut && e.fin))
 }
 
-export async function supprimerEvenement(integration: IntegrationGoogle, eventId: string): Promise<void> {
+export async function supprimerEvenement(integration: HoteAgenda, eventId: string): Promise<void> {
   const reponse = await fetch(`${CALENDAR_URL}/${encodeURIComponent(eventId)}?sendUpdates=all`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${integration.accessToken}` },

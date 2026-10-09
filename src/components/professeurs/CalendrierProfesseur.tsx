@@ -10,7 +10,7 @@ import type { Database } from '../../types/database.types'
 import { getJoinUrl } from '../../lib/visio'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
 import { nomsElevesInscrits } from '../../lib/seances'
-import { versEvenementAdmin, estEvenementGooglePersonnel } from '../../lib/agendaEvenements'
+import { versEvenementAdmin, estEvenementGooglePersonnel, idGoogleDepuisEvenement } from '../../lib/agendaEvenements'
 import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { type NatureRendezVous } from '../../lib/natureRendezVous'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
@@ -29,6 +29,7 @@ import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { ChoixNatureRendezVous } from '../shared/ChoixNatureRendezVous'
 import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
+import { FicheEvenementGoogle } from '../shared/FicheEvenementGoogle'
 import { EnqueteSatisfactionAffichage } from '../shared/EnqueteSatisfactionAffichage'
 import { useDetailSeance } from '../../hooks/useDetailSeance'
 import { CompteRenduSeance } from './CompteRenduSeance'
@@ -153,9 +154,17 @@ export function CalendrierProfesseur() {
     .filter((s) => s.session.statut !== 'planifiee')
     .sort((a, b) => a.session.debut.localeCompare(b.session.debut))
 
-  // Superposition en lecture seule de l'agenda Google personnel (0098) — vide tant que rien n'est
-  // connecté, voir useEvenementsGoogleCalendarPersonnel.
-  const { evenements: evenementsGooglePersonnel } = useEvenementsGoogleCalendarPersonnel(semaineDebut)
+  /* Superposition de l'agenda Google personnel (0098) — vide tant que rien n'est connecté, voir
+     useEvenementsGoogleCalendarPersonnel. Modifiable depuis HOC depuis 0107 : `parId` donne
+     l'événement complet que la fiche affiche au clic, et `rechargerGoogle` la rafraîchit après une
+     modification pour que la grille montre aussitôt le nouvel horaire. */
+  const {
+    evenements: evenementsGooglePersonnel,
+    parId: googleParId,
+    recharger: rechargerGoogle,
+  } = useEvenementsGoogleCalendarPersonnel(semaineDebut)
+  const [evenementGoogleOuvertId, setEvenementGoogleOuvertId] = useState<string | null>(null)
+  const evenementGoogleOuvert = evenementGoogleOuvertId ? (googleParId.get(evenementGoogleOuvertId) ?? null) : null
   const evenements = useMemo(
     () => [...seances.map(versEvenement), ...evenementsAutres.map(versEvenementAdmin), ...evenementsGooglePersonnel],
     [seances, evenementsAutres, evenementsGooglePersonnel],
@@ -221,6 +230,13 @@ export function CalendrierProfesseur() {
             Agenda et planning prévisionnel montrent les mêmes séances : un cours créé depuis l’agenda apparaît
             aussitôt dans le planning de l’élève et dans la vue de l’administration, sans ressaisie.
           </>,
+          <>
+            <strong>Votre agenda Google.</strong> Connectez-le depuis « Mon profil » : ses événements apparaissent dans
+            cette grille, et vous pouvez les <strong>ouvrir, modifier et supprimer d’ici</strong> — la modification part
+            aussitôt sur Google. C’est aussi depuis votre compte que sont créées les réunions de vos cours : vos élèves
+            reçoivent l’invitation de <strong>votre</strong> adresse, et vous en êtes l’organisateur. L’administration
+            n’est pas invitée automatiquement ; ajoutez-la aux participants si vous souhaitez sa présence.
+          </>,
         ]}
       />
 
@@ -261,9 +277,14 @@ export function CalendrierProfesseur() {
             semaineDebut={semaineDebut}
             onSemaineChange={setSemaineDebut}
             onSelectionner={(evenement) => {
-              // Un événement de l'agenda Google personnel n'a pas de fiche HOC à ouvrir — son
-              // propre libellé (visible dans la pastille) est toute l'information disponible.
-              if (estEvenementGooglePersonnel(evenement.id)) return
+              /* Un événement venu de l'agenda Google ouvre sa fiche Google (0107) : toutes ses
+                 informations y sont, et il peut y être modifié ou supprimé — ce qui part aussitôt
+                 sur le compte Google du professeur. Avant, le clic était simplement ignoré et
+                 l'information restait invisible. */
+              if (estEvenementGooglePersonnel(evenement.id)) {
+                setEvenementGoogleOuvertId(idGoogleDepuisEvenement(evenement.id))
+                return
+              }
               if (estEvenementAdmin(evenement.id)) setElementOuvertId(evenement.id)
               else setSeanceOuverteId(evenement.id)
             }}
@@ -338,6 +359,18 @@ export function CalendrierProfesseur() {
             emargementOuvertADemande={seanceOuverte.session.id === seanceACloturerId}
           />
         </Modale>
+      )}
+
+      {/* Fiche d'un événement de l'agenda Google du professeur (0107) : mêmes informations que le
+          pop-up de Google Agenda, et modification/suppression renvoyées sur son propre compte via
+          /api/google-personnel/evenement — jamais celui de l'établissement. */}
+      {evenementGoogleOuvert && (
+        <FicheEvenementGoogle
+          evenement={evenementGoogleOuvert}
+          url="/api/google-personnel/evenement"
+          onFermer={() => setEvenementGoogleOuvertId(null)}
+          onChange={rechargerGoogle}
+        />
       )}
 
       {/* Fiche d'un rendez-vous « autre » (entretien, séance d'information…) — même composant que

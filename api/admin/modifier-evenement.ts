@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { AdminAuthError, requireAdmin } from '../_lib/adminAuth.js'
-import { integrationDeLEtablissement, modifierEvenementVisio } from '../_lib/google.js'
+import { integrationHoteReunion, modifierEvenementVisio } from '../_lib/google.js'
 import { notifierModificationEvenement } from '../_lib/notifications.js'
 import type { Database } from '../../src/types/database.types.js'
 
@@ -41,7 +41,9 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: evenement } = await serviceClient
       .from('evenements_admin')
-      .select('id, etablissement_id, google_event_id, lien_meet, annule, debut, duree_minutes, titre, notes, participants_obligatoires, participants_optionnels')
+      /* `cree_par` : depuis 0107, l'événement vit dans l'agenda Google de son créateur — seul ce
+         compte peut le modifier, l'établissement n'a aucun droit sur celui d'un professeur. */
+      .select('id, etablissement_id, google_event_id, lien_meet, annule, debut, duree_minutes, titre, notes, participants_obligatoires, participants_optionnels, cree_par')
       .eq('id', corps.evenementId)
       .maybeSingle()
     if (!evenement || evenement.etablissement_id !== etablissementId) {
@@ -110,19 +112,22 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     if (evenement.google_event_id) {
-      const integration = await integrationDeLEtablissement(serviceClient, etablissementId).catch(() => null)
-      if (integration) {
+      const hote = await integrationHoteReunion(serviceClient, {
+        organisateurId: evenement.cree_par,
+        etablissementId,
+      }).catch(() => null)
+      if (hote) {
         // Horaire envoyé COMPLET dès que l'un des deux champs change : `modifierEvenementVisio`
         // n'écrit les bornes que si debut ET dureeMinutes sont tous les deux fournis (sinon
         // Google recevrait un début sans fin, ou une durée sans point de départ) — la valeur
         // déjà en base comble celle des deux qui n'a pas changé.
         const horaireChange = corps.debut !== undefined || corps.dureeMinutes !== undefined
-        await modifierEvenementVisio(integration, evenement.google_event_id, {
+        await modifierEvenementVisio(hote, evenement.google_event_id, {
           titre,
           debut: horaireChange ? (corps.debut !== undefined ? new Date(corps.debut).toISOString() : evenement.debut) : undefined,
           dureeMinutes: horaireChange ? (corps.dureeMinutes ?? evenement.duree_minutes) : undefined,
           description: corps.notes?.trim(),
-          emailsInvites,
+          emailsInvites: emailsInvites?.filter((email) => email !== hote.googleEmail),
           lienVisio: evenement.lien_meet ?? undefined,
         }).catch(() => {})
       }

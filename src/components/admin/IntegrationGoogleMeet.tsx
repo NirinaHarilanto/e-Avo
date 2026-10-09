@@ -10,10 +10,13 @@ import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 
 type StatutGoogle = Database['public']['Views']['google_integration_statut']['Row']
 
-/* Connexion du compte Google de l'établissement : il porte l'agenda des séances et envoie les
-   invitations. Depuis la bascule vers Jitsi (2026-10-07) il ne fournit plus le lien de
-   visioconférence — voir src/lib/visio.ts. Un seul compte pour tout l'établissement : les
-   professeurs et les élèves n'ont rien à autoriser, ils reçoivent l'invitation et le lien.
+/* Connexion du compte Google de l'établissement.
+
+   Il portait à l'origine l'agenda de TOUTES les séances. Depuis 0107 (2026-10-09), les cours
+   partent du compte Google de chaque professeur — voir IntegrationGoogleCalendarPersonnel.tsx et
+   AgendasProfesseursAdmin.tsx. Ce compte-ci garde les rendez-vous de l'administration (appels
+   diagnostic, créneaux de test, événements d'agenda) et sert de repli pour les professeurs qui
+   n'ont pas encore connecté le leur.
 
    Le jeton lui-même n'est jamais exposé ici : cette page lit une vue qui n'expose que l'e-mail
    connecté et la date (voir migration 0040). */
@@ -166,14 +169,17 @@ export function IntegrationGoogleMeet() {
 
   return (
     <Section
-      titre="Agenda Google et invitations"
-      description="Connectez le compte Google de l'établissement : chaque séance planifiée est alors inscrite à son agenda, et Google envoie lui-même l'invitation aux participants. Les cours individuels et duo, ainsi que les appels diagnostic, se tiennent sur Google Meet ; les cours collectifs et les tests oraux restent sur Jitsi, qui n'exige aucun compte."
+      titre="Agenda Google de l’établissement"
+      description="Ce compte porte les rendez-vous de l'administration : appels diagnostic, créneaux de test de positionnement et événements d'agenda. Les cours, eux, partent du compte Google du professeur qui les donne (voir la section suivante). Google Meet pour l'individuel et le duo, Jitsi pour le collectif, qui n'exige aucun compte."
       style={{ maxWidth: 680 }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {retourGoogle === 'ok' && (
           <div onClick={effacerRetour}>
-            <MessageSucces>Compte Google connecté. Les prochaines séances seront inscrites à l'agenda, avec invitation aux participants.</MessageSucces>
+            <MessageSucces>
+              Compte Google connecté. Les rendez-vous de l’administration seront inscrits à son agenda, avec invitation
+              aux participants.
+            </MessageSucces>
           </div>
         )}
         {retourGoogle === 'erreur' && (
@@ -211,8 +217,10 @@ export function IntegrationGoogleMeet() {
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <p style={{ fontSize: 13, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6 }}>
                 <strong style={{ color: 'var(--ink)' }}>Réunions déjà planifiées.</strong> Celles qui restent à venir
-                peuvent encore utiliser l’ancien service : un cours individuel sur Jitsi, un cours collectif sur Meet.
-                Ce bouton remet chacune sur le bon service et renvoie l’invitation à jour à ses participants.
+                peuvent encore utiliser l’ancien service — un cours individuel sur Jitsi, un cours collectif sur Meet —
+                ou être hébergées par ce compte alors que le professeur a désormais le sien. Ce bouton remet chacune sur
+                le bon service, <strong>déplace les cours vers l’agenda de leur professeur</strong> et renvoie
+                l’invitation à jour à ses participants.
               </p>
               {bascule.resultat && <MessageSucces>{bascule.resultat}</MessageSucces>}
               <button
@@ -228,8 +236,9 @@ export function IntegrationGoogleMeet() {
         ) : (
           <>
             <p style={{ fontSize: 13, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6 }}>
-              Aucun compte Google n’est connecté. Les séances continuent d’être planifiées normalement, mais elles ne
-              sont inscrites à aucun agenda et aucune invitation n’est envoyée aux participants.
+              Aucun compte Google n’est connecté. Les rendez-vous de l’administration continuent d’être planifiés
+              normalement, mais ils ne sont inscrits à aucun agenda et aucune invitation n’est envoyée à leurs
+              participants. Les cours des professeurs qui ont connecté leur propre compte, eux, ne sont pas affectés.
             </p>
             <button type="button" onClick={connecter} disabled={enCours} className="btn-shine" style={{ ...boutonPrimaireStyle, alignSelf: 'flex-start' }}>
               {enCours ? 'Ouverture de Google…' : 'Connecter Google Calendar'}
@@ -239,13 +248,15 @@ export function IntegrationGoogleMeet() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.65, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
           <p style={{ margin: 0 }}>
-            Chaque séance planifiée crée un événement dans l’agenda Google de ce compte. Le professeur et les élèves
-            sont ajoutés comme invités : ils reçoivent l’invitation par e-mail et retrouvent le lien dans leur espace
-            Hari Online Club.
+            Une séance de cours crée son événement dans l’agenda Google du <strong>professeur</strong>, qui en est donc
+            l’organisateur et dont l’adresse invite les élèves. Vous n’en recevez pas de copie : pour suivre les
+            plannings, utilisez « Séances &amp; visio », qui montre tout l’établissement. Un professeur qui n’a pas
+            encore connecté son compte voit ses cours créés par ce compte-ci, comme avant.
           </p>
           <p style={{ margin: 0 }}>
             Une séance reprogrammée déplace l’événement Google sans changer le lien ; une séance annulée supprime
-            l’événement et prévient les invités.
+            l’événement et prévient les invités. Pour être présent à une réunion entre un professeur et un élève,
+            ajoutez-vous aux participants au moment de la créer : rien ne vous y inscrit automatiquement.
           </p>
           <MessageInfo>
             Pour une réunion Google Meet, demandez à vos élèves d’ouvrir le lien en étant connectés à l’adresse e-mail

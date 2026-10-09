@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import type { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
-import { creerEvenementVisio, integrationDeLEtablissement, noterErreurGoogle } from './google.js'
+import { creerEvenementVisio, integrationHoteReunion, noterErreurGoogle, noterErreurHote } from './google.js'
 
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
@@ -108,41 +108,50 @@ interface ParamsVisio {
 }
 
 /**
- * Crée la ligne `video_sessions` de la séance : un vrai lien Google Meet si l'établissement a
- * connecté son compte Google, sinon le lien interne d'origine.
+ * Crée la ligne `video_sessions` de la séance : un vrai lien Google Meet si un compte Google est
+ * connecté, sinon le lien interne d'origine.
+ *
+ * L'événement naît dans l'agenda du PROFESSEUR de la séance dès qu'il a connecté son compte
+ * (0107) : c'est lui l'organisateur, c'est son adresse qui invite les élèves, et l'admin n'est donc
+ * plus destinataire d'office — exactement la règle client du 2026-10-09, y compris quand c'est
+ * l'admin qui a cliqué « planifier ». Voir `integrationHoteReunion`, qui porte le choix de l'hôte
+ * et son repli.
  *
  * Aucune erreur Google ne fait échouer la planification : le cours existe, c'est l'essentiel, et
  * l'admin peut générer le lien après coup (`api/admin/generer-lien-visio.ts`). L'incident est
- * conservé dans `google_integrations.derniere_erreur` pour être affiché dans les paramètres.
+ * conservé dans la colonne `derniere_erreur` de l'hôte concerné, pour être affiché dans son écran.
  */
 export async function creerVisioconference(serviceClient: ServiceClient, params: ParamsVisio): Promise<void> {
   /* Les deux lectures partent ensemble : la liste des participants ne dépend pas du compte Google
      connecté. Elle est demandée même quand aucune intégration n'existe — un appel de plus dans ce
      cas, contre un aller-retour économisé dans le cas courant, où elle est toujours nécessaire. */
   const [resultatIntegration, resultatParticipants] = await Promise.allSettled([
-    integrationDeLEtablissement(serviceClient, params.etablissementId),
+    integrationHoteReunion(serviceClient, { organisateurId: params.teacherId, etablissementId: params.etablissementId }),
     emailsParticipants(serviceClient, params.teacherId, params.studentIds),
   ])
 
-  const integration = resultatIntegration.status === 'fulfilled' ? resultatIntegration.value : null
+  const hote = resultatIntegration.status === 'fulfilled' ? resultatIntegration.value : null
   const participants = resultatParticipants.status === 'fulfilled' ? resultatParticipants.value : null
 
-  /* Un échec de l'une ou l'autre reste tracé dans `google_integrations.derniere_erreur`, d'où les
-     paramètres l'affichent : une séance qui se retrouve sans lien ne doit jamais l'être en
-     silence. */
+  /* Un échec de l'une ou l'autre reste tracé, d'où les écrans l'affichent : une séance qui se
+     retrouve sans lien ne doit jamais l'être en silence. Noté sur l'établissement quand l'hôte
+     n'a pas pu être déterminé — c'est le seul interlocuteur connu à ce stade. */
   const panne = [resultatIntegration, resultatParticipants].find((r) => r.status === 'rejected')
   if (panne?.status === 'rejected') {
     await noterErreurGoogle(serviceClient, params.etablissementId, messageErreur(panne.reason))
   }
 
-  if (integration && participants) {
+  if (hote && participants) {
     try {
-      const { eventId, lienVisio, fournisseur } = await creerEvenementVisio(integration, {
+      const { eventId, lienVisio, fournisseur } = await creerEvenementVisio(hote, {
         titre: participants.titreCours,
-        description: 'Cours planifié depuis e-Avo.',
+        description: 'Cours planifié depuis Hari Online Club.',
         debut: params.debut,
         dureeMinutes: params.dureeMinutes,
-        emailsInvites: participants.emails,
+        /* Le professeur est l'organisateur quand c'est son compte qui héberge : l'inviter en plus
+           ferait apparaître son adresse deux fois sur la fiche Google. Les élèves, eux, sont
+           toujours invités — ce sont eux qui doivent recevoir la convocation. */
+        emailsInvites: participants.emails.filter((email) => email !== hote.googleEmail),
         fournisseur: params.type === 'collectif' ? 'jitsi' : 'google_meet',
       })
       await serviceClient.from('video_sessions').insert({
@@ -153,12 +162,14 @@ export async function creerVisioconference(serviceClient: ServiceClient, params:
         room_ref: lienVisio,
         statut: 'planifiee',
         google_event_id: eventId,
-        organisateur_email: integration.googleEmail,
+        /* Quel compte héberge réellement la réunion. Lu par l'admin dans « Séances & visio » pour
+           savoir qui organise, et seule trace lisible du choix fait ici. */
+        organisateur_email: hote.googleEmail,
       })
-      await noterErreurGoogle(serviceClient, params.etablissementId, null)
+      await noterErreurHote(serviceClient, hote, null)
       return
     } catch (error) {
-      await noterErreurGoogle(serviceClient, params.etablissementId, messageErreur(error))
+      await noterErreurHote(serviceClient, hote, messageErreur(error))
     }
   }
 

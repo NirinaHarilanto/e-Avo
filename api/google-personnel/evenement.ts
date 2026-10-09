@@ -1,9 +1,10 @@
-import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
+import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { appartientAHOC } from '../_lib/evenementsHOC.js'
 import {
   creerEvenementVisio,
-  integrationDeLEtablissement,
+  integrationPersonnelleDeLaPersonne,
   modifierEvenementVisio,
+  noterErreurGooglePersonnelle,
   supprimerEvenement,
   GoogleError,
 } from '../_lib/google.js'
@@ -13,7 +14,6 @@ export const config = { runtime: 'edge' }
 interface Corps {
   eventId?: string
   action?: 'creer' | 'modifier' | 'supprimer'
-  /* Création uniquement : adresses des personnes à inviter sur l'événement Google. */
   emailsInvites?: string[]
   titre?: string
   description?: string
@@ -23,28 +23,29 @@ interface Corps {
      l'événement maître et donc sur toutes ses répétitions — la question que pose Google Agenda
      lui-même quand on modifie un événement récurrent. Ignoré sur un événement ponctuel. */
   portee?: 'occurrence' | 'serie'
-  /* Identifiant de l'événement maître, fourni par la lecture (`serieId`). Exigé dès que
-     `portee` vaut « serie » : c'est lui qu'on modifie, jamais l'occurrence affichée. */
+  /* Identifiant de l'événement maître, fourni par la lecture (`serieId`). Exigé dès que `portee`
+     vaut « serie » : c'est lui qu'on modifie, jamais l'occurrence affichée. */
   serieId?: string
-  /* Règle de répétition à poser ou à remplacer, au format iCalendar
-     (« RRULE:FREQ=WEEKLY;BYDAY=MO,WE »). Chaîne vide = retirer la répétition. */
+  /* Règle de répétition au format iCalendar (« RRULE:FREQ=WEEKLY;BYDAY=MO,WE »). Chaîne vide =
+     retirer la répétition. */
   recurrence?: string
 }
 
 /**
- * Modifie ou supprime, dans l'agenda Google de l'établissement, un événement qui n'a PAS de
- * contrepartie dans HOC — typiquement un rendez-vous que l'admin a créé depuis Google Agenda et
- * que HOC affiche en superposition (voir api/google-personnel/evenements.ts).
+ * Créer, modifier ou supprimer un événement dans l'agenda Google PERSONNEL de l'appelant, depuis
+ * son agenda HOC.
  *
- * Demande client du 2026-10-09 : « on doit pouvoir voir, modifier, supprimer, ajouter un événement
- * depuis l'agenda de l'admin dans l'application HOC et les mises [à jour] se feront
- * instantanément sur l'agenda du compte Google ». Les événements qui viennent de HOC, eux, gardent
- * leurs propres écrans : les modifier ici court-circuiterait la base, qui est leur source de
- * vérité. C'est aussi pourquoi cette route refuse tout identifiant déjà rattaché à une ligne HOC —
- * un garde-fou, pas une simple convention d'appel.
+ * Demande client du 2026-10-09 (0107) : « chaque professeur doit synchroniser son agenda gmail
+ * avec son agenda de l'application HOC : mode écriture et read, avec une synchronisation
+ * instantanée et complète ». Le pendant, pour l'agenda de l'établissement, est
+ * api/admin/google-evenement.ts — même sémantique, même garde-fou, autre compte.
  *
- * Réservée à l'administrateur : l'agenda de l'établissement n'est pas celui d'un professeur, et
- * les agendas Google PERSONNELS restent en lecture seule (scope `calendar.readonly`, 0098).
+ * Trois garde-fous, dans cet ordre :
+ *   1. l'appelant n'agit QUE sur son propre agenda — l'intégration est lue par son `profileId`,
+ *      jamais par un identifiant reçu du navigateur ;
+ *   2. le jeton doit porter la permission d'écriture, sinon Google refuserait avec un message
+ *      incompréhensible (compte connecté avant 0107, voir `peutEcrire`) ;
+ *   3. un événement posé par HOC est refusé : il a sa propre fiche, qui tient la base à jour.
  */
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
@@ -52,16 +53,30 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   try {
-    const { serviceClient, etablissementId } = await requireAdmin(request)
+    const { serviceClient, profileId, etablissementId } = await requireTeacherOrAdmin(request)
     const corps = (await request.json()) as Corps
 
-    /* Création d'un événement RÉCURRENT. Il ne reçoit volontairement aucune ligne
-       `evenements_admin` : cette table ne sait pas représenter une répétition, et n'y inscrire que
-       la première occurrence ferait apparaître ce jour-là deux fois dans l'agenda — une fois comme
-       événement HOC, une fois comme occurrence Google. L'événement vit donc dans Google, qui en
-       est la source naturelle, et l'agenda HOC l'affiche par la superposition déjà en place, avec
-       sa fiche, ses invités et ses boutons modifier/supprimer. Un événement ponctuel continue de
-       passer par api/admin/creer-evenement.ts, qui lui ajoute notifications et participants. */
+    const integration = await integrationPersonnelleDeLaPersonne(serviceClient, profileId)
+    if (!integration) {
+      return Response.json(
+        { error: "Aucun agenda Google n'est connecté à votre compte. Connectez-le depuis « Mon profil »." },
+        { status: 409 },
+      )
+    }
+    if (!integration.peutEcrire) {
+      return Response.json(
+        {
+          error:
+            'Votre compte Google est connecté en lecture seule. Reconnectez-le depuis « Mon profil » et cochez la permission de modification des agendas pour pouvoir écrire depuis Hari Online Club.',
+        },
+        { status: 409 },
+      )
+    }
+
+    /* Création : seuls les événements RÉCURRENTS passent par ici, comme côté admin. Un événement
+       ponctuel a sa place dans `evenements_admin` (api/professeur/creer-evenement.ts), qui lui
+       ajoute participants et notifications ; une répétition, elle, n'a aucune représentation en
+       base et vivrait à moitié dans chaque monde. */
     if (corps.action === 'creer') {
       if (!corps.titre?.trim() || !corps.debut || Number.isNaN(new Date(corps.debut).getTime()) || !corps.dureeMinutes) {
         return Response.json({ error: 'Titre, date et durée sont obligatoires.' }, { status: 400 })
@@ -69,22 +84,16 @@ export default async function handler(request: Request): Promise<Response> {
       if (!corps.recurrence?.trim()) {
         return Response.json({ error: 'Cette route ne crée que des événements qui se répètent.' }, { status: 400 })
       }
-      const integrationCreation = await integrationDeLEtablissement(serviceClient, etablissementId)
-      if (!integrationCreation) {
-        return Response.json(
-          { error: "Aucun compte Google n'est connecté : un événement qui se répète ne peut être créé que dans l'agenda Google." },
-          { status: 409 },
-        )
-      }
-      const cree = await creerEvenementVisio(integrationCreation, {
+      const cree = await creerEvenementVisio(integration, {
         titre: corps.titre.trim(),
         description: corps.description?.trim() || undefined,
         debut: new Date(corps.debut).toISOString(),
         dureeMinutes: corps.dureeMinutes,
-        emailsInvites: corps.emailsInvites ?? [],
+        emailsInvites: (corps.emailsInvites ?? []).filter((email) => email !== integration.googleEmail),
         fournisseur: 'google_meet',
       })
-      await modifierEvenementVisio(integrationCreation, cree.eventId, { recurrence: corps.recurrence.trim() })
+      await modifierEvenementVisio(integration, cree.eventId, { recurrence: corps.recurrence.trim() })
+      await noterErreurGooglePersonnelle(serviceClient, profileId, null)
       return Response.json({ ok: true, eventId: cree.eventId })
     }
 
@@ -93,9 +102,6 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Requête incomplète.' }, { status: 400 })
     }
 
-    /* Toute la série : on agit sur l'événement maître, dont la modification se propage à chaque
-       occurrence. Sur une seule : on vise l'occurrence affichée, et Google la détache de la série
-       sans toucher aux autres. */
     const surLaSerie = corps.portee === 'serie'
     if (surLaSerie && !corps.serieId?.trim()) {
       return Response.json({ error: "Cet événement n'appartient à aucune série." }, { status: 400 })
@@ -107,11 +113,6 @@ export default async function handler(request: Request): Promise<Response> {
         { error: 'Cet événement vient de Hari Online Club : modifiez-le depuis sa propre fiche, pas depuis l’agenda Google.' },
         { status: 409 },
       )
-    }
-
-    const integration = await integrationDeLEtablissement(serviceClient, etablissementId)
-    if (!integration) {
-      return Response.json({ error: "Aucun compte Google n'est connecté." }, { status: 409 })
     }
 
     if (corps.action === 'supprimer') {
@@ -137,7 +138,7 @@ export default async function handler(request: Request): Promise<Response> {
     })
     return Response.json({ ok: true })
   } catch (error) {
-    if (error instanceof AdminAuthError) {
+    if (error instanceof TeacherAuthError) {
       return Response.json({ error: error.message }, { status: error.status })
     }
     if (error instanceof GoogleError) {

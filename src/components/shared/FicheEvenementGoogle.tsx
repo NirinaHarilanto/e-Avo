@@ -15,7 +15,12 @@ import { ModaleConfirmation } from '../ui/ModaleConfirmation'
    rappel, agenda propriétaire — et mêmes actions en en-tête (modifier, supprimer, fermer).
 
    Jusqu'ici ces événements étaient affichés dans la grille mais ignoraient le clic : toute cette
-   information était invisible depuis HOC. */
+   information était invisible depuis HOC.
+
+   Partagée par les deux espaces depuis 0107 : l'agenda de l'admin écrit dans celui de
+   l'établissement (`/api/admin/google-evenement`), celui du professeur dans son agenda personnel
+   (`/api/google-personnel/evenement`). Seule l'URL change — d'où la prop `url` — car la fiche, la
+   question de portée et les règles de répétition sont les mêmes de part et d'autre. */
 
 const LIBELLE_REPONSE: Record<string, string> = {
   accepted: 'a accepté',
@@ -77,10 +82,14 @@ export function FicheEvenementGoogle({
   evenement,
   onFermer,
   onChange,
+  url = '/api/admin/google-evenement',
 }: {
   evenement: EvenementGoogle
   onFermer: () => void
   onChange: () => void
+  /* Route d'écriture : celle de l'établissement par défaut, celle de l'agenda personnel pour un
+     professeur. Les deux acceptent exactement le même corps de requête. */
+  url?: string
 }) {
   const { session } = useProfileContext()
   const [edition, setEdition] = useState(false)
@@ -106,7 +115,7 @@ export function FicheEvenementGoogle({
     if (!session) return false
     setEnCours(true)
     setErreur(null)
-    const reponse = await fetch('/api/admin/google-evenement', {
+    const reponse = await fetch(url, {
       method: 'POST',
       headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ eventId: evenement.id, ...corps }),
@@ -302,9 +311,12 @@ export function FicheEvenementGoogle({
                 </Rubrique>
               )}
 
+              {/* Seul cas restant depuis 0107 : un compte Google connecté avant ce changement, donc
+                  encore limité à la lecture. L'écran « Mon profil » dit comment y remédier. */}
               {!evenement.modifiable && (
                 <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.55 }}>
-                  Cet événement vient d’un agenda Google personnel, affiché en lecture seule.
+                  Cet événement est affiché en lecture seule : votre compte Google a été connecté sans la permission de
+                  modifier vos agendas. Reconnectez-le depuis « Mon profil » pour pouvoir le modifier d’ici.
                 </p>
               )}
             </>

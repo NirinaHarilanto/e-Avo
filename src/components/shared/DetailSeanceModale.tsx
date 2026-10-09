@@ -71,6 +71,12 @@ export function DetailSeanceModale({ session, professeur, eleves, video, onFerme
           <LigneInfo accent label={nomsEleves.length > 1 ? 'Étudiants' : 'Étudiant'} valeur={nomsEleves.join(', ') || 'Aucun élève inscrit'} />
           <LigneInfo accent label="Type" valeur={session.type === 'individuel' ? 'Individuel' : 'Collectif'} />
           <LigneInfo accent label="Durée" valeur={formaterMinutes(session.duree_minutes)} />
+          {/* Quel compte Google héberge la réunion et a donc envoyé les invitations (0107) :
+              celui du professeur en règle générale. L'administration ne recevant plus ces
+              invitations dans sa boîte, c'est ici qu'elle retrouve l'information. */}
+          {video?.organisateur_email && (
+            <LigneInfo accent label="Invitations envoyées par" valeur={video.organisateur_email} />
+          )}
         </div>
 
         {video && lienVisio && estLienReel(video) && (

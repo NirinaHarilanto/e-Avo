@@ -8,6 +8,14 @@ import { useCacheRequete } from './useCacheRequete'
 
 type StatutGooglePersonnel = Database['public']['Views']['google_integration_personnelle_statut']['Row']
 
+/* Permission d'écriture sur l'agenda, telle que Google l'a réellement accordée (0107). Un compte
+   connecté avant le 2026-10-09 n'a que `calendar.readonly` : il affiche l'agenda mais ne peut rien
+   y écrire, et Google n'élargit pas un scope sans nouveau consentement. L'écran doit donc demander
+   une reconnexion, au lieu d'annoncer une synchronisation complète qui n'existe pas. */
+export function peutEcrireDansAgenda(scope: string | null | undefined): boolean {
+  return (scope ?? '').split(/\s+/).includes('https://www.googleapis.com/auth/calendar.events')
+}
+
 /* État de connexion du Google Calendar personnel (0098) : lu directement par le navigateur via la
    vue dédiée, qui n'expose ni jeton ni rien de sensible (même garantie que
    google_integration_statut pour l'établissement, voir la migration 0098). Utilisé par la carte
@@ -18,7 +26,8 @@ export function useStatutGoogleCalendarPersonnel() {
     const { data } = await supabase.from('google_integration_personnelle_statut').select('*').maybeSingle()
     return data as StatutGooglePersonnel | null
   })
-  return { statut: valeur ?? null, loading, recharger }
+  const statut = valeur ?? null
+  return { statut, peutEcrire: peutEcrireDansAgenda(statut?.scope), loading, recharger }
 }
 
 /* Événements du Google Calendar personnel de la semaine affichée, au format EvenementAgenda — à

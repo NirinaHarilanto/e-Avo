@@ -43,6 +43,11 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
           visioconférence : Google Meet pour un cours individuel ou en duo, Jitsi (sans compte à créer) pour un cours
           collectif.
         </>,
+        <>
+          L’invitation d’un cours vous est envoyée par <strong>votre professeur</strong>, depuis son propre agenda
+          Google : c’est son adresse que vous verrez comme organisateur. Pour un cours sur Google Meet, ouvrez le lien
+          en étant connecté à l’adresse qui a reçu l’invitation, vous entrerez directement.
+        </>,
         <>Un changement d’horaire décidé par votre professeur ou l’administration apparaît aussitôt, accompagné d’une notification.</>,
       ],
     },
@@ -128,7 +133,16 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
     {
       titre: 'Mon profil',
       lien: '/professeur/mon-profil',
-      points: [<>Vos coordonnées et votre image de signature, utilisée sur vos contrats.</>],
+      points: [
+        <>Vos coordonnées et votre image de signature, utilisée sur vos contrats.</>,
+        <>
+          <strong>Mon agenda Google</strong> : connectez votre compte Gmail. Il est à la fois lu et écrit — vos
+          événements Google apparaissent dans votre agenda HOC, et ce que vous y faites part aussitôt sur Google.
+          Surtout, c’est <strong>depuis votre compte</strong> que seront créées les réunions de vos cours : vos élèves
+          reçoivent l’invitation de votre adresse, et vous restez l’organisateur. Sur l’écran Google, cochez bien la
+          permission de <strong>modification des événements</strong>, sans quoi la connexion reste en lecture seule.
+        </>,
+      ],
     },
   ],
   admin: [
@@ -148,7 +162,7 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
       points: [
         <><strong>Recrutement</strong> : candidatures reçues depuis le bouton « Rejoignez-nous » de la vitrine. Faites avancer chaque candidat : pré-sélection, tests (C1 minimum), simulation de cours, puis intégration. Le compte professeur est créé automatiquement à l’entrée en intégration.</>,
         <><strong>Professeurs</strong> : équipe enseignante, taux horaire, élèves et satisfaction. Un professeur en intégration porte ce statut jusqu’à la fin de sa checklist.</>,
-        <><strong>Séances & visio</strong> : planning de tous les cours. Toute création, reprogrammation ou annulation faite par un professeur vous est notifiée.</>,
+        <><strong>Séances & visio</strong> : planning de tous les cours. Toute création, reprogrammation ou annulation faite par un professeur vous est notifiée. C’est ici que vous suivez les emplois du temps de toute l’équipe : les invitations des cours partent de l’agenda Google du professeur, vous n’en recevez donc pas de copie dans votre boîte sauf si l’on vous ajoute aux participants.</>,
         <><strong>Heures & forfaits</strong> : compteurs d’heures suivies et enseignées.</>,
       ],
     },
@@ -162,8 +176,11 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
         <><strong>Contrats</strong> : modèles et contrats. Pour un cours collectif, choisissez la classe : chaque élève reçoit son propre contrat.</>,
         <>
           <strong>Tarifs</strong> et <strong>Paramètres</strong> : grille affichée sur la vitrine, réglages de
-          l’établissement et connexion du compte Google qui porte l’agenda et les visioconférences (Meet pour
-          l’individuel et le duo, Jitsi pour le collectif).
+          l’établissement et agendas Google. Le compte de l’établissement porte les rendez-vous de l’administration
+          (appels diagnostic, créneaux de test) ; les cours, eux, partent du compte Google de chaque professeur. Le
+          service de visioconférence ne change pas : Google Meet pour l’individuel et le duo, Jitsi pour le collectif.
+          La section <strong>Agendas Google des professeurs</strong> montre qui a connecté le sien et qui reste à
+          relancer.
         </>,
       ],
     },

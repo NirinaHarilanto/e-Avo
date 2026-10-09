@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { waitUntil } from '@vercel/functions'
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
-import { creerEvenementVisio, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
+import { creerEvenementVisio, integrationHoteReunion, noterErreurHote } from '../_lib/google.js'
 
 export const config = { runtime: 'edge' }
 
@@ -91,14 +91,19 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: erreurInsert?.message ?? "L'événement n'a pas pu être créé." }, { status: 500 })
     }
 
-    // Lien Meet en tâche de fond, jamais bloquant — même logique que creer-evenement.ts admin.
-    const integration = await integrationDeLEtablissement(serviceClient, etablissementId)
-    if (integration) {
+    /* Lien Meet en tâche de fond, jamais bloquant — même logique que creer-evenement.ts admin.
+       Hôte = le professeur lui-même (0107) : le rendez-vous qu'il crée part de SON agenda et de
+       SON adresse, l'admin n'en est pas destinataire sauf s'il figure dans les participants
+       choisis ci-dessus. */
+    const hote = await integrationHoteReunion(serviceClient, { organisateurId: profileId, etablissementId })
+    if (hote) {
       waitUntil(
         (async () => {
           try {
-            const emailsInvites = tousLesIds.map((id) => parId.get(id)?.email).filter((email): email is string => !!email)
-            const { eventId, lienVisio } = await creerEvenementVisio(integration, {
+            const emailsInvites = tousLesIds
+              .map((id) => parId.get(id)?.email)
+              .filter((email): email is string => !!email && email !== hote.googleEmail)
+            const { eventId, lienVisio } = await creerEvenementVisio(hote, {
               titre,
               description: corps.notes?.trim() || undefined,
               debut: debutIso,
@@ -107,11 +112,11 @@ export default async function handler(request: Request): Promise<Response> {
               fournisseur: 'google_meet',
             })
             await serviceClient.from('evenements_admin').update({ google_event_id: eventId, lien_meet: lienVisio }).eq('id', evenement.id)
-            await noterErreurGoogle(serviceClient, etablissementId, null)
+            await noterErreurHote(serviceClient, hote, null)
           } catch (erreurGoogle) {
-            await noterErreurGoogle(
+            await noterErreurHote(
               serviceClient,
-              etablissementId,
+              hote,
               erreurGoogle instanceof Error ? erreurGoogle.message : 'Échec de création du lien Meet.',
             )
           }

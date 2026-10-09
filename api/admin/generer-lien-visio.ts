@@ -1,5 +1,5 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
-import { creerEvenementVisio, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
+import { creerEvenementVisio, integrationHoteReunion, noterErreurHote } from '../_lib/google.js'
 import { emailsParticipants, messageErreur } from '../_lib/creerSeance.js'
 
 export const config = { runtime: 'edge' }
@@ -37,10 +37,15 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Seule une séance encore planifiée peut recevoir un lien.' }, { status: 409 })
     }
 
-    const integration = await integrationDeLEtablissement(serviceClient, etablissementId)
-    if (!integration) {
+    /* Hôte = le professeur de la séance dès qu'il a connecté son compte (0107), même si c'est
+       l'admin qui déclenche ce rattrapage : le lien doit venir du compte qui donnera le cours. */
+    const hote = await integrationHoteReunion(serviceClient, {
+      organisateurId: session.teacher_id,
+      etablissementId,
+    })
+    if (!hote) {
       return Response.json(
-        { error: "Aucun compte Google n'est connecté. Connectez-le dans Paramètres pour générer de vrais liens Meet." },
+        { error: "Aucun compte Google n'est connecté. Connectez celui de l'établissement dans Paramètres, ou demandez au professeur de connecter le sien, pour générer de vrais liens Meet." },
         { status: 409 },
       )
     }
@@ -53,12 +58,13 @@ export default async function handler(request: Request): Promise<Response> {
 
     try {
       const participants = await emailsParticipants(serviceClient, session.teacher_id, studentIds)
-      const { eventId, lienVisio, fournisseur } = await creerEvenementVisio(integration, {
+      const { eventId, lienVisio, fournisseur } = await creerEvenementVisio(hote, {
         titre: participants.titreCours,
-        description: 'Cours planifié depuis e-Avo.',
+        description: 'Cours planifié depuis Hari Online Club.',
         debut: session.debut,
         dureeMinutes: session.duree_minutes,
-        emailsInvites: participants.emails,
+        // L'organisateur n'a pas à s'inviter lui-même — voir creerVisioconference.
+        emailsInvites: participants.emails.filter((email) => email !== hote.googleEmail),
         fournisseur: session.type === 'collectif' ? 'jitsi' : 'google_meet',
       })
 
@@ -71,7 +77,7 @@ export default async function handler(request: Request): Promise<Response> {
           room_ref: lienVisio,
           statut: 'planifiee',
           google_event_id: eventId,
-          organisateur_email: integration.googleEmail,
+          organisateur_email: hote.googleEmail,
         },
         { onConflict: 'session_id' },
       )
@@ -79,10 +85,10 @@ export default async function handler(request: Request): Promise<Response> {
         return Response.json({ error: error.message }, { status: 500 })
       }
 
-      await noterErreurGoogle(serviceClient, etablissementId, null)
+      await noterErreurHote(serviceClient, hote, null)
       return Response.json({ lienMeet: lienVisio })
     } catch (error) {
-      await noterErreurGoogle(serviceClient, etablissementId, messageErreur(error))
+      await noterErreurHote(serviceClient, hote, messageErreur(error))
       return Response.json({ error: messageErreur(error) }, { status: 502 })
     }
   } catch (error) {

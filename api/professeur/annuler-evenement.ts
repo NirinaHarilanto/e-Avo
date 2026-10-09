@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
-import { integrationDeLEtablissement, supprimerEvenement } from '../_lib/google.js'
+import { integrationHoteReunion, supprimerEvenement } from '../_lib/google.js'
 
 export const config = { runtime: 'edge' }
 
@@ -38,9 +38,12 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     if (evenement.google_event_id) {
-      const integration = await integrationDeLEtablissement(serviceClient, etablissementId)
-      if (integration) {
-        await supprimerEvenement(integration, evenement.google_event_id).catch(() => {})
+      /* Visé avec le compte qui l'héberge — celui de son créateur (0107) : l'établissement n'a
+         aucun droit sur un événement né dans l'agenda d'un professeur, et Google répondrait 404
+         sans que rien ne le signale. */
+      const hote = await integrationHoteReunion(serviceClient, { organisateurId: evenement.cree_par, etablissementId })
+      if (hote) {
+        await supprimerEvenement(hote, evenement.google_event_id).catch(() => {})
       }
     }
 

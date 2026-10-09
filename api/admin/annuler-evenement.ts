@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { AdminAuthError, requireAdmin } from '../_lib/adminAuth.js'
-import { integrationDeLEtablissement, supprimerEvenement } from '../_lib/google.js'
+import { integrationHoteReunion, supprimerEvenement } from '../_lib/google.js'
 
 export const config = { runtime: 'edge' }
 
@@ -28,7 +28,10 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: evenement } = await serviceClient
       .from('evenements_admin')
-      .select('id, etablissement_id, google_event_id')
+      /* `cree_par` : l'événement vit dans l'agenda Google de son créateur depuis 0107 — un
+         rendez-vous créé par un professeur n'est PAS dans celui de l'établissement, et seul le
+         compte qui l'héberge peut le supprimer. */
+      .select('id, etablissement_id, google_event_id, cree_par')
       .eq('id', corps.evenementId)
       .maybeSingle()
     if (!evenement || evenement.etablissement_id !== etablissementId) {
@@ -36,11 +39,14 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     if (evenement.google_event_id) {
-      const integration = await integrationDeLEtablissement(serviceClient, etablissementId)
-      if (integration) {
+      const hote = await integrationHoteReunion(serviceClient, {
+        organisateurId: evenement.cree_par,
+        etablissementId,
+      })
+      if (hote) {
         // Best effort : l'événement Google n'existe peut-être déjà plus (supprimé à la main),
         // ce qui ne doit pas empêcher l'annulation côté application.
-        await supprimerEvenement(integration, evenement.google_event_id).catch(() => {})
+        await supprimerEvenement(hote, evenement.google_event_id).catch(() => {})
       }
     }
 
