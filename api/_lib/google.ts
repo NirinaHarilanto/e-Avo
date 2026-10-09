@@ -414,6 +414,20 @@ function estLienMeet(lien: string): boolean {
  * règle d'administration du domaine, et une séance sans aucun lien serait bien pire qu'une séance
  * dont le lien n'est pas celui prévu.
  */
+/**
+ * Dit si l'événement est lisible dans l'agenda du compte actuellement connecté.
+ *
+ * Sert à repérer les réunions héritées d'un compte Google précédent : un changement de compte
+ * laisse leurs événements dans l'ancien agenda, où le nouveau jeton n'a aucun droit. Google répond
+ * alors 404, et toute tentative de les modifier échoue sans que la cause soit évidente.
+ */
+export async function evenementAccessible(integration: IntegrationGoogle, eventId: string): Promise<boolean> {
+  const reponse = await fetch(`${CALENDAR_URL}/${encodeURIComponent(eventId)}`, {
+    headers: { Authorization: `Bearer ${integration.accessToken}` },
+  }).catch(() => null)
+  return reponse?.ok ?? false
+}
+
 export async function lienMeetDeLEvenement(
   integration: IntegrationGoogle,
   eventId: string,

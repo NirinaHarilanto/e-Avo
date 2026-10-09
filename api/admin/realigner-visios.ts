@@ -1,6 +1,8 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import {
+  creerEvenementVisio,
   domaineVisio,
+  evenementAccessible,
   integrationDeLEtablissement,
   lienMeetDeLEvenement,
   modifierEvenementVisio,
@@ -8,6 +10,7 @@ import {
   type FournisseurVisio,
   type IntegrationGoogle,
 } from '../_lib/google.js'
+import { emailsParticipants } from '../_lib/creerSeance.js'
 
 export const config = { runtime: 'edge' }
 
@@ -138,7 +141,7 @@ export default async function handler(request: Request): Promise<Response> {
        signale. C'est aussi `sessions.type` qui décide ici du fournisseur. */
     const { data: seances } = await serviceClient
       .from('sessions')
-      .select('id, debut, duree_minutes, type')
+      .select('id, debut, duree_minutes, type, teacher_id')
       .eq('etablissement_id', etablissementId)
       .eq('statut', 'planifiee')
       .gte('debut', plancher)
@@ -160,6 +163,58 @@ export default async function handler(request: Request): Promise<Response> {
       if (!seance) continue
       const cible: FournisseurVisio = seance.type === 'collectif' ? 'jitsi' : 'google_meet'
       if (conforme(visio.room_ref, cible)) continue
+
+      /* Événement injoignable : il appartient à l'agenda d'un compte Google précédent. Un
+         changement de compte (`harionlineclub.app@gmail.com` → `admin@harionlineclub.com`, le
+         2026-10-09) laisse les réunions déjà planifiées dans l'ancien agenda, où le nouveau jeton
+         n'a aucun droit — ni pour y attacher un Meet, ni pour y poser un lien. Les recréer dans
+         l'agenda courant est le seul moyen de les récupérer, et c'est exactement ce que fait
+         « Générer le lien » sur une séance isolée. L'ancien événement reste chez l'ancien compte,
+         orphelin : inaccessible, il ne peut pas être supprimé d'ici.
+         Réservé aux séances de cours : ce sont elles qui portent le volume, et `emailsParticipants`
+         sait déjà reconstituer leurs invités. */
+      const recreer = visio.google_event_id !== null && integration !== null && !(await evenementAccessible(integration, visio.google_event_id))
+
+      if (recreer && integration) {
+        try {
+          const inscrits = await serviceClient.from('session_enrollments').select('student_id').eq('session_id', visio.session_id)
+          const participants = await emailsParticipants(
+            serviceClient,
+            seance.teacher_id,
+            (inscrits.data ?? []).map((i) => i.student_id),
+          )
+          const cree = await creerEvenementVisio(integration, {
+            titre: participants.titreCours,
+            description: 'Cours planifié depuis e-Avo.',
+            debut: seance.debut,
+            dureeMinutes: seance.duree_minutes ?? 60,
+            emailsInvites: participants.emails,
+            fournisseur: cible,
+          })
+          const { error } = await serviceClient
+            .from('video_sessions')
+            .update({
+              room_ref: cree.lienVisio,
+              provider: cree.fournisseur,
+              google_event_id: cree.eventId,
+              organisateur_email: integration.googleEmail,
+            })
+            .eq('session_id', visio.session_id)
+          if (error) {
+            echecs.push({ table: 'video_sessions', id: visio.session_id, raison: error.message })
+            continue
+          }
+          rapport.push({ table: 'video_sessions', id: visio.session_id, fournisseur: cree.fournisseur, calendrier: 'mis a jour' })
+          continue
+        } catch (erreur) {
+          echecs.push({
+            table: 'video_sessions',
+            id: visio.session_id,
+            raison: erreur instanceof Error ? erreur.message : 'Recréation impossible.',
+          })
+          continue
+        }
+      }
 
       const { lien, fournisseur } = await lienPour(cible, visio.google_event_id)
       const { error } = await serviceClient
