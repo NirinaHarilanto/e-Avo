@@ -587,6 +587,10 @@ select { color-scheme: dark; }
    retrouvait alors à défiler verticalement, coupant les derniers liens de la vue. En dessous de
    ~820px de hauteur, resserre encore les liens, groupes et pied de page pour que tout tienne en
    une seule vue plutôt que de compter sur ce défilement interne. */
+/* Sur un écran court, `space-evenly` n'a plus d'espace a distribuer : c'est le `gap` minimum des
+   groupes et la hauteur propre des pilules qui decident, et la barre se remettrait a defiler.
+   Ces deux paliers resserrent donc le logo, l'en-tete et les liens pour que les dix-huit entrees
+   continuent de tenir en une seule vue. */
 @media (max-height: 820px) {
   .barre-laterale {
     gap: 9px;
@@ -596,12 +600,21 @@ select { color-scheme: dark; }
     padding-top: 7px !important;
     padding-bottom: 7px !important;
   }
+  .barre-laterale .entete-barre img {
+    height: 34px !important;
+  }
 }
 @media (max-height: 700px) {
   .barre-laterale .nav-item {
     padding-top: 5px !important;
     padding-bottom: 5px !important;
-    font-size: 13px !important;
+    font-size: 13.5px !important;
+  }
+  .barre-laterale .entete-barre {
+    gap: 6px !important;
+  }
+  .barre-laterale .entete-barre img {
+    height: 28px !important;
   }
 }
 .zone-contenu {

@@ -135,9 +135,9 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
           {/* Même gouttière de 12 px que les pilules de navigation et que le pied de page : les
               trois zones de la barre s'alignent sur une seule verticale (2026-10-09). L'en-tête
               était jusque-là 6 px plus à gauche que les libellés. */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 12px' }}>
+          <div className="entete-barre" style={{ display: 'flex', flexDirection: 'column', gap: 11, padding: '0 12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <Logo taille={26} />
+              <Logo taille={42} />
               <button
                 type="button"
                 onClick={() => setTiroirOuvert(false)}
@@ -150,18 +150,36 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
             </div>
             {/* Le nom de l'établissement est porté par le logo juste au-dessus : seul l'espace
                 courant reste à nommer ici. */}
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--muted)' }}>
+            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--muted)' }}>
               {LIBELLE_ESPACE[roleAttendu]}
             </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flexGrow: 1 }}>
+          {/* Les deux pôles se partagent toute la hauteur restante AU PRORATA de leur nombre
+              d'entrées (`flexGrow: items.length`), et chacun répartit la sienne en `space-evenly`.
+              C'est ce qui fait que la navigation remplit le bloc quelle que soit la hauteur
+              d'écran, au lieu de s'entasser en haut en laissant un vide au-dessus du pied de page
+              (demande du 2026-10-09). Au prorata, et non `flexGrow: 1` pour les deux : avec huit
+              entrées d'un côté et dix de l'autre, un partage à parts égales aérerait visiblement
+              plus le premier groupe que le second. Le `gap` reste un minimum : sur un écran court,
+              `space-evenly` n'a plus d'espace à distribuer et c'est lui qui tient l'espacement. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flexGrow: 1, minHeight: 0 }}>
             {navGroups.map((groupe, index) => (
-              <div key={groupe.titre ?? index} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <div
+                key={groupe.titre ?? index}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-evenly',
+                  gap: 4,
+                  flexGrow: groupe.items.length,
+                  flexBasis: 0,
+                }}
+              >
                 {groupe.titre && (
                   /* Était en `--muted-2` à 10 px : le titre de pôle se lisait à peine sur le fond
                      de la barre, alors que c'est lui qui sépare les deux moitiés du menu. */
-                  <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, padding: '0 12px 5px' }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, padding: '0 12px' }}>
                     {groupe.titre}
                   </span>
                 )}
@@ -172,14 +190,14 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
             ))}
           </div>
 
-          <div style={{ padding: '11px 12px 0', borderTop: '1px solid var(--border-soft)' }}>
-            <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)', lineHeight: 1.3 }}>
+          <div style={{ padding: '13px 12px 0', borderTop: '1px solid var(--border-soft)' }}>
+            <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.3 }}>
               Connecté en tant que
             </span>
-            <span className="brand-font" style={{ display: 'block', fontSize: 13.5, color: 'var(--accent-gold, #e9cf94)', marginTop: 2 }}>
+            <span className="brand-font" style={{ display: 'block', fontSize: 15, color: 'var(--accent-gold, #e9cf94)', marginTop: 3 }}>
               {profile.prenom} {profile.nom}
             </span>
-            <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)' }}>{roleLabel}</span>
+            <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)' }}>{roleLabel}</span>
           </div>
         </nav>
 
@@ -284,7 +302,7 @@ function LienNav({ item, actif }: { item: NavItem; actif: boolean }) {
     gap: 12,
     padding: '10px 12px',
     borderRadius: 11,
-    fontSize: 14.5,
+    fontSize: 15,
     fontWeight: actif ? 800 : 600,
     color: actif ? '#1b1510' : item.disponible ? 'var(--ink-2)' : 'var(--muted-2)',
     background: actif ? 'var(--accent-gradient)' : undefined,
