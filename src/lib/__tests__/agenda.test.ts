@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   dureeMinimaleColonnesMinutes,
+  estCouleurClaire,
   joursDeLaSemaine,
   libelleSemaine,
   lundiDeLaSemaine,
@@ -179,5 +180,36 @@ describe('libelleSemaine', () => {
 
   it('nomme les deux mois à cheval', () => {
     expect(libelleSemaine(new Date('2026-09-28T00:00'))).toBe('28 septembre – 4 octobre 2026')
+  })
+})
+
+/* Couleurs reprises de la palette officielle de Google Agenda : l'agenda HOC superpose les
+   événements du compte Google en gardant leur teinte, et le libellé doit rester lisible sur
+   chacune — c'est ce que demandait le client le 2026-10-09 (« des informations lisibles et
+   claires »), capture de son agenda à l'appui. */
+describe('estCouleurClaire', () => {
+  it('réclame un texte sombre sur les teintes claires de Google', () => {
+    expect(estCouleurClaire('#f6bf26')).toBe(true) // banane
+    expect(estCouleurClaire('#ffffff')).toBe(true)
+  })
+
+  /* Le seuil est volontairement haut : Google lui-même garde un libellé blanc sur tout le reste
+     de sa palette, y compris la sauge et le flamant, et l'agenda HOC doit se lire comme le sien.
+     Un seuil purement mathématique (~0,18, le point où le noir devient plus contrasté) ferait
+     basculer la moitié des couleurs et donnerait un agenda bariolé que le client ne
+     reconnaîtrait pas. */
+  it('garde un texte blanc sur le reste de la palette, comme Google', () => {
+    expect(estCouleurClaire('#33b679')).toBe(false) // sauge
+    expect(estCouleurClaire('#e67c73')).toBe(false) // flamant
+    expect(estCouleurClaire('#d50000')).toBe(false) // tomate
+    expect(estCouleurClaire('#039be5')).toBe(false) // myrtille
+    expect(estCouleurClaire('#8e24aa')).toBe(false) // raisin
+    expect(estCouleurClaire('#616161')).toBe(false) // graphite
+  })
+
+  it('ne se laisse pas piéger par une valeur inattendue', () => {
+    expect(estCouleurClaire('bleu')).toBe(false)
+    expect(estCouleurClaire('')).toBe(false)
+    expect(estCouleurClaire('#fff')).toBe(false)
   })
 })

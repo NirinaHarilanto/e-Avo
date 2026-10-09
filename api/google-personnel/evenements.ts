@@ -45,7 +45,10 @@ export default async function handler(request: Request): Promise<Response> {
       try {
         const evenements = await evenementsPersonnels(integration, debut, fin)
         await noterErreurGooglePersonnelle(serviceClient, profileId, null)
-        return Response.json({ evenements })
+        /* Agenda personnel : lecture seule assumée depuis la migration 0098 — le jeton n'a que le
+           scope `calendar.readonly`, et la demande d'origine était explicitement « rien ne part de
+           HOC vers Google » pour cette intégration-là. */
+        return Response.json({ evenements: evenements.map((e) => ({ ...e, modifiable: false })) })
       } catch (erreurGoogle) {
         await noterErreurGooglePersonnelle(
           serviceClient,
@@ -74,7 +77,12 @@ export default async function handler(request: Request): Promise<Response> {
     try {
       const tous = await evenementsPersonnels(integrationEtablissement, debut, fin)
       const posesParHOC = await identifiantsEvenementsHOC(serviceClient, etablissementId, debut, fin)
-      return Response.json({ evenements: tous.filter((e) => !posesParHOC.has(e.id)) })
+      /* Ceux-là sont dans l'agenda de l'établissement, dont le jeton porte `calendar.events` :
+         l'admin peut donc les modifier et les supprimer depuis HOC (demande du 2026-10-09). Sauf
+         les occurrences d'un événement récurrent, voir `EvenementGoogle.recurrent`. */
+      return Response.json({
+        evenements: tous.filter((e) => !posesParHOC.has(e.id)).map((e) => ({ ...e, modifiable: !e.recurrent })),
+      })
     } catch {
       return Response.json({ evenements: [] })
     }

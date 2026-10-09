@@ -8,7 +8,8 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useVagues } from '../../hooks/useVagues'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { lundiDeLaSemaine } from '../../lib/agenda'
-import { agendaAdminComplet, estEvenementGooglePersonnel } from '../../lib/agendaEvenements'
+import { agendaAdminComplet, estEvenementGooglePersonnel, idGoogleDepuisEvenement } from '../../lib/agendaEvenements'
+ import { FicheEvenementGoogle } from './FicheEvenementGoogle'
 import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { etudiantsSelectionnables, vaguesSelectionnables, classesSelectionnables } from '../../lib/invitations'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
@@ -63,11 +64,16 @@ export function RendezVousAdmin() {
   // que rien n'est connecté. Chaque admin ne voit que le sien (voir la vue
   // google_integration_personnelle_statut, filtrée sur auth.uid()) : ce n'est pas « l'agenda
   // Google de l'établissement », une notion qui n'existe pas ici.
-  const evenementsGooglePersonnel = useEvenementsGoogleCalendarPersonnel(semaineDebut)
+  const {
+    evenements: evenementsGooglePersonnel,
+    parId: googleParId,
+    recharger: rechargerGoogle,
+  } = useEvenementsGoogleCalendarPersonnel(semaineDebut)
   const evenementsAgenda = useMemo(
     () => [...agendaAdminComplet(rendezVous, evenementsAdmin), ...evenementsGooglePersonnel],
     [rendezVous, evenementsAdmin, evenementsGooglePersonnel],
   )
+  const [evenementGoogleOuvert, setEvenementGoogleOuvert] = useState<string | null>(null)
 
   return (
     <AdminLayout actif="Agenda">
@@ -139,8 +145,14 @@ export function RendezVousAdmin() {
           semaineDebut={semaineDebut}
           onSemaineChange={setSemaineDebut}
           onSelectionner={(evenement) => {
-            // Un événement de l'agenda Google personnel n'a pas de fiche HOC à ouvrir.
-            if (estEvenementGooglePersonnel(evenement.id)) return
+            /* Un événement venu de Google n'a pas de fiche HOC, mais il a la sienne : il était
+               jusqu'ici affiché dans la grille en ignorant le clic, et toute son information —
+               invités, description, lien de visioconférence — restait invisible depuis HOC
+               (signalé par le client le 2026-10-09). */
+            if (estEvenementGooglePersonnel(evenement.id)) {
+              setEvenementGoogleOuvert(idGoogleDepuisEvenement(evenement.id))
+              return
+            }
             setElementOuvertId(evenement.id)
           }}
           onCreneauLibre={(debut) => setCreationOuverte(debut)}
@@ -213,6 +225,14 @@ export function RendezVousAdmin() {
             setCreationOuverte(null)
             rechargerEvenements()
           }}
+        />
+      )}
+
+      {evenementGoogleOuvert && googleParId.get(evenementGoogleOuvert) && (
+        <FicheEvenementGoogle
+          evenement={googleParId.get(evenementGoogleOuvert)!}
+          onFermer={() => setEvenementGoogleOuvert(null)}
+          onChange={rechargerGoogle}
         />
       )}
     </AdminLayout>

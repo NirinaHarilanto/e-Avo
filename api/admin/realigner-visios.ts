@@ -150,34 +150,35 @@ export default async function handler(request: Request): Promise<Response> {
       (seances ?? []).filter((s) => enCoursOuAVenir(s.debut, s.duree_minutes)).map((s) => [s.id, s]),
     )
 
-    /* Les séances `stub` (aucune visio réelle n'a pu être créée) sont écartées : sans événement
-       Calendar, il n'y a de toute façon rien à réaligner — c'est « Générer le lien » qui les
-       reprend, depuis la page Séances. */
+    /* Les séances `stub` sont incluses, contrairement à la version du 2026-10-07 qui les écartait :
+       ce sont des séances dont la visio n'a JAMAIS pu être créée (aucun compte Google connecté à
+       l'époque), donc sans lien du tout. Elles étaient les plus mal loties, et il n'y avait aucune
+       raison de les laisser au seul rattrapage manuel, séance par séance, de « Générer le lien ».
+       Une séance sans ligne `video_sessions` du tout est traitée de la même façon. */
     const { data: visios } = await serviceClient
       .from('video_sessions')
-      .select('session_id, google_event_id, room_ref')
-      .neq('provider', 'stub')
+      .select('session_id, google_event_id, room_ref, provider')
 
-    for (const visio of visios ?? []) {
-      const seance = seancesConcernees.get(visio.session_id)
-      if (!seance) continue
+    const visioParSeance = new Map((visios ?? []).map((v) => [v.session_id, v]))
+
+    for (const seance of seancesConcernees.values()) {
+      const visio = visioParSeance.get(seance.id) ?? null
       const cible: FournisseurVisio = seance.type === 'collectif' ? 'jitsi' : 'google_meet'
-      if (conforme(visio.room_ref, cible)) continue
+      if (visio && visio.provider !== 'stub' && conforme(visio.room_ref, cible)) continue
 
-      /* Événement injoignable : il appartient à l'agenda d'un compte Google précédent. Un
-         changement de compte (`harionlineclub.app@gmail.com` → `admin@harionlineclub.com`, le
-         2026-10-09) laisse les réunions déjà planifiées dans l'ancien agenda, où le nouveau jeton
-         n'a aucun droit — ni pour y attacher un Meet, ni pour y poser un lien. Les recréer dans
-         l'agenda courant est le seul moyen de les récupérer, et c'est exactement ce que fait
-         « Générer le lien » sur une séance isolée. L'ancien événement reste chez l'ancien compte,
-         orphelin : inaccessible, il ne peut pas être supprimé d'ici.
-         Réservé aux séances de cours : ce sont elles qui portent le volume, et `emailsParticipants`
-         sait déjà reconstituer leurs invités. */
-      const recreer = visio.google_event_id !== null && integration !== null && !(await evenementAccessible(integration, visio.google_event_id))
+      /* Trois cas mènent à recréer l'événement plutôt qu'à retoucher l'existant :
+         - aucun événement Calendar (séance `stub`, ou créée compte Google déconnecté) ;
+         - un événement qui appartient à l'agenda d'un compte Google PRÉCÉDENT. Un changement de
+           compte (`harionlineclub.app@gmail.com` → `admin@harionlineclub.com`, le 2026-10-09) y
+           laisse les réunions déjà planifiées, où le nouveau jeton n'a aucun droit : ni pour
+           attacher un Meet, ni pour poser un lien. L'ancien événement y reste orphelin —
+           inaccessible, il ne peut pas être supprimé d'ici. */
+      const evenementUtilisable =
+        visio?.google_event_id && integration ? await evenementAccessible(integration, visio.google_event_id) : false
 
-      if (recreer && integration) {
+      if (!evenementUtilisable && integration) {
         try {
-          const inscrits = await serviceClient.from('session_enrollments').select('student_id').eq('session_id', visio.session_id)
+          const inscrits = await serviceClient.from('session_enrollments').select('student_id').eq('session_id', seance.id)
           const participants = await emailsParticipants(
             serviceClient,
             seance.teacher_id,
@@ -191,41 +192,44 @@ export default async function handler(request: Request): Promise<Response> {
             emailsInvites: participants.emails,
             fournisseur: cible,
           })
-          const { error } = await serviceClient
-            .from('video_sessions')
-            .update({
+          const { error } = await serviceClient.from('video_sessions').upsert(
+            {
+              session_id: seance.id,
               room_ref: cree.lienVisio,
               provider: cree.fournisseur,
+              statut: 'planifiee',
               google_event_id: cree.eventId,
               organisateur_email: integration.googleEmail,
-            })
-            .eq('session_id', visio.session_id)
+            },
+            { onConflict: 'session_id' },
+          )
           if (error) {
-            echecs.push({ table: 'video_sessions', id: visio.session_id, raison: error.message })
+            echecs.push({ table: 'video_sessions', id: seance.id, raison: error.message })
             continue
           }
-          rapport.push({ table: 'video_sessions', id: visio.session_id, fournisseur: cree.fournisseur, calendrier: 'mis a jour' })
-          continue
+          rapport.push({ table: 'video_sessions', id: seance.id, fournisseur: cree.fournisseur, calendrier: 'mis a jour' })
         } catch (erreur) {
           echecs.push({
             table: 'video_sessions',
-            id: visio.session_id,
+            id: seance.id,
             raison: erreur instanceof Error ? erreur.message : 'Recréation impossible.',
           })
-          continue
         }
+        continue
       }
+
+      if (!visio) continue
 
       const { lien, fournisseur } = await lienPour(cible, visio.google_event_id)
       const { error } = await serviceClient
         .from('video_sessions')
-        .update({ room_ref: lien, provider: fournisseur })
-        .eq('session_id', visio.session_id)
+        .update({ room_ref: lien, provider: fournisseur, organisateur_email: integration?.googleEmail ?? null })
+        .eq('session_id', seance.id)
       if (error) {
-        echecs.push({ table: 'video_sessions', id: visio.session_id, raison: error.message })
+        echecs.push({ table: 'video_sessions', id: seance.id, raison: error.message })
         continue
       }
-      rapport.push({ table: 'video_sessions', id: visio.session_id, fournisseur, calendrier: await poser(integration, visio.google_event_id, lien) })
+      rapport.push({ table: 'video_sessions', id: seance.id, fournisseur, calendrier: await poser(integration, visio.google_event_id, lien) })
     }
 
     return Response.json({

@@ -99,18 +99,55 @@ export function agendaAdminComplet(
   return [...rendezVous.map(versEvenementProspect), ...evenementsAdmin.map(versEvenementAdmin)]
 }
 
-/* Agenda Google personnel (0098) converti au même format que le reste de l'agenda HOC — ton
-   neutre et discret, jamais confondu visuellement avec un cours ou un rendez-vous réel de HOC. */
-export function versEvenementGooglePersonnel(evenement: { id: string; titre: string; debut: string; fin: string }): EvenementAgenda {
+/* Événement lu dans un agenda Google et superposé à l'agenda HOC : soit l'agenda personnel de la
+   personne connectée (0098, toujours en lecture seule), soit — pour un administrateur qui n'en a
+   connecté aucun — celui de l'établissement, qu'il peut alors modifier depuis HOC. */
+export interface InviteGoogle {
+  email: string
+  nom: string | null
+  reponse: string
+  organisateur: boolean
+  optionnel: boolean
+}
+
+export interface EvenementGoogle {
+  id: string
+  titre: string
+  debut: string
+  fin: string
+  description: string | null
+  lieu: string | null
+  invites: InviteGoogle[]
+  organisateur: { email: string; nom: string | null } | null
+  rappels: number[]
+  recurrence: string | null
+  couleur: string | null
+  lienGoogle: string | null
+  recurrent: boolean
+  modifiable: boolean
+}
+
+/* Converti au même format que le reste de l'agenda HOC — ton neutre et discret, jamais confondu
+   visuellement avec un cours ou un rendez-vous réel de HOC. */
+export function versEvenementGooglePersonnel(evenement: EvenementGoogle): EvenementAgenda {
   const dureeMinutes = Math.max(15, (new Date(evenement.fin).getTime() - new Date(evenement.debut).getTime()) / 60_000)
   return {
     id: PREFIXE_GOOGLE_PERSONNEL + evenement.id,
     debut: evenement.debut,
     dureeMinutes,
     titre: evenement.titre,
-    sousTitre: 'Agenda Google personnel',
+    sousTitre: 'Agenda Google',
     ton: 'neutre',
+    /* L'événement garde la couleur qu'il a dans Google Agenda : c'est par elle que le client
+       reconnaît ses catégories d'un coup d'œil, et la perdre reviendrait à aplatir tout son
+       agenda sur une seule teinte. */
+    couleurFond: evenement.couleur ?? undefined,
   }
+}
+
+/* Retire le préfixe ajouté ci-dessus : l'identifiant nu est celui que Google attend. */
+export function idGoogleDepuisEvenement(id: string): string {
+  return id.startsWith(PREFIXE_GOOGLE_PERSONNEL) ? id.slice(PREFIXE_GOOGLE_PERSONNEL.length) : id
 }
 
 export function estEvenementGooglePersonnel(id: string | null | undefined): boolean {

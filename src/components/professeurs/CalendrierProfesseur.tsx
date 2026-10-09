@@ -156,7 +156,7 @@ export function CalendrierProfesseur() {
 
   // Superposition en lecture seule de l'agenda Google personnel (0098) — vide tant que rien n'est
   // connecté, voir useEvenementsGoogleCalendarPersonnel.
-  const evenementsGooglePersonnel = useEvenementsGoogleCalendarPersonnel(semaineDebut)
+  const { evenements: evenementsGooglePersonnel } = useEvenementsGoogleCalendarPersonnel(semaineDebut)
   const evenements = useMemo(
     () => [...seances.map(versEvenement), ...evenementsAutres.map(versEvenementAdmin), ...evenementsGooglePersonnel],
     [seances, evenementsAutres, evenementsGooglePersonnel],

@@ -20,6 +20,10 @@ export interface EvenementAgenda {
   /* Statut du rendez-vous (« Confirmé », « À valider »…), affiché en bas de la pastille — demande
      client du 2026-09-29, avec capture annotée : le statut n'était lisible qu'en ouvrant la fiche. */
   statut?: string
+  /* Couleur imposée, qui remplace celle du `ton`. Sert aux événements lus dans Google Agenda :
+     ils gardent la couleur que le client leur a donnée là-bas, pour que ses repères visuels
+     soient les mêmes des deux côtés (demande du 2026-10-09, capture de son agenda à l'appui). */
+  couleurFond?: string
 }
 
 export interface EvenementPlace extends EvenementAgenda {
@@ -175,4 +179,20 @@ export function libelleSemaine(lundi: Date): string {
   const debut = lundi.toLocaleDateString('fr-FR', memeMois ? { day: 'numeric' } : { day: 'numeric', month: 'long' })
   const fin = dimanche.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
   return `${debut} – ${fin}`
+}
+
+/* Dit si une couleur de fond est assez claire pour qu'un libellé blanc y devienne illisible.
+   Sert aux événements qui portent leur propre couleur, reprise de Google Agenda : sa palette
+   contient du jaune et de l'orange vif, sur lesquels un texte blanc disparaît.
+
+   Luminance relative de la recommandation WCAG, seuil à 0,55 : c'est le point où le contraste
+   d'un texte noir dépasse celui d'un texte blanc sur le même fond. */
+export function estCouleurClaire(couleur: string): boolean {
+  const hex = couleur.trim().replace('#', '')
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return false
+  const canal = (position: number) => {
+    const valeur = parseInt(hex.slice(position, position + 2), 16) / 255
+    return valeur <= 0.03928 ? valeur / 12.92 : ((valeur + 0.055) / 1.055) ** 2.4
+  }
+  return 0.2126 * canal(0) + 0.7152 * canal(2) + 0.0722 * canal(4) > 0.55
 }

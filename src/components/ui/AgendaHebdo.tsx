@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEve
 import {
   ajouterJours,
   dureeMinimaleColonnesMinutes,
+  estCouleurClaire,
   HAUTEUR_MIN_EVENEMENT_PX,
   joursDeLaSemaine,
   libelleSemaine,
@@ -69,13 +70,18 @@ const JOURS_COURTS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
    donc nettement plus denses, en dégradé pour garder du relief, et chaque ton porte sa propre
    ombre colorée — demande client du 2026-09-16 : « il faudrait que les évènements soient assez
    visibles ». */
+/* Opacités remontées le 2026-10-09 (de .42/.34 à .64/.54) : le client a pris en référence son
+   propre Google Agenda, dont les pastilles sont des aplats pleins et franchement lisibles. Le
+   dégradé est conservé — il donne du relief sans lequel une grille chargée se lit comme un
+   aplat — mais il porte désormais, lui aussi, une couleur assez dense pour que le texte blanc
+   ressorte à coup sûr. */
 const TONS: Record<string, { fond: string; bordure: string; texte: string; ombre: string }> = {
-  bleu: { fond: 'linear-gradient(135deg, rgba(169,140,255,.42), rgba(85,54,201,.34))', bordure: 'var(--accent-blue)', texte: '#f0eaff', ombre: 'rgba(85,54,201,.45)' },
-  or: { fond: 'linear-gradient(135deg, rgba(233,207,148,.40), rgba(199,156,79,.32))', bordure: 'var(--accent-gold)', texte: '#fff6e2', ombre: 'rgba(199,156,79,.42)' },
-  teal: { fond: 'linear-gradient(135deg, rgba(111,227,192,.40), rgba(45,166,134,.32))', bordure: 'var(--accent-teal)', texte: '#e6fff7', ombre: 'rgba(45,166,134,.42)' },
-  violet: { fond: 'linear-gradient(135deg, rgba(199,156,255,.42), rgba(141,96,243,.34))', bordure: 'var(--accent-violet)', texte: '#f5edff', ombre: 'rgba(141,96,243,.45)' },
-  danger: { fond: 'linear-gradient(135deg, rgba(255,138,112,.40), rgba(214,80,55,.32))', bordure: 'var(--danger)', texte: '#ffeee9', ombre: 'rgba(214,80,55,.42)' },
-  neutre: { fond: 'linear-gradient(135deg, rgba(255,255,255,.20), rgba(255,255,255,.12))', bordure: 'var(--muted)', texte: 'var(--ink)', ombre: 'rgba(0,0,0,.35)' },
+  bleu: { fond: 'linear-gradient(135deg, rgba(169,140,255,.64), rgba(85,54,201,.54))', bordure: 'var(--accent-blue)', texte: '#f0eaff', ombre: 'rgba(85,54,201,.45)' },
+  or: { fond: 'linear-gradient(135deg, rgba(233,207,148,.62), rgba(199,156,79,.52))', bordure: 'var(--accent-gold)', texte: '#fff6e2', ombre: 'rgba(199,156,79,.42)' },
+  teal: { fond: 'linear-gradient(135deg, rgba(111,227,192,.62), rgba(45,166,134,.52))', bordure: 'var(--accent-teal)', texte: '#e6fff7', ombre: 'rgba(45,166,134,.42)' },
+  violet: { fond: 'linear-gradient(135deg, rgba(199,156,255,.64), rgba(141,96,243,.54))', bordure: 'var(--accent-violet)', texte: '#f5edff', ombre: 'rgba(141,96,243,.45)' },
+  danger: { fond: 'linear-gradient(135deg, rgba(255,138,112,.62), rgba(214,80,55,.52))', bordure: 'var(--danger)', texte: '#ffeee9', ombre: 'rgba(214,80,55,.42)' },
+  neutre: { fond: 'linear-gradient(135deg, rgba(255,255,255,.26), rgba(255,255,255,.16))', bordure: 'var(--muted)', texte: 'var(--ink)', ombre: 'rgba(0,0,0,.35)' },
 }
 
 interface AgendaHebdoProps {
@@ -343,7 +349,21 @@ export function AgendaHebdo({
                   }}
                 >
                   {places.map((place) => {
-                    const ton = TONS[place.ton ?? 'bleu'] ?? TONS.bleu
+                    const tonBase = TONS[place.ton ?? 'bleu'] ?? TONS.bleu
+                    /* Une couleur venue de Google remplace le ton du socle : aplat plein, comme
+                       dans Google Agenda, avec le même bord et la même ombre déduits d'elle. Le
+                       texte bascule en sombre sur les teintes claires — le jaune et l'orange de la
+                       palette Google rendent un libellé blanc presque illisible, ce que Google
+                       évite de la même façon. */
+                    const ton = place.couleurFond
+                      ? {
+                          fond: place.couleurFond,
+                          bordure: place.couleurFond,
+                          texte: estCouleurClaire(place.couleurFond) ? '#1b1510' : '#ffffff',
+                          ombre: 'rgba(0,0,0,.45)',
+                        }
+                      : tonBase
+                    const couleurTitre = place.couleurFond ? ton.texte : '#ffffff'
                     const largeur = 100 / place.colonnes
                     const hauteur = Math.max(
                       HAUTEUR_MIN_EVENEMENT_PX,
@@ -387,15 +407,20 @@ export function AgendaHebdo({
                             de deux mots passait à la ligne et sa seconde moitié tombait sous le
                             bord de la pastille. Titre limité à deux lignes, statut toujours en
                             dernière ligne, sous-titre seulement s'il reste de la place. */}
-                        <span style={{ fontSize: 10, fontWeight: 800, color: ton.texte, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
+                        {/* Titre d'abord, horaire ensuite : c'est l'ordre de Google Agenda, pris
+                            comme référence par le client le 2026-10-09 (« aussi élégant et
+                            attractif, avec des informations lisibles et claires »). Le titre est
+                            ce qu'on cherche des yeux en balayant une semaine ; l'heure, elle, se
+                            déduit déjà de la position verticale dans la grille. */}
+                        <span style={{ fontSize: 11.5, fontWeight: 800, lineHeight: 1.25, color: couleurTitre, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                          {place.titre}
+                        </span>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: ton.texte, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2, opacity: 0.92 }}>
                           {new Date(place.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                           {place.marqueur ? ` · ${place.marqueur}` : ''}
                         </span>
-                        <span style={{ fontSize: 11, fontWeight: 750, lineHeight: 1.2, color: '#ffffff', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                          {place.titre}
-                        </span>
                         {place.sousTitre && hauteur >= HAUTEUR_SOUS_TITRE && (
-                          <span style={{ fontSize: 9.5, color: 'rgba(255,255,255,.82)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: 9.5, color: couleurTitre, opacity: 0.82, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {place.sousTitre}
                           </span>
                         )}

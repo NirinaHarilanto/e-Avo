@@ -334,6 +334,141 @@ export async function noterErreurGooglePersonnelle(serviceClient: ServiceClient,
    événements « toute la journée » sont ignorés, même raison que `occupationsAgenda` : ce sont des
    repères (anniversaires, jours fériés), pas des créneaux occupés à afficher dans un agenda
    horaire. */
+export interface InviteGoogle {
+  email: string
+  nom: string | null
+  /* `accepted` | `declined` | `tentative` | `needsAction`, tels que Google les nomme. */
+  reponse: string
+  organisateur: boolean
+  optionnel: boolean
+}
+
+export interface EvenementGoogle {
+  id: string
+  titre: string
+  debut: string
+  fin: string
+  description: string | null
+  lieu: string | null
+  invites: InviteGoogle[]
+  organisateur: { email: string; nom: string | null } | null
+  /* Minutes avant le début, pour chaque rappel posé sur l'événement. */
+  rappels: number[]
+  /* Règle de répétition en toutes lettres (« Toutes les semaines le lundi, mardi… »), reconstruite
+     depuis la RRULE de l'événement maître — voir `decrireRecurrence`. */
+  recurrence: string | null
+  /* Couleur de la pastille telle qu'elle apparaît dans Google Agenda, pour que l'agenda HOC
+     présente les mêmes repères visuels. */
+  couleur: string | null
+  lienGoogle: string | null
+  /* Un événement récurrent ne peut pas être modifié occurrence par occurrence depuis HOC sans
+     ouvrir la question « cette occurrence ou toute la série ? », à laquelle l'écran ne sait pas
+     répondre. Il reste donc en lecture seule, comme les agendas personnels. */
+  recurrent: boolean
+}
+
+/* Palette officielle de Google Agenda (`colorId` d'un événement). Reprise en dur plutôt que lue
+   via l'API `colors` : elle ne change jamais, et un appel de plus à chaque affichage d'agenda
+   coûterait un aller-retour pour onze valeurs figées. */
+const COULEURS_GOOGLE: Record<string, string> = {
+  '1': '#7986cb',
+  '2': '#33b679',
+  '3': '#8e24aa',
+  '4': '#e67c73',
+  '5': '#f6bf26',
+  '6': '#f4511e',
+  '7': '#039be5',
+  '8': '#616161',
+  '9': '#3f51b5',
+  '10': '#0b8043',
+  '11': '#d50000',
+}
+
+const JOURS_RRULE: Record<string, string> = {
+  MO: 'lundi',
+  TU: 'mardi',
+  WE: 'mercredi',
+  TH: 'jeudi',
+  FR: 'vendredi',
+  SA: 'samedi',
+  SU: 'dimanche',
+}
+
+/**
+ * Traduit la RRULE d'un événement récurrent en une phrase française, comme le fait le pop-up de
+ * Google Agenda (« Toutes les semaines le lundi, mardi, jeudi, vendredi, jusqu'au 14 nov. 2026 »).
+ *
+ * Couvre les répétitions courantes (quotidienne, hebdomadaire avec jours, mensuelle, annuelle,
+ * intervalle, fin par date ou par nombre d'occurrences). Toute règle plus exotique retombe sur un
+ * « Se répète » générique plutôt que sur une phrase fausse : mieux vaut en dire moins que mentir
+ * sur la date de fin d'une série.
+ */
+export function decrireRecurrence(regles: string[]): string | null {
+  const rrule = regles.find((r) => r.startsWith('RRULE:'))
+  if (!rrule) return null
+
+  const parties = new Map(
+    rrule
+      .slice('RRULE:'.length)
+      .split(';')
+      .map((morceau) => morceau.split('=') as [string, string]),
+  )
+
+  const frequence = parties.get('FREQ')
+  const intervalle = Number(parties.get('INTERVAL') ?? '1')
+  const base: Record<string, [string, string]> = {
+    DAILY: ['Tous les jours', `Tous les ${intervalle} jours`],
+    WEEKLY: ['Toutes les semaines', `Toutes les ${intervalle} semaines`],
+    MONTHLY: ['Tous les mois', `Tous les ${intervalle} mois`],
+    YEARLY: ['Tous les ans', `Tous les ${intervalle} ans`],
+  }
+  if (!frequence || !base[frequence]) return 'Se répète'
+
+  let phrase = intervalle > 1 ? base[frequence][1] : base[frequence][0]
+
+  const jours = parties.get('BYDAY')
+  if (frequence === 'WEEKLY' && jours) {
+    const noms = jours
+      .split(',')
+      .map((j) => JOURS_RRULE[j.replace(/^[-+]?\d+/, '')])
+      .filter(Boolean)
+    if (noms.length > 0) phrase += ` le ${noms.join(', ')}`
+  }
+
+  const jusqua = parties.get('UNTIL')
+  const nombre = parties.get('COUNT')
+  if (jusqua) {
+    /* Format compact de la norme iCalendar : 20261114T210000Z, que `new Date` ne sait pas lire. */
+    const a = jusqua.slice(0, 4)
+    const m = jusqua.slice(4, 6)
+    const j = jusqua.slice(6, 8)
+    const date = new Date(`${a}-${m}-${j}T00:00:00Z`)
+    if (!Number.isNaN(date.getTime())) {
+      phrase += `, jusqu'au ${new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(date)}`
+    }
+  } else if (nombre) {
+    phrase += `, ${nombre} fois`
+  }
+
+  return phrase
+}
+
+interface EvenementBrut {
+  id?: string
+  status?: string
+  summary?: string
+  description?: string
+  location?: string
+  colorId?: string
+  htmlLink?: string
+  recurringEventId?: string
+  organizer?: { email?: string; displayName?: string }
+  attendees?: { email?: string; displayName?: string; responseStatus?: string; organizer?: boolean; optional?: boolean; self?: boolean }[]
+  reminders?: { useDefault?: boolean; overrides?: { method?: string; minutes?: number }[] }
+  start?: { dateTime?: string }
+  end?: { dateTime?: string }
+}
+
 export async function evenementsPersonnels(
   /* Seul le jeton est utilisé : la même lecture sert l'agenda personnel d'une personne et, pour
      un admin dont le compte Google personnel EST celui de l'établissement, l'agenda de
@@ -341,7 +476,7 @@ export async function evenementsPersonnels(
   integration: { accessToken: string },
   debut: Date,
   fin: Date,
-): Promise<{ id: string; titre: string; debut: string; fin: string }[]> {
+): Promise<EvenementGoogle[]> {
   const parametres = new URLSearchParams({
     timeMin: debut.toISOString(),
     timeMax: fin.toISOString(),
@@ -357,12 +492,54 @@ export async function evenementsPersonnels(
     throw new GoogleError(corps?.error?.message ?? "Google Calendar a refusé la lecture de l'agenda personnel.")
   }
 
-  const corps = (await reponse.json()) as {
-    items?: { id?: string; status?: string; summary?: string; start?: { dateTime?: string }; end?: { dateTime?: string } }[]
-  }
-  return (corps.items ?? [])
-    .filter((e) => e.status !== 'cancelled' && e.start?.dateTime && e.end?.dateTime)
-    .map((e) => ({ id: e.id ?? crypto.randomUUID(), titre: e.summary?.trim() || '(Sans titre)', debut: e.start!.dateTime!, fin: e.end!.dateTime! }))
+  const corps = (await reponse.json()) as { items?: EvenementBrut[] }
+  const items = (corps.items ?? []).filter((e) => e.status !== 'cancelled' && e.start?.dateTime && e.end?.dateTime)
+
+  /* La règle de répétition vit sur l'événement MAÎTRE, pas sur ses occurrences : avec
+     `singleEvents=true`, Google détaille la série en instances et aucune ne porte sa `recurrence`.
+     Les maîtres sont donc relus à part — une fois par série, pas une fois par occurrence, sinon
+     une série hebdomadaire coûterait autant d'appels qu'elle a de semaines affichées. */
+  const idsMaitres = [...new Set(items.map((e) => e.recurringEventId).filter((id): id is string => Boolean(id)))]
+  const recurrences = new Map<string, string | null>()
+  await Promise.all(
+    idsMaitres.map(async (id) => {
+      const maitre = await fetch(`${CALENDAR_URL}/${encodeURIComponent(id)}`, {
+        headers: { Authorization: `Bearer ${integration.accessToken}` },
+      }).catch(() => null)
+      if (!maitre?.ok) return
+      const corpsMaitre = (await maitre.json().catch(() => null)) as { recurrence?: string[] } | null
+      recurrences.set(id, decrireRecurrence(corpsMaitre?.recurrence ?? []))
+    }),
+  )
+
+  return items.map((e) => ({
+    id: e.id ?? crypto.randomUUID(),
+    titre: e.summary?.trim() || '(Sans titre)',
+    debut: e.start!.dateTime!,
+    fin: e.end!.dateTime!,
+    description: e.description?.trim() || null,
+    lieu: e.location?.trim() || null,
+    invites: (e.attendees ?? [])
+      .filter((p) => p.email)
+      .map((p) => ({
+        email: p.email!,
+        nom: p.displayName?.trim() || null,
+        reponse: p.responseStatus ?? 'needsAction',
+        organisateur: Boolean(p.organizer),
+        optionnel: Boolean(p.optional),
+      })),
+    organisateur: e.organizer?.email
+      ? { email: e.organizer.email, nom: e.organizer.displayName?.trim() || null }
+      : null,
+    /* `useDefault` renvoie aux réglages de l'agenda, que l'API ne détaille pas ici : Google
+       applique 30 minutes par défaut sur un événement avec invités, ce que le pop-up affiche. */
+    rappels: e.reminders?.overrides?.map((r) => r.minutes).filter((m): m is number => typeof m === 'number') ??
+      (e.reminders?.useDefault ? [30] : []),
+    recurrence: e.recurringEventId ? (recurrences.get(e.recurringEventId) ?? 'Se répète') : null,
+    couleur: e.colorId ? (COULEURS_GOOGLE[e.colorId] ?? null) : null,
+    lienGoogle: e.htmlLink ?? null,
+    recurrent: Boolean(e.recurringEventId),
+  }))
 }
 
 interface ParamsEvenement {
