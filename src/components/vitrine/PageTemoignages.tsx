@@ -1,13 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { IcoHX } from './IconesHX'
 import { initialesDe } from './PageEquipe'
 
-/* Témoignages, d'après hoc-temoignages.html : un carrousel horizontal à aimantation, la carte
-   centrale en pleine opacité, les voisines estompées.
+/* Témoignages — carrousel en anneau 3D, d'après la maquette fournie par le client le
+   2026-10-09 : les cartes tournent sur un cercle incliné, celle de devant en pleine lecture,
+   les autres de profil et en retrait, le tout posé sur une orbite dorée semée d'étincelles et
+   sur un socle de verre.
 
-   La maquette en dessine quatre et laisse un modèle en commentaire ; les dix-huit témoignages
-   réels s'affichent ici, les sept qui ont une photo en tête de liste. Textes repris tels quels
-   des documents fournis par le client, en anglais, langue d'origine des citations. */
+   Cette vue remplace le carrousel horizontal à aimantation de la maquette d'origine
+   (hoc-temoignages.html). La piste défilante a disparu avec lui : la position ne se lit plus
+   dans un `scrollLeft` mais dans un index, et c'est un décalage angulaire par rapport à cet
+   index qui place chaque carte.
+
+   Les dix-huit témoignages réels s'affichent ici, les sept qui ont une photo en tête de liste.
+   Textes repris tels quels des documents fournis par le client, en anglais, langue d'origine
+   des citations. */
 
 type Temoignage = {
   id: string
@@ -153,56 +160,100 @@ const TEMOIGNAGES: Temoignage[] = [
   },
 ]
 
-export function PageTemoignages({ dossierAssets }: { dossierAssets: string }) {
-  const piste = useRef<HTMLDivElement>(null)
-  const [courant, setCourant] = useState(0)
 
-  /* La carte active est celle dont le centre est le plus proche du centre de la piste — la
-     maquette la recalcule au défilement plutôt que de la déduire d'un index, pour rester juste
-     quand le visiteur fait glisser la piste au doigt ou à la molette. */
-  const recalculer = useCallback(() => {
-    const rail = piste.current
-    if (!rail) return
-    const milieu = rail.scrollLeft + rail.clientWidth / 2
-    let meilleure = 0
-    let ecartMin = Infinity
-    Array.from(rail.children).forEach((enfant, index) => {
-      const carte = enfant as HTMLElement
-      const ecart = Math.abs(carte.offsetLeft + carte.clientWidth / 2 - milieu)
-      if (ecart < ecartMin) {
-        ecartMin = ecart
-        meilleure = index
-      }
-    })
-    setCourant(meilleure)
-  }, [])
+/* Six places sur l'anneau, à 60° l'une de l'autre : une devant, deux de chaque côté, une au
+   fond. Les dix-huit témoignages se partagent ces six places — un témoignage dont le décalage
+   sort de l'intervalle est simplement effacé. L'intervalle est volontairement asymétrique :
+   +3 et -3 désignent le MÊME point de l'anneau (180° et -180°), garder les deux y empilerait
+   deux cartes. */
+const PAS_ANGULAIRE = 60
+const DECALAGE_MIN = -2
+const DECALAGE_MAX = 3
 
-  useEffect(() => {
-    const rail = piste.current
-    if (!rail) return
-    let minuterie: number | undefined
-    const surDefilement = () => {
-      window.clearTimeout(minuterie)
-      minuterie = window.setTimeout(recalculer, 60)
-    }
-    recalculer()
-    rail.addEventListener('scroll', surDefilement, { passive: true })
-    window.addEventListener('resize', recalculer)
-    return () => {
-      window.clearTimeout(minuterie)
-      rail.removeEventListener('scroll', surDefilement)
-      window.removeEventListener('resize', recalculer)
-    }
-  }, [recalculer])
+/* Rayon de l'anneau des cartes, en pixels. Repris tel quel dans la feuille de style
+   (`--rayon-anneau`) : la valeur doit être la même des deux côtés, c'est elle qui décide de
+   l'écart entre la carte de devant et ses voisines. */
+const RAYON = 700
 
-  function allerA(index: number) {
-    const rail = piste.current
-    if (!rail) return
-    const cible = Math.max(0, Math.min(TEMOIGNAGES.length - 1, index))
-    const carte = rail.children[cible] as HTMLElement | undefined
-    if (!carte) return
-    rail.scrollTo({ left: carte.offsetLeft - (rail.clientWidth - carte.clientWidth) / 2 })
+/* Fondu par la profondeur : une carte éloignée s'efface dans le violet du fond, comme sur la
+   maquette. L'opacité est posée carte par carte en style en ligne plutôt qu'en CSS parce
+   qu'elle dépend du décalage, qui change à chaque rotation. */
+function opaciteDe(ecart: number, surAnneau: boolean) {
+  if (!surAnneau) return 0
+  if (ecart === 0) return 1
+  if (Math.abs(ecart) === 1) return 0.86
+  if (Math.abs(ecart) === 2) return 0.6
+  return 0.48
+}
+
+/* Une carte qui suivrait la tangente du cercle montrerait son dos passé 90°, et celle du fond
+   serait franchement retournée. Chaque place reçoit donc son propre angle de présentation :
+   la carte est posée sur le cercle, puis redressée vers le spectateur de ce qu'il faut. De
+   face et au fond elle est plate, de côté elle se présente de trois quarts. */
+function orientationDe(ecart: number) {
+  if (ecart === 1) return 32
+  if (ecart === -1) return -32
+  if (ecart === 2) return 30
+  if (ecart === -2) return -30
+  return 0
+}
+
+/* Poussière dorée autour de l'orbite. Tirage pseudo-aléatoire à graine fixe plutôt que
+   `Math.random` : le semis doit être le même à chaque chargement, sans quoi la page change
+   d'aspect à chaque visite — et il serait impossible de comparer deux captures d'écran. */
+function semis(graine: number, nombre: number) {
+  let etat = graine
+  const suivant = () => {
+    etat = (etat * 1664525 + 1013904223) % 4294967296
+    return etat / 4294967296
   }
+  return Array.from({ length: nombre }, (_, i) => ({
+    cle: i,
+    angle: suivant() * 360,
+    rayon: 700 + suivant() * 240,
+    hauteur: 40 + suivant() * 230,
+    taille: 2 + suivant() * 3.4,
+    delai: suivant() * 4.6,
+  }))
+}
+const ETINCELLES = semis(20261009, 44)
+
+export function PageTemoignages({ dossierAssets }: { dossierAssets: string }) {
+  /* Le deuxième témoignage est mis en avant à l'ouverture (demande client du 2026-10-09) :
+     sur le premier, rien n'indiquerait qu'on peut aussi reculer. */
+  const [courant, setCourant] = useState(1)
+  const total = TEMOIGNAGES.length
+
+  /* Décalage signé par rapport à la carte de devant, ramené dans [-9, 8] : au-delà de la
+     demi-liste, il est plus court de faire le tour par l'autre côté, et c'est ce chemin-là que
+     l'anneau doit prendre. */
+  const decalageDe = useCallback(
+    (index: number) => {
+      let ecart = index - courant
+      if (ecart > total / 2) ecart -= total
+      if (ecart < -total / 2) ecart += total
+      return ecart
+    },
+    [courant, total],
+  )
+
+  const tourner = useCallback(
+    (pas: number) => {
+      setCourant((position) => (position + pas + total) % total)
+    },
+    [total],
+  )
+
+  /* Flèches du clavier : l'anneau est annoncé comme un groupe focalisable, il doit se
+     manœuvrer sans souris. */
+  useEffect(() => {
+    const auClavier = (evenement: KeyboardEvent) => {
+      if (evenement.key === 'ArrowLeft') tourner(-1)
+      if (evenement.key === 'ArrowRight') tourner(1)
+    }
+    window.addEventListener('keydown', auClavier)
+    return () => window.removeEventListener('keydown', auClavier)
+  }, [tourner])
 
   return (
     <section className="dark testi">
@@ -228,55 +279,108 @@ export function PageTemoignages({ dossierAssets }: { dossierAssets: string }) {
         </p>
       </div>
 
-      <div className="track rv" ref={piste}>
-        {TEMOIGNAGES.map((temoignage, index) => (
-          <article key={temoignage.id} className={index === courant ? 'slide on' : 'slide'}>
-            <span className="q" aria-hidden="true">
-              “
-            </span>
-            <div className="meta">
-              <span className="stars" aria-label="5 étoiles sur 5">
-                ★★★★★
-              </span>
-              <span className="yr">{temoignage.annee}</span>
+      {/* `rv` (apparition au défilement) est posé sur l'enveloppe et non sur `.scene` : il
+          anime `transform`, qui sert déjà à poser la perspective. */}
+      <div className="enveloppe-3d rv">
+        <div className="scene">
+          <div className="anneau">
+            {/* Dans l'anneau et non dans la scène : le plateau est couché dans l'espace 3D de
+                l'anneau, c'est de lui qu'il tient sa perspective et son rang en profondeur. */}
+            <div className="socle" aria-hidden="true">
+              <span className="dessus" />
             </div>
-            <p>« {temoignage.texte} »</p>
-            <div className="who">
-              <div className="av">
-                {temoignage.photo ? (
-                  <img src={`${dossierAssets}/temoignages/${temoignage.photo}`} alt={temoignage.nom} loading="lazy" />
-                ) : (
-                  initialesDe(temoignage.nom)
-                )}
-              </div>
-              <b>{temoignage.nom}</b>
-            </div>
-          </article>
-        ))}
-      </div>
+            <div className="lueur-orbite" />
+            <div className="orbite" />
+            {ETINCELLES.map((etincelle) => (
+              <span
+                key={etincelle.cle}
+                className="etincelle"
+                aria-hidden="true"
+                style={{
+                  width: `${etincelle.taille}px`,
+                  height: `${etincelle.taille}px`,
+                  transform: `rotateY(${etincelle.angle}deg) translateZ(${etincelle.rayon}px) translateY(${etincelle.hauteur}px)`,
+                  animationDelay: `${etincelle.delai}s`,
+                }}
+              />
+            ))}
 
-      {/* La bande de petits points a disparu (demande client du 2026-10-09) : avec 18
-          témoignages, elle s'étirait en une longue ligne qui ressemblait à une barre de
-          défilement plutôt qu'à une pagination. Les chevrons dorés suffisent à faire
-          comprendre que d'autres témoignages suivent — la carte suivante, déjà visible en
-          partie à droite (`.slide` hors de `.on` reste affichée, juste estompée), le montre
-          aussi. */}
-      <div className="nav2">
-        <button type="button" className="arr prev" aria-label="Témoignage précédent" disabled={courant === 0} onClick={() => allerA(courant - 1)}>
-          <IcoHX nom="chevron-gauche" />
-        </button>
-        <span aria-live="polite" className="compteur-temoignages">
-          {courant + 1} / {TEMOIGNAGES.length}
-        </span>
-        <button
-          type="button"
-          className="arr next"
-          aria-label="Témoignage suivant"
-          disabled={courant === TEMOIGNAGES.length - 1}
-          onClick={() => allerA(courant + 1)}
-        >
-          <IcoHX nom="chevron-droite" />
-        </button>
+            {TEMOIGNAGES.map((temoignage, index) => {
+              const ecart = decalageDe(index)
+              const surAnneau = ecart >= DECALAGE_MIN && ecart <= DECALAGE_MAX
+              const angle = ecart * PAS_ANGULAIRE
+              return (
+                <article
+                  key={temoignage.id}
+                  className={`carte3d${ecart === 0 ? ' devant' : ''}${surAnneau ? '' : ' hors-anneau'}`}
+                  style={{
+                    transform: `rotateY(${angle}deg) translateZ(${RAYON}px) rotateY(${orientationDe(ecart) - angle}deg)`,
+                    opacity: opaciteDe(ecart, surAnneau),
+                  }}
+                >
+                  <span className="q" aria-hidden="true">
+                    “
+                  </span>
+                  <div className="meta">
+                    <span className="stars" aria-label="5 étoiles sur 5">
+                      ★★★★★
+                    </span>
+                    <span className="yr">{temoignage.annee}</span>
+                  </div>
+                  <p>« {temoignage.texte} »</p>
+                  <div className="who">
+                    <div className="av">
+                      {temoignage.photo ? (
+                        <img src={`${dossierAssets}/temoignages/${temoignage.photo}`} alt={temoignage.nom} loading="lazy" />
+                      ) : (
+                        initialesDe(temoignage.nom)
+                      )}
+                    </div>
+                    <b>{temoignage.nom}</b>
+                  </div>
+                  {/* Une carte de côté s'amène au premier plan d'un clic. Le bouton couvre la
+                      carte plutôt que d'en faire une : un `<button>` n'accepte pas de `<p>`,
+                      et le témoignage doit rester un bloc de texte structuré. Il n'existe que
+                      pour les cartes visibles — sinon la tabulation traverserait dix-huit
+                      boutons invisibles. */}
+                  {surAnneau && ecart !== 0 && (
+                    <button
+                      type="button"
+                      className="amener"
+                      onClick={() => tourner(ecart)}
+                      aria-label={`Lire le témoignage de ${temoignage.nom}`}
+                    />
+                  )}
+                </article>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Chevrons dorés : trois par côté, qui s'allument l'un après l'autre dans le sens du
+            défilement (demande client du 2026-10-09). Sous l'anneau et non de part et d'autre
+            comme sur le premier croquis : l'anneau déployé occupe désormais toute la largeur
+            utile, les chevrons posés sur les côtés chevaucheraient les cartes de profil dès
+            qu'on descend sous les très grands écrans. Le décalage de chaque chevron est posé
+            en style en ligne parce qu'il dépend du rang et s'inverse d'un côté à l'autre — à
+            gauche, la vague part du chevron le plus proche du centre et file vers
+            l'extérieur. */}
+        <div className="nav-chevrons">
+          <button type="button" className="chev prev" aria-label="Témoignage précédent" onClick={() => tourner(-1)}>
+            {[0, 1, 2].map((rang) => (
+              <span key={rang} style={{ animationDelay: `${(2 - rang) * 0.16}s` }} aria-hidden="true">
+                <IcoHX nom="chevron-gauche" />
+              </span>
+            ))}
+          </button>
+          <button type="button" className="chev next" aria-label="Témoignage suivant" onClick={() => tourner(1)}>
+            {[0, 1, 2].map((rang) => (
+              <span key={rang} style={{ animationDelay: `${rang * 0.16}s` }} aria-hidden="true">
+                <IcoHX nom="chevron-droite" />
+              </span>
+            ))}
+          </button>
+        </div>
       </div>
     </section>
   )

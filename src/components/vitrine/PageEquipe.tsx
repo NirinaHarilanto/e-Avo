@@ -8,8 +8,10 @@ import { IcoHX } from './IconesHX'
    avec leurs photos. Le hero ne porte pas de surtitre : le mot « PROFESSEURS » au-dessus de
    « Notre équipe » répétait l'entrée de menu (demande client du 2026-10-08).
 
-   La carte de la fondatrice est la seule sombre, comme dans la maquette (`.m.fondatrice`, voir
-   le renommage expliqué en tête de vitrine-hx.css). */
+   Toutes les cartes sont désormais identiques, fond blanc, le violet n'apparaissant qu'au
+   survol (demande client du 2026-10-09) : la maquette réservait le fond sombre à la carte de
+   la fondatrice, mais ce traitement permanent la faisait ressortir comme la carte « active »
+   d'une grille où le survol joue déjà ce rôle. */
 
 type Membre = {
   id?: number
@@ -164,7 +166,7 @@ function CarteMembre({ membre, dossierAssets, rang }: { membre: Membre; dossierA
   const delai = (rang % 4) * 0.08
 
   return (
-    <article className={`m rv${membre.niveau === 1 ? ' fondatrice' : ''}`} style={{ transitionDelay: `${delai}s` }}>
+    <article className="m rv" style={{ transitionDelay: `${delai}s` }}>
       <div className="ph">
         {membre.id ? (
           <img

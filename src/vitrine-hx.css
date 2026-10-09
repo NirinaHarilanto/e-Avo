@@ -9,12 +9,11 @@
       des espaces connectés. Les poser globalement repeindrait admin, professeur et étudiant.
       Toutes les règles des maquettes étant déjà préfixées `.hx`, le scope ne change aucun rendu.
 
-   2. CINQ CLASSES RENOMMÉES, pour des collisions que les maquettes n'avaient pas (chaque page
-      était un fichier isolé ; ici les huit partagent une feuille) :
+   2. QUATRE CLASSES RENOMMÉES, pour des collisions que les maquettes n'avaient pas (chaque
+      page était un fichier isolé ; ici les huit partagent une feuille) :
         .login (page connexion) → .ecran-connexion   (collision avec .hx-nav .login)
         .hx-ct .line            → .hx-ct .coord      (collision avec .line, ligne de titre animée)
         .g3 (grille formulaire) → .champs-3          (collision avec .glow.g3 du hero)
-        .m.lead                 → .m.fondatrice      (collision avec .lead, paragraphe d'accroche)
         .card (récit à propos)  → .carte-recit       (collision avec .card, surface de l'app)
         .card (carte connexion) → .carte-connexion   (idem : sans ça, fond bleu nuit des espaces
                                                       connectés sous un titre violet, illisible)
@@ -534,12 +533,15 @@ body.vitrine-hx {
    Aucune maquette n'en dessine, mais les liens Confidentialité et Conditions d'utilisation
    conditionnent l'accès Google Calendar de l'établissement : ils doivent rester atteignables
    depuis la vitrine. Repris du vocabulaire du thème (fond prune, lavande, soulignement doré). */
+/* Bandeau ramené au strict nécessaire (demande client du 2026-10-09) : 20px de respiration
+   verticale, soit la hauteur d'une ligne de liens plus une marge. En dessous, le soulignement
+   doré au survol (`::after`, posé à -5px) toucherait le bord de la bande. */
 .hx-pied {
   position: relative;
   z-index: 2;
   background: var(--plum);
   color: var(--lavender);
-  padding: 34px 0;
+  padding: 20px 0;
   font-size: 13.5px;
 }
 .hx-pied .in {
@@ -594,12 +596,17 @@ body.vitrine-hx {
 /* =====================================================================
    ACCUEIL
    ===================================================================== */
+/* `padding-bottom` plutôt qu'une cale de 70px à l'intérieur de la colonne : la cale comptait
+   comme un enfant du conteneur centré et décalait donc le contenu de 35px vers le haut, ce qui
+   contredisait le centrage vertical demandé. En padding, elle réserve la même respiration au
+   ras du pied de page sans peser sur le centrage. 150 en haut / 80 en bas : le contenu tombe
+   alors au centre de la zone laissée libre par la barre de navigation fixe. */
 .hx .hero {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 150px 0 0;
+  padding: 150px 0 80px;
 }
 .hx .hero .g1 {
   width: 620px;
@@ -799,13 +806,13 @@ body.vitrine-hx {
   background: var(--white);
   color: var(--purple);
 }
-/* Bande violette plutôt que blanc lavande (demande client du 2026-10-09) : entre le bas du hero
-   et le pied de page, tous deux sombres, un bandeau clair faisait une rupture crue. `--plum`
-   est la même couleur que `.hx-pied` : les deux bandes se fondent en une seule zone continue. */
-.hx .after {
-  height: 140px;
-  background: var(--plum);
-}
+/* La bande intermédiaire `.after` a disparu (demande client du 2026-10-09) : d'abord claire,
+   puis passée en prune pour éviter la rupture, elle finissait par épaissir la zone sombre du
+   bas de page. Plutôt que de la recolorer une troisième fois, le hero descend désormais
+   lui-même jusqu'au pied de page — son dégradé se prolonge sans raccord possible, là où une
+   bande voisine aurait toujours laissé une couture visible (le dégradé est en 160deg, sa
+   teinte au ras du bas n'est pas uniforme). Le bas du hero porte la respiration (`padding`
+   ci-dessus), et la seule zone prune restante est le pied de page lui-même. */
 
 @media (max-width: 980px) {
   .hx .hero {
@@ -830,8 +837,12 @@ body.vitrine-hx {
 /* =====================================================================
    HERO DES PAGES SECONDAIRES (cours, équipe, formateur) — commun
    ===================================================================== */
+/* Bas ramené de 190px à 96px : ces 190px servaient à loger le chevauchement des cartes
+   (-90px). Celui-ci supprimé, les garder aurait creusé une zone violette vide de la même
+   hauteur. 96px + les 46px de `.overlap` laissent les cartes un peu plus bas qu'avant, avec
+   le dégagement demandé. */
 .hx .phero {
-  padding: 170px 0 190px;
+  padding: 170px 0 96px;
 }
 .hx .phero .g1 {
   width: 560px;
@@ -870,11 +881,14 @@ body.vitrine-hx {
   margin-left: auto;
   margin-right: auto;
 }
-/* Chevauchement réduit de -130px à -90px (demande client du 2026-10-09, « faire descendre un
-   peu les blocs par rapport à la zone en violet ») : les cartes mordaient trop haut sur le
-   dégradé sombre du hero. */
+/* Plus de chevauchement du tout (demande client du 2026-10-09) : les cartes doivent se tenir à
+   au moins 1cm sous la zone violette, soit ~38px à 96 ppp. 46px laisse la marge confortable.
+   En `padding` et non en `margin` : `.light:has(> .overlap)` passe en `overflow: visible`, ce
+   qui réautorise la fusion des marges — une marge haute positive s'échapperait de la section
+   claire et la ferait descendre en bloc, découvrant le fond de page derrière. Un padding ne
+   fusionne jamais. */
 .hx .overlap {
-  margin-top: -90px;
+  padding-top: 46px;
   position: relative;
   z-index: 3;
 }
@@ -883,7 +897,7 @@ body.vitrine-hx {
 }
 @media (max-width: 760px) {
   .hx .phero {
-    padding: 130px 0 150px;
+    padding: 130px 0 76px;
   }
 }
 
@@ -1605,28 +1619,26 @@ body.vitrine-hx {
   color: var(--ink);
   transition: color 0.45s ease;
 }
-/* `.fondatrice` et non `.lead` : voir l'avertissement en tête de fichier.
-   Le fond violet de la fondatrice se retrouve désormais sur CHAQUE carte au survol (demande
-   client du 2026-10-09, « le fond violet du bloc de la fondatrice devrait se déplacer dans le
-   bloc de la personne survolée ») : elle le porte en permanence, les autres cartes le gagnent
-   le temps du survol, avec la même transition de teinte que le texte et la pastille de rôle. */
-.hx .m.fondatrice,
+/* Le fond violet n'appartient plus à personne en propre : il apparaît le temps du survol, sur
+   n'importe quelle carte (demande client du 2026-10-09). La fondatrice le portait auparavant
+   en permanence, comme dans la maquette — elle passe au même traitement que le reste de
+   l'équipe, et sa classe `.fondatrice` a disparu du JSX faute d'usage. */
 .hx .m:hover {
   background: linear-gradient(160deg, #5a3f7e, var(--purple) 50%, #3a2558);
 }
-.hx .m.fondatrice h3,
 .hx .m:hover h3 {
   color: var(--white);
 }
-.hx .m.fondatrice p,
 .hx .m:hover p {
   color: var(--lavender);
 }
-.hx .m.fondatrice .role,
 .hx .m:hover .role {
   background: var(--gold);
   color: var(--night);
 }
+/* Pastille LinkedIn : la maquette la dessine claire sur voile, pour une carte sombre. Les
+   cartes étant blanches au repos, c'est l'inverse qu'il faut par défaut — le voile clair ne
+   revient qu'au survol, quand le fond passe au violet. */
 .hx .m .li {
   display: inline-flex;
   align-items: center;
@@ -1634,12 +1646,20 @@ body.vitrine-hx {
   margin: 18px 12px 0;
   padding: 10px 16px;
   border-radius: 99px;
-  background: rgba(254, 255, 250, 0.12);
-  color: var(--white);
+  background: var(--lav-soft);
+  color: var(--purple);
   text-decoration: none;
   font: 700 13px/1 var(--f-body);
-  transition: background 0.3s;
+  transition:
+    background 0.3s,
+    color 0.3s;
 }
+.hx .m:hover .li {
+  background: rgba(254, 255, 250, 0.12);
+  color: var(--white);
+}
+/* Après `.hx .m:hover .li` : à spécificité égale (0-4-0), c'est l'ordre qui tranche, et le
+   survol du lien lui-même doit l'emporter sur celui de la carte qui le contient. */
 .hx .m .li:hover {
   background: var(--gold);
   color: var(--night);
@@ -1647,12 +1667,6 @@ body.vitrine-hx {
 .hx .m .li svg {
   width: 14px;
   height: 14px;
-}
-/* Sur une carte blanche, le lien LinkedIn de la maquette (texte blanc sur voile clair) serait
-   illisible : seule la carte de la fondatrice est sombre. Même pastille, couleurs inversées. */
-.hx .m:not(.fondatrice) .li {
-  background: var(--lav-soft);
-  color: var(--purple);
 }
 .hx .group-t {
   display: flex;
@@ -1690,7 +1704,7 @@ body.vitrine-hx {
    TÉMOIGNAGES
    ===================================================================== */
 .hx .testi {
-  padding: 170px 0 120px;
+  padding: 150px 0 110px;
 }
 .hx .testi .g1 {
   width: 600px;
@@ -1710,7 +1724,7 @@ body.vitrine-hx {
 }
 .hx .testi .head {
   text-align: center;
-  margin-bottom: 64px;
+  margin-bottom: 18px;
 }
 .hx .testi h1 {
   margin-top: 22px;
@@ -1724,45 +1738,185 @@ body.vitrine-hx {
   color: var(--lavender);
   max-width: 620px;
 }
-.hx .track {
+/* ---------- Carrousel en anneau 3D ----------
+   D'après la maquette fournie par le client le 2026-10-09 : les cartes sont posées sur un
+   cercle incliné, celle de devant en pleine lecture, les autres de trois quarts et en retrait,
+   au-dessus d'une orbite dorée semée d'étincelles et d'un socle de verre.
+
+   Trois points de géométrie à garder en tête avant de toucher aux chiffres :
+
+   1. L'ORDRE DES FONCTIONS compte. Elles s'appliquent de droite à gauche. `.anneau` porte
+      `translateZ(…) rotateX(…)` : l'inclinaison joue d'abord, autour du centre du cercle,
+      puis l'ensemble recule — l'inverse ferait décrire au cercle entier un grand arc.
+   2. LE RAYON EST ÉCRIT DEUX FOIS, ici dans `--rayon-anneau` et dans la constante `RAYON` du
+      composant, qui le pose en style en ligne sur chaque carte. Les deux doivent concorder :
+      c'est le même cercle.
+   3. LES CARTES NE SUIVENT PAS LA TANGENTE. Une carte qui suivrait le cercle montrerait son
+      dos passé 90° ; chacune est donc redressée vers le spectateur (`orientationDe` dans le
+      composant). Le cercle ne sert plus qu'à placer, l'orientation est choisie place par
+      place. */
+.hx .enveloppe-3d {
   position: relative;
   z-index: 2;
-  display: flex;
-  gap: 26px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scroll-behavior: smooth;
-  padding: 20px calc(50% - 330px) 40px;
-  scrollbar-width: none;
+  --facteur: 1;
 }
-.hx .track::-webkit-scrollbar {
-  display: none;
-}
-.hx .slide {
-  flex: 0 0 660px;
-  scroll-snap-align: center;
+.hx .scene {
   position: relative;
-  background: var(--white);
-  border-radius: 32px;
-  padding: 46px 46px 38px;
-  opacity: 0.45;
-  transform: scale(0.93);
+  height: 760px;
+  perspective: 1500px;
+  perspective-origin: 50% 44%;
+  transform: scale(var(--facteur));
+  transform-origin: 50% 0;
+  /* L'anneau est vu en plongée : sa rangée du fond laisse une bande vide en haut de la boîte,
+     que ce retrait vient reprendre pour que les cartes suivent le chapeau d'assez près. */
+  margin-top: -90px;
+  /* Rattrape la hauteur que `scale` ne retire pas : une mise à l'échelle est purement
+     visuelle, la boîte continue d'occuper ses 720px dans le flux. */
+  margin-bottom: calc((var(--facteur) - 1) * 760px);
+}
+.hx .anneau {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: translateZ(calc(var(--rayon-anneau) * -1)) rotateX(-16deg);
+  --rayon-anneau: 700px;
+}
+
+/* L'orbite : un disque posé à plat dans le plan de l'anneau, donc vu en ellipse une fois
+   celui-ci incliné. Un dégradé conique en fait courir la lumière tout autour.
+
+   La lueur tourne par ROTATION DE L'ÉLÉMENT et non en animant `--glow-angle` comme ailleurs
+   dans cette feuille : à 1700px de côté, recalculer le dégradé et son masque à chaque image
+   coûte un repeint de pleine page, là où une transformation est composée sur la carte
+   graphique. Le `rotateZ` suit le `rotateX(90deg)`, il tourne donc dans le plan du disque —
+   soit exactement l'effet visé. */
+@keyframes orbiteTourne {
+  from {
+    transform: translateY(120px) rotateX(90deg) rotateZ(0deg);
+  }
+  to {
+    transform: translateY(120px) rotateX(90deg) rotateZ(360deg);
+  }
+}
+.hx .orbite {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1700px;
+  height: 1700px;
+  margin: -850px 0 0 -850px;
+  border-radius: 50%;
+  transform: translateY(120px) rotateX(90deg);
+  padding: 3px;
+  background: conic-gradient(
+    rgba(242, 184, 75, 0) 0%,
+    rgba(255, 215, 0, 0.95) 11%,
+    rgba(255, 246, 200, 1) 18%,
+    rgba(242, 184, 75, 0.4) 32%,
+    rgba(242, 184, 75, 0.14) 48%,
+    rgba(255, 215, 0, 0.9) 64%,
+    rgba(255, 246, 200, 0.95) 72%,
+    rgba(242, 184, 75, 0.32) 86%,
+    rgba(242, 184, 75, 0) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  filter: drop-shadow(0 0 12px rgba(255, 201, 86, 0.9));
+  animation: orbiteTourne 13s linear infinite;
+  pointer-events: none;
+}
+/* Lueur ambiante sous l'orbite. Un dégradé radial plutôt qu'une copie floutée du cercle : un
+   `blur` sur 1600px de côté coûte cher à chaque image, les arrêts du dégradé donnent le même
+   halo pour rien. */
+.hx .lueur-orbite {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2120px;
+  height: 2120px;
+  margin: -1060px 0 0 -1060px;
+  border-radius: 50%;
+  transform: translateY(120px) rotateX(90deg);
+  background: radial-gradient(
+    closest-side,
+    rgba(255, 198, 88, 0) 58%,
+    rgba(255, 198, 88, 0.1) 70%,
+    rgba(255, 206, 102, 0.26) 79%,
+    rgba(214, 160, 255, 0.14) 88%,
+    rgba(255, 198, 88, 0) 100%
+  );
+  pointer-events: none;
+}
+@keyframes etincelleScintille {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.95;
+  }
+  32% {
+    opacity: 0.2;
+  }
+  52% {
+    opacity: 0.8;
+  }
+  72% {
+    opacity: 0;
+  }
+}
+.hx .etincelle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  background: #fff3d0;
+  box-shadow: 0 0 10px 2.5px rgba(255, 213, 120, 0.95);
+  opacity: 0;
+  animation: etincelleScintille 4.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.hx .carte3d {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 460px;
+  height: 430px;
+  margin: -215px 0 0 -230px;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 32px 24px;
+  border-radius: 28px;
+  background: linear-gradient(158deg, #ffffff 0%, var(--white) 44%, #f2ecff 100%);
+  box-shadow:
+    0 48px 92px -34px rgba(10, 3, 24, 0.8),
+    0 1px 0 rgba(255, 255, 255, 0.95) inset;
   transition:
-    opacity 0.6s var(--ease),
-    transform 0.6s var(--ease),
-    box-shadow 0.6s;
-  box-shadow: 0 40px 80px -40px rgba(20, 8, 36, 0.6);
+    transform 0.95s var(--ease),
+    opacity 0.7s var(--ease);
 }
-.hx .slide.on {
-  opacity: 1;
-  transform: none;
+/* Hors des six places de l'anneau : rendue intraversable et laissée dans le document — les
+   dix-huit témoignages restent lisibles par un lecteur d'écran. Son effacement vient de
+   l'opacité posée en ligne (`opaciteDe`), qui règle du même geste le fondu par la
+   profondeur. */
+.hx .carte3d.hors-anneau {
+  pointer-events: none;
 }
-/* Anneau doré tournant sur la carte active (demande client du 2026-10-09), même mécanique que
-   `.card-lift` des espaces connectés et que l'anneau des cartes équipe — `@property
-   --glow-angle` et `@keyframes navGlowSpin`, déjà déclarées globalement, réutilisées telles
-   quelles. Visible en permanence sur la carte centrale, pas seulement au survol : c'est elle
-   qui est « affichée », au sens de la demande. */
-.hx .slide.on::before {
+/* Anneau doré tournant sur la carte de devant — la mécanique `.card-lift` des espaces
+   connectés, reprise ici comme sur les cartes de l'équipe. */
+/* Halo chaud autour de la carte mise en avant : avec l'anneau doré qui en parcourt le
+   contour, c'est ce qui la détache du violet et répond au « brillant et éclatant » demandé. */
+.hx .carte3d.devant {
+  box-shadow:
+    0 48px 92px -34px rgba(10, 3, 24, 0.82),
+    0 0 90px -18px rgba(255, 199, 97, 0.42),
+    0 1px 0 rgba(255, 255, 255, 0.95) inset;
+}
+.hx .carte3d.devant::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -1788,51 +1942,72 @@ body.vitrine-hx {
   filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.85));
   animation: navGlowSpin 3.4s linear infinite;
 }
-.hx .slide .q {
+.hx .carte3d .amener {
   position: absolute;
-  top: 18px;
-  right: 34px;
-  font: 700 120px/1 var(--f-display);
+  inset: 0;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  cursor: pointer;
+}
+.hx .carte3d .amener:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+}
+.hx .carte3d .q {
+  position: absolute;
+  top: 10px;
+  right: 26px;
+  font: 700 92px/1 var(--f-display);
   color: var(--gold);
   opacity: 0.9;
   pointer-events: none;
 }
-.hx .slide .meta {
+.hx .carte3d .meta {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 22px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
-.hx .slide .stars {
+.hx .carte3d .stars {
   color: var(--gold);
-  letter-spacing: 4px;
-  font-size: 17px;
+  letter-spacing: 3px;
+  font-size: 15px;
 }
-.hx .slide .yr {
-  font: 700 12px/1 var(--f-body);
-  padding: 8px 12px;
+.hx .carte3d .yr {
+  font: 700 11.5px/1 var(--f-body);
+  padding: 7px 11px;
   border-radius: 99px;
   background: var(--lav-soft);
   color: var(--purple);
 }
-.hx .slide p {
+/* Hauteur de carte fixe — c'est elle qui fait tenir l'anneau — et témoignages de longueurs
+   très inégales : le texte est borné en nombre de lignes. Le plus long des dix-huit en occupe
+   neuf, la troncature ne se déclenche donc en pratique jamais ; elle n'est là que pour qu'un
+   témoignage ajouté plus tard ne fasse pas déborder la carte. */
+.hx .carte3d p {
   position: relative;
+  flex: 1;
   margin: 0;
-  font-size: clamp(15.5px, 1.3vw, 17.5px);
-  line-height: 1.75;
+  font-size: 14px;
+  line-height: 1.62;
   color: var(--ink);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 10;
+  overflow: hidden;
 }
-.hx .slide .who {
+.hx .carte3d .who {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-top: 30px;
-  padding-top: 24px;
+  gap: 13px;
+  margin-top: 18px;
+  padding-top: 18px;
   border-top: 1.5px solid var(--lav-soft);
 }
-.hx .slide .av {
-  width: 58px;
-  height: 58px;
+.hx .carte3d .av {
+  width: 46px;
+  height: 46px;
   flex: none;
   border-radius: 50%;
   overflow: hidden;
@@ -1840,115 +2015,202 @@ body.vitrine-hx {
   place-items: center;
   background: linear-gradient(150deg, var(--purple), #3a2558);
   color: var(--gold);
-  font: 700 19px/1 var(--f-display);
+  font: 700 16px/1 var(--f-display);
 }
-.hx .slide .av img {
+.hx .carte3d .av img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.hx .slide .who b {
-  font: 700 18px/1.1 var(--f-display);
+.hx .carte3d .who b {
+  font: 700 16.5px/1.15 var(--f-display);
   letter-spacing: -0.02em;
   color: var(--purple-dark);
 }
-.hx .nav2 {
+
+/* Socle de verre : un vrai plan couché DANS l'espace de l'anneau (`rotateX(90deg)`), pas une
+   silhouette dessinée par-dessus. Première tentative : un tronc de pyramide découpé au
+   `clip-path`, posé devant la scène — ses arêtes débordaient de part et d'autre de la carte de
+   devant en deux triangles clairs, et son `backdrop-filter` floutait le bas de cette carte.
+   Couché en perspective, le plateau se fond dans la scène, se range tout seul en profondeur
+   avec les cartes, et ses bords s'éteignent dans le dégradé au lieu de se découper. */
+.hx .socle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 920px;
+  height: 700px;
+  margin: -350px 0 0 -460px;
+  transform: translateY(300px) rotateX(90deg);
+  border-radius: 46px;
+  background: radial-gradient(
+    ellipse at 50% 42%,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(228, 214, 255, 0.15) 42%,
+    rgba(168, 128, 226, 0.05) 70%,
+    transparent 86%
+  );
+  pointer-events: none;
+}
+/* Reflet doré au ras du plateau, juste sous la carte de devant : c'est lui qui donne au verre
+   son épaisseur. */
+.hx .socle .dessus {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 520px;
+  height: 230px;
+  margin-left: -260px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 50%, rgba(255, 228, 165, 0.34) 0%, rgba(255, 206, 110, 0.12) 52%, transparent 78%);
+}
+
+/* ---------- Chevrons de défilement ----------
+   Troisième version (demande client du 2026-10-09) : d'abord des flèches à contour blanc, puis
+   des boutons ronds dorés sous la piste, désormais des chevrons nus de part et d'autre de la
+   scène, trois par côté, qui s'allument l'un après l'autre. Les boutons ronds et le compteur
+   « x / 18 » qui les séparait ont disparu avec cette version — comme la bande de petits points
+   avant eux, qui s'étirait en une ligne évoquant une barre de défilement. */
+@keyframes chevVague {
+  0%,
+  55%,
+  100% {
+    opacity: 0.34;
+    transform: translateX(0);
+    filter: drop-shadow(0 2px 5px rgba(26, 12, 45, 0.6));
+  }
+  20% {
+    opacity: 1;
+    transform: translateX(var(--chev-pousse));
+    filter: drop-shadow(0 0 9px rgba(255, 215, 0, 0.9)) drop-shadow(0 2px 5px rgba(26, 12, 45, 0.6));
+  }
+}
+/* Sous la scène, pas de part et d'autre : l'anneau déployé va jusqu'aux bords de l'écran, des
+   chevrons posés sur les côtés passeraient sur les cartes de profil. Un écart généreux entre
+   les deux groupes garde la lecture « à gauche / à droite ». */
+.hx .nav-chevrons {
   position: relative;
-  z-index: 2;
+  z-index: 5;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 24px;
-  margin-top: 6px;
+  gap: 96px;
+  margin-top: 4px;
 }
-/* Chevrons dorés brillants (demande client du 2026-10-09, en remplacement des flèches à
-   contour blanc et de la bande de petits points — celle-ci, avec 18 témoignages, s'étirait en
-   une longue ligne qui ressemblait à une barre de défilement plutôt qu'à une pagination). Lueur
-   dorée permanente et respirante pour l'aspect « dynamique », balayage lumineux au survol
-   repris de `.btn-shine` (`@keyframes shimmerSweep`, déjà déclarée globalement dans index.css,
-   réutilisée telle quelle). */
-@keyframes arrRespire {
-  0%,
-  100% {
-    box-shadow: 0 0 18px rgba(242, 184, 75, 0.45);
-  }
-  50% {
-    box-shadow: 0 0 30px rgba(242, 184, 75, 0.7);
-  }
-}
-.hx .arr {
-  position: relative;
-  overflow: hidden;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
+.hx .chev {
+  display: flex;
+  align-items: center;
+  padding: 16px 8px;
   border: 0;
-  background: var(--gold);
-  color: var(--night);
+  background: none;
+  color: var(--gold);
   cursor: pointer;
+}
+.hx .chev.prev {
+  --chev-pousse: -5px;
+}
+.hx .chev.next {
+  --chev-pousse: 5px;
+}
+.hx .chev span {
   display: grid;
   place-items: center;
-  animation: arrRespire 3.2s ease-in-out infinite;
-  transition:
-    transform 0.35s var(--ease),
-    opacity 0.35s;
+  opacity: 0.34;
+  animation: chevVague 1.6s ease-in-out infinite;
 }
-.hx .arr::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.75) 50%, transparent 80%);
-  background-size: 200% 100%;
-  background-position: -160% 0;
-  opacity: 0;
-  transition: opacity 0.2s;
+/* Chevauchement léger : les trois angles se lisent comme une seule flèche en V, pas comme
+   trois pictogrammes alignés. */
+.hx .chev span + span {
+  margin-left: -13px;
 }
-.hx .arr:hover:not(:disabled) {
-  transform: translateY(-2px);
+.hx .chev svg {
+  width: 44px;
+  height: 44px;
 }
-.hx .arr:hover:not(:disabled)::after {
-  opacity: 1;
-  animation: shimmerSweep 1.1s ease-in-out infinite;
+.hx .chev:hover span {
+  animation-duration: 0.9s;
 }
-.hx .arr:disabled {
-  opacity: 0.35;
-  cursor: default;
-  animation: none;
-  box-shadow: none;
+.hx .chev:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 4px;
+  border-radius: 16px;
 }
-.hx .arr svg {
-  position: relative;
-  z-index: 1;
-  width: 20px;
-  height: 20px;
+
+@media (max-width: 1340px) {
+  .hx .enveloppe-3d {
+    --facteur: 0.86;
+  }
 }
-/* Remplace la bande de points entre les deux chevrons : un simple repère de position, sans
-   ressembler à une barre de défilement. */
-.hx .compteur-temoignages {
-  font: 700 13px/1 var(--f-body);
-  letter-spacing: 0.04em;
-  color: var(--lavender);
-  min-width: 48px;
-  text-align: center;
+/* Sous 1150px, l'anneau n'a plus la place de se déployer : la scène retombe à plat sur la
+   seule carte de devant, à pleine largeur et sans troncature, les chevrons passant dessous.
+   `!important` sur la transformation parce qu'elle est posée en style en ligne par le
+   composant, qui ne connaît pas la largeur de la fenêtre. */
+@media (max-width: 1150px) {
+  .hx .enveloppe-3d {
+    --facteur: 1;
+  }
+  .hx .scene {
+    height: auto;
+    perspective: none;
+    transform: none;
+    margin-bottom: 0;
+    /* La scène 3D déborde volontairement de la grille ; à plat, la carte redevient un bloc de
+       texte et a besoin des mêmes gouttières que le reste de la page. */
+    padding: 0 20px;
+  }
+  .hx .anneau {
+    position: static;
+    transform: none;
+    transform-style: flat;
+  }
+  .hx .orbite,
+  .hx .lueur-orbite,
+  .hx .etincelle,
+  .hx .socle {
+    display: none;
+  }
+  /* `relative` et non `static` : le grand guillemet est positionné en absolu par rapport à sa
+     carte. Rendue statique, la carte cessait d'être son repère et il allait se coller au coin
+     de la scène, hors du papier. */
+  .hx .carte3d {
+    display: none;
+    position: relative;
+    width: auto;
+    height: auto;
+    max-width: 620px;
+    margin: 0 auto;
+    transform: none !important;
+    filter: none;
+  }
+  .hx .carte3d.devant {
+    display: flex;
+  }
+  .hx .carte3d p {
+    display: block;
+    overflow: visible;
+  }
+  .hx .nav-chevrons {
+    gap: 54px;
+    margin-top: 26px;
+  }
 }
 @media (max-width: 760px) {
   .hx .testi {
     padding: 130px 0 90px;
   }
-  .hx .track {
-    padding: 20px 6vw 34px;
-    gap: 14px;
+  .hx .carte3d {
+    padding: 30px 24px 24px;
+    border-radius: 24px;
   }
-  .hx .slide {
-    flex-basis: 88vw;
-    padding: 34px 24px 28px;
+  .hx .carte3d .q {
+    font-size: 86px;
+    right: 18px;
   }
-  .hx .slide .q {
-    font-size: 110px;
-    right: 20px;
+  .hx .chev svg {
+    width: 34px;
+    height: 34px;
   }
 }
-
 /* =====================================================================
    À PROPOS
    ===================================================================== */
@@ -2964,5 +3226,13 @@ body.vitrine-hx {
   .hx .rv {
     transform: none;
     opacity: 1;
+  }
+  /* Chevrons et étincelles reposent presque transparents, l'animation seule les allume :
+     sans mouvement, ils resteraient invisibles. */
+  .hx .chev span {
+    opacity: 1;
+  }
+  .hx .etincelle {
+    opacity: 0.8;
   }
 }

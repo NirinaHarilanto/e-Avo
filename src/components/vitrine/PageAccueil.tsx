@@ -103,10 +103,7 @@ export function PageAccueil({ nomEtablissement }: { nomEtablissement: string }) 
             ))}
           </div>
         </div>
-
-        <div style={{ height: 70 }} />
       </section>
-      <div className="after" />
     </>
   )
 }
