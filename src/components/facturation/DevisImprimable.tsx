@@ -1,6 +1,7 @@
 import { useEtablissement } from '../../hooks/useEtablissement'
 import type { Database } from '../../types/database.types'
 import { MentionsEtablissement } from '../shared/MentionsEtablissement'
+import { TamponEtablissement } from '../shared/TamponEtablissement'
 import { OverlayImpression, type ActionImpression } from './OverlayImpression'
 import { TableauLignesImprimable } from './TableauLignesImprimable'
 
@@ -44,7 +45,14 @@ export function DevisImprimable({ devis, etudiant, onFermer, action }: DevisImpr
 
       <TableauLignesImprimable lignes={devis.lignes} montant_ht={devis.montant_ht} montant_tva={devis.montant_tva} montant_ttc={devis.montant_ttc} />
 
-      {devis.notes && <p style={{ marginTop: 24, fontSize: 12, color: '#555' }}>{devis.notes}</p>}
+      {/* Bloc conditionné à la présence de notes OU d'un tampon — sinon un `marginTop` vide
+          laisserait un blanc en bas d'un devis sans l'un ni l'autre. */}
+      {(devis.notes || etablissement?.tampon_path) && (
+        <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20 }}>
+          {devis.notes ? <p style={{ fontSize: 12, color: '#555', margin: 0, flex: 1 }}>{devis.notes}</p> : <div />}
+          <TamponEtablissement etablissement={etablissement} />
+        </div>
+      )}
     </OverlayImpression>
   )
 }

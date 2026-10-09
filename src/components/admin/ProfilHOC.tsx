@@ -14,6 +14,7 @@ import { boutonDangerStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
 import { PanneauSignature } from '../shared/PanneauSignature'
+import { PanneauTampon } from './PanneauTampon'
 
 /* Section « Profil HOC » — demande client du 2026-10-05, au même niveau de navigation que
    Contrats/Paiements/Facturation (voir AdminLayout.tsx). Deux blocs qui vivent ensemble ici
@@ -49,9 +50,27 @@ export function ProfilHOC() {
       />
 
       <IdentiteEtablissement />
+      <TamponHOC />
       <MaSignature />
       <EquipeAdmins />
     </AdminLayout>
+  )
+}
+
+/* Tampon de l'établissement (demande client du 2026-10-09) — même emplacement de navigation que
+   l'identité de l'établissement et la signature des admins, pour la même raison : une
+   information réutilisée sur les documents générés par toute l'application. Section à part
+   plutôt qu'un bloc de plus dans `IdentiteEtablissement` : contrairement aux champs texte de ce
+   formulaire, le dépôt s'enregistre au clic, sans bouton « Enregistrer » commun à presser. */
+function TamponHOC() {
+  const { profile } = useProfileContext()
+  const etablissement = useEtablissement(profile?.etablissement_id)
+  if (!etablissement) return null
+
+  return (
+    <Section titre="Tampon de l'établissement" description="Utilisé sur vos factures, reçus, devis et contrats.">
+      <PanneauTampon etablissement={etablissement} onChange={declencherSynchroLocale} />
+    </Section>
   )
 }
 

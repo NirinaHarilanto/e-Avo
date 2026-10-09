@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { OverlayImpression } from '../facturation/OverlayImpression'
 import { MentionsEtablissement } from '../shared/MentionsEtablissement'
+import { TamponEtablissement } from '../shared/TamponEtablissement'
 
 type Contract = Database['public']['Tables']['contracts']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -144,6 +145,12 @@ export function ContratImprimable({ contrat, destinataire, destinataireSecondair
           <p style={{ margin: 0 }}>Fait pour {etablissement?.nom},</p>
           <p style={{ marginTop: 40, marginBottom: 0 }}>Signature</p>
           <SignatureAffichee profil={signataireEtablissement ?? null} signeLe={contrat.signe_etablissement_at} />
+          {/* Tampon de l'établissement (demande client du 2026-10-09) : UNIQUEMENT dans cette
+              colonne, jamais dans celle du destinataire — un cachet n'authentifie que la partie
+              qui le pose. */}
+          <div style={{ marginTop: 10 }}>
+            <TamponEtablissement etablissement={etablissement} taille={90} />
+          </div>
         </div>
         <div>
           <p style={{ margin: 0 }}>Fait pour {destinataire ? `${destinataire.prenom} ${destinataire.nom}` : 'le destinataire'},</p>

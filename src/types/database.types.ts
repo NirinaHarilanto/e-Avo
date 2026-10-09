@@ -109,6 +109,10 @@ export interface Database {
           /* Forme juridique (0100, demande client du 2026-10-07) : dernière mention d'identité
              figée en dur dans les modèles de contrat (« [forme juridique à compléter] »). */
           forme_juridique: string | null
+          /* Tampon de l'établissement (0104, demande client du 2026-10-09) : chemin dans le
+             bucket Storage `tampons`, affiché sur factures/devis/contrats. `null` tant
+             qu'aucun admin n'en a déposé un — aucun document n'en affiche alors. */
+          tampon_path: string | null
           created_at: string
         }
         Insert: {
@@ -133,6 +137,7 @@ export interface Database {
           nif?: string | null
           stat?: string | null
           forme_juridique?: string | null
+          tampon_path?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['etablissements']['Insert']>

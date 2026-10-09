@@ -1,6 +1,7 @@
 import { useEtablissement } from '../../hooks/useEtablissement'
 import type { Database } from '../../types/database.types'
 import { MentionsEtablissement } from '../shared/MentionsEtablissement'
+import { TamponEtablissement } from '../shared/TamponEtablissement'
 import { OverlayImpression, type ActionImpression } from './OverlayImpression'
 import { TableauLignesImprimable } from './TableauLignesImprimable'
 
@@ -55,7 +56,14 @@ export function FactureImprimable({ facture, destinataire, onFermer, action }: F
         <p style={{ marginTop: 16, fontSize: 13, fontWeight: 700, color: '#1a7a4c' }}>Payée le {new Date(facture.date_paiement).toLocaleDateString('fr-FR')}</p>
       )}
 
-      {facture.notes && <p style={{ marginTop: 24, fontSize: 12, color: '#555' }}>{facture.notes}</p>}
+      {/* Bloc conditionné à la présence de notes OU d'un tampon — sinon un `marginTop` vide
+          laisserait un blanc en bas d'une facture sans l'un ni l'autre. */}
+      {(facture.notes || etablissement?.tampon_path) && (
+        <div style={{ marginTop: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 20 }}>
+          {facture.notes ? <p style={{ fontSize: 12, color: '#555', margin: 0, flex: 1 }}>{facture.notes}</p> : <div />}
+          <TamponEtablissement etablissement={etablissement} />
+        </div>
+      )}
     </OverlayImpression>
   )
 }

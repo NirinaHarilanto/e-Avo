@@ -72,6 +72,7 @@ const etablissement: Etablissement = {
   nif: null,
   stat: null,
   forme_juridique: null,
+  tampon_path: null,
   created_at: '2026-01-01T00:00:00Z',
 }
 
