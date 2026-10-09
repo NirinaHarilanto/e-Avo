@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import type { Candidature } from '../../hooks/useCandidatures'
+import { useBoutonEnregistrer } from '../../hooks/useBoutonEnregistrer'
 import {
   CHECKLIST_INTEGRATION,
   CHECKLIST_PRESELECTION,
@@ -32,6 +33,7 @@ import { Modale } from '../ui/Modale'
 import { Champ, LigneInfo, champStyle } from '../ui/Champ'
 import { MessageErreur, MessageSucces, MessageAvertissement } from '../ui/Etats'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
+import { BoutonEnregistrer } from '../ui/BoutonEnregistrer'
 import { ChampDate } from '../ui/ChampDate'
 
 const ORDRE: StatutCandidature[] = ['recue', 'preselection', 'tests', 'simulation', 'integration', 'integre']
@@ -68,6 +70,14 @@ export function FicheCandidat({
   const [refus, setRefus] = useState(false)
   const [motif, setMotif] = useState('')
 
+  /* Statut visuel des boutons « Enregistrer » (demande client du 2026-10-10) : les quatre blocs
+     de la fiche partagent le MÊME `enregistrer()`, qui persiste systématiquement l'intégralité de
+     la checklist en un seul update — quel que soit le bouton cliqué, c'est donc bien cette MÊME
+     empreinte globale qui doit se retrouver « à jour » ou non sur chacun d'eux, jamais une
+     empreinte propre à un seul bloc. */
+  const { marquerEnregistre, estEnregistre } = useBoutonEnregistrer()
+  const instantaneActuel = JSON.stringify({ preselection, tests, simulation, integration, notes, documentsVerifies })
+
   const rangActuel = ORDRE.indexOf(c.statut)
   const passee = (s: StatutCandidature) => rangActuel > ORDRE.indexOf(s) || c.statut === 'refusee'
 
@@ -75,6 +85,10 @@ export function FicheCandidat({
     setEnCours(true)
     setErreur(null)
     setSucces(null)
+    // Capturée AVANT l'attente réseau : c'est l'état réellement envoyé qu'il faut comparer au
+    // retour du formulaire, pas celui — potentiellement déjà différent — au moment où la réponse
+    // du serveur arrive.
+    const instantaneEnvoye = instantaneActuel
     const { error } = await supabase
       .from('candidatures_formateurs')
       .update({ preselection, tests: tests as Record<string, unknown>, simulation, integration, notes: notes || null, documents_verifies: documentsVerifies, ...champs })
@@ -85,6 +99,7 @@ export function FicheCandidat({
       return false
     }
     setSucces(message)
+    marquerEnregistre(instantaneEnvoye)
     onChange()
     return true
   }
@@ -182,9 +197,7 @@ export function FicheCandidat({
           </label>
           {c.statut === 'recue' && (
             <Actions>
-              <button onClick={() => enregistrer({})} disabled={enCours} style={boutonNeutreStyle}>
-                Enregistrer
-              </button>
+              <BoutonEnregistrer enCours={enCours} enregistre={estEnregistre(instantaneActuel)} onClick={() => enregistrer({})} />
               <button
                 onClick={() => enregistrer({ statut: 'preselection' }, 'Candidat passé à l’appel de pré-sélection.')}
                 disabled={enCours || !documentsVerifies}
@@ -203,9 +216,7 @@ export function FicheCandidat({
             <FormulaireChecklist champs={CHECKLIST_PRESELECTION} valeurs={preselection} onChange={setPreselection} lectureSeule={passee('preselection')} />
             {c.statut === 'preselection' && (
               <Actions>
-                <button onClick={() => enregistrer({})} disabled={enCours} style={boutonNeutreStyle}>
-                  Enregistrer
-                </button>
+                <BoutonEnregistrer enCours={enCours} enregistre={estEnregistre(instantaneActuel)} onClick={() => enregistrer({})} />
                 <button onClick={() => enregistrer({ statut: 'tests' }, 'Candidat passé aux tests d’anglais.')} disabled={enCours} className="btn-shine" style={boutonPrimaireStyle}>
                   Passer aux tests →
                 </button>
@@ -220,9 +231,7 @@ export function FicheCandidat({
             <FormulaireTests tests={tests} onChange={setTests} lectureSeule={passee('tests')} />
             {c.statut === 'tests' && (
               <Actions>
-                <button onClick={() => enregistrer({})} disabled={enCours} style={boutonNeutreStyle}>
-                  Enregistrer
-                </button>
+                <BoutonEnregistrer enCours={enCours} enregistre={estEnregistre(instantaneActuel)} onClick={() => enregistrer({})} />
                 <button
                   onClick={() => enregistrer({ statut: 'simulation' }, 'Candidat passé à la simulation de cours.')}
                   disabled={enCours || !testsReussis(tests)}
@@ -243,9 +252,7 @@ export function FicheCandidat({
             <ResultatGrilleSimulation valeurs={simulation} />
             {c.statut === 'simulation' && (
               <Actions>
-                <button onClick={() => enregistrer({})} disabled={enCours} style={boutonNeutreStyle}>
-                  Enregistrer
-                </button>
+                <BoutonEnregistrer enCours={enCours} enregistre={estEnregistre(instantaneActuel)} onClick={() => enregistrer({})} />
                 {/* Le passage en intégration suit la règle écrite du document (14/20 et aucun
                     critère à 1) et non plus un « avis final » saisi à la main : c'est
                     l'établissement qui a fixé le seuil, pas celui qui remplit la grille. */}
@@ -317,9 +324,7 @@ export function FicheCandidat({
             </div>
             {c.statut === 'integration' && (
               <Actions>
-                <button onClick={() => enregistrer({})} disabled={enCours} style={boutonNeutreStyle}>
-                  Enregistrer
-                </button>
+                <BoutonEnregistrer enCours={enCours} enregistre={estEnregistre(instantaneActuel)} onClick={() => enregistrer({})} />
                 <button
                   onClick={validerIntegration}
                   disabled={enCours || !integrationComplete(integration, contratSigne)}
