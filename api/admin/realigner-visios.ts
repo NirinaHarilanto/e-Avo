@@ -156,7 +156,14 @@ export default async function handler(request: Request): Promise<Response> {
       .not('lien_meet', 'is', null)
       .gte('debut', plancher)
 
-    for (const ligne of (evenements ?? []).filter((l) => enCoursOuAVenir(l.debut, l.duree_minutes) && !conforme(l.lien_meet, 'google_meet'))) {
+    const evenementsATraiter = (evenements ?? []).filter(
+      (l) => enCoursOuAVenir(l.debut, l.duree_minutes) && !conforme(l.lien_meet, 'google_meet'),
+    )
+    /* Mêmes raisons que pour les séances plus bas : les hôtes sont résolus en parallèle et hors
+       budget, pas un par un au fil de la boucle. */
+    await Promise.all([...new Set(evenementsATraiter.map((l) => l.cree_par))].map((id) => hotePour(id)))
+
+    for (const ligne of evenementsATraiter) {
       if (!tempsRestant()) {
         restant += 1
         continue
@@ -224,6 +231,17 @@ export default async function handler(request: Request): Promise<Response> {
       .select('session_id, google_event_id, room_ref, provider, organisateur_email')
 
     const visioParSeance = new Map((visios ?? []).map((v) => [v.session_id, v]))
+
+    /* Les hôtes de tous les professeurs concernés sont résolus EN PARALLÈLE, avant la boucle, et
+       hors du budget de temps. Les résoudre au fil de l'eau coûterait un échange de jeton OAuth
+       séquentiel par professeur : avec une vingtaine d'enseignants, le budget de quatorze secondes
+       pouvait être épuisé avant qu'une seule réunion n'ait été traitée — et une route qui ne
+       progresse pas arrête la boucle d'appels côté écran (`traitees === 0`), laissant le
+       réalignement bloqué sans que rien n'explique pourquoi. En parallèle, l'ensemble coûte à peu
+       près le temps d'un seul appel. */
+    await Promise.all(
+      [...new Set([...seancesConcernees.values()].map((s) => s.teacher_id))].map((id) => hotePour(id)),
+    )
 
     for (const seance of seancesConcernees.values()) {
       const visio = visioParSeance.get(seance.id) ?? null
