@@ -517,8 +517,79 @@ export function preparerVariables(
       }
     }
 
-    return { cle, label, defaut: declaree?.valeur_defaut ?? deduireValeurDefaut(cle, label) }
+    /* `source` est transmise MÊME ici, alors que la variable reste à saisir : c'est justement ce
+       qui permet à l'appelant de reporter la saisie manuelle sur la fiche (voir
+       `completsAReporterSurProfil` plus bas) — une variable dont la source est « adresse » et qui
+       atterrit ici signifie précisément que `profiles.adresse` était vide au moment du contrat. */
+    return { cle, label, source, defaut: declaree?.valeur_defaut ?? deduireValeurDefaut(cle, label) }
   })
+}
+
+/* ---------------------------------------------------------------------------------------------
+   Report d'une information personnelle saisie À LA MAIN sur un contrat vers la fiche de la
+   personne — demande client du 2026-10-10 : « j'ai renseigné des informations personnelles
+   complémentaires lors de la création du contrat [...] ces informations devraient être
+   enregistrées dans toute l'application et apparaître dans les informations personnelles du
+   professeur [...] automatiquement ». Constaté en base sur un contrat réel : `adresse_prestataire`
+   (source `adresse`) avait été tapée à la main parce que `profiles.adresse` était vide à ce
+   moment-là — la valeur n'existait plus ensuite que dans `contracts.variables_valeurs`, jamais
+   reportée sur la fiche.
+   --------------------------------------------------------------------------------------------- */
+
+/* Sources qui correspondent à une colonne modifiable de `profiles`, et son nom — seules celles-ci
+   peuvent être reportées automatiquement. Volontairement restreint aux champs qu'
+   `InformationsPersonnelles.tsx` traite déjà comme optionnels/complétables :
+   - `email` est ABSENT à dessein : c'est l'identifiant de connexion (auth.users), le modifier ici
+     le désynchroniserait du vrai login, sans rien changer à ce dernier (même raison que dans
+     InformationsPersonnelles.tsx, qui l'affiche en lecture seule).
+   - `prenom`/`nom` sont ABSENTS à dessein : une saisie de contrat n'est jamais passée par la
+     vérification d'homonymie que fait ce panneau (`memeNom`), le report automatique d'un nom mal
+     tapé pourrait créer un doublon silencieux. Un nom erroné se corrige depuis la fiche.
+   - `nom_complet` est ABSENT : composite (prénom + nom), rien ne garantit de pouvoir le
+     décomposer fiablement en ses deux colonnes d'origine. */
+export const SOURCES_VERS_PROFIL: Partial<Record<SourceVariable, 'telephone' | 'whatsapp' | 'adresse' | 'ville' | 'taux_horaire'>> = {
+  telephone: 'telephone',
+  whatsapp: 'whatsapp',
+  adresse: 'adresse',
+  ville: 'ville',
+  taux_horaire: 'taux_horaire',
+}
+
+export type ChampsProfilAReporter = Partial<Pick<Profile, 'telephone' | 'whatsapp' | 'adresse' | 'ville' | 'taux_horaire'>>
+
+/* Isole, parmi les variables RESTÉES À SAISIR (`valeurAuto === undefined`, donc la fiche ne
+   portait pas encore la valeur), celles que l'admin a effectivement renseignées et dont la
+   `source` correspond à une colonne de `profiles` — pour le destinataire principal ET, si le
+   contrat est un DUO, pour le second membre (sources `*_2`, voir `resoudreSource`).
+   Pure et testée séparément : ni accès réseau ni effet de bord, l'appelant décide quoi faire du
+   résultat (écrire en base, ou rien si les deux objets sont vides). */
+export function completsAReporterSurProfil(
+  variables: VariableResolue[],
+  complements: Record<string, string>,
+): { destinataire: ChampsProfilAReporter; destinataireSecondaire: ChampsProfilAReporter } {
+  const destinataire: ChampsProfilAReporter = {}
+  const destinataireSecondaire: ChampsProfilAReporter = {}
+
+  for (const variable of variables) {
+    if (variable.valeurAuto !== undefined || !variable.source || variable.estClauseMineur) continue
+    const valeur = complements[variable.cle]?.trim()
+    if (!valeur) continue
+
+    const estSecondMembre = variable.source.endsWith('_2')
+    const sourceDeBase = (estSecondMembre ? variable.source.slice(0, -2) : variable.source) as SourceVariable
+    const colonne = SOURCES_VERS_PROFIL[sourceDeBase]
+    if (!colonne) continue
+
+    const cible = estSecondMembre ? destinataireSecondaire : destinataire
+    if (colonne === 'taux_horaire') {
+      const nombre = Number(valeur.replace(/[^\d.,-]/g, '').replace(',', '.'))
+      if (Number.isFinite(nombre)) cible.taux_horaire = nombre
+    } else {
+      cible[colonne] = valeur
+    }
+  }
+
+  return { destinataire, destinataireSecondaire }
 }
 
 /* Génère le corps d'un contrat DUO en dupliquant, paragraphe par paragraphe, ceux qui portent au

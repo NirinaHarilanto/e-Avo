@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deduireSource, preparerVariables, substituerVariablesDuo } from '../contrats'
+import { completsAReporterSurProfil, deduireSource, preparerVariables, substituerVariablesDuo, type VariableResolue } from '../contrats'
 import type { Database } from '../../types/database.types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -457,5 +457,98 @@ describe('substituerVariablesDuo', () => {
     expect(rendu.match(/Entre HOC/g)?.length).toBe(1)
     expect(rendu.match(/ARTICLE 1/g)?.length).toBe(1)
     expect(rendu).toContain('Miora Rakoto, né(e) le 01/01/2010, ci-après « l’Étudiant »,\nTojo Andria, né(e) le 02/02/2011, ci-après « l’Étudiant »,')
+  })
+})
+
+/* Report automatique d'une information saisie à la main sur un contrat vers la fiche de la
+   personne (demande client du 2026-10-10) — bug constaté en production : une adresse tapée pour
+   compléter un contrat de professeur (source « adresse », fiche alors vide) n'existait plus
+   ensuite que dans `contracts.variables_valeurs`, jamais reportée sur `profiles.adresse`. */
+describe('completsAReporterSurProfil', () => {
+  function champ(partiel: Partial<VariableResolue> & Pick<VariableResolue, 'cle' | 'label'>): VariableResolue {
+    return partiel
+  }
+
+  it('reporte un champ resté à saisir dont la source correspond à une colonne de profil', () => {
+    const variables = [champ({ cle: 'adresse_prestataire', label: 'Adresse du professeur', source: 'adresse' })]
+    const { destinataire } = completsAReporterSurProfil(variables, { adresse_prestataire: 'LOT IIR 345 TER Betongolo' })
+    expect(destinataire).toEqual({ adresse: 'LOT IIR 345 TER Betongolo' })
+  })
+
+  it('ignore un champ déjà rempli automatiquement, même présent dans `complements`', () => {
+    const variables = [champ({ cle: 'adresse_prestataire', label: 'Adresse', source: 'adresse', valeurAuto: 'Lot II M 12, Antananarivo' })]
+    const { destinataire } = completsAReporterSurProfil(variables, { adresse_prestataire: 'Une autre adresse tapée par erreur' })
+    expect(destinataire).toEqual({})
+  })
+
+  it('ignore un champ sans source déduite (clause libre propre au contrat)', () => {
+    const variables = [champ({ cle: 'preavis_resiliation', label: 'Préavis de résiliation' })]
+    const { destinataire } = completsAReporterSurProfil(variables, { preavis_resiliation: '15' })
+    expect(destinataire).toEqual({})
+  })
+
+  it('ignore une source qui ne correspond à aucune colonne de profil (établissement, programme, date)', () => {
+    const variables = [
+      champ({ cle: 'nif', label: 'NIF', source: 'etablissement_nif' }),
+      champ({ cle: 'montant', label: 'Montant', source: 'montant_programme' }),
+      champ({ cle: 'date_signature', label: 'Date de signature', source: 'date_du_jour' }),
+    ]
+    const { destinataire } = completsAReporterSurProfil(variables, { nif: '123', montant: '500000', date_signature: '10/10/2026' })
+    expect(destinataire).toEqual({})
+  })
+
+  it('n’écrit jamais l’e-mail, le nom ou le prénom, même avec une source correspondante', () => {
+    const variables = [
+      champ({ cle: 'email', label: 'E-mail', source: 'email' }),
+      champ({ cle: 'nom', label: 'Nom', source: 'nom' }),
+      champ({ cle: 'prenom', label: 'Prénom', source: 'prenom' }),
+      champ({ cle: 'nom_complet', label: 'Nom complet', source: 'nom_complet' }),
+    ]
+    const { destinataire } = completsAReporterSurProfil(variables, {
+      email: 'nouveau@exemple.test',
+      nom: 'Autre',
+      prenom: 'Nom',
+      nom_complet: 'Autre Nom',
+    })
+    expect(destinataire).toEqual({})
+  })
+
+  it('ignore une valeur vide ou composée uniquement d’espaces', () => {
+    const variables = [champ({ cle: 'adresse_prestataire', label: 'Adresse', source: 'adresse' })]
+    expect(completsAReporterSurProfil(variables, { adresse_prestataire: '   ' }).destinataire).toEqual({})
+    expect(completsAReporterSurProfil(variables, {}).destinataire).toEqual({})
+  })
+
+  it('ignore la clause de minorité même si une source lui était associée par erreur', () => {
+    const variables = [champ({ cle: 'mention_mineur', label: 'Mineur', source: 'adresse', estClauseMineur: true })]
+    const { destinataire } = completsAReporterSurProfil(variables, { mention_mineur: 'Du texte' })
+    expect(destinataire).toEqual({})
+  })
+
+  it('convertit le taux horaire en nombre, y compris avec une unité ou des espaces', () => {
+    const variables = [champ({ cle: 'taux', label: 'Taux horaire', source: 'taux_horaire' })]
+    expect(completsAReporterSurProfil(variables, { taux: '50000' }).destinataire).toEqual({ taux_horaire: 50000 })
+    expect(completsAReporterSurProfil(variables, { taux: '50 000 Ar/h' }).destinataire).toEqual({ taux_horaire: 50000 })
+  })
+
+  it('reporte un champ « _2 » sur le second membre du duo, pas sur le destinataire principal', () => {
+    const variables = [champ({ cle: 'adresse_etudiant_2', label: 'Adresse (étudiant 2)', source: 'adresse_2' })]
+    const { destinataire, destinataireSecondaire } = completsAReporterSurProfil(variables, { adresse_etudiant_2: 'Lot Y, Antananarivo' })
+    expect(destinataire).toEqual({})
+    expect(destinataireSecondaire).toEqual({ adresse: 'Lot Y, Antananarivo' })
+  })
+
+  it('reporte plusieurs champs à la fois', () => {
+    const variables = [
+      champ({ cle: 'adresse_prestataire', label: 'Adresse', source: 'adresse' }),
+      champ({ cle: 'whatsapp_prestataire', label: 'WhatsApp', source: 'whatsapp' }),
+      champ({ cle: 'ville_prestataire', label: 'Ville', source: 'ville' }),
+    ]
+    const { destinataire } = completsAReporterSurProfil(variables, {
+      adresse_prestataire: 'LOT IIR 345 TER Betongolo',
+      whatsapp_prestataire: '0340000000',
+      ville_prestataire: 'Antananarivo',
+    })
+    expect(destinataire).toEqual({ adresse: 'LOT IIR 345 TER Betongolo', whatsapp: '0340000000', ville: 'Antananarivo' })
   })
 })

@@ -8,7 +8,7 @@ import { useProfesseurDetailAdmin } from '../../hooks/useProfesseurDetailAdmin'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import { supabase } from '../../lib/supabaseClient'
-import { libelleTypeProgramme, preparerVariables, substituerVariablesDuo, type ContexteProgramme } from '../../lib/contrats'
+import { completsAReporterSurProfil, libelleTypeProgramme, preparerVariables, substituerVariablesDuo, type ContexteProgramme } from '../../lib/contrats'
 import type { Database, Role } from '../../types/database.types'
 import { Champ, LigneInfo, champStyle } from '../ui/Champ'
 import { ChampRechercheChoix, type OptionRecherche } from '../ui/ChampRechercheChoix'
@@ -297,6 +297,27 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
       setEnCours(false)
       setErreur(error.message)
       return
+    }
+
+    /* Report automatique sur la fiche (demande client du 2026-10-10) : un champ resté « à
+       saisir » parce que la fiche ne le portait pas encore, une fois rempli à la main sur ce
+       contrat, doit désormais s'y retrouver — pas seulement dans ce contrat-là. N'écrit QUE les
+       champs effectivement tapés dont la source correspond à une colonne de `profiles`
+       (téléphone, WhatsApp, adresse, ville, taux horaire — voir `completsAReporterSurProfil`) ;
+       sans effet si rien de tel n'a été saisi. Jamais bloquant : le contrat est déjà enregistré,
+       une panne ici ne doit pas donner l'impression que le lancement a échoué. */
+    const { destinataire: champsDestinataire, destinataireSecondaire: champsSecondaire } = completsAReporterSurProfil(variables, complements)
+    if (Object.keys(champsDestinataire).length > 0) {
+      supabase.from('profiles').update(champsDestinataire).eq('id', destinataire.id).then(
+        () => undefined,
+        () => undefined,
+      )
+    }
+    if (destinataireSecondaire && Object.keys(champsSecondaire).length > 0) {
+      supabase.from('profiles').update(champsSecondaire).eq('id', destinataireSecondaire.id).then(
+        () => undefined,
+        () => undefined,
+      )
     }
 
     /* Le contrat est déjà visible dans l'espace du destinataire une fois au statut « envoyé » :
