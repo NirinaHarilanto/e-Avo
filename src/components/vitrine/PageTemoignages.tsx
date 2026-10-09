@@ -385,31 +385,35 @@ export function PageTemoignages({ dossierAssets }: { dossierAssets: string }) {
               )
             })}
           </div>
-        </div>
 
-        {/* Chevrons dorés : trois par côté, qui s'allument l'un après l'autre dans le sens du
-            défilement (demande client du 2026-10-09). Sous l'anneau et non de part et d'autre
-            comme sur le premier croquis : l'anneau déployé occupe désormais toute la largeur
-            utile, les chevrons posés sur les côtés chevaucheraient les cartes de profil dès
-            qu'on descend sous les très grands écrans. Le décalage de chaque chevron est posé
-            en style en ligne parce qu'il dépend du rang et s'inverse d'un côté à l'autre — à
-            gauche, la vague part du chevron le plus proche du centre et file vers
-            l'extérieur. */}
-        <div className="nav-chevrons">
-          <button type="button" className="chev prev" aria-label="Témoignage précédent" onClick={() => tourner(-1)}>
-            {[0, 1, 2].map((rang) => (
-              <span key={rang} style={{ animationDelay: `${(2 - rang) * 0.16}s` }} aria-hidden="true">
-                <IcoHX nom="chevron-gauche" />
-              </span>
-            ))}
-          </button>
-          <button type="button" className="chev next" aria-label="Témoignage suivant" onClick={() => tourner(1)}>
-            {[0, 1, 2].map((rang) => (
-              <span key={rang} style={{ animationDelay: `${rang * 0.16}s` }} aria-hidden="true">
-                <IcoHX nom="chevron-droite" />
-              </span>
-            ))}
-          </button>
+          {/* Chevrons dorés : trois par côté, qui s'allument l'un après l'autre dans le sens du
+              défilement (demande client du 2026-10-09, repositionnés le 2026-10-09 pour
+              flanquer la carte de devant au lieu de passer sous la scène). Hors de `.anneau`,
+              sinon leur `position: absolute` les ferait hériter de son `transform-style:
+              preserve-3d` : eux-mêmes sans transform 3D propre, ils partiraient quand même
+              inclinés avec le reste de l'anneau au lieu de rester un repère plat face au
+              visiteur. Dans `.scene` et non à côté : seul le placement change ici, pas le
+              texte — en étant du même conteneur que l'anneau, les chevrons suivent la mise à
+              l'échelle `--facteur` qui réduit la scène sous 1340px, et restent alignés sur la
+              carte quelle que soit la taille. Le décalage de chaque chevron est posé en style
+              en ligne parce qu'il dépend du rang et s'inverse d'un côté à l'autre — à gauche,
+              la vague part du chevron le plus proche du centre et file vers l'extérieur. */}
+          <div className="nav-chevrons">
+            <button type="button" className="chev prev" aria-label="Témoignage précédent" onClick={() => tourner(-1)}>
+              {[0, 1, 2].map((rang) => (
+                <span key={rang} style={{ animationDelay: `${(2 - rang) * 0.16}s` }} aria-hidden="true">
+                  <IcoHX nom="chevron-gauche" />
+                </span>
+              ))}
+            </button>
+            <button type="button" className="chev next" aria-label="Témoignage suivant" onClick={() => tourner(1)}>
+              {[0, 1, 2].map((rang) => (
+                <span key={rang} style={{ animationDelay: `${rang * 0.16}s` }} aria-hidden="true">
+                  <IcoHX nom="chevron-droite" />
+                </span>
+              ))}
+            </button>
+          </div>
         </div>
       </div>
     </section>
