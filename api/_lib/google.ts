@@ -36,12 +36,20 @@ type ServiceClient = ReturnType<typeof createClient<Database>>
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const CALENDAR_URL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
-export const SCOPE_GOOGLE = 'https://www.googleapis.com/auth/calendar.events'
+/* `userinfo.email` ajouté le 2026-10-09 : sans lui, `emailDuCompte()` plus bas ne reçoit rien de
+   Google et l'écran Paramètres se rabat sur le libellé « compte Google ». C'est précisément ce
+   qu'affiche le compte connecté depuis 2026-09-15, et cela empêche de vérifier d'un coup d'œil
+   QUELLE boîte alimente l'agenda — nécessaire maintenant que le client bascule de
+   `harionlineclub.app@gmail.com` vers `admin@harionlineclub.com`. Scope non sensible au sens de
+   Google : il n'entraîne aucune revalidation de l'écran de consentement. Les comptes déjà
+   connectés gardent leur jeton et leur ancien périmètre ; l'adresse n'apparaîtra qu'à la
+   prochaine reconnexion, qui est justement ce qui est en train d'être fait. */
+export const SCOPE_GOOGLE = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email'
 /* Agenda Google PERSONNEL (0098, demande client du 2026-10-05) : lecture seule — contrairement à
    l'intégration d'établissement ci-dessus, celle-ci n'a jamais besoin de créer d'événement, elle
    ne fait qu'afficher les événements existants en superposition dans l'agenda HOC de la
    personne. Un scope plus étroit limite aussi ce qu'une fuite de jeton pourrait permettre. */
-export const SCOPE_GOOGLE_PERSONNEL = 'https://www.googleapis.com/auth/calendar.readonly'
+export const SCOPE_GOOGLE_PERSONNEL = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email'
 
 export class GoogleError extends Error {}
 
