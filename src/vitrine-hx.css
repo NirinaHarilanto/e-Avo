@@ -2123,14 +2123,18 @@ body.vitrine-hx {
   color: var(--gold);
   cursor: pointer;
 }
-/* 300px = la moitié des 460px de la carte + 70px de respiration, pour que les chevrons
-   flanquent la carte sans la toucher ni s'en écarter. */
+/* 254px = la moitié des 460px de la carte + 24px de respiration (resserré depuis 70px,
+   demande client du 2026-10-09 : les chevrons devaient se rapprocher de la carte centrale).
+   Ce resserrement sert aussi la seconde moitié de la même demande : la carte voisine
+   (écart ±1) commence déjà 25px après le bord de la carte de devant — tout gain de proximité
+   avec la carte centrale est un gain de distance équivalent avec elle, donc moins de risque
+   de chevauchement visuel. */
 .hx .chev.prev {
-  right: calc(50% + 300px);
+  right: calc(50% + 254px);
   --chev-pousse: -5px;
 }
 .hx .chev.next {
-  left: calc(50% + 300px);
+  left: calc(50% + 254px);
   --chev-pousse: 5px;
 }
 .hx .chev span {
