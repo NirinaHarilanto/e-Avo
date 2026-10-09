@@ -21,6 +21,13 @@ export interface ProfesseurDetail {
   professeur: Profile
   eleves: EleveDuProfesseur[]
   heuresTotalEnseignees: number
+  /* Séances individuelles/duo À VENIR dont la visioconférence est encore hébergée par le compte
+     Google de l'établissement (0107) — en pratique, celui de l'admin : tant que ce professeur n'a
+     pas connecté son propre agenda, ce sont ses futures invitations de cours qui atterrissent
+     dans la vraie boîte Gmail de l'admin. Sert à n'afficher le bouton « Retirer de mon agenda
+     Google » (api/admin/detacher-visio-etablissement.ts) que lorsqu'il y a effectivement quelque
+     chose à détacher. */
+  seancesHergeesParEtablissement: number
 }
 
 export function useProfesseurDetailAdmin(teacherId: string | undefined) {
@@ -49,11 +56,31 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
     // Un élève supprimé (soft-delete) garde son affectation `teacher_assignments` (date_fin
     // toujours null) — sans ce filtre il continuait à apparaître dans la fiche du professeur
     // comme un élève actuel alors que son compte n'existe plus (demande client du 2026-09-23).
-    const [{ data: eleveProfiles }, { data: packages }, { data: sessionsTerminees }] = await Promise.all([
+    const [{ data: eleveProfiles }, { data: packages }, { data: sessionsTerminees }, { data: integrationEtab }, { data: seancesAVenir }] = await Promise.all([
       studentIds.length > 0 ? supabase.from('profiles').select('*').in('id', studentIds).neq('status', 'suspended') : Promise.resolve({ data: [] as Profile[] }),
       studentIds.length > 0 ? supabase.from('packages').select('*').in('student_id', studentIds) : Promise.resolve({ data: [] as Package[] }),
       supabase.from('sessions').select('id, duree_minutes').eq('teacher_id', teacherId as string).eq('statut', 'terminee'),
+      supabase.from('google_integration_statut').select('google_email').maybeSingle(),
+      supabase
+        .from('sessions')
+        .select('id')
+        .eq('teacher_id', teacherId as string)
+        .eq('type', 'individuel')
+        .eq('statut', 'planifiee')
+        .gte('debut', new Date().toISOString()),
     ])
+
+    /* `video_sessions` n'a pas de relation reconnue par PostgREST (voir realigner-visios.ts) :
+       une seconde requête, pas une jointure, et seulement si l'établissement a bien un compte
+       Google connecté — sinon aucune réunion ne peut être « hébergée par l'établissement ». */
+    let seancesHergeesParEtablissement = 0
+    if (integrationEtab?.google_email && (seancesAVenir ?? []).length > 0) {
+      const { data: visios } = await supabase
+        .from('video_sessions')
+        .select('organisateur_email')
+        .in('session_id', (seancesAVenir ?? []).map((s) => s.id))
+      seancesHergeesParEtablissement = (visios ?? []).filter((v) => v.organisateur_email === integrationEtab.google_email).length
+    }
 
     const eleveParId = new Map((eleveProfiles ?? []).map((e) => [e.id, e]))
     const packagesParEleve = new Map<string, Package[]>()
@@ -103,6 +130,7 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
       professeur,
       eleves,
       heuresTotalEnseignees: [...heuresParEleve.values()].reduce((total, h) => total + h, 0),
+      seancesHergeesParEtablissement,
     }
   })
 

@@ -178,9 +178,30 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
                 }}
               >
                 {groupe.titre && (
-                  /* Était en `--muted-2` à 10 px : le titre de pôle se lisait à peine sur le fond
-                     de la barre, alors que c'est lui qui sépare les deux moitiés du menu. */
-                  <span style={{ fontSize: 11.5, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, padding: '0 12px' }}>
+                  /* Passé de `--muted-2` à `--muted` le 2026-10-09 (premier correctif), encore
+                     jugé trop terne par le client le 2026-10-10 : sur fond violet sombre, un gris
+                     reste un gris, aussi clair soit-il. Passé au dégradé or de `--accent-gradient`
+                     — celui qui porte déjà tous les états « mise en avant » de l'application
+                     (boutons primaires, onglet actif) — plutôt qu'à une couleur fixe, pour que le
+                     titre de pôle se voie vraiment comme un repère, pas comme un énième gris. Le
+                     halo (`filter: drop-shadow`) est ce qui rend ce dégradé « brillant » plutôt que
+                     plat ; même technique que `.logo-glow` mais statique (sans l'animation
+                     arc-en-ciel du logo, qui serait trop voyante pour un repère qu'on regarde en
+                     continu pendant qu'on travaille). */
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: 800,
+                      background: 'var(--accent-gradient)',
+                      WebkitBackgroundClip: 'text',
+                      backgroundClip: 'text',
+                      color: 'transparent',
+                      filter: 'drop-shadow(0 0 6px rgba(233, 207, 148, 0.45))',
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                      padding: '0 12px',
+                    }}
+                  >
                     {groupe.titre}
                   </span>
                 )}

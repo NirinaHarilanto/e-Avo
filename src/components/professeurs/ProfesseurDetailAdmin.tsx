@@ -11,6 +11,7 @@ import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { formaterHeures } from '../../lib/heures'
 import { KpiSatisfaction } from './KpiSatisfaction'
+import { DetacherVisioEtablissement } from './DetacherVisioEtablissement'
 
 export function ProfesseurDetailAdmin() {
   const { id } = useParams<{ id: string }>()
@@ -56,6 +57,12 @@ export function ProfesseurDetailAdmin() {
           </GrilleStats>
 
           <KpiSatisfaction teacherId={detail.professeur.id} />
+
+          <DetacherVisioEtablissement
+            teacherId={detail.professeur.id}
+            nombreSeances={detail.seancesHergeesParEtablissement}
+            onDetache={recharger}
+          />
 
           <div className="grille-dossier">
             <Section
