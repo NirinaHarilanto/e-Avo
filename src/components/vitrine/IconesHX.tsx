@@ -6,6 +6,8 @@ export type NomIcoHX =
   | 'fleche-diagonale'
   | 'fleche-gauche'
   | 'fleche-droite'
+  | 'chevron-gauche'
+  | 'chevron-droite'
   | 'utilisateur'
   | 'burger'
   | 'globe'
@@ -22,6 +24,11 @@ const CHEMINS: Record<NomIcoHX, { d: string[]; cercles?: { cx: number; cy: numbe
   'fleche-diagonale': { d: ['M7 17 17 7M8 7h9v9'], epaisseur: 2.4 },
   'fleche-gauche': { d: ['M19 12H5M11 6l-6 6 6 6'], epaisseur: 2.4 },
   'fleche-droite': { d: ['M5 12h14M13 6l6 6-6 6'], epaisseur: 2.4 },
+  /* Chevron pur (juste l'angle, sans la hampe de la flèche) : demande client du 2026-10-09 pour
+     la navigation des témoignages — « chevrons », pas « flèches ». Trait plus épais que les
+     autres pictogrammes : seul l'angle porte le sens de lecture, il doit rester net à 20px. */
+  'chevron-gauche': { d: ['M15 18l-6-6 6-6'], epaisseur: 3 },
+  'chevron-droite': { d: ['M9 18l6-6-6-6'], epaisseur: 3 },
   utilisateur: { d: ['M4 21a8 8 0 0 1 16 0'], cercles: [{ cx: 12, cy: 8, r: 4 }], epaisseur: 2.2 },
   burger: { d: ['M4 8h16M4 16h16'], epaisseur: 2.4 },
   globe: { d: ['M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20'], cercles: [{ cx: 12, cy: 12, r: 10 }], epaisseur: 2.2 },

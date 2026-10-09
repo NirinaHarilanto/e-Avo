@@ -263,7 +263,7 @@ export function PageTemoignages({ dossierAssets }: { dossierAssets: string }) {
           aussi. */}
       <div className="nav2">
         <button type="button" className="arr prev" aria-label="Témoignage précédent" disabled={courant === 0} onClick={() => allerA(courant - 1)}>
-          <IcoHX nom="fleche-gauche" />
+          <IcoHX nom="chevron-gauche" />
         </button>
         <span aria-live="polite" className="compteur-temoignages">
           {courant + 1} / {TEMOIGNAGES.length}
@@ -275,7 +275,7 @@ export function PageTemoignages({ dossierAssets }: { dossierAssets: string }) {
           disabled={courant === TEMOIGNAGES.length - 1}
           onClick={() => allerA(courant + 1)}
         >
-          <IcoHX nom="fleche-droite" />
+          <IcoHX nom="chevron-droite" />
         </button>
       </div>
     </section>
