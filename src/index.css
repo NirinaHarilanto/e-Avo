@@ -380,6 +380,12 @@ a:hover {
 @keyframes navGlowSpin {
   to { --glow-angle: 360deg; }
 }
+/* Rotation simple d'un élément (icône de BoutonRafraichir en cours de clic) — distincte de
+   navGlowSpin ci-dessus, qui anime une variable CSS consommée par un conic-gradient et ne fait
+   tourner aucun élément directement. */
+@keyframes tourner {
+  to { transform: rotate(360deg); }
+}
 .nav-item {
   position: relative;
   transition: background 0.3s, box-shadow 0.3s, color 0.3s;

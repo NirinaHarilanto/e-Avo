@@ -19,6 +19,7 @@ export type NomIcoHX =
   | 'whatsapp'
   | 'avion'
   | 'document'
+  | 'diplome'
 
 const CHEMINS: Record<NomIcoHX, { d: string[]; cercles?: { cx: number; cy: number; r: number }[]; rect?: boolean; aplat?: boolean; epaisseur?: number }> = {
   'fleche-diagonale': { d: ['M7 17 17 7M8 7h9v9'], epaisseur: 2.4 },
@@ -49,6 +50,8 @@ const CHEMINS: Record<NomIcoHX, { d: string[]; cercles?: { cx: number; cy: numbe
   },
   avion: { d: ['m22 2-7 20-4-9-9-4z', 'M22 2 11 13'], epaisseur: 2.2 },
   document: { d: ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6M12 18v-6M9 15l3-3 3 3'], epaisseur: 2 },
+  /* Toque de diplômé — bouton « Devenir professeur chez HOC » dans la fenêtre Contact. */
+  diplome: { d: ['M12 3 2 8l10 5 10-5-10-5z', 'M6 10.5v4.5c0 1.5 3 3 6 3s6-1.5 6-3v-4.5', 'M22 8v6'], epaisseur: 2 },
 }
 
 export function IcoHX({ nom }: { nom: NomIcoHX }) {

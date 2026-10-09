@@ -5,6 +5,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import type { Database } from '../../types/database.types'
 import { Logo } from '../shared/Logo'
 import { NotificationsBell } from '../shared/NotificationsBell'
+import { BoutonRafraichir } from '../shared/BoutonRafraichir'
 import { Icone, type NomIcone } from '../ui/Icones'
 
 type Role = Database['public']['Tables']['profiles']['Row']['role']
@@ -235,6 +236,7 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+              <BoutonRafraichir />
               <NotificationsBell />
               <button
                 onClick={async () => {

@@ -39,8 +39,17 @@ export type NomIcone =
   | 'recrutement'
   | 'timesheet'
   | 'communication'
+  | 'rafraichir'
 
 const CHEMINS: Record<NomIcone, ReactNode> = {
+  /* Deux arcs opposés avec leur flèche, comme l'icône d'actualisation standard — bouton de
+     rafraîchissement manuel ajouté le 2026-10-09 à côté de la cloche de notification. */
+  rafraichir: (
+    <>
+      <path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3" />
+      <path d="M18 3v4h-4M6 21v-4h4" />
+    </>
+  ),
   /* Enveloppe — section Messages des trois espaces (0090). Le rabat est tracé à part du cadre
      pour rester lisible à 14 px, taille à laquelle une enveloppe d'un seul trait se referme
      visuellement en rectangle. */

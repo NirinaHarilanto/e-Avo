@@ -38,7 +38,11 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
       titre: 'Mon agenda',
       lien: '/mon-espace/agenda',
       points: [
-        <>Vos cours de la semaine, heure par heure. Cliquez sur un cours pour voir son détail et le lien de visioconférence Google Meet.</>,
+        <>
+          Vos cours de la semaine, heure par heure. Cliquez sur un cours pour voir son détail et le lien de
+          visioconférence : Google Meet pour un cours individuel ou en duo, Jitsi (sans compte à créer) pour un cours
+          collectif.
+        </>,
         <>Un changement d’horaire décidé par votre professeur ou l’administration apparaît aussitôt, accompagné d’une notification.</>,
       ],
     },
@@ -156,7 +160,11 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
         <><strong>Paiements</strong> : encaissements des élèves (acomptes réservés aux forfaits de 40 h et plus) et rémunérations des professeurs. L’onglet <strong>TimeSheets</strong> reçoit les relevés d’heures envoyés par les professeurs : validez-les pour générer leur facture de rémunération.</>,
         <><strong>Facturation</strong> : devis, factures et reçus. Chaque document se voit, s’imprime et se télécharge en PDF.</>,
         <><strong>Contrats</strong> : modèles et contrats. Pour un cours collectif, choisissez la classe : chaque élève reçoit son propre contrat.</>,
-        <><strong>Tarifs</strong> et <strong>Paramètres</strong> : grille affichée sur la vitrine, réglages de l’établissement et connexion Google Meet.</>,
+        <>
+          <strong>Tarifs</strong> et <strong>Paramètres</strong> : grille affichée sur la vitrine, réglages de
+          l’établissement et connexion du compte Google qui porte l’agenda et les visioconférences (Meet pour
+          l’individuel et le duo, Jitsi pour le collectif).
+        </>,
       ],
     },
   ],

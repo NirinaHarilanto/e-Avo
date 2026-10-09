@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { IcoHX } from './IconesHX'
+import { CHEMIN_CANDIDATURE } from './candidature'
 import { EMAIL_OFFICIEL_HOC } from '../../lib/etablissement'
 
 /* Coordonnées reprises telles quelles de la maquette (hoc-contact.html), à la demande du client. */
@@ -89,6 +90,19 @@ export function FenetreContact({ ouverte, onFermer }: { ouverte: boolean; onFerm
             <span>
               <small>Téléphone / WhatsApp</small>
               <b>{TELEPHONE_AFFICHE}</b>
+            </span>
+          </a>
+          {/* Déplacé depuis la barre de navigation (2026-10-09, demande client) : même pastille
+              `.coord` que l'e-mail et le téléphone juste au-dessus — même style, même animation
+              au survol — pour que la candidature formateur se lise comme une troisième façon de
+              joindre l'établissement plutôt que comme un bouton à part. */}
+          <a className="coord" href={CHEMIN_CANDIDATURE}>
+            <i>
+              <IcoHX nom="diplome" />
+            </i>
+            <span>
+              <small>Vous êtes professeur ?</small>
+              <b>Devenir professeur chez HOC</b>
             </span>
           </a>
         </div>

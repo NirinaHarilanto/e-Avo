@@ -131,7 +131,10 @@ export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre, e
             )}
             {video && (
               <span>
-                <strong style={{ color: 'var(--ink)' }}>Lien Google Meet :</strong>{' '}
+                {/* Libellé neutre : un cours collectif porte un lien Jitsi, pas Meet (règle du
+                    2026-10-09) — l'étiqueter « Google Meet » dans tous les cas induisait en
+                    erreur sur la nature réelle du lien. */}
+                <strong style={{ color: 'var(--ink)' }}>Lien de visioconférence :</strong>{' '}
                 {estLienReel(video) ? (
                   <a href={getJoinUrl(video)} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-blue)' }}>
                     {getJoinUrl(video)}

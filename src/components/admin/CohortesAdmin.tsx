@@ -143,6 +143,17 @@ export function CohortesAdmin() {
             Le bouton <strong>+ Élèves</strong> sur une classe permet d'y ajouter directement un élève déjà dans la
             promotion sans classe, ou n'importe quel autre élève de l'établissement — sans repasser par son dossier.
           </>,
+          <>
+            <strong>Rythme officiel d'une vague</strong> : 32 séances réparties sur{' '}
+            <strong>lundi, mardi, jeudi et vendredi</strong> — jamais mercredi, samedi ni dimanche. Un jour férié qui
+            tombe sur un jour de cours ne compte pas comme l'une des 32. Respectez ce rythme quand vous planifiez les
+            séances d'une classe depuis son <strong>Planning prévisionnel</strong>.
+          </>,
+          <>
+            Entre deux vagues, prévoyez <strong>3 semaines de pause</strong>. Aucun cours collectif n'a lieu en{' '}
+            <strong>juillet et août</strong>, ni pendant les <strong>vacances HOC</strong> (22 décembre → 3 janvier) :
+            ne créez ni vague ni séance sur ces périodes.
+          </>,
         ]}
       />
 

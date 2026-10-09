@@ -27,7 +27,6 @@ import { Modale } from '../ui/Modale'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
 import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
-import { AvertissementDureeMeet } from '../shared/AvertissementDureeMeet'
 import { ChoixNatureRendezVous } from '../shared/ChoixNatureRendezVous'
 import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
 import { EnqueteSatisfactionAffichage } from '../shared/EnqueteSatisfactionAffichage'
@@ -532,8 +531,6 @@ function FormulairePlanification({
           <input type="number" min={15} step={15} value={dureeMinutes} onChange={(e) => setDureeMinutes(Number(e.target.value))} style={champStyle} />
         </div>
       </div>
-
-      {nature === 'seance_cours' && <AvertissementDureeMeet dureeMinutes={dureeMinutes} nombreEleves={studentIds.length} />}
 
       {nature === 'autre' && (
         <textarea

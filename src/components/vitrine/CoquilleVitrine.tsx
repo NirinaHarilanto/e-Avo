@@ -4,6 +4,7 @@ import { useApparitions, useBarreSolidifiee, useFondVitrine, useProjecteur } fro
 import { ContexteContact } from './contexteContact'
 import { FenetreContact } from './FenetreContact'
 import { IcoHX } from './IconesHX'
+import { CHEMIN_CANDIDATURE } from './candidature'
 
 /* Les cinq entrées de la barre, dans l'ordre des maquettes. Les chemins sont ceux qu'elles
    écrivent, à une exception près : la candidature formateur garde `/rejoignez-nous`, l'adresse
@@ -16,7 +17,6 @@ const ENTREES = [
   { chemin: '/a-propos', libelle: 'À propos' },
 ]
 
-export const CHEMIN_CANDIDATURE = '/rejoignez-nous'
 
 /* Enveloppe commune aux cinq pages de la vitrine : conteneur `.hx` qui porte les variables du
    thème, barre fixe, pied de page et fenêtre « Nous contacter ».
@@ -58,9 +58,6 @@ export function CoquilleVitrine({ fond, children }: { fond: string; children: Re
             ))}
           </nav>
           <div className="act">
-            <a className="teach" href={CHEMIN_CANDIDATURE}>
-              Devenir professeur chez HOC
-            </a>
             <a className="login" href="/connexion">
               <IcoHX nom="utilisateur" />
               Se connecter
