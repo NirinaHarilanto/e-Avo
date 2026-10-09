@@ -701,6 +701,7 @@ export interface Database {
           motivation: string
           experiences: string
           diplome_declare: 'licence_anglais' | 'tefl' | 'licence_et_tefl' | 'autre'
+          diplome_autre_precision: string | null
           fichiers: FichierCandidature[]
           statut: 'recue' | 'preselection' | 'tests' | 'simulation' | 'integration' | 'integre' | 'refusee'
           documents_verifies: boolean
@@ -725,6 +726,7 @@ export interface Database {
           motivation: string
           experiences: string
           diplome_declare: 'licence_anglais' | 'tefl' | 'licence_et_tefl' | 'autre'
+          diplome_autre_precision?: string | null
           fichiers?: FichierCandidature[]
           statut?: 'recue' | 'preselection' | 'tests' | 'simulation' | 'integration' | 'integre' | 'refusee'
           documents_verifies?: boolean

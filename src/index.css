@@ -485,7 +485,36 @@ a:hover {
   pointer-events: none;
 }
 
-select { color-scheme: dark; }
+/* Lisibilité des listes déroulantes — demande client du 2026-10-10, capture à l'appui : le popup
+   natif d'un <select> (ses <option>) s'ouvrait avec un fond gris clair et un texte presque
+   invisible, alors que le champ fermé, lui, est bien sombre et lisible.
+
+   Cause : `color-scheme: dark` (seul réglage posé jusqu'ici) ne fait que suggérer au navigateur
+   un thème sombre GÉNÉRIQUE pour les contrôles natifs — il ne reprend PAS la palette de
+   l'application, et le gris moyen que Chromium choisit pour ce générique contraste mal avec son
+   propre texte par défaut. La seule garantie cross-navigateur est de fixer EXPLICITEMENT le fond
+   et le texte de chaque <option>, ce que `color-scheme` seul ne fait pas.
+
+   Le fond et le texte des options suivent les variables de thème (`var(--surface-alt)`/
+   `var(--ink)`), qui changent déjà seules entre les espaces connectés (sombres) et la vitrine/
+   connexion (`.page-claire`, `.page-connexion-hoc`, clairs) — un seul jeu de règles suffit donc
+   aux deux thèmes, sans dupliquer de couleur en dur. `color-scheme` suit le même principe, via
+   une variable plutôt qu'une valeur fixe : posé en dur à `dark` sur `select`, il l'emportait
+   jusqu'ici sur le `color-scheme: light` pourtant hérité de `.page-claire` (une déclaration
+   explicite bat toujours un héritage, quelle que soit la spécificité) — un `<select>` de la
+   vitrine ouvrait donc un popup sombre dans une page claire. */
+:root { --scheme-formulaire: dark; }
+.page-claire,
+.page-connexion-hoc {
+  --scheme-formulaire: light;
+}
+select {
+  color-scheme: var(--scheme-formulaire);
+}
+select option {
+  background-color: var(--surface-alt);
+  color: var(--ink);
+}
 
 /* Un système réglé sur "moins d'animations" doit obtenir une interface fixe, pas ralentie : le
    décor permanent (hero, halos respirants, arrivées de cartes) est neutralisé. Les trois

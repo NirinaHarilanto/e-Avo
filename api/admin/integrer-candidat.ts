@@ -2,6 +2,7 @@ import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { creerCompteSansEmail } from '../_lib/creerCompte.js'
 import { trouverProfilHomonyme, messageHomonyme } from '../_lib/nomDuplique.js'
 import { creerNotification } from '../_lib/notifications.js'
+import { resultatSimulation, TOTAL_SIMULATION_MAX, TOTAL_SIMULATION_REQUIS } from '../../src/lib/recrutement.js'
 
 export const config = { runtime: 'edge' }
 
@@ -36,8 +37,20 @@ export default async function handler(request: Request): Promise<Response> {
     if (candidat.statut !== 'simulation') {
       return Response.json({ error: 'Seul un candidat ayant passé la simulation de cours peut entrer en intégration.' }, { status: 409 })
     }
-    if (candidat.simulation?.avis !== 'favorable') {
-      return Response.json({ error: 'L’avis de la simulation de cours doit être favorable.' }, { status: 400 })
+    /* `simulation.avis` appartenait à l'ancienne grille maison (avis saisi à la main) : la
+       grille officielle du 2026-10-01 (`resultatSimulation`, 14/20 minimum sans critère noté 1)
+       l'a remplacée côté écran, mais ce contrôle serveur n'avait jamais été mis à jour en même
+       temps — `avis` n'est plus écrit par aucun formulaire, donc ce test échouait pour TOUT
+       candidat, quel que soit son résultat réel à la grille. Trouvé le 2026-10-10 : l'écran
+       affichait « candidat validé » (vert) pendant que ce point bloquait son passage en
+       intégration avec un message qui ne correspondait à aucun champ existant.
+       Le serveur recalcule désormais la MÊME règle que l'écran, depuis les mêmes données — jamais
+       la valeur `valide` du client, qui pourrait être falsifiée dans la requête. */
+    if (!resultatSimulation(candidat.simulation ?? {}).valide) {
+      return Response.json(
+        { error: `La grille de simulation ne valide pas ce candidat (${TOTAL_SIMULATION_REQUIS}/${TOTAL_SIMULATION_MAX} minimum, aucun critère noté 1).` },
+        { status: 400 },
+      )
     }
     if (candidat.professeur_id) {
       return Response.json({ error: 'L’espace professeur de ce candidat existe déjà.' }, { status: 409 })

@@ -30,7 +30,7 @@ import {
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { Modale } from '../ui/Modale'
 import { Champ, LigneInfo, champStyle } from '../ui/Champ'
-import { MessageErreur, MessageSucces } from '../ui/Etats'
+import { MessageErreur, MessageSucces, MessageAvertissement } from '../ui/Etats'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { ChampDate } from '../ui/ChampDate'
 
@@ -112,6 +112,10 @@ export function FicheCandidat({
       .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
     setEnCours(false)
     if (reponse.error) {
+      // Le compte rendu, lui, a bien été enregistré juste avant (c'est un simple update) : ne pas
+      // laisser ce succès affiché à côté de l'échec qui suit, qui concerne une étape distincte et
+      // pourrait se lire comme une information contradictoire.
+      setSucces(null)
       setErreur(reponse.error)
       return
     }
@@ -153,7 +157,14 @@ export function FicheCandidat({
             <LigneInfo label="E-mail" valeur={c.email} />
             <LigneInfo label="Téléphone" valeur={c.telephone ?? '—'} />
             <LigneInfo label="Ville" valeur={c.ville ?? '—'} />
-            <LigneInfo label="Diplôme déclaré" valeur={DIPLOMES_DECLARES.find((d) => d.valeur === c.diplome_declare)?.libelle ?? '—'} />
+            <LigneInfo
+              label="Diplôme déclaré"
+              valeur={
+                c.diplome_declare === 'autre' && c.diplome_autre_precision
+                  ? c.diplome_autre_precision
+                  : (DIPLOMES_DECLARES.find((d) => d.valeur === c.diplome_declare)?.libelle ?? '—')
+              }
+            />
             <LigneInfo label="Reçu le" valeur={formaterDansFuseauEtablissement(c.created_at, { dateStyle: 'long', timeStyle: 'short' })} />
           </div>
           <TexteLong titre="Motivations" texte={c.motivation} />
@@ -585,29 +596,41 @@ function FormulaireTests({ tests, onChange, lectureSeule }: { tests: ValeursTest
           </div>
         )
       })}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'end', flexWrap: 'wrap' }}>
-        <Champ label="Niveau global retenu" aide={propose ? `Proposé : ${propose} (le plus faible des trois tests)` : 'Renseignez les trois niveaux'}>
-          <select
-            value={(tests.niveau_global as string) ?? ''}
-            disabled={lectureSeule}
-            onChange={(e) => onChange({ ...tests, niveau_global: (e.target.value || null) as ValeursTests['niveau_global'] })}
-            style={{ ...champStyle, minWidth: 160 }}
-          >
-            <option value="">{propose ? `Automatique (${propose})` : '—'}</option>
-            {NIVEAUX_CECRL.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </Champ>
-        <span style={{ fontSize: 12.5, fontWeight: 700, paddingBottom: 10, color: reussi ? 'var(--accent-teal)' : 'var(--muted)' }}>
-          {global
-            ? reussi
-              ? `${global} : niveau suffisant (${NIVEAU_MINIMUM} minimum)`
-              : `${global} : ${NIVEAU_MINIMUM} minimum requis${TESTS_ANGLAIS.every((t) => (tests[t.cle] as ResultatTest | undefined)?.fait) ? '' : ' et les trois tests passés'}`
-            : `${NIVEAU_MINIMUM} minimum requis pour passer`}
-        </span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'end', flexWrap: 'wrap' }}>
+          <Champ label="Niveau global retenu" aide={propose ? `Proposé : ${propose} (le plus faible des trois tests)` : 'Renseignez les trois niveaux'}>
+            <select
+              value={(tests.niveau_global as string) ?? ''}
+              disabled={lectureSeule}
+              onChange={(e) => onChange({ ...tests, niveau_global: (e.target.value || null) as ValeursTests['niveau_global'] })}
+              style={{ ...champStyle, minWidth: 160 }}
+            >
+              <option value="">{propose ? `Automatique (${propose})` : '—'}</option>
+              {NIVEAUX_CECRL.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </Champ>
+          <span style={{ fontSize: 12.5, fontWeight: 700, paddingBottom: 10, color: global ? (reussi ? 'var(--accent-teal)' : 'var(--warning)') : 'var(--muted)' }}>
+            {global
+              ? reussi
+                ? `${global} : niveau suffisant (${NIVEAU_MINIMUM} minimum)`
+                : `${global} : insuffisant`
+              : `${NIVEAU_MINIMUM} minimum requis pour passer`}
+          </span>
+        </div>
+        {/* Sous forme de bandeau, pas de simple texte gris (demande client du 2026-10-10) : un
+            niveau en dessous du minimum empêche le candidat de passer à l'étape suivante — le
+            bouton « Passer à la simulation de cours » reste désactivé tant que c'est le cas
+            (voir testsReussis) — ce n'est pas une information secondaire. */}
+        {global && !reussi && (
+          <MessageAvertissement>
+            Niveau {global} : {NIVEAU_MINIMUM} minimum requis
+            {TESTS_ANGLAIS.every((t) => (tests[t.cle] as ResultatTest | undefined)?.fait) ? '' : ' et les trois tests doivent être passés'}.
+          </MessageAvertissement>
+        )}
       </div>
       <Champ label="Commentaire du correcteur">
         <textarea

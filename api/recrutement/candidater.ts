@@ -19,6 +19,7 @@ interface Corps {
   motivation?: string
   experiences?: string
   diplomeDeclare?: string
+  diplomeAutrePrecision?: string
   fichiers?: { chemin?: string; nom?: string; type?: string }[]
 }
 
@@ -60,6 +61,15 @@ export default async function handler(request: Request): Promise<Response> {
     }
     if (!DIPLOMES.has(c.diplomeDeclare)) {
       return Response.json({ error: 'Diplôme déclaré invalide.' }, { status: 400 })
+    }
+    const diplomeAutrePrecision = c.diplomeAutrePrecision?.trim() || null
+    // Obligatoire côté serveur, pas seulement côté formulaire : une requête forgée pourrait
+    // sinon envoyer `diplomeDeclare: 'autre'` sans aucune précision.
+    if (c.diplomeDeclare === 'autre' && !diplomeAutrePrecision) {
+      return Response.json({ error: 'Précisez le nom ou la description de votre diplôme.' }, { status: 400 })
+    }
+    if (diplomeAutrePrecision && diplomeAutrePrecision.length > 200) {
+      return Response.json({ error: 'La précision du diplôme est limitée à 200 caractères.' }, { status: 400 })
     }
     if (motivation.length > 5000 || experiences.length > 5000) {
       return Response.json({ error: 'Texte trop long (5 000 caractères au maximum par champ).' }, { status: 400 })
@@ -116,6 +126,7 @@ export default async function handler(request: Request): Promise<Response> {
         motivation,
         experiences,
         diplome_declare: c.diplomeDeclare as 'licence_anglais' | 'tefl' | 'licence_et_tefl' | 'autre',
+        diplome_autre_precision: diplomeAutrePrecision,
         fichiers,
       })
       .select('id')

@@ -28,8 +28,18 @@ vi.mock('../../_lib/adminAuth.js', () => ({
   },
 }))
 
-const supprimerEvenement = vi.fn(async () => {})
+const supprimerEvenement = vi.fn(async (..._args: unknown[]) => {})
 let compteurLiens = 0
+
+interface CorpsReponse {
+  detachees?: number
+  restant?: number
+  echecs?: { sessionId: string; raison: string }[]
+  error?: string
+}
+async function corpsDe(reponse: Response): Promise<CorpsReponse> {
+  return (await reponse.json()) as CorpsReponse
+}
 
 vi.mock('../../_lib/google.js', () => ({
   integrationDeLEtablissement: vi.fn(async () => ({
@@ -99,7 +109,7 @@ describe('api/admin/detacher-visio-etablissement', () => {
     visiosRetournes = [{ session_id: 'session-1', google_event_id: 'evt-1', organisateur_email: ETABLISSEMENT_EMAIL }]
 
     const reponse = await handler(requete({ teacherId: 'prof-1' }))
-    const corps = await reponse.json()
+    const corps = await corpsDe(reponse)
 
     expect(reponse.status).toBe(200)
     expect(corps.detachees).toBe(1)
@@ -119,7 +129,7 @@ describe('api/admin/detacher-visio-etablissement', () => {
     visiosRetournes = [{ session_id: 'session-2', google_event_id: 'evt-2', organisateur_email: 'prof@gmail.com' }]
 
     const reponse = await handler(requete({ teacherId: 'prof-1' }))
-    const corps = await reponse.json()
+    const corps = await corpsDe(reponse)
 
     expect(corps.detachees).toBe(0)
     expect(supprimerEvenement).not.toHaveBeenCalled()
@@ -131,7 +141,7 @@ describe('api/admin/detacher-visio-etablissement', () => {
     visiosRetournes = [{ session_id: 'session-3', google_event_id: null, organisateur_email: null }]
 
     const reponse = await handler(requete({ teacherId: 'prof-1' }))
-    const corps = await reponse.json()
+    const corps = await corpsDe(reponse)
 
     expect(corps.detachees).toBe(0)
     expect(misesAJour).toHaveLength(0)
@@ -143,7 +153,7 @@ describe('api/admin/detacher-visio-etablissement', () => {
     visiosRetournes = [{ session_id: 'session-4', google_event_id: 'evt-4', organisateur_email: ETABLISSEMENT_EMAIL }]
 
     const reponse = await handler(requete({ teacherId: 'prof-1' }))
-    const corps = await reponse.json()
+    const corps = await corpsDe(reponse)
 
     // Best effort : supprimerEvenement() est encapsulée dans un .catch(() => {}) dans le
     // handler, une panne Google ne doit donc jamais empêcher la mise à jour en base.
@@ -159,7 +169,7 @@ describe('api/admin/detacher-visio-etablissement', () => {
   it('ne traite rien quand le professeur na aucune séance à venir', async () => {
     sessionsRetournees = []
     const reponse = await handler(requete({ teacherId: 'prof-1' }))
-    const corps = await reponse.json()
+    const corps = await corpsDe(reponse)
     expect(corps.detachees).toBe(0)
     expect(corps.restant).toBe(0)
   })

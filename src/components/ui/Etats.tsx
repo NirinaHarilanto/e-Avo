@@ -24,11 +24,23 @@ export function EtatChargementStats({ tuiles = 3 }: { tuiles?: number }) {
   )
 }
 
-function Bandeau({ ton, icone, children }: { ton: 'erreur' | 'succes' | 'info'; icone: 'alerte' | 'valide' | 'info'; children: ReactNode }) {
+function Bandeau({
+  ton,
+  icone,
+  children,
+}: {
+  ton: 'erreur' | 'succes' | 'info' | 'avertissement'
+  icone: 'alerte' | 'valide' | 'info'
+  children: ReactNode
+}) {
   const couleurs = {
     erreur: { texte: 'var(--danger)', fond: 'rgba(255,138,112,.10)', bord: 'rgba(255,138,112,.34)' },
     succes: { texte: 'var(--success)', fond: 'rgba(111,227,192,.10)', bord: 'rgba(111,227,192,.34)' },
     info: { texte: 'var(--accent-cyan)', fond: 'rgba(169,140,255,.10)', bord: 'rgba(169,140,255,.30)' },
+    // Distinct de « erreur » (rouge, bloquant) : un avertissement signale, sans empêcher d'agir —
+    // demande client du 2026-10-10, « mets l'information [...] sous forme de warning » pour une
+    // information jusqu'ici en simple texte gris, qui se perdait à côté du reste.
+    avertissement: { texte: 'var(--warning)', fond: 'rgba(233,207,148,.12)', bord: 'rgba(233,207,148,.34)' },
   }[ton]
 
   return (
@@ -72,6 +84,14 @@ export function MessageSucces({ children }: { children: ReactNode }) {
 export function MessageInfo({ children }: { children: ReactNode }) {
   return (
     <Bandeau ton="info" icone="info">
+      {children}
+    </Bandeau>
+  )
+}
+
+export function MessageAvertissement({ children }: { children: ReactNode }) {
+  return (
+    <Bandeau ton="avertissement" icone="alerte">
       {children}
     </Bandeau>
   )

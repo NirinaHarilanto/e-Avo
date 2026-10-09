@@ -31,6 +31,7 @@ export function CandidatureFormateur() {
   const [telephone, setTelephone] = useState('')
   const [ville, setVille] = useState('')
   const [diplome, setDiplome] = useState<DiplomeDeclare | ''>('')
+  const [diplomeAutre, setDiplomeAutre] = useState('')
   const [motivation, setMotivation] = useState('')
   const [experiences, setExperiences] = useState('')
   const [cv, setCv] = useState<File | null>(null)
@@ -67,6 +68,10 @@ export function CandidatureFormateur() {
     e.preventDefault()
     setErreur(null)
     if (!diplome) {
+      setErreurDiplome(true)
+      return
+    }
+    if (diplome === 'autre' && !diplomeAutre.trim()) {
       setErreurDiplome(true)
       return
     }
@@ -115,6 +120,7 @@ export function CandidatureFormateur() {
           motivation,
           experiences,
           diplomeDeclare: diplome,
+          diplomeAutrePrecision: diplome === 'autre' ? diplomeAutre.trim() : undefined,
           fichiers: uploads.map((u, i) => ({ chemin: u.chemin, nom: tous[i].fichier.name, type: tous[i].type })),
         }),
       }).then((r) => r.json())
@@ -228,7 +234,27 @@ export function CandidatureFormateur() {
                       {option.libelle}
                     </label>
                   ))}
-                  <div className={erreurDiplome ? 'err show' : 'err'}>Indiquez votre diplôme ou votre certification.</div>
+                  {/* « Autre » ne dit rien par lui-même : sans ce champ, l'admin ne découvre le
+                      diplôme réel qu'en relisant le CV joint. Demande client du 2026-10-10. */}
+                  {diplome === 'autre' && (
+                    <label className="f" style={{ marginTop: 10 }}>
+                      Nom ou description du diplôme <span className="req">*</span>
+                      <input
+                        type="text"
+                        required
+                        maxLength={200}
+                        value={diplomeAutre}
+                        onChange={(e) => {
+                          setDiplomeAutre(e.target.value)
+                          setErreurDiplome(false)
+                        }}
+                        placeholder="Ex. : Master en linguistique anglaise, certificat CELTA…"
+                      />
+                    </label>
+                  )}
+                  <div className={erreurDiplome ? 'err show' : 'err'}>
+                    {!diplome ? 'Indiquez votre diplôme ou votre certification.' : 'Précisez le nom ou la description de votre diplôme.'}
+                  </div>
                 </fieldset>
 
                 <label className="f">
