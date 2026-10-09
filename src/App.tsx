@@ -7,11 +7,11 @@ import { ConditionsUtilisation } from './components/legal/ConditionsUtilisation'
 import { Connexion } from './components/auth/Connexion'
 import { ReinitialiserMotDePasse } from './components/auth/ReinitialiserMotDePasse'
 
-/* Les espaces admin/professeur/étudiant/plateforme sont chargés à la demande (`lazy`) plutôt
+/* Les espaces admin/professeur/étudiant sont chargés à la demande (`lazy`) plutôt
    qu'au démarrage — demande client du 2026-09-16 : « le chargement de la page Hero est très
    lent, il faut 1 à 2 secondes maximum ». Avant ce découpage, visiter la page publique
-   téléchargeait AUSSI tout le tableau de bord admin, le calendrier professeur, l'espace élève et
-   l'administration plateforme — plus de 30 écrans qu'un visiteur anonyme ne verra jamais —, dans
+   téléchargeait AUSSI tout le tableau de bord admin, le calendrier professeur et l'espace élève
+   — plus de 30 écrans qu'un visiteur anonyme ne verra jamais —, dans
    un seul bundle JS. Le fichier HTML étant le même pour toute l'application, un connecté qui
    navigue vers son espace télécharge simplement ce dont IL a besoin au moment d'y entrer, plutôt
    que tout le monde téléchargeant tout, tout le temps. Restent chargées d'entrée (la page
@@ -47,8 +47,6 @@ const DocumentsEtudiant = lazy(() => import('./components/etudiants/DocumentsEtu
 const MessagesEtudiant = lazy(() => import('./components/messages/MessagesEtudiant').then((m) => ({ default: m.MessagesEtudiant })))
 const PaiementsEtudiant = lazy(() => import('./components/etudiants/PaiementsEtudiant').then((m) => ({ default: m.PaiementsEtudiant })))
 const ContratsEtudiant = lazy(() => import('./components/etudiants/ContratsEtudiant').then((m) => ({ default: m.ContratsEtudiant })))
-const EtablissementsPlateforme = lazy(() => import('./components/plateforme/EtablissementsPlateforme').then((m) => ({ default: m.EtablissementsPlateforme })))
-const EtablissementDetailPlateforme = lazy(() => import('./components/plateforme/EtablissementDetailPlateforme').then((m) => ({ default: m.EtablissementDetailPlateforme })))
 const EspacePersonnel = lazy(() => import('./components/shared/EspacePersonnel').then((m) => ({ default: m.EspacePersonnel })))
 const GuideUtilisateur = lazy(() => import('./components/shared/GuideUtilisateur').then((m) => ({ default: m.GuideUtilisateur })))
 const CandidatureFormateur = lazy(() => import('./components/landing/CandidatureFormateur').then((m) => ({ default: m.CandidatureFormateur })))
@@ -125,8 +123,6 @@ export default function App() {
             <Route path="/mon-espace/contrats" element={<ContratsEtudiant />} />
             <Route path="/mon-espace/profil" element={<MonProfil />} />
             <Route path="/mon-espace/guide" element={<GuideUtilisateur espace="etudiant" />} />
-            <Route path="/plateforme/etablissements" element={<EtablissementsPlateforme />} />
-            <Route path="/plateforme/etablissements/:id" element={<EtablissementDetailPlateforme />} />
           </Routes>
         </Suspense>
       </BrowserRouter>

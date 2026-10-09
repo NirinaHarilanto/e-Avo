@@ -5,15 +5,14 @@ import { MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonPrimaireStyle } from '../ui/Boutons'
 
 interface FormulaireInvitationProps {
-  /* Route API cible : api/admin/inviter-professeur, api/admin/inviter-etudiant, ou
-     api/plateforme/inviter-admin-etablissement — même contrat de requête/réponse pour les
-     trois (voir api/_lib/adminAuth.ts / platformAuth.ts). */
+  /* Route API cible : api/admin/inviter-professeur, api/admin/inviter-etudiant ou
+     api/admin/inviter-admin — même contrat de requête/réponse pour les trois
+     (voir api/_lib/adminAuth.ts). */
   endpoint: string
   roleLabel: string
   onTermine: () => void
-  /* Champs additionnels fusionnés dans le body JSON, ex. { etablissementId } pour
-     inviter-admin-etablissement.ts (dont l'établissement cible n'est pas déductible du
-     contexte de l'appelant, contrairement aux deux autres routes). */
+  /* Champs additionnels fusionnés dans le body JSON, pour une route qui attendrait plus que les
+     nom/prénom/e-mail communs aux trois. */
   corpsSupplementaire?: Record<string, unknown>
 }
 

@@ -11,11 +11,9 @@ export const config = { runtime: 'edge' }
  * promotion de rôle ne peut se faire que côté serveur avec service_role, `handle_new_user`
  * (migration 0002) forçant toujours role='etudiant' à la création.
  *
- * Un admin existant peut donc désormais en inviter un autre lui-même, sans passer par la console
- * « Admin plateforme » (jusqu'ici le seul chemin — api/plateforme/inviter-admin-etablissement.ts
- * — réservé à un rôle distinct, invisible pour l'admin d'établissement lui-même). Les deux
- * chemins coexistent : celui-ci pour un admin qui gère déjà son établissement au quotidien,
- * l'autre pour le bootstrap du tout premier admin d'un nouvel établissement.
+ * C'est désormais le SEUL chemin d'invitation d'un administrateur : la console « Admin
+ * plateforme », qui servait au bootstrap du premier admin d'un nouvel établissement, a été retirée
+ * le 2026-10-09, l'application ne servant qu'un établissement unique.
  */
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
