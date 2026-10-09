@@ -24,7 +24,7 @@ const SOUS_TITRE: Record<PorteeSynthese, string> = {
 
 const TON_TENDANCE = {
   hausse: { color: 'var(--accent-teal)', bg: 'rgba(111,227,192,.14)', border: 'rgba(111,227,192,.3)' },
-  stable: { color: 'var(--accent-blue)', bg: 'rgba(94,179,255,.12)', border: 'rgba(94,179,255,.3)' },
+  stable: { color: 'var(--accent-blue)', bg: 'rgba(169,140,255,.12)', border: 'rgba(169,140,255,.3)' },
   baisse: { color: 'var(--warning, #e0a94d)', bg: 'rgba(233,207,148,.12)', border: 'rgba(233,207,148,.32)' },
 }
 
@@ -122,7 +122,7 @@ function CorpsSynthese({ synthese, portee }: { synthese: Synthese; portee: Porte
         <Bloc titre={synthese.professeurs.length > 1 ? 'Professeurs intervenus' : 'Professeur'}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {synthese.professeurs.map((p) => (
-              <span key={p} style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.1)', border: '1px solid rgba(94,179,255,.28)', borderRadius: 999, padding: '3px 10px' }}>
+              <span key={p} style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(169,140,255,.1)', border: '1px solid rgba(169,140,255,.28)', borderRadius: 999, padding: '3px 10px' }}>
                 {p}
               </span>
             ))}
@@ -144,7 +144,7 @@ function CorpsSynthese({ synthese, portee }: { synthese: Synthese; portee: Porte
                   aria-label={`${c.libelle} : ${c.part} % des séances`}
                   style={{ flexGrow: 1, height: 8, borderRadius: 999, background: 'rgba(0,0,0,.28)', overflow: 'hidden', display: 'flex' }}
                 >
-                  <span style={{ width: `${c.part}%`, background: 'linear-gradient(90deg,#5eb3ff,#e9cf94)', borderRadius: 999 }} />
+                  <span style={{ width: `${c.part}%`, background: 'linear-gradient(90deg,#a98cff,#e9cf94)', borderRadius: 999 }} />
                 </span>
                 <span style={{ fontSize: 11, color: 'var(--muted)', width: 78, flexShrink: 0, textAlign: 'right' }}>
                   {c.nb} séance{c.nb > 1 ? 's' : ''} · {c.part} %
@@ -216,7 +216,7 @@ function CorpsSynthese({ synthese, portee }: { synthese: Synthese; portee: Porte
                 </span>
                 <span style={{ display: 'flex', flexWrap: 'wrap', gap: 4, flexGrow: 1, minWidth: 0 }}>
                   {e.rapport.objectifs.map((o) => (
-                    <span key={o} style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.12)', border: '1px solid rgba(94,179,255,.28)', borderRadius: 999, padding: '1px 8px' }}>
+                    <span key={o} style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(169,140,255,.12)', border: '1px solid rgba(169,140,255,.28)', borderRadius: 999, padding: '1px 8px' }}>
                       {libelleObjectif(o)}
                     </span>
                   ))}

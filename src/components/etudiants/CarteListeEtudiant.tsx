@@ -9,7 +9,7 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 
 const FOND_TON: Record<'teal' | 'bleu' | 'or', { color: string; bg: string; border: string }> = {
   teal: { color: 'var(--accent-teal)', bg: 'rgba(111,227,192,.14)', border: 'rgba(111,227,192,.3)' },
-  bleu: { color: 'var(--accent-blue)', bg: 'rgba(94,179,255,.14)', border: 'rgba(94,179,255,.3)' },
+  bleu: { color: 'var(--accent-blue)', bg: 'rgba(169,140,255,.14)', border: 'rgba(169,140,255,.3)' },
   or: { color: 'var(--accent-gold, #e9cf94)', bg: 'rgba(233,207,148,.14)', border: 'rgba(233,207,148,.32)' },
 }
 
@@ -116,7 +116,7 @@ export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick
       style={{
         textAlign: 'left',
         borderRadius: 12,
-        border: selectionne ? '1px solid rgba(94,179,255,.5)' : secondaire ? '1px solid rgba(233,207,148,.32)' : '1px solid var(--border)',
+        border: selectionne ? '1px solid rgba(169,140,255,.5)' : secondaire ? '1px solid rgba(233,207,148,.32)' : '1px solid var(--border)',
         background: 'var(--surface)',
         padding: '9px 11px',
         display: 'flex',

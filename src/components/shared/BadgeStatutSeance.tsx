@@ -26,7 +26,7 @@ export function BadgeStatutSeance({ statut }: { statut: string }) {
     )
   }
   return (
-    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-cyan)', background: 'rgba(94,179,255,.12)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '4px 10px' }}>
+    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-cyan)', background: 'rgba(169,140,255,.12)', border: '1px solid rgba(169,140,255,.3)', borderRadius: 999, padding: '4px 10px' }}>
       Planifiée
     </span>
   )

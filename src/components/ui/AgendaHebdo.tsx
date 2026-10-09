@@ -70,7 +70,7 @@ const JOURS_COURTS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
    ombre colorée — demande client du 2026-09-16 : « il faudrait que les évènements soient assez
    visibles ». */
 const TONS: Record<string, { fond: string; bordure: string; texte: string; ombre: string }> = {
-  bleu: { fond: 'linear-gradient(135deg, rgba(94,179,255,.42), rgba(47,111,214,.34))', bordure: 'var(--accent-blue)', texte: '#eaf5ff', ombre: 'rgba(47,111,214,.45)' },
+  bleu: { fond: 'linear-gradient(135deg, rgba(169,140,255,.42), rgba(85,54,201,.34))', bordure: 'var(--accent-blue)', texte: '#f0eaff', ombre: 'rgba(85,54,201,.45)' },
   or: { fond: 'linear-gradient(135deg, rgba(233,207,148,.40), rgba(199,156,79,.32))', bordure: 'var(--accent-gold)', texte: '#fff6e2', ombre: 'rgba(199,156,79,.42)' },
   teal: { fond: 'linear-gradient(135deg, rgba(111,227,192,.40), rgba(45,166,134,.32))', bordure: 'var(--accent-teal)', texte: '#e6fff7', ombre: 'rgba(45,166,134,.42)' },
   violet: { fond: 'linear-gradient(135deg, rgba(199,156,255,.42), rgba(141,96,243,.34))', bordure: 'var(--accent-violet)', texte: '#f5edff', ombre: 'rgba(141,96,243,.45)' },
@@ -244,8 +244,8 @@ export function AgendaHebdo({
                   minWidth: 44,
                   padding: '7px 4px',
                   borderRadius: 10,
-                  border: `1px solid ${actif ? 'rgba(94,179,255,.5)' : 'var(--border-soft)'}`,
-                  background: actif ? 'rgba(94,179,255,.12)' : 'transparent',
+                  border: `1px solid ${actif ? 'rgba(169,140,255,.5)' : 'var(--border-soft)'}`,
+                  background: actif ? 'rgba(169,140,255,.12)' : 'transparent',
                   color: actif ? 'var(--ink)' : 'var(--muted)',
                   fontSize: 11,
                   fontWeight: actif ? 800 : 600,
@@ -281,7 +281,7 @@ export function AgendaHebdo({
                   padding: '9px 6px',
                   textAlign: 'center',
                   borderLeft: '1px solid var(--border-soft)',
-                  background: estAujourdhui ? 'rgba(94,179,255,.07)' : 'transparent',
+                  background: estAujourdhui ? 'rgba(169,140,255,.07)' : 'transparent',
                 }}
               >
                 <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: estAujourdhui ? 'var(--accent-blue)' : 'var(--muted)' }}>
@@ -335,7 +335,7 @@ export function AgendaHebdo({
                     position: 'relative',
                     height: hauteurGrille,
                     borderLeft: '1px solid var(--border-soft)',
-                    background: estAujourdhui ? 'rgba(94,179,255,.05)' : 'transparent',
+                    background: estAujourdhui ? 'rgba(169,140,255,.05)' : 'transparent',
                     cursor: onCreneauLibre ? 'copy' : 'default',
                     // Les lignes d'heures sont peintes en fond plutôt qu'en éléments : une div
                     // par heure et par jour ferait des centaines de nœuds inutiles.

@@ -11,6 +11,7 @@ import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 import { EtatChargement, MessageErreur, MessageInfo, MessageSucces } from '../ui/Etats'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
+import { EMAIL_OFFICIEL_HOC } from '../../lib/etablissement'
 
 const TAILLE_MAX_PIECE_JOINTE = 10 * 1024 * 1024
 
@@ -182,6 +183,15 @@ export function UtiliserTemplateModale({
     <Modale titre={titre} onFermer={onFermer} largeurMax={720} fermetureExterieureDesactivee>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
         {template?.quand && <MessageInfo>Quand l’utiliser : {template.quand}</MessageInfo>}
+
+        {/* L'admin doit voir de quelle adresse part le message avant de l'envoyer — et surtout à
+            laquelle les réponses lui reviendront. */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={etiquetteStyle}>Expéditeur</span>
+          <span style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
+            Hari Online Club — réponses vers <strong>{EMAIL_OFFICIEL_HOC}</strong>
+          </span>
+        </div>
 
         {chargementAnnuaire || chargementConstantes ? (
           <EtatChargement lignes={2} hauteur={44} />

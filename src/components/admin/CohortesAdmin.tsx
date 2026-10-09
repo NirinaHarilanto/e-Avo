@@ -508,8 +508,8 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
                       fontSize: 11,
                       fontWeight: 700,
                       color: 'var(--accent-blue)',
-                      background: 'rgba(94,179,255,.14)',
-                      border: '1px solid rgba(94,179,255,.3)',
+                      background: 'rgba(169,140,255,.14)',
+                      border: '1px solid rgba(169,140,255,.3)',
                       borderRadius: 999,
                       padding: '2px 9px',
                     }}

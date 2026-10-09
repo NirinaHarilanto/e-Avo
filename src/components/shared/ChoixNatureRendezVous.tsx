@@ -20,8 +20,8 @@ export function ChoixNatureRendezVous({ valeur, onChange }: { valeur: NatureRend
               padding: '9px 11px',
               borderRadius: 10,
               cursor: 'pointer',
-              border: actif ? '1px solid rgba(94,179,255,.42)' : '1px solid var(--border)',
-              background: actif ? 'rgba(94,179,255,.1)' : 'transparent',
+              border: actif ? '1px solid rgba(169,140,255,.42)' : '1px solid var(--border)',
+              background: actif ? 'rgba(169,140,255,.1)' : 'transparent',
             }}
           >
             <input

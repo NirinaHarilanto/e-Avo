@@ -93,8 +93,8 @@ export function ListeDocuments({ documents, peutSupprimer, onChange, messageVide
                       fontSize: 10,
                       fontWeight: 700,
                       color: 'var(--accent-cyan)',
-                      background: 'rgba(94,179,255,.10)',
-                      border: '1px solid rgba(94,179,255,.22)',
+                      background: 'rgba(169,140,255,.10)',
+                      border: '1px solid rgba(169,140,255,.22)',
                       borderRadius: 999,
                       padding: '2px 8px',
                     }}

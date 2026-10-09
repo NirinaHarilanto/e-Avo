@@ -71,7 +71,7 @@ export function Modale({ titre, onFermer, children, largeurMax = 480, fermetureE
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(3,7,16,.68)',
+        background: 'rgba(8,4,18,.68)',
         zIndex: 300 + profondeur * 10,
         display: 'flex',
         alignItems: 'flex-start',

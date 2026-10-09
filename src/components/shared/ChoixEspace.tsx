@@ -71,8 +71,8 @@ function CorpsCarte({ icone, titre, description }: { icone: NomIcone; titre: str
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'rgba(94,179,255,.10)',
-          border: '1px solid rgba(94,179,255,.22)',
+          background: 'rgba(169,140,255,.10)',
+          border: '1px solid rgba(169,140,255,.22)',
           color: 'var(--accent-blue)',
         }}
       >

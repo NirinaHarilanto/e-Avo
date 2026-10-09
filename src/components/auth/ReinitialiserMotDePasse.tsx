@@ -4,6 +4,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { Logo } from '../shared/Logo'
 import { ChampMotDePasse } from '../shared/ChampMotDePasse'
+import { EMAIL_OFFICIEL_HOC } from '../../lib/etablissement'
 
 const LONGUEUR_MIN = 8
 const EMAIL_VALIDE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -63,7 +64,7 @@ export function ReinitialiserMotDePasse() {
         setErreur(
           'Votre mot de passe est enregistré, mais votre compte n’a pas pu être marqué comme actif. ' +
             'Connectez-vous normalement ; si l’écran vous propose encore une première connexion, ' +
-            'signalez-le à contact@harionlineclub.app.',
+            `signalez-le à ${EMAIL_OFFICIEL_HOC}.`,
         )
         return
       }

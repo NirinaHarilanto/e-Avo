@@ -126,7 +126,7 @@ export function ListeComptesRendus({
                           key={d.id}
                           type="button"
                           onClick={() => telechargerSupport(d.storage_path)}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.08)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '6px 12px', cursor: 'pointer' }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(169,140,255,.08)', border: '1px solid rgba(169,140,255,.3)', borderRadius: 999, padding: '6px 12px', cursor: 'pointer' }}
                         >
                           <Icone nom="documents" taille={13} />
                           {d.nom_original}

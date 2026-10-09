@@ -132,7 +132,10 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
           className={`barre-laterale${tiroirOuvert ? ' tiroir-ouvert' : ''}`}
           aria-label={`Navigation ${LIBELLE_ESPACE[roleAttendu].toLowerCase()}`}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 6px' }}>
+          {/* Même gouttière de 12 px que les pilules de navigation et que le pied de page : les
+              trois zones de la barre s'alignent sur une seule verticale (2026-10-09). L'en-tête
+              était jusque-là 6 px plus à gauche que les libellés. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '0 12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <Logo taille={26} />
               <button
@@ -147,16 +150,18 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
             </div>
             {/* Le nom de l'établissement est porté par le logo juste au-dessus : seul l'espace
                 courant reste à nommer ici. */}
-            <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--muted-2)' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--muted)' }}>
               {LIBELLE_ESPACE[roleAttendu]}
             </span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flexGrow: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flexGrow: 1 }}>
             {navGroups.map((groupe, index) => (
-              <div key={groupe.titre ?? index} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <div key={groupe.titre ?? index} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {groupe.titre && (
-                  <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.9, padding: '0 12px 3px' }}>
+                  /* Était en `--muted-2` à 10 px : le titre de pôle se lisait à peine sur le fond
+                     de la barre, alors que c'est lui qui sépare les deux moitiés du menu. */
+                  <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, padding: '0 12px 5px' }}>
                     {groupe.titre}
                   </span>
                 )}
@@ -167,14 +172,14 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
             ))}
           </div>
 
-          <div style={{ padding: '8px 12px 0', borderTop: '1px solid var(--border-soft)' }}>
-            <span style={{ display: 'block', fontSize: 10.5, color: 'var(--muted-2)', lineHeight: 1.3 }}>
+          <div style={{ padding: '11px 12px 0', borderTop: '1px solid var(--border-soft)' }}>
+            <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)', lineHeight: 1.3 }}>
               Connecté en tant que
             </span>
-            <span className="brand-font" style={{ display: 'block', fontSize: 12.5, color: 'var(--accent-gold, #e9cf94)', marginTop: 1 }}>
+            <span className="brand-font" style={{ display: 'block', fontSize: 13.5, color: 'var(--accent-gold, #e9cf94)', marginTop: 2 }}>
               {profile.prenom} {profile.nom}
             </span>
-            <span style={{ display: 'block', fontSize: 10.5, color: 'var(--muted)' }}>{roleLabel}</span>
+            <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)' }}>{roleLabel}</span>
           </div>
         </nav>
 
@@ -190,7 +195,7 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
               position: 'sticky',
               top: 0,
               zIndex: 20,
-              background: 'rgba(5,10,22,.82)',
+              background: 'rgba(11,6,24,.82)',
               backdropFilter: 'blur(10px)',
             }}
           >
@@ -269,14 +274,17 @@ function FilAriane({ racine, groupe, page }: { racine: string; groupe?: string; 
   )
 }
 
+/* Pilule élargie et aérée le 2026-10-09 : la barre est resserrée à `zoom: 0.74` dans l'espace
+   admin, où ces 13,5 px se lisaient à 10 px réels. La hauteur gagnée comble aussi le vide que les
+   dix-huit entrées laissaient au-dessus du pied de page (voir `.barre-laterale` dans index.css). */
 function LienNav({ item, actif }: { item: NavItem; actif: boolean }) {
   const style: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
-    gap: 11,
-    padding: '7.5px 12px',
+    gap: 12,
+    padding: '10px 12px',
     borderRadius: 11,
-    fontSize: 13.5,
+    fontSize: 14.5,
     fontWeight: actif ? 800 : 600,
     color: actif ? '#1b1510' : item.disponible ? 'var(--ink-2)' : 'var(--muted-2)',
     background: actif ? 'var(--accent-gradient)' : undefined,
@@ -286,7 +294,7 @@ function LienNav({ item, actif }: { item: NavItem; actif: boolean }) {
   if (!item.disponible) {
     return (
       <span className="nav-item" style={{ ...style, cursor: 'default' }} title="Bientôt disponible">
-        <Icone nom={item.icone} taille={17} />
+        <Icone nom={item.icone} taille={18} />
         <span style={{ flexGrow: 1 }}>{item.label}</span>
         <span style={{ fontSize: 9.5, fontWeight: 700 }}>bientôt</span>
       </span>
@@ -301,7 +309,7 @@ function LienNav({ item, actif }: { item: NavItem; actif: boolean }) {
       title={item.description}
       style={{ ...style, cursor: 'pointer' }}
     >
-      <Icone nom={item.icone} taille={17} />
+      <Icone nom={item.icone} taille={18} />
       <span style={{ flexGrow: 1, minWidth: 0 }}>{item.label}</span>
     </Link>
   )

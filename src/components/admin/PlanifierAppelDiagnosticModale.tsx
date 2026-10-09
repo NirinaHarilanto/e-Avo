@@ -211,7 +211,7 @@ export function PlanifierAppelDiagnosticModale({
           largeurMax={430}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '11px 13px', borderRadius: 10, border: '1px solid var(--accent-blue)', background: 'rgba(94,179,255,.08)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '11px 13px', borderRadius: 10, border: '1px solid var(--accent-blue)', background: 'rgba(169,140,255,.08)' }}>
               <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--accent-blue)' }}>
                 Créneau choisi
               </span>

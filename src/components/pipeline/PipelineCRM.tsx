@@ -34,7 +34,7 @@ import { Icone } from '../ui/Icones'
 const COULEUR_COLONNE: Record<string, string> = {
   prospect: '#8b96b8',
   diagnostic_planifie: '#e9cf94',
-  diagnostic_fait: '#5eb3ff',
+  diagnostic_fait: '#a98cff',
   etudiant: '#6fe3c0',
 }
 
@@ -891,7 +891,7 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
             {prospect.testPositionnement && <BilanTestPositionnement test={prospect.testPositionnement} />}
 
             {prospect.statut === 'diagnostic_fait' && prospect.diagnostic?.niveau_evalue && (
-              <span style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
+              <span style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(169,140,255,.14)', border: '1px solid rgba(169,140,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
                 Niveau évalué {prospect.diagnostic.niveau_evalue}
               </span>
             )}
@@ -1313,12 +1313,12 @@ function CarteDuo({
             {porteur.statut === 'diagnostic_fait' && (porteur.diagnostic?.niveau_evalue || autre.diagnostic?.niveau_evalue) && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {porteur.diagnostic?.niveau_evalue && (
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(169,140,255,.14)', border: '1px solid rgba(169,140,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
                     Niveau {porteur.prenom} : {porteur.diagnostic.niveau_evalue}
                   </span>
                 )}
                 {autre.diagnostic?.niveau_evalue && (
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(169,140,255,.14)', border: '1px solid rgba(169,140,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
                     Niveau {autre.prenom} : {autre.diagnostic.niveau_evalue}
                   </span>
                 )}
@@ -1656,7 +1656,7 @@ function BilanTestPositionnement({
 }) {
   const [ouvert, setOuvert] = useState(false)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, borderRadius: 10, border: '1px solid rgba(94,179,255,.3)', background: 'rgba(94,179,255,.08)', padding: '11px 13px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, borderRadius: 10, border: '1px solid rgba(169,140,255,.3)', background: 'rgba(169,140,255,.08)', padding: '11px 13px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--accent-blue)', flexGrow: 1 }}>
           Test de positionnement écrit

@@ -16,7 +16,7 @@ export function CompteRenduAffichage({ rapport }: { rapport: CompteRenduValeurs 
           {rapport.objectifs.map((objectif) => (
             <span
               key={objectif}
-              style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '2px 9px' }}
+              style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(169,140,255,.14)', border: '1px solid rgba(169,140,255,.3)', borderRadius: 999, padding: '2px 9px' }}
             >
               {libelleObjectif(objectif)}
             </span>

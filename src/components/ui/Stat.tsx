@@ -4,7 +4,7 @@ export type TonStat = 'or' | 'bleu' | 'teal' | 'violet' | 'alerte' | 'neutre'
 
 const TONS: Record<TonStat, { texte: string; halo: string }> = {
   or: { texte: 'var(--accent-gold, #e9cf94)', halo: 'rgba(233,207,148,.16)' },
-  bleu: { texte: 'var(--accent-blue)', halo: 'rgba(94,179,255,.16)' },
+  bleu: { texte: 'var(--accent-blue)', halo: 'rgba(169,140,255,.16)' },
   teal: { texte: 'var(--accent-teal)', halo: 'rgba(111,227,192,.16)' },
   violet: { texte: 'var(--accent-violet)', halo: 'rgba(199,156,255,.16)' },
   alerte: { texte: 'var(--danger)', halo: 'rgba(255,138,112,.16)' },

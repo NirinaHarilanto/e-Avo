@@ -136,7 +136,7 @@ function TableauHeures({
                       display: 'block',
                       height: '100%',
                       width: maximum > 0 ? `${(heures / maximum) * 100}%` : '0%',
-                      background: 'linear-gradient(90deg,#5eb3ff,#e9cf94)',
+                      background: 'linear-gradient(90deg,#a98cff,#e9cf94)',
                       borderRadius: 999,
                     }}
                   />

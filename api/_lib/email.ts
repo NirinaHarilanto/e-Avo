@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { EMAIL_OFFICIEL_HOC } from '../../src/lib/etablissement.js'
 
 /**
  * Envoi d'e-mails transactionnels via Resend.
@@ -30,6 +31,14 @@ export async function envoyerEmail(params: ParamsEmail): Promise<{ envoye: boole
     return { envoye: false, erreur: 'Resend non configuré.' }
   }
 
+  /* Toute réponse part vers la boîte officielle de l'administration, quelle que soit l'adresse
+     technique d'envoi (demande du 2026-10-09). Les deux diffèrent nécessairement tant que seul
+     `harionlineclub.app` est vérifié chez Resend : un `from` sur un domaine non vérifié fait
+     refuser l'envoi, un `reply_to` n'a lui aucune contrainte de domaine. Le jour où
+     `harionlineclub.com` est vérifié, il suffit de poser `RESEND_FROM` sur l'adresse officielle —
+     ce `reply_to` devient alors redondant, sans rien casser. */
+  const adresseDeReponse = process.env.RESEND_REPLY_TO || EMAIL_OFFICIEL_HOC
+
   const destinataires = (Array.isArray(params.destinataire) ? params.destinataire : [params.destinataire]).filter(Boolean)
   if (destinataires.length === 0) {
     return { envoye: false, erreur: 'Aucun destinataire.' }
@@ -42,6 +51,7 @@ export async function envoyerEmail(params: ParamsEmail): Promise<{ envoye: boole
       body: JSON.stringify({
         from: expediteur,
         to: destinataires,
+        reply_to: adresseDeReponse,
         ...(params.copies?.length ? { cc: params.copies } : {}),
         subject: params.sujet,
         html: params.html,

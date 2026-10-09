@@ -9,7 +9,7 @@ import { Icone } from '../ui/Icones'
 
 const LIBELLE_STATUT = {
   signe: { texte: 'Signé', couleur: 'var(--accent-teal)', fond: 'rgba(111,227,192,.14)', bord: 'rgba(111,227,192,.3)' },
-  envoye: { texte: 'En attente de votre signature', couleur: 'var(--accent-cyan)', fond: 'rgba(94,179,255,.12)', bord: 'rgba(94,179,255,.3)' },
+  envoye: { texte: 'En attente de votre signature', couleur: 'var(--accent-cyan)', fond: 'rgba(169,140,255,.12)', bord: 'rgba(169,140,255,.3)' },
   resilie: { texte: 'Résilié', couleur: 'var(--danger)', fond: 'rgba(255,138,112,.12)', bord: 'rgba(255,138,112,.3)' },
   brouillon: { texte: 'Brouillon', couleur: 'var(--muted)', fond: 'rgba(255,255,255,.05)', bord: 'var(--border-soft)' },
 } as const
@@ -200,7 +200,7 @@ function EtapeSignature({ label, fait, detail }: { label: string; fait: boolean;
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: fait ? '#0a1530' : 'var(--muted-2)',
+          color: fait ? '#1a0f38' : 'var(--muted-2)',
           background: fait ? 'var(--accent-teal)' : 'transparent',
           border: fait ? 'none' : '1px dashed var(--muted-2)',
         }}

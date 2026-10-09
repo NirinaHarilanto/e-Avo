@@ -51,8 +51,8 @@ export function GuidePage({ id, titre = 'Comment utiliser cette page', etapes, c
       style={{
         marginBottom: compact ? 12 : 20,
         borderRadius: 16,
-        border: '1px solid rgba(94,179,255,.24)',
-        background: 'linear-gradient(150deg, rgba(94,179,255,.09), rgba(94,179,255,.03))',
+        border: '1px solid rgba(169,140,255,.24)',
+        background: 'linear-gradient(150deg, rgba(169,140,255,.09), rgba(169,140,255,.03))',
         overflow: 'hidden',
       }}
     >

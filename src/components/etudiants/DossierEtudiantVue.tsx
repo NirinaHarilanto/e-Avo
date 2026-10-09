@@ -186,7 +186,7 @@ function EtapeAvancement({ fait, label }: { fait: boolean; label: string }) {
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: fait ? '#0a1530' : 'var(--muted-2)',
+          color: fait ? '#1a0f38' : 'var(--muted-2)',
           background: fait ? 'var(--accent-teal)' : 'transparent',
           border: fait ? 'none' : '1px dashed var(--muted-2)',
         }}
@@ -282,8 +282,8 @@ function BlocPeriode({
     <div
       style={{
         borderRadius: 16,
-        border: estActuelle ? '1px solid rgba(94,179,255,.3)' : '1px solid var(--border)',
-        background: estActuelle ? 'linear-gradient(160deg, rgba(20,42,84,.6), rgba(10,22,48,.7))' : 'var(--surface)',
+        border: estActuelle ? '1px solid rgba(169,140,255,.3)' : '1px solid var(--border)',
+        background: estActuelle ? 'linear-gradient(160deg, rgba(42,26,82,.6), rgba(28,17,57,.7))' : 'var(--surface)',
         overflow: 'hidden',
       }}
     >
@@ -820,7 +820,7 @@ export function DossierEtudiantVue({
                     <span
                       style={{
                         width: `${Math.min(100, (heuresConsommees / totalHeuresCumulees) * 100)}%`,
-                        background: 'linear-gradient(90deg,#5eb3ff,#e9cf94)',
+                        background: 'linear-gradient(90deg,#a98cff,#e9cf94)',
                         borderRadius: 999,
                       }}
                     />

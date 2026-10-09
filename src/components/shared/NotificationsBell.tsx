@@ -93,7 +93,7 @@ export function NotificationsBell() {
                     textAlign: 'left',
                     padding: '12px 16px',
                     borderBottom: '1px solid var(--border-soft)',
-                    background: n.lu ? 'transparent' : 'rgba(94,179,255,.08)',
+                    background: n.lu ? 'transparent' : 'rgba(169,140,255,.08)',
                     border: 'none',
                     cursor: 'pointer',
                     display: 'flex',

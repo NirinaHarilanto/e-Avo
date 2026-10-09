@@ -122,7 +122,7 @@ export function DocumentsAdmin() {
                 style={{
                   textAlign: 'left',
                   borderRadius: 14,
-                  border: personne.id === selectionneId ? '1px solid rgba(94,179,255,.5)' : '1px solid var(--border)',
+                  border: personne.id === selectionneId ? '1px solid rgba(169,140,255,.5)' : '1px solid var(--border)',
                   background: 'var(--surface)',
                   padding: '13px 14px',
                   display: 'flex',

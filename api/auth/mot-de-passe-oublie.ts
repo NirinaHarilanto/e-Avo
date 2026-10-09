@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
 import { envoyerEmail, modeleReinitialisationMotDePasse } from '../_lib/email.js'
 import { verifierDebit } from '../_lib/limiteDebit.js'
+import { EMAIL_OFFICIEL_HOC } from '../../src/lib/etablissement.js'
 
 export const config = { runtime: 'edge' }
 
@@ -96,7 +97,7 @@ export default async function handler(request: Request): Promise<Response> {
     if (!envoi.envoye) {
       console.error('[mot-de-passe-oublie] envoi refusé :', envoi.erreur)
       return Response.json(
-        { error: "Le lien n'a pas pu être envoyé. Réessayez dans un instant ou contactez contact@harionlineclub.app." },
+        { error: `Le lien n'a pas pu être envoyé. Réessayez dans un instant ou contactez ${EMAIL_OFFICIEL_HOC}.` },
         { status: 502 },
       )
     }

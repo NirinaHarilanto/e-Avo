@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { IcoHX } from './IconesHX'
+import { EMAIL_OFFICIEL_HOC } from '../../lib/etablissement'
 
-/* Coordonnées reprises telles quelles de la maquette (hoc-contact.html), à la demande du client.
-   Le domaine en `.com` diffère de celui du site (`harionlineclub.app`) : c'est le choix du
-   client, pas une coquille. */
-const EMAIL = 'admin@harionlineclub.com'
+/* Coordonnées reprises telles quelles de la maquette (hoc-contact.html), à la demande du client. */
+const EMAIL = EMAIL_OFFICIEL_HOC
 const TELEPHONE_AFFICHE = '+261 38 05 716 65'
 const TELEPHONE_WHATSAPP = '261380571665'
 

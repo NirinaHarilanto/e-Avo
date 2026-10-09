@@ -28,7 +28,7 @@ function Bandeau({ ton, icone, children }: { ton: 'erreur' | 'succes' | 'info'; 
   const couleurs = {
     erreur: { texte: 'var(--danger)', fond: 'rgba(255,138,112,.10)', bord: 'rgba(255,138,112,.34)' },
     succes: { texte: 'var(--success)', fond: 'rgba(111,227,192,.10)', bord: 'rgba(111,227,192,.34)' },
-    info: { texte: 'var(--accent-cyan)', fond: 'rgba(94,179,255,.10)', bord: 'rgba(94,179,255,.30)' },
+    info: { texte: 'var(--accent-cyan)', fond: 'rgba(169,140,255,.10)', bord: 'rgba(169,140,255,.30)' },
   }[ton]
 
   return (

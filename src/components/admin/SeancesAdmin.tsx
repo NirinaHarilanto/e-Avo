@@ -414,7 +414,7 @@ function LigneFiltrePersonne({
       style={{
         textAlign: 'left',
         borderRadius: 12,
-        border: coche ? '1px solid rgba(94,179,255,.5)' : '1px solid var(--border)',
+        border: coche ? '1px solid rgba(169,140,255,.5)' : '1px solid var(--border)',
         background: 'var(--surface)',
         padding: '8px 11px',
         display: 'flex',

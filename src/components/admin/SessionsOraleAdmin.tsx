@@ -407,7 +407,7 @@ export function SessionsOraleAdmin() {
                     <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                       {candidat.inscription.score}/{candidat.inscription.total}
                     </span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(94,179,255,.14)', border: '1px solid rgba(94,179,255,.3)', borderRadius: 999, padding: '2px 9px' }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(169,140,255,.14)', border: '1px solid rgba(169,140,255,.3)', borderRadius: 999, padding: '2px 9px' }}>
                       {candidat.inscription.niveau_estime ?? 'Non évalué'}
                     </span>
                     {dejaConverti ? (

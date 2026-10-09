@@ -108,7 +108,7 @@ export function ChampRechercheChoix({
             left: 0,
             right: 0,
             zIndex: 30,
-            background: 'var(--surface, #111a2e)',
+            background: 'var(--surface, #1c1139)',
             border: '1px solid var(--border)',
             borderRadius: 10,
             boxShadow: '0 12px 30px rgba(0,0,0,.4)',
@@ -137,7 +137,7 @@ export function ChampRechercheChoix({
                 fontFamily: 'inherit',
                 fontSize: 13,
                 color: 'var(--ink)',
-                background: i === surligne ? 'rgba(94,179,255,.12)' : 'transparent',
+                background: i === surligne ? 'rgba(169,140,255,.12)' : 'transparent',
               }}
             >
               <span>{o.libelle}</span>
@@ -147,7 +147,7 @@ export function ChampRechercheChoix({
         </div>
       )}
       {ouvert && recherche && suggestions.length === 0 && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 30, fontSize: 12, color: 'var(--muted)', background: 'var(--surface, #111a2e)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 12px' }}>
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 30, fontSize: 12, color: 'var(--muted)', background: 'var(--surface, #1c1139)', border: '1px solid var(--border)', borderRadius: 10, padding: '9px 12px' }}>
           Aucun résultat.
         </div>
       )}

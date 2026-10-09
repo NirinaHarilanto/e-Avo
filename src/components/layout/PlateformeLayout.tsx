@@ -110,7 +110,7 @@ export function PlateformeLayout({ children, actif }: { children: ReactNode; act
               position: 'sticky',
               top: 0,
               zIndex: 20,
-              background: 'rgba(5,10,22,.82)',
+              background: 'rgba(11,6,24,.82)',
               backdropFilter: 'blur(10px)',
             }}
           >

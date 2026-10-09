@@ -2,7 +2,7 @@
    halo doux) — repris des maquettes Axone (Main.dc.html, Landing.dc.html). Purement
    décoratif : `aria-hidden` et `pointer-events: none` partout, désactivé automatiquement
    par la règle `prefers-reduced-motion` globale (src/index.css). */
-export function HeroDecor({ accent = '#5eb3ff' }: { accent?: string }) {
+export function HeroDecor({ accent = '#a98cff' }: { accent?: string }) {
   return (
     <div aria-hidden style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
       <span
