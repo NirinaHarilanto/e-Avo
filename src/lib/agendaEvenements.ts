@@ -6,6 +6,7 @@
 
 import type { RendezVousAvecProspect } from '../hooks/useRendezVous'
 import type { EvenementAdminAvecParticipants } from '../hooks/useEvenementsAdmin'
+import type { SeanceAdmin } from '../hooks/useSeancesAdmin'
 import type { EvenementAgenda } from './agenda'
 
 /* Les identifiants des deux tables sont chacun des UUID indépendants : rien n'empêche qu'ils
@@ -17,6 +18,51 @@ export const PREFIXE_EVENEMENT = 'evt:'
 /* Agenda Google personnel superposé en lecture seule (0098) — jamais ouvert en pop-up HOC au
    clic, voir estEvenementGooglePersonnel ci-dessous. */
 export const PREFIXE_GOOGLE_PERSONNEL = 'gcal:'
+/* Séance de cours. Pas de préfixe dans « Séances & visio », où l'id nu est attendu par les écrans
+   existants ; il n'est posé que là où les séances cohabitent avec les rendez-vous et les
+   événements admin, c'est-à-dire dans l'agenda de l'espace admin. */
+export const PREFIXE_SEANCE = 'seance:'
+
+export function estEvenementSeance(id: string | null | undefined): boolean {
+  return !!id && id.startsWith(PREFIXE_SEANCE)
+}
+
+export function idSeanceDepuisEvenement(id: string): string {
+  return id.startsWith(PREFIXE_SEANCE) ? id.slice(PREFIXE_SEANCE.length) : id
+}
+
+/* Couleurs tournantes par professeur, pour qu'une semaine chargée se lise d'un coup d'œil. */
+const TONS_PROFESSEUR = ['bleu', 'or', 'teal', 'violet'] as const
+
+export function tonDuProfesseur(professeurIds: string[], id: string | undefined): EvenementAgenda['ton'] {
+  const index = id ? professeurIds.indexOf(id) : -1
+  return index === -1 ? 'neutre' : TONS_PROFESSEUR[index % TONS_PROFESSEUR.length]
+}
+
+/* Séance de cours affichée dans un agenda d'administration.
+   Partagée par « Séances & visio » et par « Agenda » depuis le 2026-10-09 : la seconde ne montrait
+   que les rendez-vous et les événements admin, jamais les cours — deux pages censées donner la
+   même semaine en montraient chacune une moitié. */
+export function versEvenementSeance(
+  seance: SeanceAdmin,
+  nomsEleves: string[],
+  professeurIds: string[],
+  options: { prefixe?: boolean } = {},
+): EvenementAgenda {
+  // 'reportee' (0085) traitée comme 'annulee' à l'affichage : dans les deux cas, cette occurrence
+  // n'a pas eu lieu comme prévu — le statut exact reste lisible via `statut`.
+  const sansEffet = seance.session.statut === 'annulee' || seance.session.statut === 'reportee'
+  return {
+    id: (options.prefixe ? PREFIXE_SEANCE : '') + seance.session.id,
+    debut: seance.session.debut,
+    dureeMinutes: seance.session.duree_minutes,
+    titre: seance.professeur ? `${seance.professeur.prenom} ${seance.professeur.nom}` : 'Professeur inconnu',
+    sousTitre: nomsEleves.join(', ') || 'Aucun élève inscrit',
+    ton: sansEffet ? 'neutre' : tonDuProfesseur(professeurIds, seance.professeur?.id),
+    attenue: sansEffet,
+    statut: seance.session.statut === 'reportee' ? 'Reportée' : seance.session.statut === 'annulee' ? 'Annulée' : undefined,
+  }
+}
 
 /* Demande client du 2026-09-29 : « quand c'est l'admin qui invite un étudiant ou un professeur,
    il faut mentionner "Admin HOC" dans la liste des participants ». Un label institutionnel
@@ -124,6 +170,7 @@ export interface EvenementGoogle {
   couleur: string | null
   lienGoogle: string | null
   recurrent: boolean
+  serieId: string | null
   modifiable: boolean
 }
 

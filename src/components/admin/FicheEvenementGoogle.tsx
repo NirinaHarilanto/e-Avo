@@ -24,6 +24,55 @@ const LIBELLE_REPONSE: Record<string, string> = {
   needsAction: 'en attente',
 }
 
+/* Répétitions proposées, exprimées directement en règle iCalendar — celle que Google attend.
+   Volontairement limitées aux cas courants d'un établissement de cours : au-delà (un mardi sur
+   trois, le dernier vendredi du mois…), Google Agenda offre un éditeur complet que HOC n'a pas
+   vocation à refaire. */
+export const REPETITIONS: { valeur: string; libelle: string }[] = [
+  { valeur: 'RRULE:FREQ=DAILY', libelle: 'Tous les jours' },
+  { valeur: 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', libelle: 'Tous les jours ouvrés (lundi au vendredi)' },
+  { valeur: 'RRULE:FREQ=WEEKLY', libelle: 'Toutes les semaines, ce jour-là' },
+  { valeur: 'RRULE:FREQ=WEEKLY;INTERVAL=2', libelle: 'Toutes les deux semaines, ce jour-là' },
+  { valeur: 'RRULE:FREQ=MONTHLY', libelle: 'Tous les mois, à cette date' },
+]
+
+/* La question que Google Agenda pose lui-même avant de modifier un événement récurrent. La poser
+   aussi dans HOC est la condition pour y ouvrir la modification de ces événements : sans elle,
+   un clic pouvait effacer toute une série alors qu'on visait une seule date. */
+function ChoixPortee({ valeur, onChange }: { valeur: 'occurrence' | 'serie'; onChange: (v: 'occurrence' | 'serie') => void }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+      <span style={etiquetteStyle}>Cet événement se répète. Que faut-il modifier ?</span>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {(
+          [
+            ['occurrence', 'Cette date seulement'],
+            ['serie', 'Toute la série'],
+          ] as const
+        ).map(([cle, libelle]) => (
+          <button
+            key={cle}
+            type="button"
+            onClick={() => onChange(cle)}
+            style={{
+              fontSize: 12.5,
+              fontWeight: 700,
+              padding: '7px 14px',
+              borderRadius: 999,
+              cursor: 'pointer',
+              color: valeur === cle ? '#1b1510' : 'var(--ink-2)',
+              background: valeur === cle ? 'var(--accent-gradient)' : 'transparent',
+              border: `1px solid ${valeur === cle ? 'transparent' : 'var(--border)'}`,
+            }}
+          >
+            {libelle}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function FicheEvenementGoogle({
   evenement,
   onFermer,
@@ -45,6 +94,13 @@ export function FicheEvenementGoogle({
   const [duree, setDuree] = useState(() =>
     Math.max(15, Math.round((new Date(evenement.fin).getTime() - new Date(evenement.debut).getTime()) / 60_000)),
   )
+  /* Pour une occurrence de série, la question que pose Google Agenda lui-même : ce jour-là, ou
+     toutes les répétitions ? Par défaut la seule occurrence — c'est le choix le moins destructeur,
+     et celui qu'on peut rattraper si on s'est trompé. */
+  const [portee, setPortee] = useState<'occurrence' | 'serie'>('occurrence')
+  const [repetition, setRepetition] = useState<string>(() => (evenement.recurrent ? 'inchangee' : 'aucune'))
+
+  const estSerie = evenement.recurrent && Boolean(evenement.serieId)
 
   async function appeler(corps: Record<string, unknown>) {
     if (!session) return false
@@ -75,6 +131,11 @@ export function FicheEvenementGoogle({
       description: description.trim(),
       debut: new Date(debut).toISOString(),
       dureeMinutes: duree,
+      portee: estSerie ? portee : undefined,
+      serieId: evenement.serieId ?? undefined,
+      /* « inchangee » laisse la règle telle quelle : le champ est alors omis du PATCH, qui ne
+         touche donc pas à la répétition. */
+      recurrence: repetition === 'inchangee' ? undefined : repetition === 'aucune' ? '' : repetition,
     })
     if (ok) {
       onChange()
@@ -83,7 +144,11 @@ export function FicheEvenementGoogle({
   }
 
   async function supprimer(): Promise<boolean> {
-    const ok = await appeler({ action: 'supprimer' })
+    const ok = await appeler({
+      action: 'supprimer',
+      portee: estSerie ? portee : undefined,
+      serieId: evenement.serieId ?? undefined,
+    })
     if (ok) {
       onChange()
       onFermer()
@@ -108,6 +173,8 @@ export function FicheEvenementGoogle({
 
           {edition ? (
             <>
+              {estSerie && <ChoixPortee valeur={portee} onChange={setPortee} />}
+
               <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span style={etiquetteStyle}>Titre</span>
                 <input value={titre} onChange={(e) => setTitre(e.target.value)} style={champStyle} />
@@ -127,6 +194,24 @@ export function FicheEvenementGoogle({
                   style={champStyle}
                 />
               </label>
+              {(!estSerie || portee === 'serie') && (
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <span style={etiquetteStyle}>Répétition</span>
+                  <select value={repetition} onChange={(e) => setRepetition(e.target.value)} style={champStyle}>
+                    {evenement.recurrent && <option value="inchangee">Garder la répétition actuelle</option>}
+                    <option value="aucune">Ne se répète pas</option>
+                    {REPETITIONS.map((r) => (
+                      <option key={r.valeur} value={r.valeur}>
+                        {r.libelle}
+                      </option>
+                    ))}
+                  </select>
+                  {evenement.recurrence && repetition === 'inchangee' && (
+                    <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>Actuellement : {evenement.recurrence}</span>
+                  )}
+                </label>
+              )}
+
               <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <span style={etiquetteStyle}>Description</span>
                 <textarea
@@ -219,9 +304,7 @@ export function FicheEvenementGoogle({
 
               {!evenement.modifiable && (
                 <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.55 }}>
-                  {evenement.recurrent
-                    ? 'Cet événement fait partie d’une série qui se répète : modifiez-le depuis Google Agenda, pour choisir s’il faut changer cette occurrence ou toute la série.'
-                    : 'Cet événement vient d’un agenda Google personnel, affiché en lecture seule.'}
+                  Cet événement vient d’un agenda Google personnel, affiché en lecture seule.
                 </p>
               )}
             </>
@@ -231,9 +314,21 @@ export function FicheEvenementGoogle({
 
       {confirmationSuppression && (
         <ModaleConfirmation
-          titre="Supprimer cet événement ?"
-          description={`« ${evenement.titre} » sera supprimé de l’agenda Google, et ses invités en seront prévenus. Cette action est définitive.`}
-          libelleConfirmer="Supprimer"
+          titre={estSerie ? 'Supprimer quoi exactement ?' : 'Supprimer cet événement ?'}
+          description={
+            estSerie ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <span>
+                  « {evenement.titre} » se répète ({evenement.recurrence ?? 'série'}). Choisissez ce qui doit être
+                  supprimé de l’agenda Google : l’action est définitive et ses invités en seront prévenus.
+                </span>
+                <ChoixPortee valeur={portee} onChange={setPortee} />
+              </div>
+            ) : (
+              `« ${evenement.titre} » sera supprimé de l’agenda Google, et ses invités en seront prévenus. Cette action est définitive.`
+            )
+          }
+          libelleConfirmer={estSerie && portee === 'serie' ? 'Supprimer toute la série' : 'Supprimer'}
           enCours={enCours}
           erreur={erreur}
           onConfirmer={async () => {

@@ -361,10 +361,10 @@ export interface EvenementGoogle {
      présente les mêmes repères visuels. */
   couleur: string | null
   lienGoogle: string | null
-  /* Un événement récurrent ne peut pas être modifié occurrence par occurrence depuis HOC sans
-     ouvrir la question « cette occurrence ou toute la série ? », à laquelle l'écran ne sait pas
-     répondre. Il reste donc en lecture seule, comme les agendas personnels. */
   recurrent: boolean
+  /* Identifiant de l'événement MAÎTRE quand celui-ci est une occurrence de série : c'est lui
+     qu'il faut viser pour agir sur toute la série, là où `id` ne touche que cette occurrence. */
+  serieId: string | null
 }
 
 /* Palette officielle de Google Agenda (`colorId` d'un événement). Reprise en dur plutôt que lue
@@ -539,6 +539,7 @@ export async function evenementsPersonnels(
     couleur: e.colorId ? (COULEURS_GOOGLE[e.colorId] ?? null) : null,
     lienGoogle: e.htmlLink ?? null,
     recurrent: Boolean(e.recurringEventId),
+    serieId: e.recurringEventId ?? null,
   }))
 }
 
@@ -727,6 +728,10 @@ export async function modifierEvenementVisio(
        Fournir ce champ SEUL (sans description) sert au rattrapage des événements créés avant la
        bascule : il remplace le lien Meet de l'événement par la salle Jitsi. */
     lienVisio?: string
+    /* Règle de répétition iCalendar (« RRULE:FREQ=WEEKLY;BYDAY=MO »), posée sur l'événement
+       maître d'une série. La chaîne vide retire la répétition, et l'événement redevient ponctuel.
+       `undefined` laisse la règle existante intacte, comme tout champ omis d'un PATCH. */
+    recurrence?: string
   },
 ): Promise<void> {
   const corps: Record<string, unknown> = {}
@@ -739,6 +744,7 @@ export async function modifierEvenementVisio(
   }
   if (params.debut !== undefined && params.dureeMinutes !== undefined) Object.assign(corps, bornes(params.debut, params.dureeMinutes))
   if (params.emailsInvites !== undefined) corps.attendees = params.emailsInvites.map((email) => ({ email }))
+  if (params.recurrence !== undefined) corps.recurrence = params.recurrence.trim() ? [params.recurrence.trim()] : []
 
   const reponse = await fetch(`${CALENDAR_URL}/${encodeURIComponent(eventId)}?sendUpdates=all`, {
     method: 'PATCH',

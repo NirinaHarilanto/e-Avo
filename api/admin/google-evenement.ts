@@ -1,15 +1,33 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
-import { integrationDeLEtablissement, modifierEvenementVisio, supprimerEvenement, GoogleError } from '../_lib/google.js'
+import {
+  creerEvenementVisio,
+  integrationDeLEtablissement,
+  modifierEvenementVisio,
+  supprimerEvenement,
+  GoogleError,
+} from '../_lib/google.js'
 
 export const config = { runtime: 'edge' }
 
 interface Corps {
   eventId?: string
-  action?: 'modifier' | 'supprimer'
+  action?: 'creer' | 'modifier' | 'supprimer'
+  /* Création uniquement : adresses des personnes à inviter sur l'événement Google. */
+  emailsInvites?: string[]
   titre?: string
   description?: string
   debut?: string
   dureeMinutes?: number
+  /* Pour une occurrence de série : « occurrence » ne touche que ce jour-là, « serie » agit sur
+     l'événement maître et donc sur toutes ses répétitions — la question que pose Google Agenda
+     lui-même quand on modifie un événement récurrent. Ignoré sur un événement ponctuel. */
+  portee?: 'occurrence' | 'serie'
+  /* Identifiant de l'événement maître, fourni par la lecture (`serieId`). Exigé dès que
+     `portee` vaut « serie » : c'est lui qu'on modifie, jamais l'occurrence affichée. */
+  serieId?: string
+  /* Règle de répétition à poser ou à remplacer, au format iCalendar
+     (« RRULE:FREQ=WEEKLY;BYDAY=MO,WE »). Chaîne vide = retirer la répétition. */
+  recurrence?: string
 }
 
 /**
@@ -36,10 +54,52 @@ export default async function handler(request: Request): Promise<Response> {
     const { serviceClient, etablissementId } = await requireAdmin(request)
     const corps = (await request.json()) as Corps
 
-    const eventId = corps.eventId?.trim()
-    if (!eventId || (corps.action !== 'modifier' && corps.action !== 'supprimer')) {
+    /* Création d'un événement RÉCURRENT. Il ne reçoit volontairement aucune ligne
+       `evenements_admin` : cette table ne sait pas représenter une répétition, et n'y inscrire que
+       la première occurrence ferait apparaître ce jour-là deux fois dans l'agenda — une fois comme
+       événement HOC, une fois comme occurrence Google. L'événement vit donc dans Google, qui en
+       est la source naturelle, et l'agenda HOC l'affiche par la superposition déjà en place, avec
+       sa fiche, ses invités et ses boutons modifier/supprimer. Un événement ponctuel continue de
+       passer par api/admin/creer-evenement.ts, qui lui ajoute notifications et participants. */
+    if (corps.action === 'creer') {
+      if (!corps.titre?.trim() || !corps.debut || Number.isNaN(new Date(corps.debut).getTime()) || !corps.dureeMinutes) {
+        return Response.json({ error: 'Titre, date et durée sont obligatoires.' }, { status: 400 })
+      }
+      if (!corps.recurrence?.trim()) {
+        return Response.json({ error: 'Cette route ne crée que des événements qui se répètent.' }, { status: 400 })
+      }
+      const integrationCreation = await integrationDeLEtablissement(serviceClient, etablissementId)
+      if (!integrationCreation) {
+        return Response.json(
+          { error: "Aucun compte Google n'est connecté : un événement qui se répète ne peut être créé que dans l'agenda Google." },
+          { status: 409 },
+        )
+      }
+      const cree = await creerEvenementVisio(integrationCreation, {
+        titre: corps.titre.trim(),
+        description: corps.description?.trim() || undefined,
+        debut: new Date(corps.debut).toISOString(),
+        dureeMinutes: corps.dureeMinutes,
+        emailsInvites: corps.emailsInvites ?? [],
+        fournisseur: 'google_meet',
+      })
+      await modifierEvenementVisio(integrationCreation, cree.eventId, { recurrence: corps.recurrence.trim() })
+      return Response.json({ ok: true, eventId: cree.eventId })
+    }
+
+    const occurrenceId = corps.eventId?.trim()
+    if (!occurrenceId || (corps.action !== 'modifier' && corps.action !== 'supprimer')) {
       return Response.json({ error: 'Requête incomplète.' }, { status: 400 })
     }
+
+    /* Toute la série : on agit sur l'événement maître, dont la modification se propage à chaque
+       occurrence. Sur une seule : on vise l'occurrence affichée, et Google la détache de la série
+       sans toucher aux autres. */
+    const surLaSerie = corps.portee === 'serie'
+    if (surLaSerie && !corps.serieId?.trim()) {
+      return Response.json({ error: "Cet événement n'appartient à aucune série." }, { status: 400 })
+    }
+    const eventId = surLaSerie ? corps.serieId!.trim() : occurrenceId
 
     if (await appartientAHOC(serviceClient, etablissementId, eventId)) {
       return Response.json(
@@ -70,6 +130,9 @@ export default async function handler(request: Request): Promise<Response> {
       description: corps.description?.trim() || undefined,
       debut: corps.debut,
       dureeMinutes: corps.dureeMinutes,
+      /* Une règle de répétition ne vit que sur l'événement maître : la poser sur une occurrence
+         détachée n'aurait aucun effet, Google l'ignorerait. */
+      recurrence: surLaSerie || !corps.serieId ? corps.recurrence : undefined,
     })
     return Response.json({ ok: true })
   } catch (error) {

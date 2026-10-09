@@ -5,7 +5,7 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { useRendezVous } from '../../hooks/useRendezVous'
 import { useEvenementsAdmin } from '../../hooks/useEvenementsAdmin'
-import { agendaAdminComplet } from '../../lib/agendaEvenements'
+import { agendaAdminComplet, versEvenementSeance } from '../../lib/agendaEvenements'
 import { nomsElevesInscrits } from '../../lib/seances'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
@@ -23,20 +23,13 @@ import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
 import { useProfileContext } from '../../context/ProfileContext'
 import { estLienReel, getJoinUrl } from '../../lib/visio'
-import { ajouterJours, lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
+import { ajouterJours, lundiDeLaSemaine } from '../../lib/agenda'
 
 type Vue = 'semaine' | 'globale'
 
 /* Une teinte par professeur, stable d'une semaine à l'autre : sur l'agenda de l'établissement,
    la couleur est le seul repère qui permet de distinguer d'un coup d'œil les cours de chacun
    quand aucun filtre n'est actif. */
-const TONS_PROFESSEUR = ['bleu', 'or', 'teal', 'violet'] as const
-
-function tonDuProfesseur(professeurIds: string[], id: string | undefined): EvenementAgenda['ton'] {
-  const index = id ? professeurIds.indexOf(id) : -1
-  return index === -1 ? 'neutre' : TONS_PROFESSEUR[index % TONS_PROFESSEUR.length]
-}
-
 /* Pseudo-identifiant pour « l'agenda de l'admin » (rendez-vous prospects + événements créés par
    l'admin) dans la liste de personnes sélectionnables — jamais un UUID réel, donc jamais en
    conflit avec un professeur ou un étudiant. Demande client du 2026-09-21 : pouvoir cocher
@@ -96,21 +89,12 @@ export function SeancesAdmin() {
               (s.professeur && profsSelectionnes.has(s.professeur.id)) ||
               s.inscriptions.some((i) => i.etudiant && etudiantsSelectionnes.has(i.etudiant.id)),
           )
-    const seancesEvenements = visibles.map((seance): EvenementAgenda => {
-      const eleves = nomsElevesInscrits(seance.inscriptions)
-      return {
-        id: seance.session.id,
-        debut: seance.session.debut,
-        dureeMinutes: seance.session.duree_minutes,
-        titre: seance.professeur ? `${seance.professeur.prenom} ${seance.professeur.nom}` : 'Professeur inconnu',
-        sousTitre: eleves.join(', ') || 'Aucun élève inscrit',
-        // 'reportee' (0085) traitée comme 'annulee' à l'affichage : dans les deux cas, cette
-        // occurrence n'a pas eu lieu comme prévu — le statut exact reste lisible via `statut`.
-        ton: seance.session.statut === 'annulee' || seance.session.statut === 'reportee' ? 'neutre' : tonDuProfesseur(professeurIds, seance.professeur?.id),
-        attenue: seance.session.statut === 'annulee' || seance.session.statut === 'reportee',
-        statut: seance.session.statut === 'reportee' ? 'Reportée' : seance.session.statut === 'annulee' ? 'Annulée' : undefined,
-      }
-    })
+    /* Conversion partagée avec l'agenda de l'espace admin (`versEvenementSeance`) : les deux pages
+       doivent montrer la même séance de la même façon. Sans préfixe ici, l'id nu étant celui que
+       les écrans de cette page attendent déjà. */
+    const seancesEvenements = visibles.map((seance) =>
+      versEvenementSeance(seance, nomsElevesInscrits(seance.inscriptions), professeurIds),
+    )
 
     if (!adminSelectionne) return seancesEvenements
 

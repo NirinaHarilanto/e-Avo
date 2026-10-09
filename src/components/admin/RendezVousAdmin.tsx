@@ -8,8 +8,19 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useVagues } from '../../hooks/useVagues'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { lundiDeLaSemaine } from '../../lib/agenda'
-import { agendaAdminComplet, estEvenementGooglePersonnel, idGoogleDepuisEvenement } from '../../lib/agendaEvenements'
- import { FicheEvenementGoogle } from './FicheEvenementGoogle'
+import {
+  agendaAdminComplet,
+  estEvenementGooglePersonnel,
+  estEvenementSeance,
+  idGoogleDepuisEvenement,
+  idSeanceDepuisEvenement,
+  versEvenementSeance,
+} from '../../lib/agendaEvenements'
+import { useSeancesAdmin } from '../../hooks/useSeancesAdmin'
+import { nomsElevesInscrits } from '../../lib/seances'
+import { DetailSeanceModale } from '../shared/DetailSeanceModale'
+import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
+ import { FicheEvenementGoogle, REPETITIONS } from './FicheEvenementGoogle'
 import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { etudiantsSelectionnables, vaguesSelectionnables, classesSelectionnables } from '../../lib/invitations'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
@@ -19,8 +30,8 @@ import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
-import { boutonPrimaireStyle } from '../ui/Boutons'
-import { champStyle } from '../ui/Champ'
+import { boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
+import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { Section } from '../ui/Section'
 import { Onglets } from '../ui/Onglets'
 import { Modale } from '../ui/Modale'
@@ -69,11 +80,33 @@ export function RendezVousAdmin() {
     parId: googleParId,
     recharger: rechargerGoogle,
   } = useEvenementsGoogleCalendarPersonnel(semaineDebut)
+  /* Les cours manquaient à cet agenda : il ne montrait que les rendez-vous prospects, les
+     événements créés par l'admin et l'agenda Google, si bien que « Agenda » et « Séances & visio »
+     donnaient chacun une moitié de la même semaine (signalé par le client le 2026-10-09). Ils y
+     sont désormais, avec leur couleur par professeur, et un clic ouvre la fiche de la séance. */
+  const { seances, recharger: rechargerSeances } = useSeancesAdmin()
+  /* Les mêmes mouvements de planning que ceux surveillés par « Séances & visio » : maintenant que
+     les cours sont dans cet agenda, ils doivent s'y rafraîchir au même moment, sinon les deux
+     pages se remettent à diverger au premier changement d'horaire. */
+  useRafraichirSurNotification(
+    derniereNotification,
+    ['planning_seance_creee', 'planning_seance_reprogrammee', 'planning_seance_annulee', 'seance_reprogrammee', 'seance_annulee', 'seance_reportee'],
+    rechargerSeances,
+  )
+  const { professeurs } = useProfesseurs()
+  const professeurIds = useMemo(() => professeurs.map((p) => p.id), [professeurs])
+  const evenementsSeances = useMemo(
+    () => seances.map((s) => versEvenementSeance(s, nomsElevesInscrits(s.inscriptions), professeurIds, { prefixe: true })),
+    [seances, professeurIds],
+  )
   const evenementsAgenda = useMemo(
-    () => [...agendaAdminComplet(rendezVous, evenementsAdmin), ...evenementsGooglePersonnel],
-    [rendezVous, evenementsAdmin, evenementsGooglePersonnel],
+    () => [...agendaAdminComplet(rendezVous, evenementsAdmin), ...evenementsSeances, ...evenementsGooglePersonnel],
+    [rendezVous, evenementsAdmin, evenementsSeances, evenementsGooglePersonnel],
   )
   const [evenementGoogleOuvert, setEvenementGoogleOuvert] = useState<string | null>(null)
+  const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
+  const [editionSeanceOuverte, setEditionSeanceOuverte] = useState(false)
+  const seanceOuverte = useMemo(() => seances.find((s) => s.session.id === seanceOuverteId) ?? null, [seances, seanceOuverteId])
 
   return (
     <AdminLayout actif="Agenda">
@@ -153,16 +186,23 @@ export function RendezVousAdmin() {
               setEvenementGoogleOuvert(idGoogleDepuisEvenement(evenement.id))
               return
             }
+            if (estEvenementSeance(evenement.id)) {
+              setSeanceOuverteId(idSeanceDepuisEvenement(evenement.id))
+              return
+            }
             setElementOuvertId(evenement.id)
           }}
           onCreneauLibre={(debut) => setCreationOuverte(debut)}
-          videMessage="Aucun rendez-vous cette semaine. Utilisez les flèches pour changer de semaine, ou cliquez un créneau pour en créer un."
+          videMessage="Rien cette semaine. Utilisez les flèches pour changer de semaine, ou cliquez un créneau pour créer un rendez-vous."
           legende={
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11.5, color: 'var(--muted)' }}>
               <PastilleLegende couleur="var(--accent-gold)" libelle="Prospect" />
               <PastilleLegende couleur="var(--accent-blue)" libelle="Étudiant(s)" />
               <PastilleLegende couleur="var(--accent-teal)" libelle="Professeur(s)" />
               <PastilleLegende couleur="var(--accent-violet)" libelle="Mixte" />
+              <span style={{ color: 'var(--muted-2)' }}>·</span>
+              <span>Cours : une couleur par professeur</span>
+              <span>Agenda Google : sa couleur d’origine</span>
             </div>
           }
         />
@@ -235,6 +275,40 @@ export function RendezVousAdmin() {
           onChange={rechargerGoogle}
         />
       )}
+
+      {/* Même fiche que dans « Séances & visio » : cliquer un cours doit donner la même chose des
+          deux côtés, sinon les deux pages redeviennent deux applications différentes. */}
+      {seanceOuverte && !editionSeanceOuverte && (
+        <DetailSeanceModale
+          session={seanceOuverte.session}
+          professeur={seanceOuverte.professeur}
+          eleves={seanceOuverte.inscriptions.map((i) => i.etudiant)}
+          video={seanceOuverte.video}
+          onFermer={() => setSeanceOuverteId(null)}
+          actions={
+            seanceOuverte.session.statut === 'planifiee' ? (
+              <button onClick={() => setEditionSeanceOuverte(true)} style={boutonSecondaireStyle}>
+                Modifier ou annuler la séance
+              </button>
+            ) : undefined
+          }
+        />
+      )}
+
+      {seanceOuverte && editionSeanceOuverte && (
+        <EditerSeancePlanifieeModale
+          session={seanceOuverte.session}
+          etudiants={seanceOuverte.inscriptions.map((i) => i.etudiant).filter((e): e is NonNullable<typeof e> => !!e)}
+          professeur={seanceOuverte.professeur}
+          video={seanceOuverte.video}
+          onFermer={() => setEditionSeanceOuverte(false)}
+          onEnregistre={() => {
+            setEditionSeanceOuverte(false)
+            setSeanceOuverteId(null)
+            rechargerSeances()
+          }}
+        />
+      )}
     </AdminLayout>
   )
 }
@@ -274,6 +348,9 @@ function FormulaireCreerEvenement({
   const [obligatoiresIds, setObligatoiresIds] = useState<string[]>([])
   const [optionnelsIds, setOptionnelsIds] = useState<string[]>([])
   const [notes, setNotes] = useState('')
+  /* Chaîne vide = événement ponctuel, le cas courant. Sinon, une règle de répétition iCalendar
+     telle que Google l'attend (voir REPETITIONS dans FicheEvenementGoogle). */
+  const [repetition, setRepetition] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -314,8 +391,14 @@ function FormulaireCreerEvenement({
 
   async function creer(e: FormEvent) {
     e.preventDefault()
-    if (!debut || (obligatoiresIds.length === 0 && optionnelsIds.length === 0)) {
-      setErreur('La date et au moins un participant sont obligatoires.')
+    if (!debut) {
+      setErreur('La date est obligatoire.')
+      return
+    }
+    /* Un participant reste exigé pour une séance de cours — elle n'a pas de sens sans élève — mais
+       plus pour un rendez-vous : un créneau que l'admin se bloque n'invite personne. */
+    if (nature === 'seance_cours' && obligatoiresIds.length === 0 && optionnelsIds.length === 0) {
+      setErreur('Une séance de cours demande au moins un participant.')
       return
     }
     if (nature === 'autre' && !titre.trim()) {
@@ -332,6 +415,35 @@ function FormulaireCreerEvenement({
     }
     setEnCours(true)
     setErreur(null)
+
+    /* Un rendez-vous qui se répète part directement dans l'agenda Google, sans ligne
+       `evenements_admin` : cette table ne sait pas représenter une répétition, et n'y inscrire que
+       la première occurrence ferait apparaître ce jour-là deux fois dans l'agenda. L'agenda HOC
+       l'affiche ensuite par la superposition Google, avec sa fiche et ses boutons. */
+    if (nature === 'autre' && repetition) {
+      const reponseSerie = await fetch('/api/admin/google-evenement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          action: 'creer',
+          titre: titre.trim(),
+          debut: new Date(debut).toISOString(),
+          dureeMinutes,
+          description: notes.trim() || undefined,
+          recurrence: repetition,
+        }),
+      })
+        .then((r) => r.json())
+        .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
+      setEnCours(false)
+      if (reponseSerie.error) {
+        setErreur(reponseSerie.error)
+        return
+      }
+      onCree()
+      return
+    }
+
     const reponse = await fetch(
       nature === 'seance_cours' ? '/api/professeur/planifier-seance' : '/api/admin/creer-evenement',
       {
@@ -410,6 +522,26 @@ function FormulaireCreerEvenement({
             Sans participant, ce créneau sera simplement bloqué dans votre agenda : il part dans votre agenda Google,
             sans invitation à envoyer.
           </p>
+        )}
+
+        {nature === 'autre' && (
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={etiquetteStyle}>Répétition</span>
+            <select value={repetition} onChange={(e) => setRepetition(e.target.value)} style={champStyle}>
+              <option value="">Ne se répète pas</option>
+              {REPETITIONS.map((r) => (
+                <option key={r.valeur} value={r.valeur}>
+                  {r.libelle}
+                </option>
+              ))}
+            </select>
+            {repetition && (
+              <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+                Un rendez-vous qui se répète est créé directement dans l’agenda Google, sans participant HOC. Vous le
+                retrouverez dans cet agenda, où vous pourrez modifier ou supprimer une seule date ou toute la série.
+              </span>
+            )}
+          </label>
         )}
         {/* Une séance de cours n'a pas d'invité facultatif : on y est inscrit ou on ne l'est pas,
             et c'est cette inscription qui décompte les heures. */}
