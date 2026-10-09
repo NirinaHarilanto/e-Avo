@@ -1,5 +1,15 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
-import { integrationPersonnelleDeLaPersonne, evenementsPersonnels, noterErreurGooglePersonnelle, GoogleError } from '../_lib/google.js'
+import {
+  integrationDeLEtablissement,
+  integrationPersonnelleDeLaPersonne,
+  evenementsPersonnels,
+  noterErreurGooglePersonnelle,
+  GoogleError,
+} from '../_lib/google.js'
+import type { createClient } from '@supabase/supabase-js'
+import type { Database } from '../../src/types/database.types.js'
+
+type ServiceClient = ReturnType<typeof createClient<Database>>
 
 export const config = { runtime: 'edge' }
 
@@ -17,7 +27,7 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   try {
-    const { serviceClient, profileId } = await requireTeacherOrAdmin(request)
+    const { serviceClient, profileId, etablissementId, roles } = await requireTeacherOrAdmin(request)
     const url = new URL(request.url)
     const debutParam = url.searchParams.get('debut')
     const finParam = url.searchParams.get('fin')
@@ -31,20 +41,41 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const integration = await integrationPersonnelleDeLaPersonne(serviceClient, profileId)
-    if (!integration) {
+    if (integration) {
+      try {
+        const evenements = await evenementsPersonnels(integration, debut, fin)
+        await noterErreurGooglePersonnelle(serviceClient, profileId, null)
+        return Response.json({ evenements })
+      } catch (erreurGoogle) {
+        await noterErreurGooglePersonnelle(
+          serviceClient,
+          profileId,
+          erreurGoogle instanceof Error ? erreurGoogle.message : 'Lecture de l’agenda personnel impossible.',
+        )
+        return Response.json({ evenements: [] })
+      }
+    }
+
+    /* Repli pour l'administrateur : l'agenda Google de l'établissement est le sien (demande du
+       2026-10-09 — « l'agenda de l'admin dans l'application n'est pas synchronisé avec le gmail
+       admin, alors que le compte est déjà connecté »). Lui demander de reconnecter le MÊME compte
+       une seconde fois, au titre de son agenda personnel, n'aurait aucun sens : s'il n'en a pas
+       connecté un autre, on lui superpose directement celui de l'établissement.
+       Réservé aux admins : un professeur n'a aucun droit de regard sur cet agenda. */
+    if (!roles.includes('admin_etablissement')) {
+      return Response.json({ evenements: [] })
+    }
+
+    const integrationEtablissement = await integrationDeLEtablissement(serviceClient, etablissementId).catch(() => null)
+    if (!integrationEtablissement) {
       return Response.json({ evenements: [] })
     }
 
     try {
-      const evenements = await evenementsPersonnels(integration, debut, fin)
-      await noterErreurGooglePersonnelle(serviceClient, profileId, null)
-      return Response.json({ evenements })
-    } catch (erreurGoogle) {
-      await noterErreurGooglePersonnelle(
-        serviceClient,
-        profileId,
-        erreurGoogle instanceof Error ? erreurGoogle.message : 'Lecture de l’agenda personnel impossible.',
-      )
+      const tous = await evenementsPersonnels(integrationEtablissement, debut, fin)
+      const posesParHOC = await identifiantsEvenementsHOC(serviceClient, etablissementId, debut, fin)
+      return Response.json({ evenements: tous.filter((e) => !posesParHOC.has(e.id)) })
+    } catch {
       return Response.json({ evenements: [] })
     }
   } catch (error) {
@@ -56,4 +87,54 @@ export default async function handler(request: Request): Promise<Response> {
     }
     return Response.json({ error: 'Erreur interne.' }, { status: 500 })
   }
+}
+
+/**
+ * Identifiants des événements Google que HOC a lui-même posés sur la fenêtre demandée.
+ *
+ * Indispensable au repli ci-dessus : l'agenda de l'établissement contient AUSSI les séances, les
+ * appels diagnostic et les rendez-vous créés depuis l'application, que l'agenda HOC affiche déjà
+ * depuis la base. Sans ce filtre, chacun apparaîtrait deux fois dans la grille — une fois comme
+ * séance, une fois comme événement Google superposé.
+ *
+ * Les quatre tables sont interrogées sur la fenêtre, sauf `video_sessions` qui ne porte pas de
+ * date : elle passe par les `sessions` de la fenêtre, comme dans api/admin/realigner-visios.ts.
+ */
+async function identifiantsEvenementsHOC(
+  serviceClient: ServiceClient,
+  etablissementId: string,
+  debut: Date,
+  fin: Date,
+): Promise<Set<string>> {
+  const debutIso = debut.toISOString()
+  const finIso = fin.toISOString()
+
+  const [seances, rdv, evenements, creneaux] = await Promise.all([
+    serviceClient.from('sessions').select('id').eq('etablissement_id', etablissementId).gte('debut', debutIso).lte('debut', finIso),
+    serviceClient.from('rendez_vous').select('google_event_id').eq('etablissement_id', etablissementId).gte('debut', debutIso).lte('debut', finIso),
+    serviceClient.from('evenements_admin').select('google_event_id').eq('etablissement_id', etablissementId).gte('debut', debutIso).lte('debut', finIso),
+    serviceClient
+      .from('creneaux_test_positionnement')
+      .select('google_event_id')
+      .eq('etablissement_id', etablissementId)
+      .gte('debut', debutIso)
+      .lte('debut', finIso),
+  ])
+
+  const ids = new Set<string>()
+  for (const lot of [rdv.data, evenements.data, creneaux.data]) {
+    for (const ligne of lot ?? []) {
+      if (ligne.google_event_id) ids.add(ligne.google_event_id)
+    }
+  }
+
+  const sessionIds = (seances.data ?? []).map((s) => s.id)
+  if (sessionIds.length > 0) {
+    const { data: visios } = await serviceClient.from('video_sessions').select('google_event_id').in('session_id', sessionIds)
+    for (const visio of visios ?? []) {
+      if (visio.google_event_id) ids.add(visio.google_event_id)
+    }
+  }
+
+  return ids
 }

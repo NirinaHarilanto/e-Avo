@@ -95,6 +95,7 @@ export default async function handler(request: Request): Promise<Response> {
             debut,
             dureeMinutes,
             emailsInvites: [prospect.email],
+            fournisseur: 'google_meet',
           })
           eventId = evenement.eventId
           lienMeetActuel = evenement.lienVisio
@@ -168,6 +169,7 @@ export default async function handler(request: Request): Promise<Response> {
           debut,
           dureeMinutes,
           emailsInvites: [prospect.email],
+          fournisseur: 'google_meet',
         })
         eventId = evenement.eventId
         lienMeet = evenement.lienVisio

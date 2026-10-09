@@ -15,6 +15,22 @@ export function nouveauLienVisio(): string {
   return creerLienJitsi(domaineVisio())
 }
 
+/**
+ * Fournisseur de visioconférence d'une réunion donnée. Deux valeurs, et le choix ne se fait PAS
+ * au hasard des écrans : il suit le nombre de participants attendus (règle client du 2026-10-09).
+ *
+ * - `google_meet` : réunions à petit effectif identifié nominativement — appel diagnostic
+ *   (individuel ou duo), cours individuel ou duo, rendez-vous créé par un admin ou un professeur.
+ *   Chaque participant est invité par son adresse e-mail sur l'événement Calendar, donc reconnu
+ *   par Meet et admis sans friction. Redevenu possible le 2026-10-09 : l'établissement est passé
+ *   d'un compte Gmail gratuit à un compte Google Workspace (`admin@harionlineclub.com`), là où
+ *   c'était la gratuité du compte hôte qui fermait la porte aux invités en octobre.
+ * - `jitsi` : réunions collectives — cours collectifs et sessions de test oral d'une vague. Elles
+ *   réunissent un groupe entier, dont des candidats pas encore inscrits et sans adresse connue au
+ *   moment où la salle est créée ; aucun compte n'y est exigé, le lien s'ouvre tel quel.
+ */
+export type FournisseurVisio = 'google_meet' | 'jitsi'
+
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
 /**
@@ -319,7 +335,10 @@ export async function noterErreurGooglePersonnelle(serviceClient: ServiceClient,
    repères (anniversaires, jours fériés), pas des créneaux occupés à afficher dans un agenda
    horaire. */
 export async function evenementsPersonnels(
-  integration: IntegrationGooglePersonnelle,
+  /* Seul le jeton est utilisé : la même lecture sert l'agenda personnel d'une personne et, pour
+     un admin dont le compte Google personnel EST celui de l'établissement, l'agenda de
+     l'établissement (voir api/google-personnel/evenements.ts). */
+  integration: { accessToken: string },
   debut: Date,
   fin: Date,
 ): Promise<{ id: string; titre: string; debut: string; fin: string }[]> {
@@ -352,6 +371,9 @@ interface ParamsEvenement {
   debut: string
   dureeMinutes: number
   emailsInvites: string[]
+  /* Omis = `jitsi`, le comportement d'avant le 2026-10-09 : un appelant qui n'a pas été revu
+     garde donc une salle ouverte à tous plutôt que de se retrouver avec un Meet fermé. */
+  fournisseur?: FournisseurVisio
 }
 
 function bornes(debut: string, dureeMinutes: number) {
@@ -368,10 +390,57 @@ function bornes(debut: string, dureeMinutes: number) {
 export function descriptionAvecLienVisio(lienVisio: string, description?: string): string {
   const entete = [
     `Lien de connexion : ${lienVisio}`,
-    "Aucun compte n'est nécessaire : le lien s'ouvre directement dans votre navigateur.",
+    estLienMeet(lienVisio)
+      ? 'Connectez-vous avec l’adresse e-mail à laquelle cette invitation a été envoyée.'
+      : "Aucun compte n'est nécessaire : le lien s'ouvre directement dans votre navigateur.",
   ].join('\n')
   const reste = description?.trim()
   return reste ? `${entete}\n\n${reste}` : entete
+}
+
+function estLienMeet(lien: string): boolean {
+  return lien.startsWith('https://meet.google.com/')
+}
+
+/**
+ * Demande à Calendar de créer une réunion Meet attachée à l'événement, et renvoie son lien.
+ *
+ * Deux conditions faciles à manquer : le paramètre `conferenceDataVersion=1` (sans lui, Google
+ * ignore silencieusement le bloc `conferenceData` et rend un événement sans visio) et un
+ * `requestId` unique par demande — c'est lui qui rend l'appel idempotent côté Google.
+ *
+ * Renvoie `null` plutôt que de lever quand Meet n'a pas pu être créé : l'appelant retombe alors
+ * sur une salle Jitsi. Un compte Workspace peut se voir refuser la création de visio par une
+ * règle d'administration du domaine, et une séance sans aucun lien serait bien pire qu'une séance
+ * dont le lien n'est pas celui prévu.
+ */
+export async function lienMeetDeLEvenement(
+  integration: IntegrationGoogle,
+  eventId: string,
+): Promise<string | null> {
+  const reponse = await fetch(
+    `${CALENDAR_URL}/${encodeURIComponent(eventId)}?conferenceDataVersion=1&sendUpdates=all`,
+    {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${integration.accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conferenceData: {
+          createRequest: {
+            requestId: crypto.randomUUID(),
+            conferenceSolutionKey: { type: 'hangoutsMeet' },
+          },
+        },
+      }),
+    },
+  )
+  if (!reponse.ok) return null
+
+  const corps = (await reponse.json().catch(() => null)) as {
+    hangoutLink?: string
+    conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] }
+  } | null
+  const parEntryPoint = corps?.conferenceData?.entryPoints?.find((e) => e.entryPointType === 'video')?.uri
+  return corps?.hangoutLink ?? parEntryPoint ?? null
 }
 
 /**
@@ -390,15 +459,15 @@ export function descriptionAvecLienVisio(lienVisio: string, description?: string
 export async function creerEvenementVisio(
   integration: IntegrationGoogle,
   params: ParamsEvenement,
-): Promise<{ eventId: string; lienVisio: string }> {
-  const lienVisio = nouveauLienVisio()
+): Promise<{ eventId: string; lienVisio: string; fournisseur: FournisseurVisio }> {
+  const lienJitsi = nouveauLienVisio()
   const reponse = await fetch(`${CALENDAR_URL}?sendUpdates=all`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${integration.accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       summary: params.titre,
-      description: descriptionAvecLienVisio(lienVisio, params.description),
-      location: lienVisio,
+      description: descriptionAvecLienVisio(lienJitsi, params.description),
+      location: lienJitsi,
       ...bornes(params.debut, params.dureeMinutes),
       attendees: params.emailsInvites.map((email) => ({ email })),
     }),
@@ -409,7 +478,20 @@ export async function creerEvenementVisio(
     throw new GoogleError(corps.error?.message ?? "Google Calendar a refusé la création de l'événement.")
   }
 
-  return { eventId: corps.id, lienVisio }
+  /* L'événement naît avec la salle Jitsi, et c'est seulement ensuite qu'on tente d'y attacher un
+     Meet. Deux appels plutôt qu'un seul : si la création de la visio Google échoue, l'événement
+     existe déjà et porte un lien utilisable, au lieu de faire échouer toute la planification pour
+     une visio. Les invités ne reçoivent pas deux convocations pour autant — Google regroupe les
+     notifications d'un même événement. */
+  if (params.fournisseur === 'google_meet') {
+    const lienMeet = await lienMeetDeLEvenement(integration, corps.id)
+    if (lienMeet) {
+      await modifierEvenementVisio(integration, corps.id, { lienVisio: lienMeet, description: params.description })
+      return { eventId: corps.id, lienVisio: lienMeet, fournisseur: 'google_meet' }
+    }
+  }
+
+  return { eventId: corps.id, lienVisio: lienJitsi, fournisseur: 'jitsi' }
 }
 
 /** Déplace un événement existant : le lien Meet, lui, ne change pas. */

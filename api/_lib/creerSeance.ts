@@ -87,6 +87,7 @@ export async function creerSeanceAvecInscriptions(
     studentIds: params.studentIds,
     debut: params.debut,
     dureeMinutes: params.dureeMinutes,
+    type: params.type,
   })
 
   return { sessionId: session.id }
@@ -99,6 +100,11 @@ interface ParamsVisio {
   studentIds: string[]
   debut: string
   dureeMinutes: number
+  /* Décide du fournisseur de visioconférence : Google Meet pour l'individuel et le duo, Jitsi
+     pour le collectif (règle client du 2026-10-09, voir `FournisseurVisio` dans google.ts). Le
+     duo n'est pas un type à part en base — c'est une séance `individuel` à deux inscrits — et
+     suit donc naturellement la même branche. */
+  type: 'individuel' | 'collectif'
 }
 
 /**
@@ -131,16 +137,19 @@ export async function creerVisioconference(serviceClient: ServiceClient, params:
 
   if (integration && participants) {
     try {
-      const { eventId, lienVisio } = await creerEvenementVisio(integration, {
+      const { eventId, lienVisio, fournisseur } = await creerEvenementVisio(integration, {
         titre: participants.titreCours,
         description: 'Cours planifié depuis e-Avo.',
         debut: params.debut,
         dureeMinutes: params.dureeMinutes,
         emailsInvites: participants.emails,
+        fournisseur: params.type === 'collectif' ? 'jitsi' : 'google_meet',
       })
       await serviceClient.from('video_sessions').insert({
         session_id: params.sessionId,
-        provider: 'jitsi',
+        /* Le fournisseur VRAIMENT obtenu, pas celui demandé : `creerEvenementVisio` retombe sur
+           Jitsi si Google refuse de créer la visio Meet. */
+        provider: fournisseur,
         room_ref: lienVisio,
         statut: 'planifiee',
         google_event_id: eventId,

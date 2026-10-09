@@ -113,6 +113,7 @@ export default async function handler(request: Request): Promise<Response> {
               debut: debutIso,
               dureeMinutes,
               emailsInvites,
+              fournisseur: 'google_meet',
             })
             await serviceClient.from('evenements_admin').update({ google_event_id: eventId, lien_meet: lienVisio }).eq('id', evenement.id)
             await noterErreurGoogle(serviceClient, etablissementId, null)

@@ -16,7 +16,11 @@ import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
    Montée uniquement dans MonProfil.tsx, pour admin et professeur — jamais pour un étudiant, à qui
    la demande ne s'adresse pas. */
 export function IntegrationGoogleCalendarPersonnel() {
-  const { session } = useProfileContext()
+  const { session, profile, platformAdmin } = useProfileContext()
+  /* L'administrateur voit déjà l'agenda de l'établissement superposé quand il n'a rien connecté
+     ici (voir api/google-personnel/evenements.ts) : le dire, sans quoi il croit son agenda muet
+     alors qu'il fonctionne. */
+  const estAdmin = profile?.role === 'admin_etablissement' || !!platformAdmin
   const { statut, loading, recharger } = useStatutGoogleCalendarPersonnel()
   const [parametresUrl, setParametresUrl] = useSearchParams()
   const [enCours, setEnCours] = useState(false)
@@ -112,8 +116,9 @@ export function IntegrationGoogleCalendarPersonnel() {
         ) : (
           <>
             <p style={{ fontSize: 13, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6 }}>
-              Aucun compte Google personnel n’est connecté. Votre agenda Hari Online Club ne montre que vos séances et
-              rendez-vous HOC.
+              {estAdmin
+                ? 'Aucun compte Google personnel n’est connecté. Votre agenda Hari Online Club affiche donc, en plus de vos séances et rendez-vous, les événements de l’agenda Google de l’établissement. Connectez un compte ci-dessous uniquement si vous voulez y superposer un AUTRE agenda que celui-là.'
+                : 'Aucun compte Google personnel n’est connecté. Votre agenda Hari Online Club ne montre que vos séances et rendez-vous HOC.'}
             </p>
             <button type="button" onClick={connecter} disabled={enCours} className="btn-shine" style={{ ...boutonPrimaireStyle, alignSelf: 'flex-start' }}>
               {enCours ? 'Ouverture de Google…' : 'Connecter mon agenda Google'}

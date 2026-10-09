@@ -5,6 +5,29 @@ import { chiffrer, echangerCode, emailDuCompte, verifierState, GoogleError } fro
 
 export const config = { runtime: 'edge' }
 
+const SCOPE_CALENDRIER_ECRITURE = 'https://www.googleapis.com/auth/calendar.events'
+const SCOPE_CALENDRIER_LECTURE = 'https://www.googleapis.com/auth/calendar.readonly'
+
+/**
+ * Refuse d'enregistrer une intégration à laquelle Google n'a pas accordé la permission d'agenda.
+ *
+ * Google renvoie dans `scope` les permissions EFFECTIVEMENT cochées, pas celles demandées : les
+ * permissions sensibles — l'agenda en est une — apparaissent sur son écran de consentement dans
+ * une case à part, que l'utilisateur peut laisser décochée sans s'en rendre compte. Le jeton est
+ * alors parfaitement valide, mais ne donne accès à rien d'utile.
+ *
+ * Sans ce garde-fou, l'intégration s'installait quand même et l'écran annonçait « Compte Google
+ * connecté. Les prochaines séances seront inscrites à l'agenda » — exactement ce qui est arrivé le
+ * 2026-10-09 : le compte était branché depuis des heures, aucune séance n'atteignait l'agenda, et
+ * rien ne le signalait. Mieux vaut un échec explicite qui dit quelle case cocher.
+ */
+function exigerPermission(scopeAccorde: string, scopeRequis: string, libelle: string): void {
+  if (scopeAccorde.split(/\s+/).includes(scopeRequis)) return
+  throw new GoogleError(
+    `La permission « ${libelle} » n'a pas été accordée. Relancez la connexion et cochez cette case sur l'écran Google, sans quoi rien ne peut être inscrit à l'agenda.`,
+  )
+}
+
 // Retour de Google après autorisation. C'est une navigation de navigateur, pas un appel de
 // l'application : aucun jeton Supabase n'accompagne la requête. L'établissement (et, pour le
 // flux personnel, la personne) concernés sont donc lus dans le `state` signé émis à l'étape
@@ -53,6 +76,8 @@ export default async function handler(request: Request): Promise<Response> {
       const { data: profil } = await serviceClient.from('profiles').select('role').eq('id', profileId).maybeSingle()
       const retour = new URL(profil?.role === 'professeur' ? '/professeur/mon-profil' : '/admin/mon-profil', url.origin)
 
+      exigerPermission(scope, SCOPE_CALENDRIER_LECTURE, 'Afficher les événements de vos agendas Google')
+
       const { error } = await serviceClient.from('google_integrations_personnelles').upsert(
         {
           profile_id: profileId,
@@ -72,6 +97,8 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const retour = new URL('/admin/parametres', url.origin)
+    exigerPermission(scope, SCOPE_CALENDRIER_ECRITURE, 'Afficher et modifier les événements de vos agendas Google')
+
     const { error } = await serviceClient.from('google_integrations').upsert(
       {
         etablissement_id: etablissementId,

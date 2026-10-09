@@ -1728,6 +1728,9 @@ export interface Database {
           google_email: string
           connecte_le: string
           derniere_erreur: string | null
+          /* Permissions effectivement accordées par Google, exposées par la migration 0106 :
+             l'écran doit pouvoir dire qu'un compte est branché SANS la permission d'agenda. */
+          scope: string | null
         }
         Relationships: []
       }

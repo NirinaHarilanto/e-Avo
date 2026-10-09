@@ -27,7 +27,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: session } = await serviceClient
       .from('sessions')
-      .select('id, teacher_id, debut, duree_minutes, statut, etablissement_id')
+      .select('id, teacher_id, debut, duree_minutes, statut, etablissement_id, type')
       .eq('id', body.sessionId)
       .single()
     if (!session || session.etablissement_id !== etablissementId) {
@@ -53,12 +53,13 @@ export default async function handler(request: Request): Promise<Response> {
 
     try {
       const participants = await emailsParticipants(serviceClient, session.teacher_id, studentIds)
-      const { eventId, lienVisio } = await creerEvenementVisio(integration, {
+      const { eventId, lienVisio, fournisseur } = await creerEvenementVisio(integration, {
         titre: participants.titreCours,
         description: 'Cours planifié depuis e-Avo.',
         debut: session.debut,
         dureeMinutes: session.duree_minutes,
         emailsInvites: participants.emails,
+        fournisseur: session.type === 'collectif' ? 'jitsi' : 'google_meet',
       })
 
       // upsert plutôt qu'insert : la séance a déjà une ligne visio (lien interne) dans
@@ -66,7 +67,7 @@ export default async function handler(request: Request): Promise<Response> {
       const { error } = await serviceClient.from('video_sessions').upsert(
         {
           session_id: session.id,
-          provider: 'jitsi',
+          provider: fournisseur,
           room_ref: lienVisio,
           statut: 'planifiee',
           google_event_id: eventId,
