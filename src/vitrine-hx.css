@@ -799,9 +799,12 @@ body.vitrine-hx {
   background: var(--white);
   color: var(--purple);
 }
+/* Bande violette plutôt que blanc lavande (demande client du 2026-10-09) : entre le bas du hero
+   et le pied de page, tous deux sombres, un bandeau clair faisait une rupture crue. `--plum`
+   est la même couleur que `.hx-pied` : les deux bandes se fondent en une seule zone continue. */
 .hx .after {
   height: 140px;
-  background: var(--pale);
+  background: var(--plum);
 }
 
 @media (max-width: 980px) {
@@ -867,8 +870,11 @@ body.vitrine-hx {
   margin-left: auto;
   margin-right: auto;
 }
+/* Chevauchement réduit de -130px à -90px (demande client du 2026-10-09, « faire descendre un
+   peu les blocs par rapport à la zone en violet ») : les cartes mordaient trop haut sur le
+   dégradé sombre du hero. */
 .hx .overlap {
-  margin-top: -130px;
+  margin-top: -90px;
   position: relative;
   z-index: 3;
 }
@@ -948,7 +954,7 @@ body.vitrine-hx {
 .hx .offers .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
+  gap: 32px;
 }
 .hx .offer {
   all: unset;
@@ -1493,7 +1499,7 @@ body.vitrine-hx {
 .hx .team .grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 22px;
+  gap: 28px;
 }
 .hx .m {
   position: relative;
@@ -1750,6 +1756,37 @@ body.vitrine-hx {
 .hx .slide.on {
   opacity: 1;
   transform: none;
+}
+/* Anneau doré tournant sur la carte active (demande client du 2026-10-09), même mécanique que
+   `.card-lift` des espaces connectés et que l'anneau des cartes équipe — `@property
+   --glow-angle` et `@keyframes navGlowSpin`, déjà déclarées globalement, réutilisées telles
+   quelles. Visible en permanence sur la carte centrale, pas seulement au survol : c'est elle
+   qui est « affichée », au sens de la demande. */
+.hx .slide.on::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2.5px;
+  background: conic-gradient(
+    from var(--glow-angle),
+    transparent 0%,
+    transparent 76%,
+    #a97c00 83%,
+    #ffd700 88%,
+    #fff6c8 91%,
+    #ffd700 94%,
+    #a97c00 99%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.85));
+  animation: navGlowSpin 3.4s linear infinite;
 }
 .hx .slide .q {
   position: absolute;
