@@ -47,18 +47,22 @@ const PROGRAMMES: { type: TypeProgrammeProspect; badge: string; titre: string; t
   },
 ]
 
+/* Illustrations fournies par le client le 2026-10-09, détourées de leur fond noir d'origine.
+   Elles sont livrées en 4:3, le ratio exact de la zone image des cartes, et sur fond
+   transparent : c'est le dégradé de `.offer .img` qui se voit au travers, si bien que changer
+   cette couleur ne demande pas de regénérer les fichiers. */
 const PHOTOS: Record<TypeProgrammeProspect, { src: string; alt: string }> = {
   individuel: {
     src: '/programmes/individuel.webp',
-    alt: 'Illustration aquarelle d’un élève en appel vidéo avec son professeur sur son ordinateur portable',
+    alt: 'Illustration d’une étudiante au casque, carnet et stylo en main, en appel vidéo avec sa professeure sur son ordinateur portable',
   },
   duo: {
     src: '/programmes/duo.webp',
-    alt: 'Illustration aquarelle de deux élèves côte à côte en appel vidéo avec leur professeur',
+    alt: 'Illustration de deux étudiants côte à côte devant un même ordinateur portable, en appel vidéo avec leur professeure',
   },
   collectif: {
     src: '/programmes/collectif.webp',
-    alt: 'Illustration aquarelle d’un petit groupe d’élèves qui échange autour d’un appel vidéo collectif',
+    alt: 'Illustration d’une étudiante au casque suivant un cours collectif, six participants affichés sur l’écran de son ordinateur portable',
   },
 }
 
