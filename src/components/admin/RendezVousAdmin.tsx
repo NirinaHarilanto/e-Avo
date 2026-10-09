@@ -405,6 +405,12 @@ function FormulaireCreerEvenement({
           onChange={setObligatoiresIds}
           exclure={optionnelsIds}
         />
+        {nature === 'autre' && obligatoiresIds.length === 0 && optionnelsIds.length === 0 && (
+          <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+            Sans participant, ce créneau sera simplement bloqué dans votre agenda : il part dans votre agenda Google,
+            sans invitation à envoyer.
+          </p>
+        )}
         {/* Une séance de cours n'a pas d'invité facultatif : on y est inscrit ou on ne l'est pas,
             et c'est cette inscription qui décompte les heures. */}
         {nature === 'autre' && (

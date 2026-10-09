@@ -55,9 +55,12 @@ export default async function handler(request: Request): Promise<Response> {
     if (!dureeMinutes || dureeMinutes < 5 || dureeMinutes > 480) {
       return Response.json({ error: 'Durée invalide.' }, { status: 400 })
     }
-    if (obligatoiresIds.length === 0 && optionnelsIds.length === 0) {
-      return Response.json({ error: 'Choisissez au moins un participant.' }, { status: 400 })
-    }
+    /* Un événement sans aucun participant est permis depuis le 2026-10-09 : c'est un créneau que
+       l'admin se réserve pour lui-même (« Bloqué », « Réunion externe »…), ce dont son agenda
+       Google est plein. L'exiger l'obligeait à s'inviter un élève au hasard pour poser une
+       indisponibilité, ou à sortir de HOC pour le faire — exactement ce que la demande « ajouter
+       un événement depuis l'agenda de l'admin » vise à éviter. L'événement part quand même dans
+       l'agenda Google, simplement sans convocation à envoyer. */
 
     // Les participants doivent appartenir au même établissement que l'admin qui crée
     // l'événement — sans ce filtre, rien n'empêcherait d'y glisser l'identifiant d'un profil
