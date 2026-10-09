@@ -45,30 +45,70 @@ export function IntegrationGoogleMeet() {
      Jitsi abandonnée. Déclenché à la main plutôt qu'automatiquement, parce que l'opération renvoie
      une invitation à jour à chaque participant concerné — ce n'est pas quelque chose qui doit
      partir sans que personne l'ait décidé. */
+  /* Le serveur ne traite qu'une partie des réunions par appel, autant que sa durée d'exécution le
+     permet, et dit combien il en reste (voir api/admin/realigner-visios.ts). L'écran enchaîne donc
+     les appels jusqu'à épuisement en montrant l'avancement, plutôt que de laisser l'admin devant
+     un bouton qui semble échouer alors que le travail progresse.
+     Borne de sécurité sur le nombre de tours : si le serveur cessait de progresser, la boucle
+     s'arrêterait d'elle-même au lieu de tourner indéfiniment. */
   async function realigner() {
     if (!session) return
     setBascule({ enCours: true, resultat: null })
-    const reponse = await fetch('/api/admin/realigner-visios', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-    const corps = await reponse.json().catch(() => null)
-    if (!reponse.ok) {
-      setBascule({ enCours: false, resultat: null })
-      setErreur(corps?.error ?? 'Le réalignement a échoué.')
-      return
+    setErreur(null)
+
+    let total = 0
+    let versMeet = 0
+    let versJitsi = 0
+    let nonSync = 0
+    let restant = 0
+
+    for (let tour = 0; tour < 60; tour += 1) {
+      const reponse = await fetch('/api/admin/realigner-visios', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      }).catch(() => null)
+      const corps = (await reponse?.json().catch(() => null)) as {
+        error?: string
+        basculees?: number
+        versMeet?: number
+        versJitsi?: number
+        restant?: number
+        rapport?: { calendrier: string }[]
+      } | null
+
+      if (!reponse?.ok) {
+        setBascule({ enCours: false, resultat: null })
+        setErreur(
+          corps?.error ??
+            (total > 0
+              ? `${total} réunion(s) ont été mises à jour, puis la connexion a été interrompue. Relancez pour reprendre là où ça s’est arrêté.`
+              : 'Le réalignement a échoué.'),
+        )
+        return
+      }
+
+      const traitees = corps?.basculees ?? 0
+      total += traitees
+      versMeet += corps?.versMeet ?? 0
+      versJitsi += corps?.versJitsi ?? 0
+      nonSync += (corps?.rapport ?? []).filter((r) => r.calendrier !== 'mis a jour').length
+      restant = corps?.restant ?? 0
+
+      if (restant === 0) break
+      /* Aucune progression alors qu'il reste du travail : inutile d'insister, chaque tour
+         échouerait de la même façon. */
+      if (traitees === 0) break
+      setBascule({ enCours: true, resultat: `${total} réunion${total > 1 ? 's' : ''} traitée${total > 1 ? 's' : ''}, ${restant} restante${restant > 1 ? 's' : ''}…` })
     }
-    const nb = corps?.basculees ?? 0
-    const nonSync = (corps?.rapport ?? []).filter((r: { calendrier: string }) => r.calendrier !== 'mis a jour').length
-    const detail = [corps?.versMeet ? `${corps.versMeet} vers Google Meet` : null, corps?.versJitsi ? `${corps.versJitsi} vers Jitsi` : null]
-      .filter(Boolean)
-      .join(', ')
+
+    const detail = [versMeet ? `${versMeet} vers Google Meet` : null, versJitsi ? `${versJitsi} vers Jitsi` : null].filter(Boolean).join(', ')
     setBascule({
       enCours: false,
       resultat:
-        nb === 0
+        total === 0
           ? 'Toutes les réunions à venir utilisent déjà le bon service : rien à changer.'
-          : `${nb} réunion${nb > 1 ? 's' : ''} mise${nb > 1 ? 's' : ''} à jour (${detail}).` +
+          : `${total} réunion${total > 1 ? 's' : ''} mise${total > 1 ? 's' : ''} à jour (${detail}).` +
+            (restant > 0 ? ` ${restant} n’${restant > 1 ? 'ont' : 'a'} pas pu être traitée${restant > 1 ? 's' : ''} : relancez le bouton.` : '') +
             (nonSync > 0
               ? ` ${nonSync} n’${nonSync > 1 ? 'ont' : 'a'} pas pu être mise${nonSync > 1 ? 's' : ''} à jour dans l’agenda Google : prévenez ces participants du nouveau lien.`
               : ' Les participants reçoivent l’invitation à jour par e-mail.'),

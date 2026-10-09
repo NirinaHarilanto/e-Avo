@@ -65,6 +65,17 @@ export default async function handler(request: Request): Promise<Response> {
     const rapport: { table: string; id: string; fournisseur: FournisseurVisio; calendrier: 'mis a jour' | 'non synchronise' }[] = []
     const echecs: { table: string; id: string; raison: string }[] = []
 
+    /* Budget de temps, et non un nombre d'éléments fixe : la fonction tourne en runtime edge, dont
+       Vercel coupe l'exécution au-delà de ~25 s. Chaque réunion coûte jusqu'à quatre appels à
+       Google (vérifier l'événement, le créer, y attacher Meet, réécrire sa description), soit
+       près de deux secondes — au premier essai du client, 14 réunions sur 92 ont été traitées
+       avant que la requête ne soit coupée et que l'écran n'affiche « Le réalignement a échoué »,
+       alors que le travail avait bel et bien commencé.
+       Borner par le temps plutôt que par le nombre reste juste quelle que soit la lenteur de
+       Google ce jour-là ; l'appelant rappelle la route tant qu'il reste du travail (`restant`). */
+    const echeance = Date.now() + 14_000
+    const tempsRestant = () => Date.now() < echeance
+
     /* Le lien de remplacement dépend de la cible : une salle Jitsi se fabrique hors de Google,
        un lien Meet ne peut naître QUE sur un événement Calendar existant. Sans événement — compte
        Google déconnecté au moment de la création — la réunion retombe donc sur Jitsi, qui reste
@@ -85,7 +96,14 @@ export default async function handler(request: Request): Promise<Response> {
       .not('lien_meet', 'is', null)
       .gte('debut', plancher)
 
-    for (const ligne of (rdv ?? []).filter((l) => enCoursOuAVenir(l.debut, l.duree_minutes) && !conforme(l.lien_meet, 'google_meet'))) {
+    const rdvATraiter = (rdv ?? []).filter((l) => enCoursOuAVenir(l.debut, l.duree_minutes) && !conforme(l.lien_meet, 'google_meet'))
+    let restant = 0
+
+    for (const ligne of rdvATraiter) {
+      if (!tempsRestant()) {
+        restant += 1
+        continue
+      }
       const { lien, fournisseur } = await lienPour('google_meet', ligne.google_event_id)
       const { error } = await serviceClient.from('rendez_vous').update({ lien_meet: lien }).eq('id', ligne.id)
       if (error) {
@@ -104,6 +122,10 @@ export default async function handler(request: Request): Promise<Response> {
       .gte('debut', plancher)
 
     for (const ligne of (evenements ?? []).filter((l) => enCoursOuAVenir(l.debut, l.duree_minutes) && !conforme(l.lien_meet, 'google_meet'))) {
+      if (!tempsRestant()) {
+        restant += 1
+        continue
+      }
       const { lien, fournisseur } = await lienPour('google_meet', ligne.google_event_id)
       const { error } = await serviceClient.from('evenements_admin').update({ lien_meet: lien }).eq('id', ligne.id)
       if (error) {
@@ -122,6 +144,10 @@ export default async function handler(request: Request): Promise<Response> {
       .gte('debut', plancher)
 
     for (const ligne of (creneaux ?? []).filter((l) => enCoursOuAVenir(l.debut, l.duree_minutes) && !conforme(l.lien_visio, 'jitsi'))) {
+      if (!tempsRestant()) {
+        restant += 1
+        continue
+      }
       const lien = nouveauLienVisio()
       const { error } = await serviceClient
         .from('creneaux_test_positionnement')
@@ -165,6 +191,10 @@ export default async function handler(request: Request): Promise<Response> {
       const visio = visioParSeance.get(seance.id) ?? null
       const cible: FournisseurVisio = seance.type === 'collectif' ? 'jitsi' : 'google_meet'
       if (visio && visio.provider !== 'stub' && conforme(visio.room_ref, cible)) continue
+      if (!tempsRestant()) {
+        restant += 1
+        continue
+      }
 
       /* Trois cas mènent à recréer l'événement plutôt qu'à retoucher l'existant :
          - aucun événement Calendar (séance `stub`, ou créée compte Google déconnecté) ;
@@ -237,6 +267,8 @@ export default async function handler(request: Request): Promise<Response> {
       basculees: rapport.length,
       versMeet: rapport.filter((r) => r.fournisseur === 'google_meet').length,
       versJitsi: rapport.filter((r) => r.fournisseur === 'jitsi').length,
+      /* Nombre de réunions laissées pour le prochain appel, faute de temps. Zéro = terminé. */
+      restant,
       compteGoogleConnecte: Boolean(integration),
       rapport,
       echecs,
@@ -245,7 +277,12 @@ export default async function handler(request: Request): Promise<Response> {
     if (error instanceof AdminAuthError) {
       return Response.json({ error: error.message }, { status: error.status })
     }
-    return Response.json({ error: 'Réalignement impossible.' }, { status: 500 })
+    /* Le message réel, et non un libellé passe-partout : c'est lui qui aurait dit tout de suite
+       que la première tentative butait sur la durée d'exécution, et non sur un refus de Google. */
+    return Response.json(
+      { error: `Réalignement impossible : ${error instanceof Error ? error.message : 'erreur inconnue'}` },
+      { status: 500 },
+    )
   }
 }
 
