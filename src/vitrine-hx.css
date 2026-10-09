@@ -982,7 +982,8 @@ body.vitrine-hx {
   box-shadow: 0 30px 60px -30px rgba(46, 29, 69, 0.35);
   transition:
     transform 0.6s var(--ease),
-    box-shadow 0.6s var(--ease);
+    box-shadow 0.6s var(--ease),
+    background 0.45s ease;
 }
 .hx .offer:hover {
   transform: translateY(-12px);
@@ -1038,6 +1039,7 @@ body.vitrine-hx {
 .hx .offer h3 {
   margin: 0 0 12px;
   color: var(--purple-dark);
+  transition: color 0.45s ease;
 }
 .hx .offer p {
   margin: 0 0 28px;
@@ -1045,6 +1047,7 @@ body.vitrine-hx {
   line-height: 1.7;
   color: var(--ink);
   flex: 1;
+  transition: color 0.45s ease;
 }
 .hx .offer .more {
   display: inline-flex;
@@ -1074,32 +1077,30 @@ body.vitrine-hx {
   width: 17px;
   height: 17px;
 }
+/* Le fond violet n'appartient plus à la formule mise en avant : il apparaît le temps du
+   survol, sur n'importe laquelle des trois cartes (demande client du 2026-10-09). La maquette
+   le réservait au cours collectif, mais ce fond permanent le faisait lire comme la carte
+   déjà sélectionnée d'un groupe où le survol joue ce rôle — le même raisonnement que pour la
+   carte de la fondatrice sur la page Professeurs. La pastille « En savoir plus » passe du
+   même coup au voile clair : sur fond violet, le violet plein de l'ancienne règle de survol
+   disparaissait. */
+.hx .offer:hover {
+  background: linear-gradient(160deg, #5a3f7e, var(--purple) 50%, #3a2558);
+}
+.hx .offer:hover h3 {
+  color: var(--white);
+}
+.hx .offer:hover p {
+  color: var(--lavender);
+}
 .hx .offer:hover .more {
-  background: var(--purple);
+  background: rgba(254, 255, 250, 0.14);
   color: var(--white);
 }
 .hx .offer:hover .more .ar {
   background: var(--gold);
   color: var(--night);
   transform: rotate(45deg);
-}
-/* formule mise en avant */
-.hx .offer.feat {
-  background: linear-gradient(160deg, #5a3f7e, var(--purple) 50%, #3a2558);
-}
-.hx .offer.feat h3 {
-  color: var(--white);
-}
-.hx .offer.feat p {
-  color: var(--lavender);
-}
-.hx .offer.feat .more {
-  background: rgba(254, 255, 250, 0.12);
-  color: var(--white);
-}
-.hx .offer.feat .more .ar {
-  background: var(--gold);
-  color: var(--night);
 }
 @media (max-width: 980px) {
   .hx .offers .grid {
@@ -1762,7 +1763,10 @@ body.vitrine-hx {
 }
 .hx .scene {
   position: relative;
-  height: 760px;
+  /* 810 et non 760 : depuis que la carte de devant est redressée, elle occupe ses 430px
+     pleins au lieu des 388px que la perspective lui retirait, et son bas mordait sur les
+     chevrons. */
+  height: 810px;
   perspective: 1500px;
   perspective-origin: 50% 44%;
   transform: scale(var(--facteur));
@@ -1772,14 +1776,19 @@ body.vitrine-hx {
   margin-top: -90px;
   /* Rattrape la hauteur que `scale` ne retire pas : une mise à l'échelle est purement
      visuelle, la boîte continue d'occuper ses 720px dans le flux. */
-  margin-bottom: calc((var(--facteur) - 1) * 760px);
+  margin-bottom: calc((var(--facteur) - 1) * 810px);
 }
 .hx .anneau {
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  transform: translateZ(calc(var(--rayon-anneau) * -1)) rotateX(-16deg);
+  /* Le recul vaut R·cos(16°) et non R : une fois l'anneau incliné, la place de devant n'est
+     plus à R du centre mais à sa projection. Avec ce recul exact, la carte de devant retombe
+     à z = 0 pile, donc à l'échelle 1 — toute autre valeur la ferait agrandir ou rétrécir par
+     la perspective, et son texte serait rééchantillonné. */
+  transform: translateZ(calc(var(--rayon-anneau) * -0.9612617)) rotateX(calc(var(--inclinaison) * -1));
   --rayon-anneau: 700px;
+  --inclinaison: 16deg;
 }
 
 /* L'orbite : un disque posé à plat dans le plan de l'anneau, donc vu en ellipse une fois
@@ -2095,7 +2104,7 @@ body.vitrine-hx {
   align-items: center;
   justify-content: center;
   gap: 96px;
-  margin-top: 4px;
+  margin-top: 20px;
 }
 .hx .chev {
   display: flex;

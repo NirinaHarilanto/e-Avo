@@ -175,6 +175,11 @@ const DECALAGE_MAX = 3
    l'écart entre la carte de devant et ses voisines. */
 const RAYON = 700
 
+/* Inclinaison de l'anneau, en degrés. Elle aussi est écrite deux fois : `--inclinaison` dans
+   la feuille de style la donne à l'anneau, et les cartes s'en servent ici pour l'annuler sur
+   elles-mêmes (voir `transformationDe`). */
+const INCLINAISON = 16
+
 /* Fondu par la profondeur : une carte éloignée s'efface dans le violet du fond, comme sur la
    maquette. L'opacité est posée carte par carte en style en ligne plutôt qu'en CSS parce
    qu'elle dépend du décalage, qui change à chaque rotation. */
@@ -196,6 +201,32 @@ function orientationDe(ecart: number) {
   if (ecart === 2) return 30
   if (ecart === -2) return -30
   return 0
+}
+
+/* Place ET redresse une carte. Deux temps, qu'il faut lire de gauche à droite comme une
+   trajectoire :
+
+   1. `rotateY(angle) translateZ(R) rotateY(-angle)` — la carte part au point voulu du cercle,
+      et le dernier quart de tour défait la rotation que le premier lui a imprimée : elle
+      arrive donc là-bas sans avoir pivoté sur elle-même.
+   2. `rotateX(inclinaison) rotateY(orientation)` — son orientation propre, choisie et non
+      subie. Le `rotateX` annule exactement l'inclinaison que `.anneau` impose à toute sa
+      descendance.
+
+   Sans cette annulation (première version), toutes les cartes partageaient l'inclinaison de
+   l'anneau : celle de devant arrivait penchée de 16° vers l'arrière, son texte rendu sur un
+   plan oblique, donc rééchantillonné et flou — le client l'a signalé. Désormais les cartes se
+   tiennent droites sur un plateau incliné : le cercle ne décide plus que de la position, et
+   celle de devant est parfaitement de face. */
+function transformationDe(ecart: number) {
+  const angle = ecart * PAS_ANGULAIRE
+  return [
+    `rotateY(${angle}deg)`,
+    `translateZ(${RAYON}px)`,
+    `rotateY(${-angle}deg)`,
+    `rotateX(${INCLINAISON}deg)`,
+    `rotateY(${orientationDe(ecart)}deg)`,
+  ].join(' ')
 }
 
 /* Poussière dorée autour de l'orbite. Tirage pseudo-aléatoire à graine fixe plutôt que
@@ -308,13 +339,12 @@ export function PageTemoignages({ dossierAssets }: { dossierAssets: string }) {
             {TEMOIGNAGES.map((temoignage, index) => {
               const ecart = decalageDe(index)
               const surAnneau = ecart >= DECALAGE_MIN && ecart <= DECALAGE_MAX
-              const angle = ecart * PAS_ANGULAIRE
               return (
                 <article
                   key={temoignage.id}
                   className={`carte3d${ecart === 0 ? ' devant' : ''}${surAnneau ? '' : ' hors-anneau'}`}
                   style={{
-                    transform: `rotateY(${angle}deg) translateZ(${RAYON}px) rotateY(${orientationDe(ecart) - angle}deg)`,
+                    transform: transformationDe(ecart),
                     opacity: opaciteDe(ecart, surAnneau),
                   }}
                 >

@@ -22,7 +22,7 @@ type Tarif = Database['public']['Tables']['tarifs']['Row']
    Les textes sont ceux de l'application, identiques à ceux de la maquette hormis quelques
    retouches que la fondatrice y a apportées depuis. */
 
-const PROGRAMMES: { type: TypeProgrammeProspect; badge: string; titre: string; texte: string; miseEnAvant?: boolean }[] = [
+const PROGRAMMES: { type: TypeProgrammeProspect; badge: string; titre: string; texte: string }[] = [
   {
     type: 'individuel',
     badge: 'INDIVIDUEL',
@@ -36,7 +36,6 @@ const PROGRAMMES: { type: TypeProgrammeProspect; badge: string; titre: string; t
     titre: 'Cours en petit groupe',
     texte:
       'Par vague, sur un planning établi par l’établissement, avec des groupes de niveaux différents pour progresser ensemble au bon rythme.',
-    miseEnAvant: true,
   },
   {
     type: 'duo',
@@ -166,7 +165,7 @@ export function PageCours({
               <button
                 key={programme.type}
                 type="button"
-                className={`offer rv${programme.miseEnAvant ? ' feat' : ''}`}
+                className="offer rv"
                 style={{ transitionDelay: `${index * 0.12}s` }}
                 onClick={() => setOuvert(programme.type)}
               >
