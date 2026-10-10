@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { Modale } from '../ui/Modale'
 import { Champ, champStyle, etiquetteStyle, LigneInfo } from '../ui/Champ'
-import { MessageErreur, MessageSucces } from '../ui/Etats'
+import { MessageAvertissement, MessageErreur, MessageInfo, MessageSucces } from '../ui/Etats'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 
 type Document = Database['public']['Tables']['documents']['Row']
@@ -97,10 +97,24 @@ export function PartagerDocumentModale({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
         <LigneInfo label="Fichier" valeur={document.nom_original} />
 
-        <p style={{ fontSize: 12, lineHeight: 1.55, color: 'var(--muted)', margin: 0 }}>
-          La personne choisie pourra consulter et télécharger ce fichier. Elle ne pourra ni le
-          modifier ni le supprimer, et il restera rangé chez vous.
-        </p>
+        {/* Instruction de guidage (demande client du 2026-10-10 : « rajoute l'instruction pour
+            guider l'utilisateur ») : le malentendu à dissiper est que le partage DÉPLACE ou
+            DUPLIQUE le fichier. Il n'en fait rien — seule sa vue est ouverte — et c'est aussi ce
+            qui explique où le destinataire doit aller le chercher, question posée à chaque fois. */}
+        <MessageInfo>
+          <strong>Comment ça marche.</strong> Choisissez une personne ci-dessous, puis cliquez « Partager ». Le fichier
+          ne bouge pas : il reste rangé ici, et la personne en voit une copie en lecture dans son espace personnel,
+          section <strong>Documents → Mes fichiers partagés</strong>, avec votre nom et le mot que vous aurez joint. Elle
+          pourra le consulter et le télécharger, jamais le modifier ni le supprimer. Vous pouvez retirer le partage à
+          tout moment, en bas de cette fenêtre.
+        </MessageInfo>
+
+        {document.etablissement_wide && (
+          <MessageAvertissement>
+            Ce document est déjà visible par tout l’établissement : le partager ne donne aucun droit de plus. C’est
+            seulement un moyen de le signaler nommément à quelqu’un, qui le retrouvera dans « Mes fichiers partagés ».
+          </MessageAvertissement>
+        )}
 
         <Champ label="Partager avec">
           <select value={destinataireId} onChange={(e) => setDestinataireId(e.target.value)} style={champStyle}>

@@ -39,6 +39,7 @@ export function ExplorateurDocuments({
   peutSupprimer,
   onChange,
   peutOrganiser = true,
+  peutPartager,
   forcerCategorie,
   etablissementWide,
   messageVide,
@@ -48,6 +49,11 @@ export function ExplorateurDocuments({
   etablissementId: string
   peutSupprimer: (document: Document) => boolean
   onChange: () => void
+  /* Qui peut ouvrir la vue de quel fichier à quelqu'un d'autre. Par défaut, ses propres fichiers
+     uniquement — la règle de 0059, qui va de soi dans son propre espace documentaire. L'espace
+     admin passe autre chose : il consulte l'espace d'un tiers et doit pouvoir y faire circuler une
+     pièce (0110). */
+  peutPartager?: (document: Document) => boolean
   /* À `false` pour un espace consulté sans pouvoir le réorganiser (un professeur range ses
      propres documents, pas l'arborescence de son élève — voir la policy update de 0058). */
   peutOrganiser?: boolean
@@ -348,8 +354,10 @@ export function ExplorateurDocuments({
              Le destinataire peut seulement retirer le partage, depuis la fenêtre de partage du
              propriétaire — ou demander à ce dernier. */
           peutSupprimer={(d) => !dansPartages && peutSupprimer(d)}
-          /* On ne propose de partager que ses propres fichiers, jamais ceux qu'on a reçus. */
-          peutPartager={(d) => !dansPartages && d.owner_profile_id === profile?.id}
+          /* Jamais un fichier qu'on a REÇU en partage : il appartient à quelqu'un d'autre, et le
+             redistribuer dépasserait ce que son propriétaire a accordé. Pour le reste, l'appelant
+             décide (voir la prop `peutPartager`). */
+          peutPartager={(d) => !dansPartages && (peutPartager ? peutPartager(d) : d.owner_profile_id === profile?.id)}
           mentionPartage={(d) => {
             const partage = partageParDocument.get(d.id)
             return partage ? { par: partage.partage_par_nom ?? 'Hari Online Club', message: partage.message } : null

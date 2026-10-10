@@ -59,8 +59,16 @@ function useSondagePeriodique(executer: () => void, intervalleMs: number | undef
   useEffect(() => {
     if (!intervalleMs) return
     let minuterie: ReturnType<typeof setInterval> | null = null
+    /* Au PREMIER démarrage, l'effet de montage vient déjà de lancer la requête : la relancer ici
+       serait un doublon (fusionné par `executerPartagee`, mais inutile). Aux démarrages suivants —
+       c'est-à-dire au retour sur l'onglet — la relancer immédiatement est au contraire tout
+       l'intérêt : c'est ce qui fait qu'un événement modifié dans Gmail est déjà à jour quand on
+       revient sur l'agenda HOC, sans attendre le prochain battement de l'intervalle. */
+    let premierDemarrage = true
     function demarrer() {
       if (minuterie || document.hidden) return
+      if (!premierDemarrage) executerRef.current()
+      premierDemarrage = false
       minuterie = setInterval(() => executerRef.current(), intervalleMs)
     }
     function arreter() {

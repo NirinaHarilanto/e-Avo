@@ -53,9 +53,13 @@ export default async function handler(request: Request): Promise<Response> {
     if (!dureeMinutes || dureeMinutes < 5 || dureeMinutes > 480) {
       return Response.json({ error: 'Durée invalide.' }, { status: 400 })
     }
-    if (obligatoiresIds.length === 0 && optionnelsIds.length === 0) {
-      return Response.json({ error: 'Choisissez au moins un participant.' }, { status: 400 })
-    }
+    /* Un événement sans aucun participant est permis depuis le 2026-10-10, comme côté admin
+       (api/admin/creer-evenement.ts) : c'est un créneau que le professeur se réserve
+       (« Indisponible », « Préparation de cours »…). L'exiger l'obligeait à s'inviter un élève au
+       hasard pour poser une indisponibilité, ou à sortir de HOC pour le faire — l'inverse de
+       l'exigence « toutes les fonctionnalités de l'agenda du professeur similaires à celles de
+       l'agenda de l'admin ». L'événement part quand même dans son agenda Google, simplement sans
+       convocation à envoyer. */
 
     // Même contrôle que côté admin : les participants doivent appartenir au même établissement
     // que le professeur qui crée l'événement.

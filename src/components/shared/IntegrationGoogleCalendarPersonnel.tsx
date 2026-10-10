@@ -1,11 +1,11 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useStatutGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { Section } from '../ui/Section'
 import { LigneInfo } from '../ui/Champ'
 import { MessageErreur, MessageInfo, MessageSucces, EtatChargement } from '../ui/Etats'
-import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
+import { boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 
 /* Connexion du Google Calendar PERSONNEL de la personne connectée (0098, demande client du
    2026-10-05) : « chaque professeur et admin [...] connecté[s] [...] avec son propre agenda dans
@@ -30,6 +30,9 @@ export function IntegrationGoogleCalendarPersonnel() {
   const [parametresUrl, setParametresUrl] = useSearchParams()
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  /* Reprise des réunions déjà planifiées vers le compte qui vient d'être connecté : « en cours »,
+     puis le compte rendu affiché à l'écran. Voir `reprendreReunions`. */
+  const [reprise, setReprise] = useState<'en_cours' | { adoptees: number } | { erreur: string } | null>(null)
 
   const retourGoogle = parametresUrl.get('google')
   const messageRetour = parametresUrl.get('message')
@@ -53,6 +56,55 @@ export function IntegrationGoogleCalendarPersonnel() {
     // parcours).
     window.location.href = corps.url
   }, [session])
+
+  /* Fait passer dans le compte qui vient d'être connecté les réunions à venir encore hébergées par
+     celui de l'établissement (api/google-personnel/adopter-seances.ts).
+
+     Appelée AUTOMATIQUEMENT au retour de l'écran Google — exigence client du 2026-10-10 : « pour
+     les futurs professeurs il faut que cela s'affiche du premier coup et la synchronisation se
+     fasse efficacement et rapidement, sans intervention de l'équipe de développement ». Avant, un
+     professeur qui connectait son agenda voyait bien ses événements Google, mais ses cours déjà
+     planifiés continuaient de partir de l'adresse de l'administration jusqu'à ce qu'un admin pense
+     à cliquer « Mettre à jour les réunions à venir » dans Paramètres.
+
+     Rappelée tant que le serveur signale du travail restant : la route est bornée par le temps
+     d'exécution d'une fonction edge, pas par le nombre de réunions. */
+  const reprendreReunions = useCallback(
+    async (jeton: string): Promise<void> => {
+      setReprise('en_cours')
+      let total = 0
+      for (let passage = 0; passage < 10; passage += 1) {
+        const reponse = await fetch('/api/google-personnel/adopter-seances', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${jeton}` },
+        }).catch(() => null)
+        const corps = (await reponse?.json().catch(() => null)) as
+          | { adoptees?: number; restant?: number; error?: string }
+          | null
+        if (!reponse?.ok) {
+          setReprise({ erreur: corps?.error ?? 'La reprise de vos réunions à venir a échoué.' })
+          return
+        }
+        total += corps?.adoptees ?? 0
+        if (!corps?.restant) break
+      }
+      setReprise({ adoptees: total })
+    },
+    [],
+  )
+
+  /* Un seul déclenchement par retour Google, même si le composant se remonte (React StrictMode
+     monte deux fois en développement, et une navigation peut le reconstruire) : sans ce verrou,
+     deux reprises simultanées recréeraient le même événement deux fois dans l'agenda. */
+  const repriseLancee = useRef(false)
+  useEffect(() => {
+    /* Rien à reprendre pour un administrateur : il n'est le professeur d'aucune séance, et
+       l'agenda de l'établissement est déjà le sien. Lui annoncer une reprise sans objet ne ferait
+       qu'ajouter du bruit à son écran. */
+    if (estAdmin || retourGoogle !== 'ok' || !session || repriseLancee.current) return
+    repriseLancee.current = true
+    reprendreReunions(session.access_token)
+  }, [estAdmin, retourGoogle, session, reprendreReunions])
 
   async function deconnecter() {
     if (!session) return
@@ -85,8 +137,8 @@ export function IntegrationGoogleCalendarPersonnel() {
       titre="Mon agenda Google"
       description={
         estAdmin
-          ? "Connectez votre propre compte Gmail : son agenda et celui de Hari Online Club restent synchronisés dans les deux sens, en lecture comme en écriture."
-          : "Connectez votre compte Gmail professionnel : votre agenda Google et celui de Hari Online Club restent synchronisés dans les deux sens. C’est depuis ce compte que seront créées les réunions de vos cours et envoyées les invitations à vos élèves."
+          ? "Connectez votre propre compte Gmail : son agenda et celui de Hari Online Club n’en font plus qu’un, en lecture comme en écriture."
+          : "Connectez votre compte Gmail : son agenda et celui de Hari Online Club n’en font plus qu’un. Vous y créez, modifiez et supprimez vos événements indifféremment d’un côté ou de l’autre, et c’est depuis ce compte que partent les réunions de vos cours et les invitations à vos élèves."
       }
       style={{ maxWidth: 680 }}
     >
@@ -99,6 +151,21 @@ export function IntegrationGoogleCalendarPersonnel() {
             </MessageSucces>
           </div>
         )}
+
+        {/* Compte rendu de la reprise lancée juste après la connexion (voir `reprendreReunions`) :
+            sans lui, le professeur n'aurait aucun moyen de savoir que ses cours déjà planifiés sont
+            passés sous son nom — ni qu'ils ne l'ont pas été. */}
+        {reprise === 'en_cours' && (
+          <MessageInfo>Reprise de vos réunions à venir dans votre agenda… Laissez cette page ouverte un instant.</MessageInfo>
+        )}
+        {reprise && reprise !== 'en_cours' && 'adoptees' in reprise && (
+          <MessageSucces>
+            {reprise.adoptees === 0
+              ? 'Vos réunions à venir étaient déjà organisées depuis votre compte : rien à reprendre.'
+              : `${reprise.adoptees} réunion${reprise.adoptees > 1 ? 's' : ''} à venir ${reprise.adoptees > 1 ? 'sont désormais organisées' : 'est désormais organisée'} depuis votre compte. Vos participants ont reçu l’invitation à jour de votre part.`}
+          </MessageSucces>
+        )}
+        {reprise && reprise !== 'en_cours' && 'erreur' in reprise && <MessageErreur>{reprise.erreur}</MessageErreur>}
         {retourGoogle === 'erreur' && (
           <div onClick={effacerRetour}>
             <MessageErreur>{messageRetour ?? 'La connexion Google a échoué.'}</MessageErreur>
@@ -133,6 +200,19 @@ export function IntegrationGoogleCalendarPersonnel() {
               </MessageErreur>
             )}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {/* Même geste que celui lancé automatiquement à la connexion, laissé à portée de
+                  main : un incident Google passager ne doit pas obliger à se déconnecter puis se
+                  reconnecter pour réessayer, ni à solliciter l'administration. */}
+              {peutEcrire && !estAdmin && (
+                <button
+                  type="button"
+                  onClick={() => session && reprendreReunions(session.access_token)}
+                  disabled={enCours || reprise === 'en_cours'}
+                  style={boutonSecondaireStyle}
+                >
+                  {reprise === 'en_cours' ? 'Reprise en cours…' : 'Reprendre mes réunions à venir'}
+                </button>
+              )}
               <button type="button" onClick={connecter} disabled={enCours} className="btn-shine" style={boutonPrimaireStyle}>
                 Reconnecter un autre compte
               </button>
@@ -155,10 +235,12 @@ export function IntegrationGoogleCalendarPersonnel() {
         )}
 
         <MessageInfo>
-          Hari Online Club n’écrit dans votre agenda que ce que vous y faites depuis l’application : les réunions des
-          cours que vous planifiez, et les événements que vous créez ou modifiez depuis votre agenda HOC. Vos autres
-          événements Google sont affichés sans jamais être touchés, et vous seul les voyez — ni vos collègues, ni vos
-          élèves n’y ont accès.
+          Les deux agendas n’en font plus qu’un : <strong>tous</strong> vos événements Google apparaissent dans votre
+          agenda Hari Online Club, y compris ceux que vous avez créés depuis Gmail, et vous pouvez les y{' '}
+          <strong>ouvrir, modifier, déplacer et supprimer</strong> — séries récurrentes comprises. Chaque changement part
+          aussitôt sur Google, dans les deux sens. Seuls les cours et rendez-vous nés dans HOC gardent leur propre fiche,
+          parce qu’elle commande aussi les heures, les présences et les notifications de vos élèves.
+          {' '}Votre agenda ne reste visible que de vous : ni vos collègues, ni vos élèves n’y ont accès.
         </MessageInfo>
       </div>
     </Section>

@@ -89,6 +89,13 @@ export function DocumentsAdmin() {
             <strong>Confidentiels</strong> : visibles uniquement par les personnes que vous ajoutez explicitement à la
             liste d’accès du document. Même les autres administrateurs n’y accèdent pas sans y être inscrits.
           </>,
+          <>
+            <strong>Partager un document.</strong> Cliquez n’importe quel fichier de ces onglets, puis{' '}
+            <strong>Partager</strong> : choisissez une personne et elle le retrouvera dans son espace, section{' '}
+            <strong>Documents → Mes fichiers partagés</strong>, avec votre nom et votre mot d’accompagnement. Le fichier
+            ne bouge pas de l’endroit où il est rangé, et la personne ne peut que le consulter et le télécharger. Vous
+            retirez le partage quand vous voulez, depuis la même fenêtre.
+          </>,
         ]}
       />
 
@@ -183,6 +190,11 @@ function PanneauDocuments({ personne, etablissementId }: { personne: Profile; et
             ownerProfileId={personne.id}
             etablissementId={etablissementId}
             peutSupprimer={() => true}
+            /* L'administration partage la vue de n'importe quelle pièce qu'elle voit (0110) : c'est
+               son métier de faire circuler une attestation ou un support, et la règle d'origine —
+               « seulement ses propres fichiers » — lui retirait le bouton partout, puisqu'elle
+               consulte toujours l'espace de quelqu'un d'autre. */
+            peutPartager={() => true}
             onChange={recharger}
             messageVide={`Aucune pièce au dossier de ${personne.prenom}. Créez un dossier pour organiser son espace, ou déposez directement un fichier.`}
           />
@@ -225,6 +237,10 @@ function PanneauPartageables({ etablissementId, adminId }: { etablissementId: st
             <ListeDocuments
               documents={documents}
               peutSupprimer={() => true}
+              /* Un document partageable est déjà visible de tout l'établissement : le partage sert
+                 ici à le POUSSER nommément chez quelqu'un, qui le retrouve dans « Mes fichiers
+                 partagés » avec un mot d'accompagnement, au lieu d'avoir à le chercher. */
+              peutPartager={() => true}
               onChange={charger}
               messageVide="Aucun document partagé pour l’instant. Déposez ici les supports que tout l’établissement doit pouvoir consulter."
             />
@@ -409,7 +425,12 @@ function PanneauConfidentiels({ etablissementId, adminId }: { etablissementId: s
           <div className="card" style={{ padding: 20 }}>
             {documents.map((d) => (
               <div key={d.id} style={{ borderBottom: '1px solid var(--border-soft)', paddingBottom: 10, marginBottom: 10 }}>
-                <ListeDocuments documents={[d]} peutSupprimer={() => true} onChange={charger} />
+                {/* « Partager » et « Gérer les accès » aboutissent au même résultat — rendre le
+                    fichier visible de quelqu'un — par deux chemins volontairement conservés : la
+                    liste d'accès (0033) sert à ouvrir un confidentiel à un groupe durable, le
+                    partage (0059) à le transmettre à une personne avec un mot, et à le lui faire
+                    apparaître dans « Mes fichiers partagés ». */}
+                <ListeDocuments documents={[d]} peutSupprimer={() => true} peutPartager={() => true} onChange={charger} />
                 <button
                   onClick={() => setAccesOuvert((v) => (v === d.id ? null : d.id))}
                   style={{ ...boutonSecondaireStyle, border: 'none', padding: '4px 0', marginTop: 6, fontSize: 11.5 }}

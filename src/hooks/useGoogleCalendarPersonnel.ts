@@ -38,17 +38,27 @@ export function useEvenementsGoogleCalendarPersonnel(semaineDebut: Date) {
   const { profile, session } = useProfileContext()
   const cle = profile && session ? `google-personnel-evenements-${semaineDebut.toISOString().slice(0, 10)}` : null
 
-  const { valeur, recharger } = useCacheRequete(cle, async () => {
-    const debut = semaineDebut
-    const fin = ajouterJours(semaineDebut, 7)
-    const parametres = new URLSearchParams({ debut: debut.toISOString(), fin: fin.toISOString() })
-    const reponse = await fetch(`/api/google-personnel/evenements?${parametres}`, {
-      headers: { Authorization: `Bearer ${session!.access_token}` },
-    }).catch(() => null)
-    if (!reponse?.ok) return []
-    const corps = (await reponse.json().catch(() => null)) as { evenements?: EvenementGoogle[] } | null
-    return corps?.evenements ?? []
-  })
+  const { valeur, recharger } = useCacheRequete(
+    cle,
+    async () => {
+      const debut = semaineDebut
+      const fin = ajouterJours(semaineDebut, 7)
+      const parametres = new URLSearchParams({ debut: debut.toISOString(), fin: fin.toISOString() })
+      const reponse = await fetch(`/api/google-personnel/evenements?${parametres}`, {
+        headers: { Authorization: `Bearer ${session!.access_token}` },
+      }).catch(() => null)
+      if (!reponse?.ok) return []
+      const corps = (await reponse.json().catch(() => null)) as { evenements?: EvenementGoogle[] } | null
+      return corps?.evenements ?? []
+    },
+    /* Google n'a aucun moyen de prévenir HOC qu'un événement a bougé dans Gmail : sans sondage, un
+       cours déplacé depuis le téléphone ne réapparaissait au bon créneau qu'après rechargement
+       complet de la page. Exigence client du 2026-10-10 : « il faut que tout soit synchronisé
+       instantanément ». Le sondage s'arrête dès que l'onglet n'est plus visible et relance une
+       lecture au retour (voir useSondagePeriodique) — c'est ce retour qui donne l'impression
+       d'immédiateté, le battement d'une minute ne servant qu'à l'agenda laissé ouvert à l'écran. */
+    { intervalleSondageMs: 60_000 },
+  )
 
   const bruts = useMemo<EvenementGoogle[]>(() => valeur ?? [], [valeur])
   /* Les deux formes sont rendues : celui que l'agenda place dans sa grille, et l'événement complet

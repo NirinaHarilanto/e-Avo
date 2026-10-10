@@ -29,7 +29,7 @@ import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { ChoixNatureRendezVous } from '../shared/ChoixNatureRendezVous'
 import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
-import { FicheEvenementGoogle } from '../shared/FicheEvenementGoogle'
+import { FicheEvenementGoogle, REPETITIONS } from '../shared/FicheEvenementGoogle'
 import { EnqueteSatisfactionAffichage } from '../shared/EnqueteSatisfactionAffichage'
 import { useDetailSeance } from '../../hooks/useDetailSeance'
 import { CompteRenduSeance } from './CompteRenduSeance'
@@ -231,11 +231,17 @@ export function CalendrierProfesseur() {
             aussitôt dans le planning de l’élève et dans la vue de l’administration, sans ressaisie.
           </>,
           <>
-            <strong>Votre agenda Google.</strong> Connectez-le depuis « Mon profil » : ses événements apparaissent dans
-            cette grille, et vous pouvez les <strong>ouvrir, modifier et supprimer d’ici</strong> — la modification part
-            aussitôt sur Google. C’est aussi depuis votre compte que sont créées les réunions de vos cours : vos élèves
-            reçoivent l’invitation de <strong>votre</strong> adresse, et vous en êtes l’organisateur. L’administration
-            n’est pas invitée automatiquement ; ajoutez-la aux participants si vous souhaitez sa présence.
+            <strong>Votre agenda Google.</strong> Connectez-le depuis « Mon profil » et les deux agendas n’en font plus
+            qu’un : <strong>tous</strong> vos événements Google apparaissent dans cette grille, même ceux créés depuis
+            Gmail, et vous pouvez les y <strong>ouvrir, modifier, déplacer et supprimer</strong> — séries récurrentes
+            comprises, avec le choix « cette date seulement » ou « toute la série ». Chaque changement part aussitôt sur
+            Google, et ce que vous changez dans Gmail revient ici de lui-même.
+          </>,
+          <>
+            C’est aussi depuis votre compte que sont créées les réunions de vos cours : vos élèves reçoivent
+            l’invitation de <strong>votre</strong> adresse, et vous en êtes l’organisateur. L’administration n’est pas
+            invitée automatiquement ; ajoutez-la aux participants si vous souhaitez sa présence. Un rendez-vous{' '}
+            <strong>sans aucun participant</strong> est accepté : c’est la façon de bloquer un créneau pour vous seul.
           </>,
         ]}
       />
@@ -265,6 +271,11 @@ export function CalendrierProfesseur() {
             onCree={() => {
               setFormulaireOuvert(false)
               recharger()
+              rechargerEvenements()
+              /* Un rendez-vous qui se répète n'existe QUE dans l'agenda Google (voir le
+                 formulaire) : sans ce rechargement, il n'apparaîtrait dans la grille qu'au
+                 prochain sondage, et le professeur croirait sa création perdue. */
+              rechargerGoogle()
             }}
           />
         )}
@@ -412,6 +423,11 @@ function FormulairePlanification({
   const [optionnelsIds, setOptionnelsIds] = useState<string[]>([])
   const [debut, setDebut] = useState(debutInitial ?? '')
   const [dureeMinutes, setDureeMinutes] = useState(60)
+  /* Chaîne vide = rendez-vous ponctuel, le cas courant. Sinon, une règle de répétition iCalendar
+     telle que Google l'attend (voir REPETITIONS dans FicheEvenementGoogle). Même champ, même
+     mécanique et même route qu'en espace admin (RendezVousAdmin.tsx) : l'agenda du professeur
+     doit offrir ce que celui de l'admin offre. */
+  const [repetition, setRepetition] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -437,7 +453,11 @@ function FormulairePlanification({
     )
   }, [studentIds, vagues, classeDeLaSeance])
 
-  const participantsManquants = nature === 'seance_cours' ? studentIds.length === 0 : obligatoiresIds.length === 0 && optionnelsIds.length === 0
+  /* Un rendez-vous « autre » SANS participant est permis depuis le 2026-10-10, comme en espace
+     admin : c'est un créneau que le professeur se bloque pour lui-même. Seule une séance de cours
+     exige encore un élève — elle n'a aucun sens sans lui, et c'est son inscription qui décompte
+     les heures. */
+  const participantsManquants = nature === 'seance_cours' && studentIds.length === 0
 
   async function creer() {
     if (!session || !debut || participantsManquants) return
@@ -447,6 +467,36 @@ function FormulairePlanification({
     }
     setEnCours(true)
     setErreur(null)
+
+    /* Un rendez-vous qui se répète part directement dans l'agenda Google du professeur, sans ligne
+       `evenements_admin` : cette table ne sait pas représenter une répétition, et n'y inscrire que
+       la première occurrence ferait apparaître ce jour-là deux fois dans l'agenda. L'agenda HOC
+       l'affiche ensuite par la superposition Google, avec sa fiche et ses boutons modifier /
+       supprimer (FicheEvenementGoogle). Identique à l'espace admin, au compte près : ici celui du
+       professeur, là celui de l'établissement. */
+    if (nature === 'autre' && repetition) {
+      const reponseSerie = await fetch('/api/google-personnel/evenement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          action: 'creer',
+          titre: titre.trim(),
+          debut: new Date(debut).toISOString(),
+          dureeMinutes,
+          description: notes.trim() || undefined,
+          recurrence: repetition,
+        }),
+      })
+        .then((r) => r.json())
+        .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
+      setEnCours(false)
+      if (reponseSerie.error) {
+        setErreur(reponseSerie.error)
+        return
+      }
+      onCree()
+      return
+    }
     // Une séance de cours crée une vraie `sessions` (heures décomptées à la clôture) ; « autre »
     // crée un `evenements_admin`, sans effet sur les heures — demande client du 2026-09-23,
     // « exactement comme dans l'espace admin » (voir api/professeur/creer-evenement.ts).
@@ -506,7 +556,10 @@ function FormulairePlanification({
         />
       )}
 
-      {etudiantsActifs.length === 0 ? (
+      {/* Le défaut d'élèves attribués ne bloque plus QUE la séance de cours : un créneau « autre »
+          peut n'avoir aucun participant depuis le 2026-10-10, et un professeur qui vient d'arriver
+          doit pouvoir se bloquer un créneau avant d'avoir le moindre élève. */}
+      {nature === 'seance_cours' && etudiantsActifs.length === 0 ? (
         <p style={{ color: 'var(--muted)', fontSize: 13.5 }}>Aucun élève ne vous est actuellement attribué.</p>
       ) : nature === 'seance_cours' ? (
         // Recherche façon Outlook, même principe que la création de rendez-vous côté admin
@@ -537,6 +590,31 @@ function FormulairePlanification({
             onChange={setOptionnelsIds}
             exclure={obligatoiresIds}
           />
+          {obligatoiresIds.length === 0 && optionnelsIds.length === 0 && (
+            <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+              Sans participant, ce créneau sera simplement bloqué dans votre agenda : il part dans votre agenda Google,
+              sans invitation à envoyer.
+            </p>
+          )}
+
+          {/* Répétition : même champ, mêmes règles et même route qu'en espace admin. */}
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={etiquetteStyle}>Répétition</span>
+            <select value={repetition} onChange={(e) => setRepetition(e.target.value)} style={champStyle}>
+              <option value="">Ne se répète pas</option>
+              {REPETITIONS.map((r) => (
+                <option key={r.valeur} value={r.valeur}>
+                  {r.libelle}
+                </option>
+              ))}
+            </select>
+            {repetition && (
+              <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+                Un rendez-vous qui se répète est créé directement dans votre agenda Google, sans participant HOC. Vous
+                le retrouverez dans cet agenda, où vous pourrez modifier ou supprimer une seule date ou toute la série.
+              </span>
+            )}
+          </label>
         </>
       )}
 
