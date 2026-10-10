@@ -52,6 +52,21 @@ export function IntegrationGoogleCalendarPersonnel() {
      librement, mais seulement vers l'adresse approuvée (le serveur le revérifie). */
   const changementAutorise = demande?.statut === 'approuvee' ? demande : null
 
+  /* « Reconnecter mon agenda » grisé dès que l'intégration est pleinement en ordre — demande
+     client du 2026-10-10 : rien ne justifie de relancer l'écran de consentement Google quand tout
+     fonctionne déjà, et un clic malheureux (mauvais compte choisi, deuxième consentement du même
+     compte) resterait un risque gratuit tant que l'application n'a pas la validation officielle de
+     Google (chaque compte distinct qui passe cet écran coûte une place définitive du quota).
+     Réactivé automatiquement à la déconnexion, puisque `statut` devient alors null et fait basculer
+     vers l'autre branche du rendu (bouton « Connecter mon agenda Google », jamais désactivé ici).
+
+     Volontairement PAS désactivé en lecture seule ni en incident (`derniere_erreur`) : dans ces
+     deux cas, cliquer CE MÊME bouton pour reconnecter la MÊME adresse est le geste de réparation
+     explicitement indiqué par les messages ci-dessous — le seul chemin sans validation
+     administrative pour un professeur, puisque se déconnecter d'abord lui serait refusé (0112). Le
+     désactiver aussi dans ces cas couperait la seule façon de réparer une synchronisation cassée. */
+  const integrationPleinementEnOrdre = !!statut && peutEcrire && !statut.derniere_erreur && !changementAutorise
+
   const connecter = useCallback(
     async (adresseAttendue: string) => {
       if (!session) return
@@ -218,9 +233,10 @@ export function IntegrationGoogleCalendarPersonnel() {
               <button
                 type="button"
                 onClick={() => setConfirmationOuverte(true)}
-                disabled={enCours}
+                disabled={enCours || integrationPleinementEnOrdre}
+                title={integrationPleinementEnOrdre ? 'Votre agenda est déjà synchronisé : rien à reconnecter.' : undefined}
                 className="btn-shine"
-                style={boutonPrimaireStyle}
+                style={{ ...boutonPrimaireStyle, opacity: integrationPleinementEnOrdre ? 0.45 : 1, cursor: integrationPleinementEnOrdre ? 'not-allowed' : 'pointer' }}
               >
                 {changementAutorise ? 'Connecter l’adresse autorisée' : 'Reconnecter mon agenda'}
               </button>
