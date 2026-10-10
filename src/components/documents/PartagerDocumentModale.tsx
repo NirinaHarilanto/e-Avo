@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { Modale } from '../ui/Modale'
 import { Champ, champStyle, etiquetteStyle, LigneInfo } from '../ui/Champ'
+import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 import { MessageAvertissement, MessageErreur, MessageInfo, MessageSucces } from '../ui/Etats'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 
@@ -32,7 +33,11 @@ export function PartagerDocumentModale({
   const { profile } = useProfileContext()
   const [candidats, setCandidats] = useState<Profile[] | null>(null)
   const [partages, setPartages] = useState<Partage[]>([])
-  const [destinataireId, setDestinataireId] = useState('')
+  /* Plusieurs destinataires d'un coup, façon Outlook — demande client du 2026-10-10 : « on doit
+     pouvoir rajouter plusieurs personnes, comme l'ajout de plusieurs personnes dans la zone de
+     destinataire d'un mail outlook ». Même composant que la création d'un rendez-vous
+     (SelecteurPersonnes) : un nom tapé, une suggestion choisie, une pastille amovible. */
+  const [destinataireIds, setDestinataireIds] = useState<string[]>([])
   const [message, setMessage] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -53,24 +58,43 @@ export function PartagerDocumentModale({
   }, [document.id])
 
   async function partager() {
-    if (!profile || !destinataireId) return
+    if (!profile || destinataireIds.length === 0) return
     setEnCours(true)
     setErreur(null)
     setSucces(null)
-    const { error } = await supabase.from('document_partages').insert({
-      document_id: document.id,
-      destinataire_profile_id: destinataireId,
-      partage_par_profile_id: profile.id,
-      message: message.trim() || null,
-    })
+    const motJoint = message.trim() || null
+    /* Un seul INSERT porteur de plusieurs lignes : Postgres le traite comme une transaction
+       unique, donc un doublon sur UNE seule personne (23505) ferait échouer le partage de TOUTES
+       les autres avec elle — y compris celles qui n'avaient encore rien. Les destinataires déjà
+       partagés sont donc exclus des suggestions (`exclure` sur SelecteurPersonnes, plus bas) :
+       cette erreur ne devrait plus se produire en usage normal, et reste un filet pour une
+       coïncidence (partage fait depuis un autre onglet entre le chargement et ce clic). */
+    const { error } = await supabase.from('document_partages').insert(
+      destinataireIds.map((destinataireProfileId) => ({
+        document_id: document.id,
+        destinataire_profile_id: destinataireProfileId,
+        partage_par_profile_id: profile.id,
+        message: motJoint,
+      })),
+    )
     setEnCours(false)
     if (error) {
-      setErreur(error.code === '23505' ? 'Ce fichier est déjà partagé avec cette personne.' : error.message)
+      setErreur(
+        error.code === '23505'
+          ? 'Au moins une des personnes choisies a déjà ce fichier partagé : la liste a été mise à jour, vérifiez les destinataires restants et réessayez.'
+          : error.message,
+      )
+      if (error.code === '23505') await charger()
       return
     }
-    setDestinataireId('')
+    const nombre = destinataireIds.length
+    setDestinataireIds([])
     setMessage('')
-    setSucces('Partage enregistré : la personne verra ce fichier dans « Mes fichiers partagés ».')
+    setSucces(
+      nombre > 1
+        ? `Partage enregistré avec ${nombre} personnes : elles verront ce fichier dans « Mes fichiers partagés ».`
+        : 'Partage enregistré : la personne verra ce fichier dans « Mes fichiers partagés ».',
+    )
     await charger()
     onChange()
   }
@@ -102,11 +126,12 @@ export function PartagerDocumentModale({
             DUPLIQUE le fichier. Il n'en fait rien — seule sa vue est ouverte — et c'est aussi ce
             qui explique où le destinataire doit aller le chercher, question posée à chaque fois. */}
         <MessageInfo>
-          <strong>Comment ça marche.</strong> Choisissez une personne ci-dessous, puis cliquez « Partager ». Le fichier
-          ne bouge pas et n’est pas dupliqué : il reste là où il est rangé, et la personne y accède en lecture depuis son
-          espace personnel, section <strong>Documents → Mes fichiers partagés</strong>, avec votre nom et le mot que vous
-          aurez joint. Elle pourra le consulter et le télécharger, jamais le modifier ni le supprimer. Vous pouvez
-          retirer votre partage à tout moment, en bas de cette fenêtre.
+          <strong>Comment ça marche.</strong> Tapez un nom ci-dessous et choisissez-le dans les suggestions — comme
+          dans la zone de destinataires d’un e-mail, vous pouvez en ajouter <strong>plusieurs</strong> avant de cliquer
+          « Partager ». Le fichier ne bouge pas et n’est pas dupliqué : il reste là où il est rangé, et chaque personne
+          y accède en lecture depuis son espace personnel, section <strong>Documents → Mes fichiers partagés</strong>,
+          avec votre nom et le mot que vous aurez joint. Elle pourra le consulter et le télécharger, jamais le modifier
+          ni le supprimer. Vous pouvez retirer votre partage à tout moment, en bas de cette fenêtre.
         </MessageInfo>
 
         {/* Tout fichier visible est partageable depuis le 2026-10-10 (0111), y compris dans
@@ -127,21 +152,23 @@ export function PartagerDocumentModale({
           </MessageAvertissement>
         )}
 
-        <Champ label="Partager avec">
-          <select value={destinataireId} onChange={(e) => setDestinataireId(e.target.value)} style={champStyle}>
-            <option value="">{candidats === null ? 'Chargement…' : 'Choisir une personne…'}</option>
-            {(candidats ?? []).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.prenom} {p.nom}
-              </option>
-            ))}
-          </select>
-        </Champ>
-
-        {candidats !== null && candidats.length === 0 && (
+        {candidats === null ? (
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>Chargement…</span>
+        ) : candidats.length === 0 ? (
           <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>
             Aucune personne à qui partager pour le moment.
           </span>
+        ) : (
+          <SelecteurPersonnes
+            etiquette="Partager avec"
+            placeholder="Rechercher un nom ou un prénom…"
+            candidats={candidats}
+            selectionnes={destinataireIds}
+            onChange={setDestinataireIds}
+            /* Une personne déjà destinataire d'un partage sur ce fichier n'est plus proposée : la
+               re-choisir échouerait (contrainte d'unicité), et elle a déjà accès. */
+            exclure={partages.map((p) => p.destinataire_profile_id)}
+          />
         )}
 
         <Champ label="Mot joint (facultatif)">
@@ -163,11 +190,15 @@ export function PartagerDocumentModale({
           </button>
           <button
             onClick={partager}
-            disabled={enCours || !destinataireId}
+            disabled={enCours || destinataireIds.length === 0}
             className="btn-shine"
-            style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: enCours || !destinataireId ? 0.6 : 1 }}
+            style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: enCours || destinataireIds.length === 0 ? 0.6 : 1 }}
           >
-            {enCours ? 'Partage…' : 'Partager'}
+            {enCours
+              ? 'Partage…'
+              : destinataireIds.length > 1
+                ? `Partager avec ${destinataireIds.length} personnes`
+                : 'Partager'}
           </button>
         </div>
 

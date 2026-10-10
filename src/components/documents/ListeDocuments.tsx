@@ -61,55 +61,63 @@ export function ListeDocuments({ documents, peutSupprimer, onChange, messageVide
         <span style={{ ...enTeteStyle, flexGrow: 1, minWidth: 200 }}>Fichier</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column' }}>
-        {documents.map((document) => {
-          const mention = mentionPartage?.(document) ?? null
-          return (
-            <button
-              key={document.id}
-              type="button"
-              onClick={() => setOuvert(document)}
-              className="row-hl"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-                padding: '11px 4px',
-                borderBottom: '1px solid var(--border-soft)',
-                background: 'transparent',
-                border: 'none',
-                borderRadius: 0,
-                width: '100%',
-                textAlign: 'left',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexGrow: 1, minWidth: 200 }}>
-                <span style={{ fontSize: 13, color: 'var(--ink)' }}>{document.nom_original}</span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 11, color: 'var(--muted)' }}>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: 'var(--accent-cyan)',
-                      background: 'rgba(169,140,255,.10)',
-                      border: '1px solid rgba(169,140,255,.22)',
-                      borderRadius: 999,
-                      padding: '2px 8px',
-                    }}
-                  >
-                    {libelleCategorie(document)}
-                  </span>
-                  {formatTaille(document.taille_octets)} · déposé le {new Date(document.created_at).toLocaleDateString('fr-FR')}
-                </span>
-                {mention && (
-                  <span style={{ fontSize: 11.5, color: 'var(--accent-teal)' }}>Partagé avec vous par {mention.par}</span>
-                )}
-              </div>
-              <Icone nom="chevron" taille={14} />
-            </button>
-          )
-        })}
+        {/* Une seule ligne par fichier — nom, catégorie, taille et date alignés ensemble (demande
+           client du 2026-10-10 : « les autres attributs du fichier devraient être alignés avec le
+           nom du fichier sur la même ligne [...] les fichiers devraient s'afficher en mode liste
+           toujours »). Composant partagé par les trois espaces (admin, professeur, étudiant), donc
+           une seule retouche ici suffit à tous les écrans. `flexWrap` reste le seul filet pour un
+           très petit écran ou un nom de fichier long : la ligne se scinde alors, elle ne s'étire
+           jamais hors cadre.
+
+           La mention « Partagé avec vous par... » (demande client du 2026-10-10 également) est
+           retirée d'ici — elle alourdissait la ligne d'une troisième hauteur de texte — mais pas
+           supprimée : elle reste visible dans la fiche du document, ouverte au clic
+           (DetailDocumentModale), qui est l'endroit où ce genre de détail se consulte déjà
+           (catégorie en toutes lettres, taille, date de dépôt). */}
+        {documents.map((document) => (
+          <button
+            key={document.id}
+            type="button"
+            onClick={() => setOuvert(document)}
+            className="row-hl"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              padding: '11px 4px',
+              borderBottom: '1px solid var(--border-soft)',
+              background: 'transparent',
+              border: 'none',
+              borderRadius: 0,
+              width: '100%',
+              textAlign: 'left',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flexGrow: 1, minWidth: 200 }}>
+              <span style={{ fontSize: 13, color: 'var(--ink)' }}>{document.nom_original}</span>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: 'var(--accent-cyan)',
+                  background: 'rgba(169,140,255,.10)',
+                  border: '1px solid rgba(169,140,255,.22)',
+                  borderRadius: 999,
+                  padding: '2px 8px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {libelleCategorie(document)}
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                {formatTaille(document.taille_octets)} · déposé le {new Date(document.created_at).toLocaleDateString('fr-FR')}
+              </span>
+            </span>
+            <Icone nom="chevron" taille={14} />
+          </button>
+        ))}
       </div>
 
       {ouvert && (
