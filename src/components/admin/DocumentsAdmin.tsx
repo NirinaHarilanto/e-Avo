@@ -270,7 +270,7 @@ function PanneauComptesRendus({ accessToken }: { accessToken: string | undefined
       <EtatVide
         icone="documents"
         titre="Aucun compte rendu pour le moment"
-        description="Les comptes rendus sont rédigés par les professeurs depuis leur calendrier, après avoir clôturé une séance. Ils apparaissent ici automatiquement et sont visibles par les élèves concernés."
+        description="Les comptes rendus sont rédigés par les professeurs depuis leur agenda, après avoir clôturé une séance. Ils apparaissent ici automatiquement et sont visibles par les élèves concernés."
       />
     )
   }
@@ -322,7 +322,7 @@ function PanneauComptesRendus({ accessToken }: { accessToken: string | undefined
           comptesRendus={filtres}
           loading={false}
           titreVide="Aucun compte rendu pour le moment"
-          descriptionVide="Les comptes rendus sont rédigés par les professeurs depuis leur calendrier, après avoir clôturé une séance."
+          descriptionVide="Les comptes rendus sont rédigés par les professeurs depuis leur agenda, après avoir clôturé une séance."
           actionsParLigne={({ rapport }) => <BoutonSupprimerCompteRendu rapportId={rapport.id} accessToken={accessToken} onSupprime={recharger} />}
         />
       )}

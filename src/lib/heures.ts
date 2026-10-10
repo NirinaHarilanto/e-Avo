@@ -15,3 +15,18 @@ export function formaterHeures(heuresDecimales: number | null | undefined): stri
 export function formaterMinutes(minutes: number | null | undefined): string {
   return formaterHeures((minutes ?? 0) / 60)
 }
+
+/* Heures totales d'un élève, TOUS forfaits cumulés — `packages` reste un historique de
+   souscriptions successives, jamais un total qu'on réécrit (demande client du 2026-09-22) : un
+   forfait ajouté en prolongation d'un précédent s'additionne, il ne le remplace pas. Centralisé
+   ici le 2026-10-10 : deux copies de ce calcul avaient divergé — l'une l'utilisait déjà
+   (DossierEtudiantVue.tsx pour les heures restantes), l'autre non (le même fichier pour la jauge
+   « Heures suivies », qui ne regardait que le DERNIER forfait souscrit — « 18 / 10 h » plutôt que
+   « 18 / 30 h » pour un élève ayant consommé 18 h sur 20 puis prolongé de 10 h). */
+export function totalHeuresCumulees(packages: { total_heures: number }[]): number {
+  return packages.reduce((somme, p) => somme + p.total_heures, 0)
+}
+
+export function heuresRestantes(packages: { total_heures: number }[], heuresConsommees: number): number {
+  return Math.max(0, totalHeuresCumulees(packages) - heuresConsommees)
+}

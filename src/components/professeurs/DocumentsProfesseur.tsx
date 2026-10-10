@@ -68,14 +68,14 @@ export function DocumentsProfesseur() {
           )}
         </GroupeSection>
 
-        <GroupeSection titre="Mes comptes rendus" description="Rédigés depuis votre calendrier après avoir clôturé une séance, avec les supports de cours que vous y avez joints.">
+        <GroupeSection titre="Mes comptes rendus" description="Rédigés depuis votre agenda après avoir clôturé une séance, avec les supports de cours que vous y avez joints.">
           <ListeComptesRendus
             comptesRendus={comptesRendus}
             loading={chargementComptesRendus}
             erreur={erreurComptesRendus}
             masquerProfesseur
             titreVide="Aucun compte rendu pour le moment"
-            descriptionVide="Rédigez un compte rendu depuis votre calendrier après avoir clôturé une séance : il apparaîtra ici automatiquement."
+            descriptionVide="Rédigez un compte rendu depuis votre agenda après avoir clôturé une séance : il apparaîtra ici automatiquement."
           />
         </GroupeSection>
       </div>

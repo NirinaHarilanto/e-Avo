@@ -31,7 +31,7 @@ export function HeuresAdmin() {
         etapes={[
           <>
             Les compteurs ne se saisissent pas : ils se remplissent automatiquement quand une séance passe au statut{' '}
-            <strong>terminée</strong> depuis le calendrier du professeur.
+            <strong>terminée</strong> depuis l’agenda du professeur.
           </>,
           <>
             La colonne <strong>Étudiants</strong> sert au suivi des forfaits. La colonne <strong>Professeurs</strong>{' '}

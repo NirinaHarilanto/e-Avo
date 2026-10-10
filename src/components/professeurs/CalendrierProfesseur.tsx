@@ -177,14 +177,14 @@ export function CalendrierProfesseur() {
   }
 
   return (
-    <ProfesseurLayout actif="Calendrier">
+    <ProfesseurLayout actif="Agenda">
       <EnTetePage
-        titre="Mon calendrier"
+        titre="Mon agenda"
         description="Votre semaine de cours, heure par heure. C’est ici que vous planifiez une séance, que vous notez les présences et que vous clôturez un cours une fois donné."
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <Onglets
-              etiquette="Mode d’affichage du calendrier"
+              etiquette="Mode d’affichage de l’agenda"
               actif={vue}
               onChange={setVue}
               onglets={[

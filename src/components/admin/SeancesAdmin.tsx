@@ -214,7 +214,7 @@ export function SeancesAdmin() {
           <EtatVide
             icone="seances"
             titre="Aucune séance planifiée"
-            description="Les séances apparaîtront ici dès qu’un professeur en programmera depuis son calendrier, ou dès qu’un forfait étudiant sera planifié en lot depuis son dossier."
+            description="Les séances apparaîtront ici dès qu’un professeur en programmera depuis son agenda, ou dès qu’un forfait étudiant sera planifié en lot depuis son dossier."
           />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -313,7 +313,7 @@ export function SeancesAdmin() {
                 videMessage={
                   personnesSelectionnees.size > 0
                     ? 'Aucun événement pour les personnes cochées cette semaine. Changez la sélection ou de semaine.'
-                    : 'Aucune séance cette semaine. Les professeurs les créent depuis leur propre calendrier, ou l’admin en lot depuis un forfait étudiant.'
+                    : 'Aucune séance cette semaine. Les professeurs les créent depuis leur propre agenda, ou l’admin en lot depuis un forfait étudiant.'
                 }
               />
             </div>

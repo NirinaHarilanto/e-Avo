@@ -8,7 +8,7 @@ interface ChoixEspaceProps {
 
 const CONTENU_CARTE: { icone: NomIcone; titre: string; description: string }[] = [
   { icone: 'dossier', titre: 'Espace élève', description: 'Dossier pédagogique, documents, compteur d’heures, contrats.' },
-  { icone: 'seances', titre: 'Espace professeur', description: 'Calendrier, élèves suivis, heures enseignées, comptes rendus.' },
+  { icone: 'seances', titre: 'Espace professeur', description: 'Agenda, élèves suivis, heures enseignées, comptes rendus.' },
   { icone: 'parametres', titre: 'Espace admin', description: 'Prospects, étudiants, séances, paiements, facturation, contrats.' },
 ]
 

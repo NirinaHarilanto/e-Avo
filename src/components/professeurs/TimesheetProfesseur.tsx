@@ -101,7 +101,7 @@ export function TimesheetProfesseur() {
             <EtatVide
               icone="timesheet"
               titre="Aucune heure à déclarer sur cette période"
-              description="Seules les séances clôturées, non payées et pas encore déclarées apparaissent ici. Élargissez la période ou clôturez vos séances passées depuis votre calendrier."
+              description="Seules les séances clôturées, non payées et pas encore déclarées apparaissent ici. Élargissez la période ou clôturez vos séances passées depuis votre agenda."
             />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>

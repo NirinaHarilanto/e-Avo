@@ -18,6 +18,7 @@ import { FormulaireInvitation } from '../shared/FormulaireInvitation'
 import { PanneauInformationsDuo, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
 import { SupprimerCompte } from '../shared/SupprimerCompte'
 import { SyntheseComptesRendus } from '../shared/SyntheseComptesRendus'
+import { heuresRestantes as calculerHeuresRestantes } from '../../lib/heures'
 import { MettreEnPauseCompte } from './MettreEnPauseCompte'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -226,6 +227,7 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
   const affectationActuelle = periodeActuelle?.affectation ?? null
   const forfait = dossier.packages[0] ?? null
   const { etudiant } = dossier
+  const heuresRestantes = calculerHeuresRestantes(dossier.packages, dossier.heuresConsommees)
 
   return (
     <DossierEtudiantVue
@@ -285,7 +287,14 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
           <DecisionHeureEssai essai={forfait} heuresConsommees={dossier.heuresConsommees} onDecide={recharger} />
         ) : undefined
       }
-      panneauAjoutForfait={<PanneauAjoutForfait studentId={etudiant.id} nomEtudiant={`${etudiant.prenom} ${etudiant.nom}`} onAjoute={recharger} />}
+      panneauAjoutForfait={
+        <PanneauAjoutForfait
+          studentId={etudiant.id}
+          nomEtudiant={`${etudiant.prenom} ${etudiant.nom}`}
+          heuresRestantes={heuresRestantes}
+          onAjoute={recharger}
+        />
+      }
       panneauVague={
         dossier.cohorte ? (
           <AssignerVague studentId={etudiant.id} etablissementId={etudiant.etablissement_id} vagueActuelle={dossier.cohorte} ouvertParDefaut onTermine={recharger} />
@@ -304,10 +313,17 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
 function PanneauAjoutForfait({
   studentId,
   nomEtudiant,
+  heuresRestantes,
   onAjoute,
 }: {
   studentId: string
   nomEtudiant: string
+  /* Heures encore disponibles, tous forfaits cumulés — décide du libellé du bouton (demande
+     client du 2026-10-10) : « Prolonger le forfait » tant qu'il en reste, « Ajouter un forfait »
+     une fois à 0. Le comportement réel ne change pas (c'est toujours un nouveau forfait qui
+     s'ajoute, jamais un remplacement), seul le mot employé reflète ce que l'admin fait vraiment
+     de son point de vue. */
+  heuresRestantes: number
   onAjoute: () => void
 }) {
   const { enAttente, recharger } = useDemandesForfait(studentId)
@@ -373,7 +389,7 @@ function PanneauAjoutForfait({
 
       {enAttente.length === 0 && (
         <button onClick={() => setModaleOuverte({})} className="btn-shine btn-secondary" style={{ alignSelf: 'flex-start' }}>
-          Ajouter un forfait
+          {heuresRestantes > 0 ? 'Prolonger le forfait' : 'Ajouter un forfait'}
         </button>
       )}
 
@@ -383,6 +399,7 @@ function PanneauAjoutForfait({
           nomEtudiant={nomEtudiant}
           demandeId={modaleOuverte.demandeId}
           heuresSuggerees={modaleOuverte.heures}
+          prolongation={heuresRestantes > 0}
           onFermer={() => setModaleOuverte(null)}
           onAjoute={() => {
             setModaleOuverte(null)

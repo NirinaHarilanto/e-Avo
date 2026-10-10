@@ -91,7 +91,7 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
       ],
     },
     {
-      titre: 'Calendrier',
+      titre: 'Agenda',
       lien: '/professeur/calendrier',
       points: [
         <>L’onglet Agenda montre votre semaine. Cliquez sur un créneau libre pour planifier une séance (cours) ou un autre rendez-vous (sans effet sur les heures).</>,

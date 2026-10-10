@@ -94,7 +94,7 @@ export function IntegrationGoogleCalendarPersonnel() {
         {retourGoogle === 'ok' && (
           <div onClick={effacerRetour}>
             <MessageSucces>
-              Compte Google connecté. Votre agenda apparaît désormais dans votre calendrier Hari Online Club, et ce
+              Compte Google connecté. Votre agenda apparaît désormais dans votre agenda Hari Online Club, et ce
               que vous y modifiez part aussitôt sur Google.
             </MessageSucces>
           </div>

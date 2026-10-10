@@ -47,7 +47,7 @@ export function HeuresProfesseur() {
         id="professeur-heures"
         etapes={[
           <>
-            Une séance ne compte dans ce total qu’une fois <strong>clôturée</strong> depuis votre calendrier. Tant
+            Une séance ne compte dans ce total qu’une fois <strong>clôturée</strong> depuis votre agenda. Tant
             qu’elle reste « planifiée », elle n’est pas comptabilisée.
           </>,
           <>
@@ -90,7 +90,7 @@ export function HeuresProfesseur() {
               <EtatVide
                 icone="heures"
                 titre="Aucune séance clôturée pour le moment"
-                description="Dès que vous aurez clôturé une première séance depuis votre calendrier, la répartition de vos heures apparaîtra ici."
+                description="Dès que vous aurez clôturé une première séance depuis votre agenda, la répartition de vos heures apparaîtra ici."
               />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

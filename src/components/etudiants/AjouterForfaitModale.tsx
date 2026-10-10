@@ -17,6 +17,7 @@ export function AjouterForfaitModale({
   nomEtudiant,
   demandeId,
   heuresSuggerees,
+  prolongation = false,
   onFermer,
   onAjoute,
 }: {
@@ -25,6 +26,10 @@ export function AjouterForfaitModale({
   /* Présent quand cet ajout vient valider une demande de l'élève (0061). */
   demandeId?: string
   heuresSuggerees?: number
+  /* `true` quand l'élève a encore des heures disponibles sur son forfait en cours (demande
+     client du 2026-10-10) — adapte uniquement le titre et le bouton, jamais le comportement :
+     un nouveau forfait s'ajoute toujours au précédent, que ses heures soient épuisées ou non. */
+  prolongation?: boolean
   onFermer: () => void
   onAjoute: () => void
 }) {
@@ -75,10 +80,12 @@ export function AjouterForfaitModale({
   }
 
   return (
-    <Modale titre={`Ajouter un forfait · ${nomEtudiant}`} onFermer={onFermer} largeurMax={460}>
+    <Modale titre={`${prolongation ? 'Prolonger le forfait' : 'Ajouter un forfait'} · ${nomEtudiant}`} onFermer={onFermer} largeurMax={460}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <p style={{ fontSize: 12.5, lineHeight: 1.55, color: 'var(--muted)', margin: 0 }}>
-          Ce forfait s’ajoute au précédent : les heures se cumulent, rien n’est remplacé.
+          {prolongation
+            ? 'Ce forfait prolonge le précédent, qui n’est pas encore épuisé : les heures se cumulent, rien n’est remplacé.'
+            : 'Ce forfait s’ajoute au précédent : les heures se cumulent, rien n’est remplacé.'}
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -163,7 +170,7 @@ export function AjouterForfaitModale({
             className="btn-shine"
             style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: enCours || !paiementConfirme ? 0.6 : 1 }}
           >
-            {enCours ? 'Ajout…' : 'Valider l’ajout du forfait'}
+            {enCours ? (prolongation ? 'Prolongation…' : 'Ajout…') : prolongation ? 'Valider la prolongation' : 'Valider l’ajout du forfait'}
           </button>
         </div>
       </div>

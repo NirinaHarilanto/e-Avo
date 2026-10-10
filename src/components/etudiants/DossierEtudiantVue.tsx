@@ -4,7 +4,12 @@ import { useNiveauxEtudiant } from '../../hooks/useNiveauxEtudiant'
 import { getJoinUrl } from '../../lib/visio'
 import { estRempli } from '../../lib/diagnostic'
 import { libelleStatutProfil, tonStatutProfil } from '../../lib/statutProfil'
-import { formaterHeures, formaterMinutes } from '../../lib/heures'
+import {
+  formaterHeures,
+  formaterMinutes,
+  totalHeuresCumulees as calculerTotalHeuresCumulees,
+  heuresRestantes as calculerHeuresRestantes,
+} from '../../lib/heures'
 import { RecapitulatifDiagnostic } from '../prospects/FormulaireDiagnosticCall'
 import type { Database } from '../../types/database.types'
 import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE } from '../../lib/classesCollectif'
@@ -530,8 +535,8 @@ export function DossierEtudiantVue({
   /* Restant et progression se calculent sur le CUMUL des forfaits, pas seulement le dernier
      souscrit — un ajout de forfait (0061) additionne des heures à un total déjà entamé, il ne
      remplace jamais le précédent. */
-  const totalHeuresCumulees = packages.reduce((somme, p) => somme + p.total_heures, 0)
-  const heuresRestantes = Math.max(0, totalHeuresCumulees - heuresConsommees)
+  const totalHeuresCumulees = calculerTotalHeuresCumulees(packages)
+  const heuresRestantes = calculerHeuresRestantes(packages, heuresConsommees)
   const [editionForfaitOuverte, setEditionForfaitOuverte] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
   const [editionVagueOuverte, setEditionVagueOuverte] = useState(false)
@@ -630,9 +635,14 @@ export function DossierEtudiantVue({
           compact
           libelle="Heures suivies"
           valeur={formaterHeures(heuresConsommees)}
-          unite={forfait ? `/ ${formaterHeures(forfait.total_heures)}` : undefined}
+          /* `totalHeuresCumulees` (somme de TOUS les forfaits souscrits), pas `forfait.total_heures`
+             (le dernier souscrit seul) — demande client du 2026-10-10 : un forfait ajouté en
+             prolongation d'un précédent encore en cours doit s'y voir cumulé. Avant ce correctif,
+             un élève ayant consommé 18 h sur 20 puis prolongé de 10 h affichait « 18 / 10 h »
+             (plus de 100 %) au lieu de « 18 / 30 h ». */
+          unite={forfait ? `/ ${formaterHeures(totalHeuresCumulees)}` : undefined}
           ton="or"
-          aide={forfait ? `Forfait de ${formaterHeures(forfait.total_heures)}` : 'Aucun forfait rattaché'}
+          aide={forfait ? `Forfait${packages.length > 1 ? 's cumulés' : ''} de ${formaterHeures(totalHeuresCumulees)}` : 'Aucun forfait rattaché'}
         />
         <Stat
           compact
