@@ -264,16 +264,13 @@ export function IntegrationGoogleCalendarPersonnel() {
           {' '}Votre agenda ne reste visible que de vous : ni vos collègues, ni vos élèves n’y ont accès.
         </MessageInfo>
 
-        {/* Instruction sur le quota Google, affichée dans les deux espaces (demande client du
-            2026-10-10). Elle a une conséquence pratique immédiate — ne pas essayer plusieurs
-            comptes « pour voir » — d'où sa place ici plutôt que dans une documentation. */}
+        {/* Instruction affichée dans les deux espaces personnels (demande client du 2026-10-10,
+            raccourcie le même jour) : le motif détaillé (quota Google) reste réservé à l'écran
+            Paramètres de l'admin (AgendasProfesseursAdmin.tsx), qui a le contexte pour s'y
+            attarder ; ici, seule la règle de comportement est annoncée. */}
         <MessageAvertissement>
-          <strong>Une adresse par personne, choisie une fois pour toutes.</strong> Tant que l’application n’a pas reçu
-          la validation officielle de Google, chaque compte Google <em>différent</em> connecté à Hari Online Club occupe
-          une place définitive dans son autorisation Google — la place n’est pas rendue si le compte est ensuite
-          déconnecté ou supprimé. C’est pourquoi l’adresse est confirmée avant chaque connexion
-          {estAdmin ? '' : ', et pourquoi un changement d’adresse demande l’accord de l’administration'}. Reconnecter
-          la <em>même</em> adresse, en revanche, ne coûte rien et reste toujours libre.
+          <strong>Une adresse par personne, choisie une fois pour toutes.</strong> L’adresse est confirmée avant
+          chaque connexion, et un changement d’adresse demande l’accord de l’administration.
         </MessageAvertissement>
       </div>
 
