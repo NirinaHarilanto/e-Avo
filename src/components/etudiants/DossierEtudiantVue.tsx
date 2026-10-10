@@ -245,10 +245,35 @@ function IdentiteProfesseur({ periode, taille = 46 }: { periode: PeriodeProfesse
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
         <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
           {periode.professeur ? `${periode.professeur.prenom} ${periode.professeur.nom}` : 'Professeur supprimé'}
+          {periode.professeur?.status === 'suspended' && <BadgeProfesseurSupprime />}
         </span>
         <span style={{ fontSize: 12, color: 'var(--muted)' }}>{periode.affectation.langue ?? 'Langue non précisée'}</span>
       </div>
     </div>
+  )
+}
+
+/* Un professeur dont le nom est restauré dans ce parcours (demande client du 2026-10-10, voir
+   useDossierEtudiant.ts) n'en reste pas moins un compte supprimé : ce badge le rappelle, pour que
+   le nom retrouvé se lise comme une TRACE historique, jamais comme un professeur qu'on pourrait
+   recontacter ou réaffecter depuis cette fiche. */
+function BadgeProfesseurSupprime() {
+  return (
+    <span
+      style={{
+        marginLeft: 8,
+        fontSize: 10,
+        fontWeight: 700,
+        color: 'var(--muted)',
+        background: 'rgba(255,255,255,.06)',
+        border: '1px solid var(--border-soft)',
+        borderRadius: 999,
+        padding: '2px 8px',
+        verticalAlign: 'middle',
+      }}
+    >
+      Compte supprimé
+    </span>
   )
 }
 
@@ -310,6 +335,7 @@ function BlocPeriode({
             <span className="brand-font" style={{ fontSize: 16, color: 'var(--ink)' }}>
               {periode.professeur ? `${periode.professeur.prenom} ${periode.professeur.nom}` : 'Professeur supprimé'}
             </span>
+            {periode.professeur?.status === 'suspended' && <BadgeProfesseurSupprime />}
             {estActuelle && (
               <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '3px 9px' }}>
                 Professeur actuel

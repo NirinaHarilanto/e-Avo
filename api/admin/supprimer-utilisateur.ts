@@ -21,6 +21,15 @@ export const config = { runtime: 'edge' }
  * documents, contrats, notifications — qui est désormais un vrai DELETE, pas une conservation
  * silencieuse.
  *
+ * Exception posée le 2026-10-10, à la demande du client : `teacher_assignments` (les périodes
+ * « cet élève a eu ce professeur du … au … ») N'EST PLUS supprimée quand c'est le PROFESSEUR qui
+ * part — « il faut garder la traçabilité des noms des professeurs dans le suivi pédagogique des
+ * étudiants [...] à l'avenir, respecter cette exigence ». C'est l'historique pédagogique DE
+ * L'ÉLÈVE, pas une donnée propre au professeur ; voir purgerDonneesProfesseur, qui ferme
+ * seulement l'affectation si elle était encore ouverte. `teacher_assignments` reste en revanche
+ * un vrai DELETE quand c'est l'ÉLÈVE qui part (purgerDonneesEtudiant) : c'est bien sa propre
+ * fiche qui disparaît dans ce cas, aucune exception à faire.
+ *
  * Chaque étape ne touche QUE les lignes propres à la personne supprimée : une séance ou une
  * écriture d'heures partagée (binôme DUO, classe de cours collectif) n'est jamais retirée pour
  * les autres participants, seule la part de la personne supprimée l'est.
@@ -214,12 +223,30 @@ async function purgerDonneesProfesseur(
   await serviceClient.from('notifications').delete().eq('destinataire_profile_id', teacherId)
   await serviceClient.from('session_reports').delete().eq('teacher_id', teacherId)
 
-  // Écritures d'heures créditées à ce professeur et affectations d'élèves : purgées. Les séances
-  // elles-mêmes ne sont pas supprimées (sessions.teacher_id ne peut pas être vidé — colonne
-  // obligatoire — et une séance passée reste l'historique pédagogique de SES élèves) ; elles
-  // restent simplement associées à ce professeur désormais supprimé, comme c'était déjà le cas.
+  // Écritures d'heures créditées à ce professeur : purgées — ce ne sont que des lignes de calcul
+  // de sa propre rémunération, sans intérêt une fois son compte parti.
   await serviceClient.from('hour_ledger').delete().eq('teacher_id', teacherId)
-  await serviceClient.from('teacher_assignments').delete().eq('teacher_id', teacherId)
+
+  /* `teacher_assignments`, à l'inverse, n'est PLUS supprimée depuis le 2026-10-10 : demande
+     client explicite, « il faut garder la traçabilité des noms des professeurs dans le suivi
+     pédagogique des étudiants [...] à l'avenir, respecter cette exigence ». Exactement comme les
+     séances (voir juste au-dessus) : c'est l'historique pédagogique DE L'ÉLÈVE, pas une donnée
+     propre à ce professeur — qui dates, qui motifs de changement compris, doit survivre à son
+     départ.
+     Une affectation encore OUVERTE (`date_fin` nulle) est en revanche close ici, jamais laissée
+     telle quelle : `useDossierEtudiant.ts` reconnaît « le professeur actuel de l'élève » à cette
+     seule colonne (`date_fin is null`), et un professeur supprimé ne doit plus jamais être désigné
+     comme tel — ce serait rendre l'élève responsable d'un suivi qui n'a plus personne derrière
+     lui. Fermée à la date du jour, avec un motif qui explique le pourquoi sans se confondre avec
+     un vrai changement de professeur choisi par l'admin. */
+  await serviceClient
+    .from('teacher_assignments')
+    .update({
+      date_fin: new Date().toISOString().slice(0, 10),
+      motif_changement: 'Professeur retiré de l’établissement',
+    })
+    .eq('teacher_id', teacherId)
+    .is('date_fin', null)
 
   // Vagues et classes de cours collectif qu'il animait : détachées, jamais supprimées (d'autres
   // élèves peuvent encore y être inscrits).

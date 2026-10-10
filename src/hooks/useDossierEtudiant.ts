@@ -137,10 +137,18 @@ export function useDossierEtudiant(studentId: string | undefined) {
         : Promise.resolve({ data: null as CohortClass | null }),
       sessionIds.length > 0 ? supabase.from('sessions').select('*').in('id', sessionIds) : Promise.resolve({ data: [] as Session[] }),
       sessionIds.length > 0 ? supabase.from('video_sessions').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as VideoSession[] }),
-      // Un professeur supprimé n'apparaît plus dans le parcours pédagogique de l'élève — la
-      // période et ses séances restent (c'est l'historique de L'ÉLÈVE), seule l'identité du
-      // professeur disparaît (demande client du 2026-09-23).
-      teacherIds.length > 0 ? supabase.from('profiles').select('*').in('id', teacherIds).neq('status', 'suspended') : Promise.resolve({ data: [] as Profile[] }),
+      /* Revirement du 2026-10-10 sur une règle posée le 2026-09-23 : le professeur disparaissait
+         alors AVEC son nom du parcours pédagogique de l'élève. Demande client explicite et
+         inverse — « il faut garder la traçabilité des noms des professeurs dans le suivi
+         pédagogique des étudiants [...] sans garder les fonctionnalités du professeur
+         supprimé, ce sera juste à titre d'information [...] UNIQUEMENT dans le suivi
+         pédagogique des étudiants ». Le filtre `.neq('status', 'suspended')` est donc retiré ICI
+         SEULEMENT : `profiles.nom`/`prenom` ne sont jamais effacés par la suppression (seul
+         `email` l'est, voir supprimer-utilisateur.ts), les redemander suffit. Ce choix ne doit
+         pas se propager à un autre hook — un professeur supprimé doit rester invisible de
+         partout où sa fiche pourrait sembler encore active (useProfesseurs, sélecteurs
+         d'affectation…), seule cette vue purement historique fait exception. */
+      teacherIds.length > 0 ? supabase.from('profiles').select('*').in('id', teacherIds) : Promise.resolve({ data: [] as Profile[] }),
       etudiant.prospect_id
         ? supabase.from('diagnostic_calls').select('*').eq('prospect_id', etudiant.prospect_id).order('created_at', { ascending: false }).limit(1).maybeSingle()
         : Promise.resolve({ data: null as DiagnosticCall | null }),
