@@ -302,10 +302,10 @@ export function TemplatesEmails() {
             setUtilise(null)
             setBrouillonRepris(null)
           }}
-          onEnvoye={() => {
+          onEnvoye={(avertissement) => {
             setUtilise(null)
             setBrouillonRepris(null)
-            annoncer('E-mail envoyé.')
+            annoncer(avertissement ? `E-mail envoyé. ${avertissement}` : 'E-mail envoyé.')
             rechargerEnvois()
           }}
           onEnregistre={() => rechargerEnvois()}

@@ -47,7 +47,10 @@ export function UtiliserTemplateModale({
      du modèle — l'admin retrouve son texte tel qu'il l'avait laissé. */
   brouillon?: EmailEnvoi | null
   onFermer: () => void
-  onEnvoye: () => void
+  /* `avertissement` : le mail est bien parti (Resend l'a accepté) mais la journalisation dans
+     `email_envois` a échoué — l'appelant doit le signaler puisque cette ligne n'apparaîtra pas
+     dans « Derniers envois ». */
+  onEnvoye: (avertissement?: string) => void
   onEnregistre: () => void
 }) {
   const { session, profile } = useProfileContext()
@@ -113,67 +116,81 @@ export function UtiliserTemplateModale({
   }
 
   async function appeler(action: 'envoi' | 'enregistrement') {
-    if (!session) return
+    /* Avant correctif (signalé par le client le 2026-10-10) : une session absente sortait
+       silencieusement ici, sans la moindre trace à l'écran — le bouton « Envoyer » redevenait
+       cliquable, et rien n'indiquait qu'aucune requête n'était jamais partie. Le même filet
+       (try/catch/finally) couvre aussi toute exception imprévue plus bas : l'admin doit toujours
+       finir avec un statut visible, succès ou échec, jamais un silence. */
+    if (!session) {
+      setErreur('Votre session a expiré. Rechargez la page et réessayez.')
+      return
+    }
     setErreur(null)
     setSucces(null)
     setEnCours(action)
 
-    const pieceDeposee = await deposerPiece()
-    if (pieceDeposee === 'erreur') {
-      setEnCours(null)
-      return
-    }
-
-    if (action === 'enregistrement') {
-      /* Brouillon écrit directement par le navigateur : la policy `email_envois_admin_all`
-         (0091) l'autorise, il n'y a ni e-mail à expédier ni adresse à résoudre. */
-      const ligne = {
-        etablissement_id: profile!.etablissement_id,
-        template_id: template?.id ?? brouillon?.template_id ?? null,
-        destinataires_profile_ids: obligatoires,
-        copies_profile_ids: optionnels,
-        objet: objet.trim(),
-        corps: corps.trim(),
-        piece_jointe_nom: pieceDeposee?.nom ?? brouillon?.piece_jointe_nom ?? null,
-        piece_jointe_chemin: pieceDeposee?.chemin ?? brouillon?.piece_jointe_chemin ?? null,
-        statut: 'brouillon' as const,
-        cree_par_profile_id: profile!.id,
-      }
-      const { error } = brouillon
-        ? await supabase.from('email_envois').update(ligne).eq('id', brouillon.id)
-        : await supabase.from('email_envois').insert(ligne)
-      setEnCours(null)
-      if (error) {
-        setErreur(`L'enregistrement a échoué : ${error.message}`)
+    try {
+      const pieceDeposee = await deposerPiece()
+      if (pieceDeposee === 'erreur') {
         return
       }
-      setSucces('Brouillon enregistré. Vous le retrouverez dans « Brouillons ».')
-      onEnregistre()
-      return
-    }
 
-    const reponse = await fetch('/api/admin/envoyer-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({
-        envoiId: brouillon?.id,
-        templateId: template?.id ?? brouillon?.template_id ?? undefined,
-        destinataireIds: obligatoires,
-        copieIds: optionnels,
-        objet: objet.trim(),
-        corps: corps.trim(),
-        pieceJointeNom: pieceDeposee?.nom ?? brouillon?.piece_jointe_nom ?? undefined,
-        pieceJointeChemin: pieceDeposee?.chemin ?? brouillon?.piece_jointe_chemin ?? undefined,
-      }),
-    }).catch(() => null)
-    setEnCours(null)
+      if (action === 'enregistrement') {
+        /* Brouillon écrit directement par le navigateur : la policy `email_envois_admin_all`
+           (0091) l'autorise, il n'y a ni e-mail à expédier ni adresse à résoudre. */
+        const ligne = {
+          etablissement_id: profile!.etablissement_id,
+          template_id: template?.id ?? brouillon?.template_id ?? null,
+          destinataires_profile_ids: obligatoires,
+          copies_profile_ids: optionnels,
+          objet: objet.trim(),
+          corps: corps.trim(),
+          piece_jointe_nom: pieceDeposee?.nom ?? brouillon?.piece_jointe_nom ?? null,
+          piece_jointe_chemin: pieceDeposee?.chemin ?? brouillon?.piece_jointe_chemin ?? null,
+          statut: 'brouillon' as const,
+          cree_par_profile_id: profile!.id,
+        }
+        const { error } = brouillon
+          ? await supabase.from('email_envois').update(ligne).eq('id', brouillon.id)
+          : await supabase.from('email_envois').insert(ligne)
+        if (error) {
+          setErreur(`L'enregistrement a échoué : ${error.message}`)
+          return
+        }
+        setSucces('Brouillon enregistré. Vous le retrouverez dans « Brouillons ».')
+        onEnregistre()
+        return
+      }
 
-    if (!reponse || !reponse.ok) {
-      const detail = reponse ? await reponse.json().catch(() => null) : null
-      setErreur(detail?.error ?? "L'envoi a échoué. Vérifiez votre connexion et réessayez.")
-      return
+      const reponse = await fetch('/api/admin/envoyer-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          envoiId: brouillon?.id,
+          templateId: template?.id ?? brouillon?.template_id ?? undefined,
+          destinataireIds: obligatoires,
+          copieIds: optionnels,
+          objet: objet.trim(),
+          corps: corps.trim(),
+          pieceJointeNom: pieceDeposee?.nom ?? brouillon?.piece_jointe_nom ?? undefined,
+          pieceJointeChemin: pieceDeposee?.chemin ?? brouillon?.piece_jointe_chemin ?? undefined,
+        }),
+      }).catch(() => null)
+
+      if (!reponse || !reponse.ok) {
+        const detail = reponse ? await reponse.json().catch(() => null) : null
+        setErreur(detail?.error ?? "L'envoi a échoué. Vérifiez votre connexion et réessayez.")
+        return
+      }
+      const resultat = await reponse.json().catch(() => null)
+      onEnvoye(resultat?.avertissement)
+    } catch (erreurInattendue) {
+      setErreur(
+        `Une erreur inattendue est survenue : ${erreurInattendue instanceof Error ? erreurInattendue.message : 'réessayez.'}`,
+      )
+    } finally {
+      setEnCours(null)
     }
-    onEnvoye()
   }
 
   const titre = brouillon ? 'Reprendre un brouillon' : (template?.nom ?? 'Nouvel e-mail')

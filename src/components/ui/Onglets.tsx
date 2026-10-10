@@ -9,20 +9,31 @@ interface OngletsProps<T extends string> {
   actif: T
   onChange: (value: T) => void
   etiquette?: string
-  /* Tient sur une seule ligne (jamais de retour à la ligne) avec un gabarit plus resserré —
-     demande client du 2026-09-16 pour les onglets du dossier étudiant, dont le panneau de
-     détail est trop étroit pour 4 onglets en taille normale sans qu'ils ne passent à la ligne.
-     Les intitulés restent entiers et lisibles, seuls le remplissage et la taille de police
-     diminuent. N'affecte que l'appelant qui le demande explicitement : les autres barres
+  /* Gabarit plus resserré (remplissage et taille de police réduits) — demande client du
+     2026-09-16 pour les onglets du dossier étudiant. N'affecte QUE la taille : par défaut, des
+     onglets trop nombreux pour la largeur disponible passent simplement à la ligne, comme pour
+     le gabarit normal. N'affecte que l'appelant qui le demande explicitement : les autres barres
      d'onglets de l'application (Séances, Documents, Paiements…) gardent leur gabarit habituel. */
   compact?: boolean
+  /* Interdit le retour à la ligne et ouvre un défilement horizontal à la place — demande client
+     du 2026-09-16, pour le dossier étudiant UNIQUEMENT : son panneau de détail est trop étroit
+     pour que 4 onglets passent à la ligne proprement (le contenu en dessous resterait aligné sur
+     une grille à deux colonnes, perturbée par une hauteur d'en-tête qui varierait selon le nombre
+     de lignes d'onglets).
+     À LAISSER ABSENT PARTOUT AILLEURS : avec seulement deux ou trois libellés courts (Messages,
+     Cours collectifs…), le navigateur affiche quand même sa barre de défilement native dès que le
+     contenu dépasse le conteneur ne serait-ce que d'un pixel — un défaut visuel réel, signalé par
+     le client le 2026-10-10 sur les onglets Reçus/Envoyés, alors qu'aucun défilement n'était
+     seulement nécessaire. Le retour à la ligne, lui, ne s'affiche jamais pour deux ou trois
+     libellés courts à une largeur d'écran raisonnable — aucune régression visuelle possible. */
+  defilant?: boolean
 }
 
 /* Barre d'onglets unique. Le même bloc d'une vingtaine de lignes était recopié dans
    SeancesAdmin, DocumentsAdmin, PaiementsAdmin, FacturationAdmin et ContratsAdmin ; seule
    FacturationAdmin y avait ajouté un `textTransform: capitalize` parce que ses libellés étaient
    les valeurs brutes (`devis`, `factures`) — ici les libellés sont toujours explicites. */
-export function Onglets<T extends string>({ onglets, actif, onChange, etiquette = 'Sections', compact = false }: OngletsProps<T>) {
+export function Onglets<T extends string>({ onglets, actif, onChange, etiquette = 'Sections', compact = false, defilant = false }: OngletsProps<T>) {
   return (
     <div
       role="tablist"
@@ -31,8 +42,8 @@ export function Onglets<T extends string>({ onglets, actif, onChange, etiquette 
         display: 'flex',
         alignItems: 'center',
         gap: compact ? 4 : 6,
-        flexWrap: compact ? 'nowrap' : 'wrap',
-        overflowX: compact ? 'auto' : undefined,
+        flexWrap: defilant ? 'nowrap' : 'wrap',
+        overflowX: defilant ? 'auto' : undefined,
       }}
     >
       {onglets.map((onglet) => {

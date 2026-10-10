@@ -115,10 +115,13 @@ export default async function handler(request: Request): Promise<Response> {
       envoye_le: resultat.envoye ? new Date().toISOString() : null,
       cree_par_profile_id: profileId,
     }
-    if (corps.envoiId) {
-      await serviceClient.from('email_envois').update(ligne).eq('id', corps.envoiId).eq('etablissement_id', etablissementId)
-    } else {
-      await serviceClient.from('email_envois').insert(ligne)
+    const { error: erreurJournal } = corps.envoiId
+      ? await serviceClient.from('email_envois').update(ligne).eq('id', corps.envoiId).eq('etablissement_id', etablissementId)
+      : await serviceClient.from('email_envois').insert(ligne)
+    if (erreurJournal) {
+      /* Visible dans les logs Vercel : si la journalisation échoue, la ligne n'existera pas dans
+         « Derniers envois » et l'admin n'aura aucun moyen de le savoir autrement. */
+      console.error('email_envois — journalisation échouée :', erreurJournal.message)
     }
 
     if (!resultat.envoye) {
@@ -133,7 +136,15 @@ export default async function handler(request: Request): Promise<Response> {
       )
     }
 
-    return Response.json({ ok: true, destinataires: emails.length, copies: emailsCopie.length })
+    return Response.json({
+      ok: true,
+      destinataires: emails.length,
+      copies: emailsCopie.length,
+      /* Le mail est bien parti (Resend l'a accepté) : on ne fait pas échouer l'envoi pour un
+         problème de journalisation, mais l'admin doit savoir qu'il ne verra pas la trace dans
+         « Derniers envois » s'il y retourne. */
+      avertissement: erreurJournal ? "L'e-mail est parti, mais n'a pas pu être enregistré dans l'historique." : undefined,
+    })
   } catch (error) {
     if (error instanceof AdminAuthError) {
       return Response.json({ error: error.message }, { status: error.status })
