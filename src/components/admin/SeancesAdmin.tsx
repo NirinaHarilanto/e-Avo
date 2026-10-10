@@ -5,11 +5,13 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { useRendezVous } from '../../hooks/useRendezVous'
 import { useEvenementsAdmin } from '../../hooks/useEvenementsAdmin'
-import { agendaAdminComplet, versEvenementSeance } from '../../lib/agendaEvenements'
+import { agendaAdminComplet, estEvenementGooglePersonnel, idGoogleDepuisEvenement, versEvenementSeance } from '../../lib/agendaEvenements'
+import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { nomsElevesInscrits } from '../../lib/seances'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
 import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
+import { FicheEvenementGoogle } from '../shared/FicheEvenementGoogle'
 import { DetailSeanceModale } from '../shared/DetailSeanceModale'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { EnTetePage } from '../ui/EnTetePage'
@@ -61,6 +63,19 @@ export function SeancesAdmin() {
 
   const semaineFin = useMemo(() => ajouterJours(semaineDebut, 7), [semaineDebut])
 
+  /* Agenda Google personnel DE CET ADMIN (0098), superposé quand la case « Admin » est cochée —
+     demande client du 2026-10-10 : « quand la box admin est coché, [l'agenda] devrait être
+     synchronisé exactement avec l'agenda de l'admin dans la section Agenda ». Avant ce correctif,
+     cette page n'ajoutait que les rendez-vous prospects et les événements admin
+     (agendaAdminComplet) ; « Agenda » (RendezVousAdmin.tsx) y ajoute aussi cette superposition
+     depuis le 2026-10-09 — les deux pages montraient donc, pour « Admin », deux agendas
+     différents. Même hook, même source. */
+  const {
+    evenements: evenementsGooglePersonnel,
+    parId: googleParId,
+    recharger: rechargerGoogle,
+  } = useEvenementsGoogleCalendarPersonnel(semaineDebut)
+
   const seancesSemaine = useMemo(
     () => seances.filter((s) => s.session.debut >= semaineDebut.toISOString() && s.session.debut < semaineFin.toISOString()),
     [seances, semaineDebut, semaineFin],
@@ -102,7 +117,9 @@ export function SeancesAdmin() {
       const debutIso = e.debut
       return debutIso >= semaineDebut.toISOString() && debutIso < semaineFin.toISOString()
     })
-    return [...seancesEvenements, ...evenementsAgendaAdmin]
+    // `evenementsGooglePersonnel` est déjà borné à la semaine affichée par le hook lui-même
+    // (paramètre `semaineDebut`), aucun filtrage de date à refaire ici.
+    return [...seancesEvenements, ...evenementsAgendaAdmin, ...evenementsGooglePersonnel]
   }, [
     seancesSemaine,
     personnesSelectionnees,
@@ -114,18 +131,23 @@ export function SeancesAdmin() {
     evenementsAdmin,
     semaineDebut,
     semaineFin,
+    evenementsGooglePersonnel,
   ])
 
   /* Toute séance s'ouvre, quel que soit son statut — demande client du 2026-09-23 (point 4) :
      une séance terminée doit livrer son compte rendu et les avis de ses élèves, ce que
      l'ancienne condition `statut === 'planifiee'` rendait impossible (le clic ne faisait rien).
      L'édition reste, elle, réservée aux séances encore planifiées. Quand le filtre « Admin » est
-     coché, l'agenda mélange aussi des rendez-vous prospects et des événements admin (ids
-     préfixés, voir lib/agendaEvenements.ts) : un clic dessus ouvre leur propre fiche. */
-  const clicEstEvenementAdmin = estEvenementAdmin(seanceOuverteId)
-  const seanceOuverte = !clicEstEvenementAdmin
+     coché, l'agenda mélange aussi des rendez-vous prospects, des événements admin et l'agenda
+     Google personnel de l'admin (ids préfixés, voir lib/agendaEvenements.ts) : un clic dessus
+     ouvre leur propre fiche. */
+  const clicEstEvenementGoogle = estEvenementGooglePersonnel(seanceOuverteId)
+  const clicEstEvenementAdmin = !clicEstEvenementGoogle && estEvenementAdmin(seanceOuverteId)
+  const seanceOuverte = !clicEstEvenementAdmin && !clicEstEvenementGoogle
     ? seances.find((s) => s.session.id === seanceOuverteId) ?? null
     : null
+  const evenementGoogleOuvert =
+    clicEstEvenementGoogle && seanceOuverteId ? (googleParId.get(idGoogleDepuisEvenement(seanceOuverteId)) ?? null) : null
 
   const maintenant = new Date().toISOString()
   const aVenir = seances
@@ -258,7 +280,7 @@ export function SeancesAdmin() {
               <LigneFiltrePersonne
                 id={ID_ADMIN}
                 libelle="Admin"
-                sousTitre="Rendez-vous et événements créés par l’admin"
+                sousTitre="Rendez-vous, événements créés par l’admin, et son agenda Google — le même qu’en page Agenda"
                 coche={adminSelectionne}
                 onBasculer={() => basculerPersonne(ID_ADMIN)}
               />
@@ -365,6 +387,16 @@ export function SeancesAdmin() {
             rechargerRendezVous()
             rechargerEvenementsAdmin()
           }}
+        />
+      )}
+
+      {/* Même fiche que dans « Agenda » (RendezVousAdmin.tsx) : cliquer un événement de l'agenda
+          Google de l'admin doit donner la même chose des deux côtés. */}
+      {evenementGoogleOuvert && (
+        <FicheEvenementGoogle
+          evenement={evenementGoogleOuvert}
+          onFermer={() => setSeanceOuverteId(null)}
+          onChange={rechargerGoogle}
         />
       )}
     </AdminLayout>
