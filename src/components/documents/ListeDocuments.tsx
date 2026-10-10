@@ -17,8 +17,11 @@ interface ListeDocumentsProps {
   peutSupprimer: (document: Document) => boolean
   onChange: () => void
   messageVide?: string
-  /* Partage de la vue d'un fichier avec une autre personne (0059) — proposé seulement pour ses
-     propres fichiers, on ne redistribue pas le fichier d'un autre. */
+  /* Partage de la vue d'un fichier avec une autre personne (0059). Proposé par DÉFAUT sur tout
+     fichier affiché : « TOUT utilisateur voyant un document dans son espace peut ajouter une vue
+     du document à un autre utilisateur même s'il n'est pas propriétaire » (règle client du
+     2026-10-10, policy 0111). Un appelant peut encore le restreindre — mais plus l'ouvrir : la
+     base refuserait un partage portant sur un document que l'émetteur ne voit pas. */
   peutPartager?: (document: Document) => boolean
   /* Mention affichée sur un fichier reçu en partage : qui l'a transmis, et son mot éventuel. */
   mentionPartage?: (document: Document) => { par: string; message: string | null } | null
@@ -113,7 +116,7 @@ export function ListeDocuments({ documents, peutSupprimer, onChange, messageVide
         <DetailDocumentModale
           document={ouvert}
           peutSupprimer={peutSupprimer(ouvert)}
-          peutPartager={peutPartager?.(ouvert) ?? false}
+          peutPartager={peutPartager?.(ouvert) ?? true}
           mention={mentionPartage?.(ouvert) ?? null}
           onFermer={() => setOuvert(null)}
           onChange={onChange}

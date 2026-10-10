@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
-import { chiffrer, echangerCode, emailDuCompte, verifierState, GoogleError } from '../_lib/google.js'
+import { chiffrer, echangerCode, emailDuCompte, memeAdresseGoogle, verifierState, GoogleError } from '../_lib/google.js'
 
 export const config = { runtime: 'edge' }
 
@@ -64,7 +64,7 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   try {
-    const { type, etablissementId, profileId } = await verifierState(state)
+    const { type, etablissementId, profileId, adresseAttendue } = await verifierState(state)
     const { refreshToken, accessToken, scope } = await echangerCode(code)
 
     const supabaseUrl = process.env.SUPABASE_URL
@@ -78,6 +78,24 @@ export default async function handler(request: Request): Promise<Response> {
       const { data: profil } = await serviceClient.from('profiles').select('role').eq('id', profileId).maybeSingle()
       const retour = new URL(profil?.role === 'professeur' ? '/professeur/mon-profil' : '/admin/mon-profil', url.origin)
 
+      /* L'adresse réellement autorisée chez Google doit être celle confirmée dans le pop-up avant
+         le départ (0112, exigence client du 2026-10-10 : « un pop-up pour bien vérifier son
+         adresse mail avant la validation de la synchronisation »). Le cas qu'on écarte n'est pas
+         théorique : connecté à deux comptes Google dans le même navigateur, on autorise le mauvais
+         d'un clic, l'intégration s'installe parfaitement valide sur une adresse qui n'est pas celle
+         voulue, et ce second compte a déjà consommé une place DÉFINITIVE du quota de 100
+         utilisateurs de l'application non vérifiée. Vérifier ici est le seul endroit où l'on
+         connaisse enfin l'adresse réelle — et où l'on puisse encore refuser de l'enregistrer. */
+      const emailGoogle = await emailDuCompte(accessToken)
+      if (adresseAttendue && !memeAdresseGoogle(adresseAttendue, emailGoogle)) {
+        retour.searchParams.set('google', 'erreur')
+        retour.searchParams.set(
+          'message',
+          `Vous avez confirmé ${adresseAttendue} mais c'est le compte ${emailGoogle} qui a été autorisé sur l'écran Google. Rien n'a été enregistré : déconnectez-vous de vos autres comptes Google, puis relancez la connexion.`,
+        )
+        return Response.redirect(retour.toString(), 302)
+      }
+
       /* L'ÉCRITURE est exigée depuis 0107, là où la lecture suffisait sous le régime de 0098 :
          l'agenda personnel d'un professeur reçoit désormais les réunions de ses cours. Laisser
          passer une autorisation en lecture seule installerait une intégration à moitié inerte —
@@ -89,7 +107,7 @@ export default async function handler(request: Request): Promise<Response> {
         {
           profile_id: profileId,
           etablissement_id: etablissementId,
-          google_email: await emailDuCompte(accessToken),
+          google_email: emailGoogle,
           refresh_token_chiffre: await chiffrer(refreshToken),
           scope,
           connecte_le: new Date().toISOString(),
@@ -98,6 +116,23 @@ export default async function handler(request: Request): Promise<Response> {
         { onConflict: 'profile_id' },
       )
       if (error) throw new GoogleError(error.message)
+
+      /* L'autorisation de changement est CONSOMMÉE, pas laissée ouverte (0112) : un accord de
+         l'admin vaut pour un changement, celui qui vient d'avoir lieu. Sans ce passage à
+         « utilisée », le professeur garderait un droit de reconnexion permanent après un seul
+         accord — exactement ce que le verrou cherche à empêcher. Filtré sur l'adresse autorisée
+         pour ne jamais consommer une demande qui portait sur un autre compte.
+         Best effort : l'intégration est déjà enregistrée, et échouer ici ne doit pas faire croire
+         à une connexion ratée. */
+      await serviceClient
+        .from('demandes_agenda_google')
+        .update({ statut: 'utilisee' })
+        .eq('profile_id', profileId)
+        .eq('statut', 'approuvee')
+        .then(
+          () => undefined,
+          () => undefined,
+        )
 
       retour.searchParams.set('google', 'ok')
       return Response.redirect(retour.toString(), 302)

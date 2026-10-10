@@ -173,13 +173,49 @@ async function cleSignature() {
    console, et il n'en existe qu'une seule pour ce projet (`GOOGLE_REDIRECT_URI`). Par défaut
    'etablissement' si absent, pour rester compatible avec un lien déjà émis au moment du
    déploiement de ce changement. */
-export async function signerState(type: 'etablissement' | 'personnel', donnees: { etablissementId: string; profileId: string }): Promise<string> {
+export async function signerState(
+  type: 'etablissement' | 'personnel',
+  /* `adresseAttendue` (2026-10-10) : l'adresse que la personne a CONFIRMÉE dans le pop-up avant de
+     partir vers Google. Elle voyage dans l'état signé — donc infalsifiable par le navigateur — et
+     le callback refuse l'enregistrement si Google renvoie une autre adresse. Deux raisons : un
+     professeur connecté à plusieurs comptes Google dans le même navigateur autorise très
+     facilement le mauvais, et chaque compte distinct consomme définitivement une place du quota de
+     100 utilisateurs de l'application non vérifiée. */
+  donnees: { etablissementId: string; profileId: string; adresseAttendue?: string },
+): Promise<string> {
   const charge = versBase64(new TextEncoder().encode(JSON.stringify({ type, ...donnees, emisLe: Date.now() })))
   const signature = await crypto.subtle.sign('HMAC', await cleSignature(), new TextEncoder().encode(charge))
   return `${charge}.${versBase64(new Uint8Array(signature))}`
 }
 
-export async function verifierState(state: string): Promise<{ type: 'etablissement' | 'personnel'; etablissementId: string; profileId: string }> {
+/**
+ * Deux adresses désignent-elles le même compte Google ?
+ *
+ * Insensible à la casse, et — pour gmail.com / googlemail.com uniquement — aux points de la partie
+ * locale, que Google ignore officiellement : `irina.stefane@gmail.com` et `irinastefane@gmail.com`
+ * sont le MÊME compte. Sans cette règle, la vérification d'adresse rejetterait une saisie
+ * parfaitement correcte, et le professeur devrait recommencer — en consommant une seconde place du
+ * quota Google pour rien. Les autres domaines sont comparés tels quels : nulle part ailleurs les
+ * points ne sont ignorés, et les traiter comme équivalents confondrait deux adresses distinctes.
+ */
+export function memeAdresseGoogle(a: string | null | undefined, b: string | null | undefined): boolean {
+  const normaliser = (valeur: string | null | undefined): string => {
+    const brut = (valeur ?? '').trim().toLowerCase()
+    const [local, domaine] = brut.split('@')
+    if (!domaine) return brut
+    if (domaine !== 'gmail.com' && domaine !== 'googlemail.com') return brut
+    return `${local.replaceAll('.', '')}@gmail.com`
+  }
+  const gauche = normaliser(a)
+  return gauche !== '' && gauche === normaliser(b)
+}
+
+export async function verifierState(state: string): Promise<{
+  type: 'etablissement' | 'personnel'
+  etablissementId: string
+  profileId: string
+  adresseAttendue?: string
+}> {
   const [charge, signature] = state.split('.')
   if (!charge || !signature) throw new GoogleError('Paramètre de sécurité manquant.')
 
@@ -195,12 +231,18 @@ export async function verifierState(state: string): Promise<{ type: 'etablisseme
     type?: 'etablissement' | 'personnel'
     etablissementId: string
     profileId: string
+    adresseAttendue?: string
     emisLe: number
   }
   if (Date.now() - donnees.emisLe > VALIDITE_STATE_MS) {
     throw new GoogleError('Demande de connexion expirée, relancez-la depuis vos paramètres.')
   }
-  return { type: donnees.type ?? 'etablissement', etablissementId: donnees.etablissementId, profileId: donnees.profileId }
+  return {
+    type: donnees.type ?? 'etablissement',
+    etablissementId: donnees.etablissementId,
+    profileId: donnees.profileId,
+    adresseAttendue: donnees.adresseAttendue,
+  }
 }
 
 /* ---------- OAuth ---------- */

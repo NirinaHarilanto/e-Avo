@@ -1,14 +1,18 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCacheRequete } from '../../hooks/useCacheRequete'
 import { peutEcrireDansAgenda } from '../../hooks/useGoogleCalendarPersonnel'
+import { useDemandesAgendaGoogleAdmin } from '../../hooks/useDemandeAgendaGoogle'
 import type { Database } from '../../types/database.types'
 import { Section } from '../ui/Section'
-import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
+import { champStyle } from '../ui/Champ'
+import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
+import { EtatChargement, MessageAvertissement, MessageErreur, MessageInfo } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
 
 type LigneAgenda = Database['public']['Views']['google_agendas_professeurs_statut']['Row']
+type DemandeAdmin = Database['public']['Views']['demandes_agenda_google_admin']['Row']
 
 /* Suivi, pour l'administration, des agendas Google des professeurs (0107).
 
@@ -48,6 +52,11 @@ export function AgendasProfesseursAdmin() {
     const { data } = await supabase.from('google_agendas_professeurs_statut').select('*')
     return (data ?? []) as LigneAgenda[]
   })
+  /* Demandes de changement d'adresse à trancher (0112) : « la validation sera faite uniquement par
+     l'admin ». Elles vivent dans cet écran et pas ailleurs — c'est déjà celui qui dit quel
+     professeur a connecté quel compte, donc le seul endroit où l'admin a sous les yeux le contexte
+     nécessaire pour décider. */
+  const { enAttente: demandesEnAttente, recharger: rechargerDemandes } = useDemandesAgendaGoogleAdmin()
 
   const lignes = useMemo(() => {
     /* Les comptes à régler d'abord : non connectés, puis lecture seule, puis le reste, et par nom
@@ -70,6 +79,19 @@ export function AgendasProfesseursAdmin() {
       style={{ maxWidth: 680 }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {demandesEnAttente.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <MessageAvertissement>
+              {demandesEnAttente.length === 1
+                ? 'Un professeur demande à changer le compte Google relié à son agenda. Vous seul pouvez l’autoriser.'
+                : `${demandesEnAttente.length} professeurs demandent à changer le compte Google relié à leur agenda. Vous seul pouvez les autoriser.`}
+            </MessageAvertissement>
+            {demandesEnAttente.map((demande) => (
+              <CarteDemande key={demande.id} demande={demande} onDecide={rechargerDemandes} />
+            ))}
+          </div>
+        )}
+
         {lignes.length === 0 ? (
           <EtatVide
             compact
@@ -154,7 +176,128 @@ export function AgendasProfesseursAdmin() {
           cocher la permission de modification des agendas sur l’écran Google. Un compte en « lecture seule » a été
           branché avant cette permission : il doit être reconnecté.
         </MessageInfo>
+
+        {/* Même instruction que dans « Mon agenda Google » des deux espaces (demande client du
+            2026-10-10) : elle a une conséquence pratique pour l'admin aussi — autoriser un
+            changement d'adresse consomme une place, et refuser un essai « pour voir » en préserve
+            une. */}
+        <MessageAvertissement>
+          <strong>Un professeur est libre de sa première connexion, pas du changement.</strong> Tant que l’application
+          n’a pas reçu la validation officielle de Google, chaque compte Google <em>différent</em> connecté à Hari
+          Online Club occupe une place définitive dans son autorisation Google — place qui n’est pas rendue si le
+          compte est ensuite déconnecté ou si le professeur est supprimé. Les changements d’adresse passent donc par
+          votre validation, et reconnecter la <em>même</em> adresse reste libre et sans coût.
+        </MessageAvertissement>
       </div>
     </Section>
+  )
+}
+
+/* Une demande de changement d'adresse à trancher. Approuver n'écrit rien dans l'intégration : cela
+   ouvre, pour CETTE adresse et une seule fois, le droit pour le professeur de relancer la connexion
+   Google — personne ne peut autoriser un agenda à la place de son titulaire. */
+function CarteDemande({ demande, onDecide }: { demande: DemandeAdmin; onDecide: () => void }) {
+  const { session } = useProfileContext()
+  const [refusOuvert, setRefusOuvert] = useState(false)
+  const [motifRefus, setMotifRefus] = useState('')
+  const [enCours, setEnCours] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  async function decider(decision: 'approuver' | 'refuser') {
+    if (!session) return
+    setEnCours(true)
+    setErreur(null)
+    const reponse = await fetch('/api/admin/decider-demande-agenda', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ demandeId: demande.id, decision, motifRefus: motifRefus.trim() || undefined }),
+    })
+    setEnCours(false)
+    if (!reponse.ok) {
+      const corps = await reponse.json().catch(() => null)
+      setErreur(corps?.error ?? 'La décision n’a pas pu être enregistrée.')
+      return
+    }
+    onDecide()
+  }
+
+  const nom = `${demande.prenom ?? ''} ${demande.nom ?? ''}`.trim() || demande.email || 'Professeur'
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        border: '1px solid rgba(233,207,148,.32)',
+        background: 'rgba(233,207,148,.06)',
+        borderRadius: 12,
+        padding: '12px 14px',
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <span style={{ fontSize: 13.5, color: 'var(--ink)', fontWeight: 600 }}>{nom}</span>
+        <span style={{ fontSize: 12, color: 'var(--muted)', overflowWrap: 'anywhere' }}>
+          {demande.google_email_actuel ? `${demande.google_email_actuel} → ` : 'Nouvelle liaison → '}
+          <strong style={{ color: 'var(--ink-2)' }}>{demande.google_email_souhaite}</strong>
+        </span>
+        <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>
+          Demandé le {new Date(demande.created_at).toLocaleDateString('fr-FR', { dateStyle: 'long' })}
+        </span>
+        {demande.motif && (
+          <p style={{ fontSize: 12, color: 'var(--muted)', fontStyle: 'italic', margin: '3px 0 0', lineHeight: 1.5 }}>
+            « {demande.motif} »
+          </p>
+        )}
+      </div>
+
+      {erreur && <MessageErreur>{erreur}</MessageErreur>}
+
+      {refusOuvert ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <textarea
+            autoFocus
+            value={motifRefus}
+            onChange={(e) => setMotifRefus(e.target.value)}
+            rows={2}
+            placeholder="Motif du refus (facultatif, transmis au professeur)"
+            style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
+          />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" onClick={() => setRefusOuvert(false)} disabled={enCours} style={boutonNeutreStyle}>
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={() => decider('refuser')}
+              disabled={enCours}
+              style={{ ...boutonNeutreStyle, color: 'var(--danger)' }}
+            >
+              {enCours ? 'Enregistrement…' : 'Confirmer le refus'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => decider('approuver')}
+            disabled={enCours}
+            className="btn-shine"
+            style={boutonPrimaireStyle}
+          >
+            {enCours ? 'Enregistrement…' : 'Autoriser ce changement'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setRefusOuvert(true)}
+            disabled={enCours}
+            style={{ ...boutonNeutreStyle, color: 'var(--danger)' }}
+          >
+            Refuser
+          </button>
+        </div>
+      )}
+    </div>
   )
 }

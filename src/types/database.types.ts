@@ -1713,6 +1713,39 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['evenements_admin']['Insert']>
         Relationships: []
       }
+      /* Demande, par un professeur, de changer l'adresse Gmail reliée à son agenda HOC (0112) :
+         lui seul peut la déposer, l'admin seul la tranche. Il n'a aucune policy d'update, c'est ce
+         qui rend « la validation uniquement par l'admin » structurel. */
+      demandes_agenda_google: {
+        Row: {
+          id: string
+          etablissement_id: string
+          profile_id: string
+          google_email_actuel: string | null
+          google_email_souhaite: string
+          motif: string | null
+          statut: 'en_attente' | 'approuvee' | 'refusee' | 'utilisee'
+          decide_par: string | null
+          decide_le: string | null
+          motif_refus: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          profile_id: string
+          google_email_actuel?: string | null
+          google_email_souhaite: string
+          motif?: string | null
+          statut?: 'en_attente' | 'approuvee' | 'refusee' | 'utilisee'
+          decide_par?: string | null
+          decide_le?: string | null
+          motif_refus?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['demandes_agenda_google']['Insert']>
+        Relationships: []
+      }
     }
     Views: {
       /* Liste des personnes à qui écrire un message (0090). Vue `security definer` à dessein :
@@ -1763,6 +1796,25 @@ export interface Database {
           connecte_le: string | null
           derniere_erreur: string | null
           scope: string | null
+        }
+        Relationships: []
+      }
+      /* Demandes de changement de compte Google, avec le nom du professeur (0112) — réservée aux
+         admins de l'établissement par la clause WHERE de la vue. */
+      demandes_agenda_google_admin: {
+        Row: {
+          id: string
+          profile_id: string
+          prenom: string | null
+          nom: string | null
+          email: string | null
+          google_email_actuel: string | null
+          google_email_souhaite: string
+          motif: string | null
+          statut: 'en_attente' | 'approuvee' | 'refusee' | 'utilisee'
+          motif_refus: string | null
+          decide_le: string | null
+          created_at: string
         }
         Relationships: []
       }

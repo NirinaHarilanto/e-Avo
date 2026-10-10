@@ -103,11 +103,22 @@ export function PartagerDocumentModale({
             qui explique où le destinataire doit aller le chercher, question posée à chaque fois. */}
         <MessageInfo>
           <strong>Comment ça marche.</strong> Choisissez une personne ci-dessous, puis cliquez « Partager ». Le fichier
-          ne bouge pas : il reste rangé ici, et la personne en voit une copie en lecture dans son espace personnel,
-          section <strong>Documents → Mes fichiers partagés</strong>, avec votre nom et le mot que vous aurez joint. Elle
-          pourra le consulter et le télécharger, jamais le modifier ni le supprimer. Vous pouvez retirer le partage à
-          tout moment, en bas de cette fenêtre.
+          ne bouge pas et n’est pas dupliqué : il reste là où il est rangé, et la personne y accède en lecture depuis son
+          espace personnel, section <strong>Documents → Mes fichiers partagés</strong>, avec votre nom et le mot que vous
+          aurez joint. Elle pourra le consulter et le télécharger, jamais le modifier ni le supprimer. Vous pouvez
+          retirer votre partage à tout moment, en bas de cette fenêtre.
         </MessageInfo>
+
+        {/* Tout fichier visible est partageable depuis le 2026-10-10 (0111), y compris dans
+            l'espace d'autrui : le dire, parce que la personne qui partage n'est alors pas celle qui
+            pourra le supprimer, et que le destinataire verra le nom de l'émetteur, pas celui du
+            propriétaire. */}
+        {document.owner_profile_id !== profile?.id && !document.etablissement_wide && (
+          <MessageAvertissement>
+            Ce fichier n’est pas rangé dans votre espace. Vous en ouvrez la vue à quelqu’un, mais son propriétaire
+            reste seul maître du fichier : s’il le supprime, le partage disparaît avec lui.
+          </MessageAvertissement>
+        )}
 
         {document.etablissement_wide && (
           <MessageAvertissement>
@@ -162,7 +173,11 @@ export function PartagerDocumentModale({
 
         {partages.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid var(--border-soft)', paddingTop: 11 }}>
-            <span style={{ ...etiquetteStyle, fontSize: 11 }}>Déjà partagé avec</span>
+            {/* « Vos partages », pas « déjà partagé avec » : la liste ne montre que les lignes dont
+                je suis l'émetteur (policy 0059/0111), donc jamais le partage qu'une autre personne
+                aurait fait du même fichier. Le titre d'origine laissait croire à un inventaire
+                complet. */}
+            <span style={{ ...etiquetteStyle, fontSize: 11 }}>Vos partages sur ce fichier</span>
             {partages.map((p) => (
               <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1 }}>

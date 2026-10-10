@@ -11,7 +11,8 @@ import { getJoinUrl } from '../../lib/visio'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
 import { nomsElevesInscrits } from '../../lib/seances'
 import { versEvenementAdmin, estEvenementGooglePersonnel, idGoogleDepuisEvenement } from '../../lib/agendaEvenements'
-import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
+import { useEvenementsGoogleCalendarPersonnel, useStatutGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
+import { useRepriseAutomatiqueReunions } from '../../hooks/useRepriseReunionsGoogle'
 import { type NatureRendezVous } from '../../lib/natureRendezVous'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { EnTetePage } from '../ui/EnTetePage'
@@ -163,6 +164,13 @@ export function CalendrierProfesseur() {
     parId: googleParId,
     recharger: rechargerGoogle,
   } = useEvenementsGoogleCalendarPersonnel(semaineDebut)
+  /* Reprise automatique des réunions encore hébergées par le compte de l'établissement, en
+     arrière-plan et sans aucun bouton à cliquer (exigence client du 2026-10-10). Déclenchée ici
+     plutôt qu'au seul retour de la connexion Google : un professeur dont l'admin planifie les
+     cours accumule des séances créées par l'établissement entre deux visites, et plus rien ne les
+     ramènerait chez lui. Ne coûte qu'une requête Postgres quand il n'y a rien à faire — voir
+     useRepriseReunionsGoogle. */
+  const { peutEcrire: agendaEnEcriture } = useStatutGoogleCalendarPersonnel()
   const [evenementGoogleOuvertId, setEvenementGoogleOuvertId] = useState<string | null>(null)
   const evenementGoogleOuvert = evenementGoogleOuvertId ? (googleParId.get(evenementGoogleOuvertId) ?? null) : null
   const evenements = useMemo(
@@ -170,6 +178,13 @@ export function CalendrierProfesseur() {
     [seances, evenementsAutres, evenementsGooglePersonnel],
   )
   const seanceOuverte = seances.find((s) => s.session.id === seanceOuverteId) ?? null
+
+  useRepriseAutomatiqueReunions(agendaEnEcriture, () => {
+    /* Les deux à recharger : la séance porte un nouveau lien de visio (`recharger`) et son
+       événement a changé d'agenda, donc la superposition Google aussi (`rechargerGoogle`). */
+    recharger()
+    rechargerGoogle()
+  })
 
   function ouvrirPlanification(debut?: Date) {
     setDebutPreselectionne(debut ? versDatetimeLocal(debut) : '')

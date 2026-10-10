@@ -4,6 +4,7 @@ import {
   evenementAccessible,
   integrationDeLEtablissement,
   integrationPersonnelleDeLaPersonne,
+  memeAdresseGoogle,
   noterErreurGooglePersonnelle,
   supprimerEvenement,
   GoogleError,
@@ -12,6 +13,15 @@ import {
 import { emailsParticipants } from '../_lib/creerSeance.js'
 
 export const config = { runtime: 'edge' }
+
+interface Corps {
+  /* « complet » (après une connexion Google) vérifie AUSSI que les événements déjà à mon nom
+     existent encore chez Google — un coup par séance, donc à réserver à ce moment-là. « rapide »
+     (défaut) se fie à `video_sessions.organisateur_email` : purement SQL, donc gratuit quand il n'y
+     a rien à reprendre, ce qui permet de déclencher la reprise à chaque ouverture de l'agenda sans
+     peser sur l'affichage. */
+  mode?: 'rapide' | 'complet'
+}
 
 /**
  * Fait passer dans l'agenda Google de l'appelant les réunions à venir qui le concernent et qui
@@ -44,6 +54,7 @@ export default async function handler(request: Request): Promise<Response> {
 
   try {
     const { serviceClient, profileId, etablissementId } = await requireTeacherOrAdmin(request)
+    const { mode = 'rapide' } = (await request.json().catch(() => ({}))) as Corps
 
     const mien = await integrationPersonnelleDeLaPersonne(serviceClient, profileId).catch(() => null)
     if (!mien) {
@@ -107,10 +118,13 @@ export default async function handler(request: Request): Promise<Response> {
 
     for (const seance of aTraiter) {
       const visio = visioParSeance.get(seance.id) ?? null
-      /* Déjà chez moi ET l'événement existe encore : rien à faire. L'accessibilité est vérifiée,
-         sinon une ligne qui porte mon adresse mais dont l'événement a été supprimé à la main dans
-         Gmail resterait éternellement sans réunion. */
-      if (visio?.organisateur_email === mien.googleEmail && visio.google_event_id) {
+      /* Déjà chez moi : rien à faire. En mode « complet » on s'assure en plus que l'événement
+         existe encore chez Google — sinon une ligne qui porte mon adresse mais dont l'événement a
+         été supprimé à la main dans Gmail resterait éternellement sans réunion. En mode « rapide »
+         on s'en tient à l'adresse enregistrée : c'est ce qui rend le passage gratuit quand tout est
+         en ordre, et donc déclenchable à chaque ouverture d'agenda. */
+      if (memeAdresseGoogle(visio?.organisateur_email, mien.googleEmail) && visio?.google_event_id) {
+        if (mode === 'rapide') continue
         if (await evenementAccessible(mien, visio.google_event_id).catch(() => false)) continue
       }
       if (!tempsRestant()) {
@@ -181,6 +195,11 @@ export default async function handler(request: Request): Promise<Response> {
     const evenementsATraiter = (evenements ?? []).filter((e) => pasTermine(e.debut, e.duree_minutes))
 
     for (const evenement of evenementsATraiter) {
+      /* `evenements_admin` ne garde pas l'adresse de l'hôte : savoir si l'événement est chez moi
+         demande donc l'appel à Google. En mode « rapide », on ne traite que ceux qui n'ont AUCUN
+         événement Google — le seul cas détectable sans appel — et on laisse le reste au passage
+         complet qui suit une connexion. */
+      if (mode === 'rapide' && evenement.google_event_id) continue
       if (evenement.google_event_id && (await evenementAccessible(mien, evenement.google_event_id).catch(() => false))) {
         continue
       }

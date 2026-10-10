@@ -354,10 +354,11 @@ export function ExplorateurDocuments({
              Le destinataire peut seulement retirer le partage, depuis la fenêtre de partage du
              propriétaire — ou demander à ce dernier. */
           peutSupprimer={(d) => !dansPartages && peutSupprimer(d)}
-          /* Jamais un fichier qu'on a REÇU en partage : il appartient à quelqu'un d'autre, et le
-             redistribuer dépasserait ce que son propriétaire a accordé. Pour le reste, l'appelant
-             décide (voir la prop `peutPartager`). */
-          peutPartager={(d) => !dansPartages && (peutPartager ? peutPartager(d) : d.owner_profile_id === profile?.id)}
+          /* Tout fichier visible est partageable, y compris un fichier REÇU en partage et y
+             compris dans l'espace de quelqu'un d'autre — c'est le sens littéral de la règle posée
+             le 2026-10-10 (voir 0111). La base applique la même règle, et elle seule fait
+             autorité : un partage portant sur un document que l'émetteur ne voit pas est refusé. */
+          peutPartager={peutPartager ?? (() => true)}
           mentionPartage={(d) => {
             const partage = partageParDocument.get(d.id)
             return partage ? { par: partage.partage_par_nom ?? 'Hari Online Club', message: partage.message } : null
