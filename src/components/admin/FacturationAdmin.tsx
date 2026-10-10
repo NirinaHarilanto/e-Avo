@@ -5,6 +5,7 @@ import { useDevis, type DevisAvecEtudiant } from '../../hooks/useDevis'
 import { useFactures, type FactureAvecDestinataire } from '../../hooks/useFactures'
 import { usePaiementsEtudiants } from '../../hooks/usePaiementsEtudiants'
 import { supabase } from '../../lib/supabaseClient'
+import { numeroDejaUtilise, messageNumeroDejaUtilise } from '../../lib/facturation'
 import { CreerDevis } from '../facturation/CreerDevis'
 import { CreerFacture } from '../facturation/CreerFacture'
 import { DevisImprimable } from '../facturation/DevisImprimable'
@@ -100,6 +101,11 @@ export function FacturationAdmin() {
           <>
             Les factures de vos professeurs apparaissent aussi dans cet onglet : elles sont générées automatiquement au
             moment du versement de leur rémunération.
+          </>,
+          <>
+            Le <strong>numéro</strong> affiché sur un devis, une facture ou un reçu se modifie en cliquant dessus.
+            Un numéro déjà utilisé dans l’établissement est refusé avant l’enregistrement — changez-en un pour
+            valider.
           </>,
         ]}
       />
@@ -278,7 +284,9 @@ function ActionsDocument({ onAction }: { onAction: (action: ActionImpression) =>
   )
 }
 
-function LigneDevis({
+// Exportée pour être testable isolément (vérification d'unicité du numéro avant validation,
+// 2026-10-10) sans avoir à monter toute la page et ses hooks de données.
+export function LigneDevis({
   item,
   onImprimer,
   onChange,
@@ -292,6 +300,41 @@ function LigneDevis({
   const { devis, etudiant } = item
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  // Numéro modifiable (demande client du 2026-10-10, même geste que pour les factures depuis le
+  // 2026-10-05) : édition en ligne, pas de pop-up séparée pour un changement aussi ponctuel.
+  const [editionNumero, setEditionNumero] = useState(false)
+  const [nouveauNumero, setNouveauNumero] = useState(devis.numero)
+
+  async function renommerNumero() {
+    const valeur = nouveauNumero.trim()
+    if (!valeur || valeur === devis.numero) {
+      setEditionNumero(false)
+      setNouveauNumero(devis.numero)
+      return
+    }
+    setEnCours(true)
+    setErreur(null)
+
+    /* Vérification d'unicité AVANT d'enregistrer (demande client du 2026-10-10) : bloque la
+       validation plutôt que de laisser l'admin découvrir le conflit après coup. */
+    if (await numeroDejaUtilise('quotes', devis.etablissement_id, valeur, devis.id)) {
+      setEnCours(false)
+      setErreur(messageNumeroDejaUtilise(valeur))
+      return
+    }
+
+    const { error } = await supabase.from('quotes').update({ numero: valeur }).eq('id', devis.id)
+    setEnCours(false)
+    if (error) {
+      // Secours : conflit créé entre la vérification ci-dessus et cet appel (deux admins
+      // validant au même instant). La contrainte `unique (etablissement_id, numero)` (0020) est
+      // ce qui l'empêche réellement d'aboutir en double.
+      setErreur(error.code === '23505' ? messageNumeroDejaUtilise(valeur) : error.message)
+      return
+    }
+    setEditionNumero(false)
+    onChange()
+  }
 
   async function changerStatut(nouveau: StatutDevis) {
     setEnCours(true)
@@ -323,8 +366,44 @@ function LigneDevis({
   return (
     <div className="card card-lift" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
       <ZoneDevis intitule="Devis · Étudiant" grandit>
-        <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
-          {devis.numero} — {etudiant ? `${etudiant.prenom} ${etudiant.nom}` : 'Étudiant inconnu'}
+        <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {editionNumero ? (
+            <input
+              autoFocus
+              value={nouveauNumero}
+              disabled={enCours}
+              onChange={(e) => setNouveauNumero(e.target.value)}
+              onBlur={renommerNumero}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') renommerNumero()
+                if (e.key === 'Escape') {
+                  setEditionNumero(false)
+                  setNouveauNumero(devis.numero)
+                }
+              }}
+              style={{
+                fontFamily: 'inherit',
+                fontSize: 14,
+                fontWeight: 700,
+                color: 'var(--ink)',
+                background: 'rgba(0,0,0,.28)',
+                border: '1px solid var(--accent-blue)',
+                borderRadius: 6,
+                padding: '2px 6px',
+                width: `${Math.max(10, nouveauNumero.length + 1)}ch`,
+              }}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEditionNumero(true)}
+              title="Modifier le numéro — doit rester unique dans l’établissement"
+              style={{ font: 'inherit', fontWeight: 700, color: 'var(--ink)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
+            >
+              {devis.numero}
+            </button>
+          )}
+          {' '}— {etudiant ? `${etudiant.prenom} ${etudiant.nom}` : 'Étudiant inconnu'}
         </span>
       </ZoneDevis>
       <ZoneDevis intitule="Objet" grandit>
@@ -395,12 +474,23 @@ function LigneFacture({
     }
     setEnCours(true)
     setErreur(null)
+
+    /* Vérification d'unicité AVANT d'enregistrer (demande client du 2026-10-10) : bloque la
+       validation (ici, perdre le focus du champ ou appuyer Entrée) plutôt que de laisser l'admin
+       découvrir le conflit après coup. */
+    if (await numeroDejaUtilise('invoices', facture.etablissement_id, valeur, facture.id)) {
+      setEnCours(false)
+      setErreur(messageNumeroDejaUtilise(valeur))
+      return
+    }
+
     const { error } = await supabase.from('invoices').update({ numero: valeur }).eq('id', facture.id)
     setEnCours(false)
     if (error) {
-      // 23505 : contrainte d'unicité (etablissement_id, numero) — voir 0020. Un autre document
-      // porte déjà ce numéro dans cet établissement.
-      setErreur(error.code === '23505' ? `Le numéro « ${valeur} » est déjà utilisé par un autre document.` : error.message)
+      // Secours : conflit créé entre la vérification ci-dessus et cet appel (deux admins
+      // validant au même instant). La contrainte `unique (etablissement_id, numero)` (0020) est
+      // ce qui l'empêche réellement d'aboutir en double.
+      setErreur(error.code === '23505' ? messageNumeroDejaUtilise(valeur) : error.message)
       return
     }
     setEditionNumero(false)
@@ -508,7 +598,7 @@ function LigneFacture({
             <button
               type="button"
               onClick={() => setEditionNumero(true)}
-              title="Modifier le numéro"
+              title="Modifier le numéro — doit rester unique dans l’établissement"
               style={{ font: 'inherit', fontWeight: 700, color: 'var(--ink)', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
             >
               {facture.numero}

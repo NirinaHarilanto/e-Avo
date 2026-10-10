@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient'
 import type { DevisAvecEtudiant } from '../../hooks/useDevis'
 import type { LigneFacturation } from '../../types/database.types'
 import { EditeurLignes, calculerTotaux } from './EditeurLignes'
+import { numeroDejaUtilise, messageNumeroDejaUtilise } from '../../lib/facturation'
 import { champStyle } from '../ui/Champ'
 import { ChampDate } from '../ui/ChampDate'
 
@@ -56,6 +57,16 @@ export function CreerFacture({ etablissementId, devisAcceptes, onCree, onAnnuler
     if (!profile || !destinataireId || !numero) return
     setEnCours(true)
     setErreur(null)
+
+    /* Vérification d'unicité AVANT d'enregistrer (demande client du 2026-10-10) : bloque la
+       validation plutôt que de laisser l'admin découvrir le conflit après coup sur l'erreur
+       Postgres (23505, gérée plus bas en secours pour la rare concurrence). */
+    if (await numeroDejaUtilise('invoices', etablissementId, numero)) {
+      setEnCours(false)
+      setErreur(messageNumeroDejaUtilise(numero.trim()))
+      return
+    }
+
     const { error } = await supabase.from('invoices').insert({
       etablissement_id: etablissementId,
       student_id: typeDestinataire === 'etudiant' ? destinataireId : null,
@@ -70,7 +81,10 @@ export function CreerFacture({ etablissementId, devisAcceptes, onCree, onAnnuler
     })
     setEnCours(false)
     if (error) {
-      setErreur(error.message)
+      // Secours : conflit créé entre la vérification ci-dessus et cet appel (deux admins
+      // validant au même instant). La contrainte `unique (etablissement_id, numero)` (0020) est
+      // ce qui l'empêche réellement d'aboutir en double ; ce message en traduit juste l'erreur.
+      setErreur(error.code === '23505' ? messageNumeroDejaUtilise(numero.trim()) : error.message)
       return
     }
     onCree()
@@ -133,6 +147,11 @@ export function CreerFacture({ etablissementId, devisAcceptes, onCree, onAnnuler
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: 160 }}>
           <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Numéro</label>
           <input required value={numero} onChange={(e) => setNumero(e.target.value)} placeholder="FAC-2026-001" style={champStyle} />
+          {/* Instruction de guidage (demande client du 2026-10-10) : dit la règle AVANT que
+              l'admin ne tape, plutôt que de la laisser découvrir en se faisant refuser. */}
+          <span style={{ fontSize: 11, color: 'var(--muted-2)', lineHeight: 1.4 }}>
+            Doit être unique parmi les factures et reçus de l’établissement ; vérifié avant l’enregistrement.
+          </span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexGrow: 1, minWidth: 200 }}>
           <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Objet</label>
