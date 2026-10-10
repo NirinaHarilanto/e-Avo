@@ -881,6 +881,9 @@ export interface Database {
           owner_role: Role
           uploaded_by_profile_id: string
           categorie: CategorieDocument
+          /* Étiquette libre d'une catégorie personnalisée (0109) — n'a de sens que lorsque
+             `categorie === 'autre'`, sinon toujours `null`. */
+          categorie_libre: string | null
           nom_original: string
           mime_type: string
           taille_octets: number
@@ -905,6 +908,7 @@ export interface Database {
           owner_role?: Role
           uploaded_by_profile_id: string
           categorie?: CategorieDocument
+          categorie_libre?: string | null
           nom_original: string
           mime_type: string
           taille_octets: number

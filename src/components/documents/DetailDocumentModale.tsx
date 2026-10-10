@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
-import { CATEGORIES } from './UploaderDocument'
+import { libelleCategorie } from './UploaderDocument'
 import { PartagerDocumentModale } from './PartagerDocumentModale'
 import { Modale } from '../ui/Modale'
 import { LigneInfo } from '../ui/Champ'
@@ -14,10 +14,6 @@ type Document = Database['public']['Tables']['documents']['Row']
 function formatTaille(octets: number) {
   if (octets < 1024 * 1024) return `${Math.round(octets / 1024)} Ko`
   return `${(octets / (1024 * 1024)).toFixed(1)} Mo`
-}
-
-function libelleCategorie(categorie: Document['categorie']) {
-  return CATEGORIES.find((c) => c.value === categorie)?.label ?? categorie
 }
 
 /* Pop-up ouvert au clic d'un document (demande client du 2026-09-22) : ses informations et ses
@@ -78,7 +74,7 @@ export function DetailDocumentModale({
   return (
     <Modale titre={document.nom_original} onFermer={onFermer} largeurMax={440}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <LigneInfo label="Catégorie" valeur={libelleCategorie(document.categorie)} />
+        <LigneInfo label="Catégorie" valeur={libelleCategorie(document)} />
         <LigneInfo label="Taille" valeur={formatTaille(document.taille_octets)} />
         <LigneInfo label="Déposé le" valeur={new Date(document.created_at).toLocaleDateString('fr-FR')} />
 

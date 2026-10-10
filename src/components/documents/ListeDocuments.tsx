@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Database } from '../../types/database.types'
-import { CATEGORIES } from './UploaderDocument'
+import { libelleCategorie } from './UploaderDocument'
 import { DetailDocumentModale } from './DetailDocumentModale'
 import { EtatVide } from '../ui/EtatVide'
 import { Icone } from '../ui/Icones'
@@ -10,10 +10,6 @@ type Document = Database['public']['Tables']['documents']['Row']
 function formatTaille(octets: number) {
   if (octets < 1024 * 1024) return `${Math.round(octets / 1024)} Ko`
   return `${(octets / (1024 * 1024)).toFixed(1)} Mo`
-}
-
-function libelleCategorie(categorie: Document['categorie']) {
-  return CATEGORIES.find((c) => c.value === categorie)?.label ?? categorie
 }
 
 interface ListeDocumentsProps {
@@ -99,7 +95,7 @@ export function ListeDocuments({ documents, peutSupprimer, onChange, messageVide
                       padding: '2px 8px',
                     }}
                   >
-                    {libelleCategorie(document.categorie)}
+                    {libelleCategorie(document)}
                   </span>
                   {formatTaille(document.taille_octets)} · déposé le {new Date(document.created_at).toLocaleDateString('fr-FR')}
                 </span>
