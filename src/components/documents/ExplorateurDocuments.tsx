@@ -350,9 +350,13 @@ export function ExplorateurDocuments({
       <div className="card" style={{ padding: 20 }}>
         <ListeDocuments
           documents={documentsDuDossier}
-          /* Un fichier reçu en partage ne se supprime pas : il appartient à quelqu'un d'autre.
-             Le destinataire peut seulement retirer le partage, depuis la fenêtre de partage du
-             propriétaire — ou demander à ce dernier. */
+          /* Gouverne uniquement la suppression RÉELLE, hors sujet propriété/partage (admin gérant
+             le dossier d'un tiers, déposant dans sa propre arborescence...) — reste `false` dans
+             « Mes fichiers partagés », un fichier reçu n'appartenant jamais à son destinataire.
+             Retirer SA PROPRE vue d'un fichier partagé passe par un chemin indépendant de cette
+             prop, déterminé dans DetailDocumentModale lui-même (règle client du 2026-10-10) :
+             c'est pourquoi un bouton « Retirer de mon espace » peut apparaître ici malgré
+             `peutSupprimer === false`. */
           peutSupprimer={(d) => !dansPartages && peutSupprimer(d)}
           /* Tout fichier visible est partageable, y compris un fichier REÇU en partage et y
              compris dans l'espace de quelqu'un d'autre — c'est le sens littéral de la règle posée

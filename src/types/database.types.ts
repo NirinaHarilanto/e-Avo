@@ -957,6 +957,10 @@ export interface Database {
           /* Figé à l'insertion par trigger (0060) : le destinataire ne peut pas toujours lire
              le profil de l'émetteur. */
           partage_par_nom: string | null
+          /* Symétrique côté destinataire (0114) : l'émetteur, ou le propriétaire du document
+             consultant la liste de ses partages, ne peut pas toujours lire le profil du
+             destinataire. */
+          destinataire_nom: string | null
           message: string | null
           created_at: string
         }
@@ -966,6 +970,7 @@ export interface Database {
           destinataire_profile_id: string
           partage_par_profile_id: string
           partage_par_nom?: string | null
+          destinataire_nom?: string | null
           message?: string | null
           created_at?: string
         }
