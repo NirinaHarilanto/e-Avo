@@ -254,6 +254,7 @@ export function RendezVousAdmin() {
           recharger()
           rechargerEvenements()
         }}
+        afficherSuppression
       />
 
       {creationOuverte && session && (

@@ -84,6 +84,12 @@ export function CarteRendezVous({
   const [annulationEnCours, setAnnulationEnCours] = useState(false)
   const [nouveauDebut, setNouveauDebut] = useState(() => versDatetimeLocal(new Date(rdv.debut)))
   const [nouvelleDuree, setNouvelleDuree] = useState(rdv.duree_minutes)
+  /* Un rendez-vous refusé/annulé n'a plus aucune action depuis sa fiche jusqu'ici — demande
+     client du 2026-10-10 : « l'admin [doit pouvoir] tout faire sur son agenda [...] sur tout
+     type de rendez-vous ». « Reprogrammer » réutilise `modifierRendezVous` ci-dessous : sans
+     rendez-vous actif pour ce prospect, l'API en crée directement un nouveau confirmé (voir
+     api/admin/planifier-rendez-vous.ts) plutôt que d'échouer. */
+  const [suppressionDemandee, setSuppressionDemandee] = useState(false)
 
   const prospect = rdv.prospects
   const quand = formaterDansFuseauEtablissement(rdv.debut)
@@ -132,6 +138,19 @@ export function CarteRendezVous({
     }
     setAnnulationEnCours(false)
     setMessage('Rendez-vous annulé, prospect prévenu par e-mail.')
+    onChange()
+  }
+
+  async function supprimerDefinitivement() {
+    setEnCours(true)
+    setEchec(null)
+    const reponse = await appelServeur('/api/admin/supprimer-rendez-vous', { rendezVousId: rdv.id })
+    setEnCours(false)
+    if (reponse.error) {
+      setEchec(reponse.error)
+      return
+    }
+    setSuppressionDemandee(false)
     onChange()
   }
 
@@ -275,7 +294,11 @@ export function CarteRendezVous({
             </div>
           )}
 
-          {rdv.statut === 'confirme' && prospect && (
+          {/* La suppression définitive d'un rendez-vous clos ne dépend pas d'un prospect encore
+              existant — seule « Reprogrammer » en a besoin (voir plus bas), pour savoir qui
+              inviter. Un prospect supprimé entre-temps ne doit pas pour autant river son ancien
+              rendez-vous dans l'agenda sans aucun recours. */}
+          {(rdv.statut === 'confirme' || rdv.statut === 'refuse' || rdv.statut === 'annule') && (prospect || rdv.statut !== 'confirme') && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
               {modificationEnCours ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
@@ -307,7 +330,26 @@ export function CarteRendezVous({
                       className="btn-shine"
                       style={{ ...boutonPrimaireStyle, opacity: enCours ? 0.6 : 1 }}
                     >
-                      {enCours ? 'Déplacement…' : 'Confirmer le déplacement'}
+                      {enCours ? 'Enregistrement…' : rdv.statut === 'confirme' ? 'Confirmer le déplacement' : 'Confirmer la reprogrammation'}
+                    </button>
+                  </span>
+                </div>
+              ) : suppressionDemandee ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--muted)', maxWidth: 260, textAlign: 'right' }}>
+                    Ce rendez-vous disparaîtra définitivement de l’agenda. Cette action est irréversible.
+                  </span>
+                  <span style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={() => setSuppressionDemandee(false)} style={{ ...boutonSecondaire, cursor: 'pointer' }}>
+                      Non, garder
+                    </button>
+                    <button
+                      type="button"
+                      onClick={supprimerDefinitivement}
+                      disabled={enCours}
+                      style={{ ...boutonSecondaire, color: 'var(--danger)', borderColor: 'var(--danger)', cursor: 'pointer', opacity: enCours ? 0.6 : 1 }}
+                    >
+                      {enCours ? 'Suppression…' : 'Oui, supprimer définitivement'}
                     </button>
                   </span>
                 </div>
@@ -330,7 +372,7 @@ export function CarteRendezVous({
                     </button>
                   </span>
                 </div>
-              ) : (
+              ) : rdv.statut === 'confirme' ? (
                 <span style={{ display: 'flex', gap: 8 }}>
                   <button type="button" onClick={() => setAnnulationEnCours(true)} style={{ ...boutonSecondaire, color: 'var(--danger)', borderColor: 'var(--danger)', cursor: 'pointer' }}>
                     Annuler
@@ -338,6 +380,22 @@ export function CarteRendezVous({
                   <button type="button" onClick={() => setModificationEnCours(true)} style={{ ...boutonSecondaire, cursor: 'pointer' }}>
                     Modifier
                   </button>
+                </span>
+              ) : (
+                /* Rendez-vous refusé ou annulé (demande client du 2026-10-10) : plus aucune
+                   action n'était possible depuis cette fiche jusqu'ici. « Reprogrammer » crée un
+                   nouveau rendez-vous confirmé pour ce même prospect (voir modifierRendezVous,
+                   qui retombe sur une création quand aucun rendez-vous actif n'existe) ;
+                   « Supprimer » l'efface définitivement de l'agenda. */
+                <span style={{ display: 'flex', gap: 8 }}>
+                  <button type="button" onClick={() => setSuppressionDemandee(true)} style={{ ...boutonSecondaire, color: 'var(--danger)', borderColor: 'var(--danger)', cursor: 'pointer' }}>
+                    Supprimer
+                  </button>
+                  {prospect && (
+                    <button type="button" onClick={() => setModificationEnCours(true)} style={{ ...boutonSecondaire, cursor: 'pointer' }}>
+                      Reprogrammer
+                    </button>
+                  )}
                 </span>
               )}
             </div>
@@ -358,6 +416,12 @@ export function CarteEvenementAdmin({
   onChange,
   urlAnnulation = '/api/admin/annuler-evenement',
   urlModification = '/api/admin/modifier-evenement',
+  /* Suppression définitive d'un événement déjà annulé (demande client du 2026-10-10) —
+     ADMIN SEULEMENT : aucune route de suppression n'existe côté professeur, ni n'est demandée
+     (le besoin exprimé portait explicitement sur « l'agenda » de « l'admin »). Un professeur
+     verrait sinon un bouton qui échouerait systématiquement (sa route le refuserait), plutôt que
+     de ne pas l'avoir du tout. */
+  afficherSuppression = false,
 }: {
   evenement: EvenementAdminAvecParticipants
   session: { access_token: string } | null
@@ -370,10 +434,12 @@ export function CarteEvenementAdmin({
   /* Même principe pour la modification (demande client du 2026-09-29) : sa propre route,
      restreinte aux événements qu'il a lui-même créés (api/professeur/modifier-evenement.ts). */
   urlModification?: string
+  afficherSuppression?: boolean
 }) {
   const [enCours, setEnCours] = useState(false)
   const [echec, setEchec] = useState<string | null>(null)
   const [modificationEnCours, setModificationEnCours] = useState(false)
+  const [suppressionDemandee, setSuppressionDemandee] = useState(false)
   const [titre, setTitre] = useState(evenement.titre)
   const [nouveauDebut, setNouveauDebut] = useState(() => versDatetimeLocal(new Date(evenement.debut)))
   const [nouvelleDuree, setNouvelleDuree] = useState(evenement.duree_minutes)
@@ -398,6 +464,26 @@ export function CarteEvenementAdmin({
       setEchec(reponse.error)
       return
     }
+    onChange()
+  }
+
+  async function supprimerDefinitivement() {
+    if (!session) return
+    setEnCours(true)
+    setEchec(null)
+    const reponse = await fetch('/api/admin/supprimer-evenement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ evenementId: evenement.id }),
+    })
+      .then((r) => r.json())
+      .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
+    setEnCours(false)
+    if (reponse.error) {
+      setEchec(reponse.error)
+      return
+    }
+    setSuppressionDemandee(false)
     onChange()
   }
 
@@ -535,6 +621,41 @@ export function CarteEvenementAdmin({
 
       {echec && <MessageErreur>{echec}</MessageErreur>}
 
+      {/* Un événement annulé n'avait plus aucune action depuis sa fiche (demande client du
+          2026-10-10) : il restait figé dans l'agenda sans qu'on puisse l'en retirer. */}
+      {evenement.annule && afficherSuppression && (
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+          {suppressionDemandee ? (
+            <>
+              <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>
+                Cet événement disparaîtra définitivement de l’agenda. Cette action est irréversible.
+              </span>
+              <span style={{ display: 'flex', gap: 8 }}>
+                <button type="button" onClick={() => setSuppressionDemandee(false)} style={{ ...boutonSecondaire, cursor: 'pointer' }}>
+                  Non, garder
+                </button>
+                <button
+                  type="button"
+                  onClick={supprimerDefinitivement}
+                  disabled={enCours}
+                  style={{ ...boutonSecondaire, color: 'var(--danger)', borderColor: 'var(--danger)', cursor: 'pointer', opacity: enCours ? 0.6 : 1 }}
+                >
+                  {enCours ? 'Suppression…' : 'Oui, supprimer définitivement'}
+                </button>
+              </span>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSuppressionDemandee(true)}
+              style={{ ...boutonSecondaire, color: 'var(--danger)', borderColor: 'var(--danger)', cursor: 'pointer' }}
+            >
+              Supprimer définitivement
+            </button>
+          )}
+        </span>
+      )}
+
       {!evenement.annule && (
         <span style={{ display: 'flex', gap: 8 }}>
           {modificationEnCours ? (
@@ -638,6 +759,10 @@ export function PopupEvenementAdmin({
   onChange,
   urlAnnulation,
   urlModification,
+  /* Propage jusqu'à CarteEvenementAdmin — voir son commentaire : réservé à l'agenda de
+     l'admin (RendezVousAdmin.tsx), jamais à l'usage professeur de ce même popup
+     (CalendrierProfesseur.tsx), qui n'a pas de route de suppression. */
+  afficherSuppression,
 }: {
   elementOuvertId: string | null
   onFermer: () => void
@@ -648,6 +773,7 @@ export function PopupEvenementAdmin({
   onChange: () => void
   urlAnnulation?: string
   urlModification?: string
+  afficherSuppression?: boolean
 }) {
   const rdvOuvert = elementOuvertId?.startsWith(PREFIXE_PROSPECT)
     ? rendezVous.find((r) => r.id === elementOuvertId!.slice(PREFIXE_PROSPECT.length))
@@ -666,7 +792,14 @@ export function PopupEvenementAdmin({
   if (evenementOuvert) {
     return (
       <Modale titre={evenementOuvert.titre} onFermer={onFermer} largeurMax={480}>
-        <CarteEvenementAdmin evenement={evenementOuvert} session={session} onChange={onChange} urlAnnulation={urlAnnulation} urlModification={urlModification} />
+        <CarteEvenementAdmin
+          evenement={evenementOuvert}
+          session={session}
+          onChange={onChange}
+          urlAnnulation={urlAnnulation}
+          urlModification={urlModification}
+          afficherSuppression={afficherSuppression}
+        />
       </Modale>
     )
   }
