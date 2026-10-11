@@ -377,6 +377,15 @@ a:hover {
 .tableau-suivi tbody tr:hover td {
   background: rgba(169, 140, 255, 0.07);
 }
+/* Chaque ligne ouvre la fiche complète de la personne au clic (2026-10-11) : curseur et anneau de
+   focus pour qu'elle se comporte visiblement comme un bouton, au clavier comme à la souris. */
+.tableau-suivi-ligne-cliquable {
+  cursor: pointer;
+}
+.tableau-suivi-ligne-cliquable:focus-visible td {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: -2px;
+}
 .tableau-suivi tbody tr:last-child td {
   border-bottom: none;
 }

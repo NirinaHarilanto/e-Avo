@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useCohortes } from '../../hooks/useCohortes'
+import { useCacheRequete } from '../../hooks/useCacheRequete'
 import { supabase } from '../../lib/supabaseClient'
+import { FicheCandidatCollectifModale } from './FicheCandidatCollectifModale'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { nomVagueSeul } from '../../lib/cohortes'
 import { rangNiveauCecrl } from '../../lib/classesCollectif'
@@ -78,42 +80,45 @@ function initiales(nom: string): string {
    (demande client du même jour). */
 export function SuiviCollectifAdmin() {
   const { cohortes, loading: chargementCohortes } = useCohortes()
-  const [lignes, setLignes] = useState<LigneSuiviCollectif[] | null>(null)
-  const [erreur, setErreur] = useState<string | null>(null)
   const [filtreVague, setFiltreVague] = useState('')
   const [filtreEtape, setFiltreEtape] = useState<'' | ProspectStatut>('')
   const [recherche, setRecherche] = useState('')
   const [tri, setTri] = useState<{ colonne: ColonneTri; sens: 1 | -1 }>({ colonne: 'nom', sens: 1 })
+  /* Ligne cliquée : conserve l'identité (prospectId/profilId) plutôt que l'objet `LigneSuiviCollectif`
+     complet — la fiche recharge elle-même son propre dossier à l'ouverture et après chaque
+     modification (voir FicheCandidatCollectifModale.tsx), elle n'a pas besoin d'un instantané figé. */
+  const [ligneOuverte, setLigneOuverte] = useState<LigneSuiviCollectif | null>(null)
 
-  const charger = useCallback(async () => {
-    setErreur(null)
-    /* Toutes les requêtes en parallèle, sans jointure imbriquée : les types générés ne portent
-       pas la relation sessions↔enrollments, et un select imbriqué échoue à la compilation (piège
-       rencontré sur adopter-seances.ts le 2026-10-11). La RLS borne déjà chaque table à
-       l'établissement de l'admin connecté. */
-    const [prospects, inscriptions, creneaux, profils, inscriptionsVagues, classes, paiements] = await Promise.all([
-      supabase.from('prospects').select('id, prenom, nom, email, statut, type_programme').eq('type_programme', 'collectif'),
-      supabase.from('test_positionnement_inscriptions').select('prospect_id, creneau_id, niveau_estime, niveau_final, score, total, created_at'),
-      supabase.from('creneaux_test_positionnement').select('id, debut, cohort_id'),
-      // `status` : exclut un compte supprimé (soft-delete, voir supprimer-utilisateur.ts) du
-      // suivi — demande client du 2026-10-11. `prenom`/`nom`/`email` : source de vérité une fois
-      // converti, le panneau Informations personnelles écrivant dans `profiles`, jamais dans
-      // `prospects` (voir construireSuiviCollectif).
-      supabase.from('profiles').select('id, prospect_id, prenom, nom, email, status').not('prospect_id', 'is', null),
-      supabase.from('cohort_enrollments').select('student_id, cohort_id, cohort_class_id'),
-      supabase.from('cohort_classes').select('id, nom, niveau'),
-      supabase.from('student_payments').select('prospect_id, student_id, montant, montant_regle').is('supprime_le', null),
-    ])
+  /* `useCacheRequete` plutôt qu'un chargement manuel (comme avant le 2026-10-11) : c'est ce qui
+     abonne cet écran au signal de synchro (lib/synchro.ts, voir useCacheRequete.ts) — toute
+     écriture faite ailleurs dans l'app, y compris depuis la fiche candidat ouverte au-dessus de
+     cette table, republie la liste sans action de l'admin. Demande client du même jour : « les
+     mises à jour devraient être instantanées dans toute l'application HOC ». */
+  const { valeur: lignes, erreur, recharger } = useCacheRequete<LigneSuiviCollectif[]>(
+    'suivi-collectif',
+    async () => {
+      /* Toutes les requêtes en parallèle, sans jointure imbriquée : les types générés ne portent
+         pas la relation sessions↔enrollments, et un select imbriqué échoue à la compilation
+         (piège rencontré sur adopter-seances.ts le 2026-10-11). La RLS borne déjà chaque table à
+         l'établissement de l'admin connecté. */
+      const [prospects, inscriptions, creneaux, profils, inscriptionsVagues, classes, paiements] = await Promise.all([
+        supabase.from('prospects').select('id, prenom, nom, email, statut, type_programme').eq('type_programme', 'collectif'),
+        supabase.from('test_positionnement_inscriptions').select('prospect_id, creneau_id, niveau_estime, niveau_final, score, total, created_at'),
+        supabase.from('creneaux_test_positionnement').select('id, debut, cohort_id'),
+        // `status` : exclut un compte supprimé (soft-delete, voir supprimer-utilisateur.ts) du
+        // suivi — demande client du 2026-10-11. `prenom`/`nom`/`email` : source de vérité une
+        // fois converti, le panneau Informations personnelles écrivant dans `profiles`, jamais
+        // dans `prospects` (voir construireSuiviCollectif).
+        supabase.from('profiles').select('id, prospect_id, prenom, nom, email, status').not('prospect_id', 'is', null),
+        supabase.from('cohort_enrollments').select('student_id, cohort_id, cohort_class_id'),
+        supabase.from('cohort_classes').select('id, nom, niveau'),
+        supabase.from('student_payments').select('prospect_id, student_id, montant, montant_regle').is('supprime_le', null),
+      ])
 
-    const echec = [prospects, inscriptions, creneaux, profils, inscriptionsVagues, classes, paiements].find((r) => r.error)
-    if (echec?.error) {
-      setErreur(echec.error.message)
-      setLignes([])
-      return
-    }
+      const echec = [prospects, inscriptions, creneaux, profils, inscriptionsVagues, classes, paiements].find((r) => r.error)
+      if (echec?.error) throw new Error(echec.error.message)
 
-    setLignes(
-      construireSuiviCollectif({
+      return construireSuiviCollectif({
         prospects: prospects.data ?? [],
         inscriptions: inscriptions.data ?? [],
         creneaux: creneaux.data ?? [],
@@ -121,13 +126,9 @@ export function SuiviCollectifAdmin() {
         inscriptionsVagues: inscriptionsVagues.data ?? [],
         classes: classes.data ?? [],
         paiements: paiements.data ?? [],
-      }),
-    )
-  }, [])
-
-  useEffect(() => {
-    charger()
-  }, [charger])
+      })
+    },
+  )
 
   const nomVagueParId = useMemo(() => new Map(cohortes.map((c) => [c.id, nomVagueSeul(c.nom)])), [cohortes])
 
@@ -190,7 +191,7 @@ export function SuiviCollectifAdmin() {
     setTri((actuel) => (actuel.colonne === colonne ? { colonne, sens: actuel.sens === 1 ? -1 : 1 } : { colonne, sens: 1 }))
   }
 
-  if (lignes === null || chargementCohortes) return <EtatChargement lignes={4} hauteur={60} />
+  if (lignes === undefined || chargementCohortes) return <EtatChargement lignes={4} hauteur={60} />
 
   const etudiants = enrichies.filter((e) => e.ligne.etape === 'etudiant').length
   const sansFrais = enrichies.filter((e) => e.ligne.etape === 'etudiant' && e.ligne.frais === 'aucun').length
@@ -297,7 +298,20 @@ export function SuiviCollectifAdmin() {
                 const styleEtape = STYLE_ETAPE[ligne.etape]
                 const styleFrais = STYLE_FRAIS[ligne.frais]
                 return (
-                  <tr key={ligne.prospectId}>
+                  <tr
+                    key={ligne.prospectId}
+                    onClick={() => setLigneOuverte(ligne)}
+                    className="tableau-suivi-ligne-cliquable"
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Voir la fiche de ${ligne.nom}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setLigneOuverte(ligne)
+                      }
+                    }}
+                  >
                     <td className="col-personne" style={{ borderLeft: `3px solid ${styleEtape.couleur}` }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <span
@@ -390,6 +404,15 @@ export function SuiviCollectifAdmin() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {ligneOuverte && (
+        <FicheCandidatCollectifModale
+          ligne={ligneOuverte}
+          cohortes={cohortes}
+          onFermer={() => setLigneOuverte(null)}
+          onChange={recharger}
+        />
       )}
     </div>
   )
