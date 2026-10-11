@@ -1,5 +1,6 @@
 import { useVagueEtudiant } from '../../hooks/useVagueEtudiant'
 import { formaterMinutes } from '../../lib/heures'
+import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import { Section } from '../ui/Section'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 
@@ -18,13 +19,19 @@ export function PlanningVagueEtudiant({ studentId }: { studentId: string }) {
   const aVenir = vague.seances.filter((s) => s.debut >= maintenant && s.statut === 'planifiee')
   const passees = vague.seances.filter((s) => s.debut < maintenant || s.statut !== 'planifiee')
 
+  /* « De tout le groupe » n'est exact que sans classe : une fois affecté à une classe de niveau
+     (0074), professeur/camarades/séances sont ceux de CETTE classe, pas de toute la promotion
+     (voir useVagueEtudiant.ts) — le texte doit le dire, sans quoi un élève croirait partager son
+     planning avec des camarades d'un autre niveau. */
+  const nomGroupe = vague.classe ? `votre classe ${LABEL_NIVEAU_CLASSE[vague.classe.niveau]}` : 'tout le groupe'
+
   return (
     <Section
-      titre={`Ma vague · ${vague.cohorte.nom}`}
+      titre={vague.classe ? `Ma classe · ${LABEL_NIVEAU_CLASSE[vague.classe.niveau]}` : `Ma vague · ${vague.cohorte.nom}`}
       description={
         vague.professeur
-          ? `Animée par ${vague.professeur.prenom} ${vague.professeur.nom}. Le planning ci-dessous est celui de tout le groupe.`
-          : 'Le planning ci-dessous est celui de tout le groupe.'
+          ? `Animée par ${vague.professeur.prenom} ${vague.professeur.nom}. Le planning ci-dessous est celui de ${nomGroupe}.`
+          : `Le planning ci-dessous est celui de ${nomGroupe}.`
       }
       compteur={vague.seances.length}
     >
@@ -35,13 +42,13 @@ export function PlanningVagueEtudiant({ studentId }: { studentId: string }) {
             {new Date(vague.cohorte.date_fin).toLocaleDateString('fr-FR')}
           </span>
           <span>
-            {vague.camarades.length + 1} élève{vague.camarades.length > 0 ? 's' : ''} dans la vague
+            {vague.camarades.length + 1} élève{vague.camarades.length > 0 ? 's' : ''} dans {vague.classe ? 'la classe' : 'la vague'}
           </span>
         </div>
 
         {vague.seances.length === 0 ? (
           <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0, lineHeight: 1.55 }}>
-            Le planning de votre vague n’est pas encore établi. Il apparaîtra ici dès que votre professeur ou
+            Le planning de {nomGroupe} n’est pas encore établi. Il apparaîtra ici dès que votre professeur ou
             l’administration l’aura programmé.
           </p>
         ) : (

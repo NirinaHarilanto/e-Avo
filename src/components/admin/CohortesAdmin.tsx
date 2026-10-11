@@ -602,6 +602,11 @@ function ClassesVague({
   const [classeEnEdition, setClasseEnEdition] = useState<CohortClassRow | null>(null)
   const [classeDepliee, setClasseDepliee] = useState<string | null>(null)
   const [classePourAjout, setClassePourAjout] = useState<CohortClassRow | null>(null)
+  /* Attribution de professeur à une classe — demande client du 2026-10-11 : « un bouton attribuer
+     un professeur pour chaque ligne de classe », à côté de « Modifier » (qui reste le chemin
+     pour TOUS les champs de la classe) plutôt qu'à sa place — même logique que le bouton dédié
+     déjà posé pour un élève individuel (AttribuerProfesseur.tsx). */
+  const [classePourProfesseur, setClassePourProfesseur] = useState<CohortClassRow | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
 
   const chargerEffectifs = useCallback(async () => {
@@ -706,6 +711,13 @@ function ClassesVague({
               >
                 + Élèves
               </button>
+              <button
+                onClick={() => setClassePourProfesseur(classePourProfesseur?.id === classe.id ? null : classe)}
+                className={prof ? undefined : 'btn-shine'}
+                style={prof ? boutonSecondaireStyle : { ...boutonPrimaireStyle, fontSize: 12.5, padding: '7px 13px' }}
+              >
+                {prof ? 'Changer de professeur' : 'Attribuer un professeur'}
+              </button>
               <button onClick={() => setClasseEnEdition(classe)} style={boutonSecondaireStyle}>
                 Modifier
               </button>
@@ -716,6 +728,18 @@ function ClassesVague({
                 Supprimer
               </button>
             </div>
+
+            {classePourProfesseur?.id === classe.id && (
+              <AttribuerProfesseurClasse
+                classe={classe}
+                professeurs={professeurs}
+                onAnnuler={() => setClassePourProfesseur(null)}
+                onAttribue={() => {
+                  setClassePourProfesseur(null)
+                  recharger()
+                }}
+              />
+            )}
 
             {classeDepliee === classe.id && (
               classe.teacher_id ? (
@@ -729,8 +753,8 @@ function ClassesVague({
                 />
               ) : (
                 <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>
-                  Désignez un professeur pour cette classe (bouton <strong>Modifier</strong>) afin de pouvoir établir
-                  son planning.
+                  Désignez un professeur pour cette classe (bouton <strong>Attribuer un professeur</strong>) afin de
+                  pouvoir établir son planning.
                 </p>
               )
             )}
@@ -758,6 +782,81 @@ function ClassesVague({
           onAjoute={chargerEffectifs}
         />
       )}
+    </div>
+  )
+}
+
+/* Attribution du professeur d'une classe de niveau — demande client du 2026-10-11 : « pour les
+   étudiants en cours collectifs, l'attribution de professeur devrait se faire uniquement dans
+   l'admin depuis la section cours collectifs, onglet vague. Mettre un bouton attribuer un
+   professeur pour chaque ligne de classe. » Même pattern que AttribuerProfesseur.tsx (élève
+   individuel) : un bouton qui se déplie en formulaire, pas une case perdue parmi d'autres dans un
+   formulaire générique.
+
+   Simple colonne `cohort_classes.teacher_id` (pas de table d'historique comme
+   `teacher_assignments` côté élève individuel) : une classe n'a qu'un seul professeur à la fois,
+   rien à transférer ou migrer au changement — un UPDATE suffit. « Instantanément pris en compte
+   dans toute l'application, y compris les étudiants » : géré par useVagueEtudiant.ts, qui résout
+   désormais le professeur depuis LA CLASSE de l'élève (teacher_id) et non plus depuis la
+   promotion entière — sans quoi deux classes d'une même vague, confiées à deux professeurs
+   différents, auraient affiché le même nom aux élèves des deux groupes. */
+function AttribuerProfesseurClasse({
+  classe,
+  professeurs,
+  onAnnuler,
+  onAttribue,
+}: {
+  classe: CohortClassRow
+  professeurs: Database['public']['Tables']['profiles']['Row'][]
+  onAnnuler: () => void
+  onAttribue: () => void
+}) {
+  const [teacherId, setTeacherId] = useState(classe.teacher_id ?? '')
+  const [enCours, setEnCours] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  async function attribuer() {
+    if (!teacherId) return
+    setEnCours(true)
+    setErreur(null)
+    const { error } = await supabase.from('cohort_classes').update({ teacher_id: teacherId }).eq('id', classe.id)
+    setEnCours(false)
+    if (error) {
+      setErreur(error.message)
+      return
+    }
+    onAttribue()
+  }
+
+  return (
+    <div className="card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <h4 style={{ fontSize: 13, color: 'var(--accent-gold, #e9cf94)', margin: 0 }}>
+        {classe.teacher_id ? 'Changer de professeur' : 'Attribuer un professeur'} ·{' '}
+        {LABEL_NIVEAU_CLASSE[classe.niveau]}
+        {classe.nom ? ` — ${classe.nom}` : ''}
+      </h4>
+      <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} style={champStyle}>
+        <option value="">Choisir un professeur</option>
+        {professeurs.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.prenom} {p.nom}
+          </option>
+        ))}
+      </select>
+      {erreur && <MessageErreur>{erreur}</MessageErreur>}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={onAnnuler} disabled={enCours} style={boutonSecondaireStyle}>
+          Annuler
+        </button>
+        <button
+          onClick={attribuer}
+          disabled={!teacherId || enCours}
+          className="btn-shine"
+          style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: !teacherId || enCours ? 0.6 : 1 }}
+        >
+          {enCours ? 'Enregistrement…' : 'Confirmer'}
+        </button>
+      </div>
     </div>
   )
 }
