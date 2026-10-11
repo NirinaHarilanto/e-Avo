@@ -1,5 +1,6 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { notifierParticipantsSeance } from '../_lib/notifications.js'
+import { replierBinomesDuo } from '../_lib/duo.js'
 
 export const config = { runtime: 'edge' }
 
@@ -110,10 +111,17 @@ export default async function handler(request: Request): Promise<Response> {
          Hors vague : seul le présent est débité, SAUF décision « comptabiliser » (0085) — l'élève
          absent est alors débité comme s'il avait suivi la séance, politique de type « no-show »
          explicitement choisie par le professeur, justificatif à l'appui. */
-      const debites =
+      const debitesBruts =
         session.cohort_id || (auMoinsUnAbsent && body.decisionAbsence === 'comptabiliser')
           ? body.presences.map((p) => p.studentId)
           : body.presences.filter((p) => p.present).map((p) => p.studentId)
+
+      /* Un binôme DUO partage UN forfait, porté par le principal (0054) : une heure de cours se
+         décompte une seule fois, même si les deux membres sont désormais inscrits à la séance et
+         émargent séparément (2026-10-11). Sans ce repli, l'heure était débitée deux fois — une
+         fois sur le principal, une fois sur un secondaire qui n'a aucun forfait, faussant à la
+         fois le reste à consommer et les relevés d'heures par élève. */
+      const debites = await replierBinomesDuo(serviceClient, debitesBruts)
 
       const ecritures = [
         {

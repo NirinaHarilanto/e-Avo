@@ -43,3 +43,45 @@ export async function avecPartenairesDuo(serviceClient: ServiceClient, studentId
 
   return [...new Set([...studentIds, ...(secondaires ?? []).map((p) => p.id), ...(principaux ?? []).map((p) => p.id)])]
 }
+
+/**
+ * Replie chaque binôme DUO sur le seul porteur du forfait.
+ *
+ * Un binôme partage UN forfait, celui du principal (0054) : les deux membres suivent la même
+ * heure de cours, mais elle ne se décompte qu'une fois. Depuis que les deux sont inscrits à la
+ * séance (2026-10-11), toute liste tirée des inscriptions contient les deux — il faut donc
+ * ramener le secondaire sur son principal avant d'écrire dans `hour_ledger`, sans quoi l'heure
+ * serait débitée deux fois, dont une sur un profil qui n'a aucun forfait.
+ *
+ * Un secondaire dont le principal n'est PAS dans la liste reste tel quel : mieux vaut un débit
+ * sur lui qu'un débit perdu.
+ */
+export async function replierBinomesDuo(serviceClient: ServiceClient, studentIds: string[]): Promise<string[]> {
+  if (studentIds.length < 2) return studentIds
+  const { data } = await serviceClient.from('profiles').select('id, duo_partenaire_id').in('id', studentIds)
+  const presents = new Set(studentIds)
+  const porteur = new Map((data ?? []).map((p) => [p.id, p.duo_partenaire_id]))
+  return [
+    ...new Set(
+      studentIds.map((id) => {
+        const principal = porteur.get(id)
+        return principal && presents.has(principal) ? principal : id
+      }),
+    ),
+  ]
+}
+
+/**
+ * Ces élèves sont-ils EXACTEMENT un binôme DUO — deux personnes, liées l'une à l'autre ?
+ *
+ * Sert à distinguer un duo d'un vrai cours collectif, que `sessions.type` ne sait pas différencier
+ * (il ne connaît qu'individuel/collectif, 0008). Deux élèves d'une même vague qui se retrouvent
+ * seuls à une séance ne forment PAS un duo : seul le lien `duo_partenaire_id` fait foi.
+ */
+export async function estBinomeDuo(serviceClient: ServiceClient, studentIds: string[]): Promise<boolean> {
+  if (studentIds.length !== 2) return false
+  const { data } = await serviceClient.from('profiles').select('id, duo_partenaire_id').in('id', studentIds)
+  if (!data || data.length !== 2) return false
+  const [a, b] = data
+  return a.duo_partenaire_id === b.id || b.duo_partenaire_id === a.id
+}

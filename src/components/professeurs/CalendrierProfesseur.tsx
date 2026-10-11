@@ -9,7 +9,7 @@ import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import type { Database } from '../../types/database.types'
 import { getJoinUrl } from '../../lib/visio'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
-import { nomsElevesInscrits } from '../../lib/seances'
+import { estSeanceDuo, libelleTypeSeance, nomsElevesInscrits } from '../../lib/seances'
 import { versEvenementAdmin, estEvenementGooglePersonnel, idGoogleDepuisEvenement, seanceSansEffet } from '../../lib/agendaEvenements'
 import { useEvenementsGoogleCalendarPersonnel, useStatutGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { useRepriseAutomatiqueReunions } from '../../hooks/useRepriseReunionsGoogle'
@@ -44,23 +44,8 @@ import { ChampDate } from '../ui/ChampDate'
 type Profile = Database['public']['Tables']['profiles']['Row']
 type VueCalendrier = 'agenda' | 'liste' | 'previsionnel'
 
-/* `sessions.type` ne distingue que 'individuel'/'collectif' (0008) : une séance à deux élèves
-   est déjà classée 'collectif' à la création (voir plus bas, `type: studentIds.length > 1 ?
-   'collectif' : 'individuel'`), qu'il s'agisse d'un vrai groupe ou d'un binôme DUO. Le distinguer
-   demande donc de regarder QUI est inscrit, pas la colonne `type` : exactement deux élèves,
-   mutuellement liés par `duo_partenaire_id` (0054). Une coïncidence — deux élèves d'une vague,
-   non liés en duo, mais seuls inscrits ce jour-là — ne matche pas ce test et reste « collectif ». */
-function estSeanceDuo(seance: SeanceProfesseur): boolean {
-  if (seance.inscriptions.length !== 2) return false
-  const [a, b] = seance.inscriptions
-  if (!a.etudiant || !b.etudiant) return false
-  return a.etudiant.duo_partenaire_id === b.etudiant.id || b.etudiant.duo_partenaire_id === a.etudiant.id
-}
-
-function libelleTypeSeance(seance: SeanceProfesseur): string {
-  if (estSeanceDuo(seance)) return 'Duo'
-  return seance.session.type === 'individuel' ? 'Individuel' : 'Collectif'
-}
+/* `estSeanceDuo`/`libelleTypeSeance` vivaient ici ; partagés dans lib/seances.ts le 2026-10-11,
+   la même séance s'affichant « Duo » dans cet agenda et « Individuel » partout ailleurs. */
 
 /* Une séance telle que l'agenda hebdomadaire la connaît. Le composant de grille ignore tout des
    séances et des inscriptions : il ne manipule que des `EvenementAgenda`. */
@@ -71,7 +56,7 @@ function versEvenement(seance: SeanceProfesseur): EvenementAgenda {
     debut: seance.session.debut,
     dureeMinutes: seance.session.duree_minutes,
     titre: eleves.join(', ') || 'Séance sans élève inscrit',
-    sousTitre: `${libelleTypeSeance(seance)} · ${seance.session.duree_minutes} min`,
+    sousTitre: `${libelleTypeSeance(seance.session.type, seance.inscriptions)} · ${seance.session.duree_minutes} min`,
     /* Couleur par TYPE de cours plutôt que par statut (demande client du 2026-09-23, « mets les
        évènements de cours DUO et collectif avec des couleurs différentes que celle des
        évènements de cours individuels ») — l'annulation reste signalée en gris quel que soit le
@@ -80,7 +65,7 @@ function versEvenement(seance: SeanceProfesseur): EvenementAgenda {
        l'application (TagProgramme, EtudiantsAdmin). */
     // 'reportee' (0085) traitée comme 'annulee' à l'affichage : cette occurrence n'a pas eu
     // lieu comme prévu — le statut exact reste lisible via `statut`.
-    ton: seance.session.statut === 'annulee' || seance.session.statut === 'reportee' ? 'neutre' : estSeanceDuo(seance) ? 'or' : seance.session.type === 'collectif' ? 'violet' : 'bleu',
+    ton: seance.session.statut === 'annulee' || seance.session.statut === 'reportee' ? 'neutre' : estSeanceDuo(seance.inscriptions) ? 'or' : seance.session.type === 'collectif' ? 'violet' : 'bleu',
     attenue: seance.session.statut === 'annulee' || seance.session.statut === 'reportee',
     statut: seance.session.statut === 'reportee' ? 'Reportée' : seance.session.statut === 'annulee' ? 'Annulée' : undefined,
   }
@@ -797,7 +782,7 @@ function CarteSeance({
             {new Date(seance.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
           </span>
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-            {libelleTypeSeance(seance)} · {seance.session.duree_minutes} min ·{' '}
+            {libelleTypeSeance(seance.session.type, seance.inscriptions)} · {seance.session.duree_minutes} min ·{' '}
             {nomsElevesInscrits(seance.inscriptions).join(', ')}
           </span>
         </div>

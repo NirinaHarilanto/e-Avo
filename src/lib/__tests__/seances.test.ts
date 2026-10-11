@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inscriptionsVisibles, nomEleveInscrit } from '../seances'
+import { estSeanceDuo, inscriptionsVisibles, libelleTypeSeance, nomEleveInscrit } from '../seances'
 
 describe('nomEleveInscrit', () => {
   it('nomme explicitement un élève dont le profil n’est plus résoluble', () => {
@@ -28,5 +28,44 @@ describe('inscriptionsVisibles', () => {
 
   it('garde une séance volontairement créée sans inscrit', () => {
     expect(inscriptionsVisibles([])).toEqual([])
+  })
+})
+
+/* Un binôme DUO est une séance 'individuel' à deux inscrits (0054/0008) : seul le lien
+   `duo_partenaire_id` permet de le distinguer d'un petit cours collectif. Demande client du
+   2026-10-11 : la séance de François Bryan et Malalatiaina ANDRI s'affichait « Individuel ». */
+
+const francois = { id: 'francois', duo_partenaire_id: null }
+const malalatiaina = { id: 'malalatiaina', duo_partenaire_id: 'francois' }
+const tiers = { id: 'tiers', duo_partenaire_id: null }
+
+describe('estSeanceDuo', () => {
+  it('reconnaît deux élèves liés, quel que soit le sens de la lecture', () => {
+    expect(estSeanceDuo([{ etudiant: francois }, { etudiant: malalatiaina }])).toBe(true)
+    expect(estSeanceDuo([{ etudiant: malalatiaina }, { etudiant: francois }])).toBe(true)
+  })
+
+  it('ne confond pas deux élèves qui se trouvent seuls au même cours', () => {
+    expect(estSeanceDuo([{ etudiant: francois }, { etudiant: tiers }])).toBe(false)
+  })
+
+  it('exige exactement deux inscrits', () => {
+    expect(estSeanceDuo([{ etudiant: francois }])).toBe(false)
+    expect(estSeanceDuo([{ etudiant: francois }, { etudiant: malalatiaina }, { etudiant: tiers }])).toBe(false)
+  })
+
+  it('tolère un inscrit dont le compte a été supprimé', () => {
+    expect(estSeanceDuo([{ etudiant: francois }, { etudiant: null }])).toBe(false)
+  })
+})
+
+describe('libelleTypeSeance', () => {
+  it('dit « Duo » pour un binôme, même si la séance est de type individuel', () => {
+    expect(libelleTypeSeance('individuel', [{ etudiant: francois }, { etudiant: malalatiaina }])).toBe('Duo')
+  })
+
+  it('garde Individuel et Collectif pour les autres cas', () => {
+    expect(libelleTypeSeance('individuel', [{ etudiant: francois }])).toBe('Individuel')
+    expect(libelleTypeSeance('collectif', [{ etudiant: francois }, { etudiant: tiers }])).toBe('Collectif')
   })
 })

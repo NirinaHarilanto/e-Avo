@@ -2,7 +2,7 @@
 import type { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
 import { creerEvenementVisio, integrationHoteReunion, noterErreurGoogle, noterErreurHote } from './google.js'
-import { avecPartenairesDuo } from './duo.js'
+import { avecPartenairesDuo, estBinomeDuo } from './duo.js'
 
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
@@ -35,6 +35,22 @@ export async function creerSeanceAvecInscriptions(
   serviceClient: ServiceClient,
   params: ParamsSeance,
 ): Promise<{ sessionId: string } | { error: string }> {
+  /* Les DEUX membres d'un binôme DUO suivent la même séance et y sont donc inscrits tous les deux
+     — demande client du 2026-10-11 : « il faut que les deux personnes soient incluses dans la même
+     séance ». Jusqu'ici seul le porteur du forfait l'était (0054 : tout vit sur le principal), si
+     bien que la séance s'affichait « Individuel · <un seul nom> » et que le second membre ne la
+     voyait nulle part comme sienne. Résolu ICI, au seul endroit qui crée des inscriptions : les
+     trois routes de planification en héritent sans pouvoir l'oublier.
+     Les heures, elles, ne sont décomptées qu'une fois — voir api/professeur/cloturer-seance.ts. */
+  const studentIds = await avecPartenairesDuo(serviceClient, params.studentIds)
+
+  /* Un binôme reste un cours INDIVIDUEL : `type` ne distingue que individuel/collectif (0008), et
+     c'est lui qui décide du fournisseur de visioconférence — Meet pour l'individuel et le duo,
+     Jitsi pour le collectif (règle client du 2026-10-09). Sans ce garde-fou, une séance de duo
+     basculait en 'collectif' dès que l'admin sélectionnait les deux membres à la main, et perdait
+     son lien Meet au passage. */
+  const type = studentIds.length > 1 && (await estBinomeDuo(serviceClient, studentIds)) ? 'individuel' : params.type
+
   /* Les deux requêtes partent ensemble : la lecture des affectations ne dépend pas de la séance
      créée, seul l'insert des inscriptions a besoin des deux. Les enchaîner coûtait un
      aller-retour réseau de plus à chaque séance — multiplié par le nombre de dates lors d'une
@@ -45,7 +61,7 @@ export async function creerSeanceAvecInscriptions(
       .insert({
         etablissement_id: params.etablissementId,
         teacher_id: params.teacherId,
-        type: params.type,
+        type,
         debut: params.debut,
         duree_minutes: params.dureeMinutes,
         statut: 'planifiee',
@@ -58,7 +74,7 @@ export async function creerSeanceAvecInscriptions(
       .from('teacher_assignments')
       .select('id, student_id')
       .eq('teacher_id', params.teacherId)
-      .in('student_id', params.studentIds)
+      .in('student_id', studentIds)
       .is('date_fin', null),
   ])
 
@@ -70,7 +86,7 @@ export async function creerSeanceAvecInscriptions(
   const affectationParEtudiant = new Map((affectations ?? []).map((a) => [a.student_id, a.id]))
 
   const { error: enrollError } = await serviceClient.from('session_enrollments').insert(
-    params.studentIds.map((studentId) => ({
+    studentIds.map((studentId) => ({
       session_id: session.id,
       student_id: studentId,
       teacher_assignment_id: affectationParEtudiant.get(studentId) ?? null,
@@ -85,10 +101,10 @@ export async function creerSeanceAvecInscriptions(
     sessionId: session.id,
     etablissementId: params.etablissementId,
     teacherId: params.teacherId,
-    studentIds: params.studentIds,
+    studentIds,
     debut: params.debut,
     dureeMinutes: params.dureeMinutes,
-    type: params.type,
+    type,
   })
 
   return { sessionId: session.id }

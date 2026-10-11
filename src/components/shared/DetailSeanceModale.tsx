@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { Database } from '../../types/database.types'
 import { useDetailSeance } from '../../hooks/useDetailSeance'
-import { nomEleveInscrit } from '../../lib/seances'
+import { libelleTypeSeance, nomEleveInscrit } from '../../lib/seances'
 import { formaterMinutes } from '../../lib/heures'
 import { estLienReel, getJoinUrl } from '../../lib/visio'
 import { Modale } from '../ui/Modale'
@@ -69,7 +69,7 @@ export function DetailSeanceModale({ session, professeur, eleves, video, onFerme
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <LigneInfo accent label="Professeur" valeur={professeur ? `${professeur.prenom} ${professeur.nom}` : 'Non attribué'} />
           <LigneInfo accent label={nomsEleves.length > 1 ? 'Étudiants' : 'Étudiant'} valeur={nomsEleves.join(', ') || 'Aucun élève inscrit'} />
-          <LigneInfo accent label="Type" valeur={session.type === 'individuel' ? 'Individuel' : 'Collectif'} />
+          <LigneInfo accent label="Type" valeur={libelleTypeSeance(session.type, eleves.map((etudiant) => ({ etudiant })))} />
           <LigneInfo accent label="Durée" valeur={formaterMinutes(session.duree_minutes)} />
           {/* Quel compte Google héberge la réunion et a donc envoyé les invitations (0107) :
               celui du professeur en règle générale. L'administration ne recevant plus ces

@@ -7,7 +7,7 @@ import { useRendezVous } from '../../hooks/useRendezVous'
 import { useEvenementsAdmin } from '../../hooks/useEvenementsAdmin'
 import { agendaAdminComplet, estEvenementGooglePersonnel, idGoogleDepuisEvenement, seanceSansEffet, versEvenementSeance } from '../../lib/agendaEvenements'
 import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
-import { nomsElevesInscrits } from '../../lib/seances'
+import { libelleTypeSeance, nomsElevesInscrits } from '../../lib/seances'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
 import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
@@ -495,7 +495,7 @@ function LigneSeance({ seance, onChange }: { seance: SeanceAdmin; maintenant: st
         {seance.professeur ? `${seance.professeur.prenom} ${seance.professeur.nom}` : 'Professeur inconnu'}
       </span>
       <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1, minWidth: 200 }}>
-        {seance.session.type === 'individuel' ? 'Individuel' : 'Collectif'} · {seance.session.duree_minutes} min ·{' '}
+        {libelleTypeSeance(seance.session.type, seance.inscriptions)} · {seance.session.duree_minutes} min ·{' '}
         {nomsElevesInscrits(seance.inscriptions).join(', ') || 'aucun élève inscrit'}
       </span>
       <BadgeStatutSeance statut={seance.session.statut} />

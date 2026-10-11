@@ -8,20 +8,8 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useVagues } from '../../hooks/useVagues'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { lundiDeLaSemaine } from '../../lib/agenda'
-import {
-  agendaAdminComplet,
-  estEvenementGooglePersonnel,
-  estEvenementSeance,
-  idGoogleDepuisEvenement,
-  idSeanceDepuisEvenement,
-  seanceSansEffet,
-  versEvenementSeance,
-} from '../../lib/agendaEvenements'
-import { useSeancesAdmin } from '../../hooks/useSeancesAdmin'
-import { nomsElevesInscrits } from '../../lib/seances'
-import { DetailSeanceModale } from '../shared/DetailSeanceModale'
-import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
- import { FicheEvenementGoogle, REPETITIONS } from '../shared/FicheEvenementGoogle'
+import { agendaAdminComplet, estEvenementGooglePersonnel, idGoogleDepuisEvenement } from '../../lib/agendaEvenements'
+import { FicheEvenementGoogle, REPETITIONS } from '../shared/FicheEvenementGoogle'
 import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { etudiantsSelectionnables, vaguesSelectionnables, classesSelectionnables } from '../../lib/invitations'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
@@ -31,7 +19,7 @@ import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
-import { boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
+import { boutonPrimaireStyle } from '../ui/Boutons'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { Section } from '../ui/Section'
 import { Onglets } from '../ui/Onglets'
@@ -81,36 +69,18 @@ export function RendezVousAdmin() {
     parId: googleParId,
     recharger: rechargerGoogle,
   } = useEvenementsGoogleCalendarPersonnel(semaineDebut)
-  /* Les cours manquaient à cet agenda : il ne montrait que les rendez-vous prospects, les
-     événements créés par l'admin et l'agenda Google, si bien que « Agenda » et « Séances & visio »
-     donnaient chacun une moitié de la même semaine (signalé par le client le 2026-10-09). Ils y
-     sont désormais, avec leur couleur par professeur, et un clic ouvre la fiche de la séance. */
-  const { seances, recharger: rechargerSeances } = useSeancesAdmin()
-  /* Les mêmes mouvements de planning que ceux surveillés par « Séances & visio » : maintenant que
-     les cours sont dans cet agenda, ils doivent s'y rafraîchir au même moment, sinon les deux
-     pages se remettent à diverger au premier changement d'horaire. */
-  useRafraichirSurNotification(
-    derniereNotification,
-    ['planning_seance_creee', 'planning_seance_reprogrammee', 'planning_seance_annulee', 'seance_reprogrammee', 'seance_annulee', 'seance_reportee'],
-    rechargerSeances,
-  )
-  const { professeurs } = useProfesseurs()
-  const professeurIds = useMemo(() => professeurs.map((p) => p.id), [professeurs])
-  const evenementsSeances = useMemo(
-    () =>
-      seances
-        .filter((s) => !seanceSansEffet(s.session.statut))
-        .map((s) => versEvenementSeance(s, nomsElevesInscrits(s.inscriptions), professeurIds, { prefixe: true })),
-    [seances, professeurIds],
-  )
+  /* Les cours professeur ↔ élève NE SONT PAS superposés ici — règle client rappelée le
+     2026-10-11 : « toute séance de cours entre étudiant et professeur s'affichera uniquement dans
+     les agendas du professeur et de l'étudiant », sauf si l'admin est lui-même convié à la
+     réunion. Ils avaient été ajoutés le 2026-10-09 pour aligner cette page sur « Séances & visio » ;
+     c'est cette dernière, faite pour le planning de l'établissement, qui les porte désormais
+     seule. L'exception est couverte sans rien de particulier : un rendez-vous auquel l'admin
+     participe est un `evenements_admin`, pas une `sessions`, et reste donc affiché. */
   const evenementsAgenda = useMemo(
-    () => [...agendaAdminComplet(rendezVous, evenementsAdmin), ...evenementsSeances, ...evenementsGooglePersonnel],
-    [rendezVous, evenementsAdmin, evenementsSeances, evenementsGooglePersonnel],
+    () => [...agendaAdminComplet(rendezVous, evenementsAdmin), ...evenementsGooglePersonnel],
+    [rendezVous, evenementsAdmin, evenementsGooglePersonnel],
   )
   const [evenementGoogleOuvert, setEvenementGoogleOuvert] = useState<string | null>(null)
-  const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
-  const [editionSeanceOuverte, setEditionSeanceOuverte] = useState(false)
-  const seanceOuverte = useMemo(() => seances.find((s) => s.session.id === seanceOuverteId) ?? null, [seances, seanceOuverteId])
 
   return (
     <AdminLayout actif="Agenda">
@@ -190,10 +160,6 @@ export function RendezVousAdmin() {
               setEvenementGoogleOuvert(idGoogleDepuisEvenement(evenement.id))
               return
             }
-            if (estEvenementSeance(evenement.id)) {
-              setSeanceOuverteId(idSeanceDepuisEvenement(evenement.id))
-              return
-            }
             setElementOuvertId(evenement.id)
           }}
           onCreneauLibre={(debut) => setCreationOuverte(debut)}
@@ -205,7 +171,6 @@ export function RendezVousAdmin() {
               <PastilleLegende couleur="var(--accent-teal)" libelle="Professeur(s)" />
               <PastilleLegende couleur="var(--accent-violet)" libelle="Mixte" />
               <span style={{ color: 'var(--muted-2)' }}>·</span>
-              <span>Cours : une couleur par professeur</span>
               <span>Agenda Google : sa couleur d’origine</span>
             </div>
           }
@@ -281,39 +246,6 @@ export function RendezVousAdmin() {
         />
       )}
 
-      {/* Même fiche que dans « Séances & visio » : cliquer un cours doit donner la même chose des
-          deux côtés, sinon les deux pages redeviennent deux applications différentes. */}
-      {seanceOuverte && !editionSeanceOuverte && (
-        <DetailSeanceModale
-          session={seanceOuverte.session}
-          professeur={seanceOuverte.professeur}
-          eleves={seanceOuverte.inscriptions.map((i) => i.etudiant)}
-          video={seanceOuverte.video}
-          onFermer={() => setSeanceOuverteId(null)}
-          actions={
-            seanceOuverte.session.statut === 'planifiee' ? (
-              <button onClick={() => setEditionSeanceOuverte(true)} style={boutonSecondaireStyle}>
-                Modifier ou annuler la séance
-              </button>
-            ) : undefined
-          }
-        />
-      )}
-
-      {seanceOuverte && editionSeanceOuverte && (
-        <EditerSeancePlanifieeModale
-          session={seanceOuverte.session}
-          etudiants={seanceOuverte.inscriptions.map((i) => i.etudiant).filter((e): e is NonNullable<typeof e> => !!e)}
-          professeur={seanceOuverte.professeur}
-          video={seanceOuverte.video}
-          onFermer={() => setEditionSeanceOuverte(false)}
-          onEnregistre={() => {
-            setEditionSeanceOuverte(false)
-            setSeanceOuverteId(null)
-            rechargerSeances()
-          }}
-        />
-      )}
     </AdminLayout>
   )
 }

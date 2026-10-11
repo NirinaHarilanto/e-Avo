@@ -33,3 +33,31 @@ export function inscriptionsVisibles<I extends { etudiant: unknown | null }>(
   if (inscriptions.length > 0 && actives.length === 0) return null
   return actives
 }
+
+/* `sessions.type` ne distingue que 'individuel' et 'collectif' (0008) : un binôme DUO est une
+   séance 'individuel' à deux inscrits. Le reconnaître demande donc de regarder QUI est inscrit,
+   pas la colonne `type` — exactement deux élèves, liés l'un à l'autre par `duo_partenaire_id`
+   (0054, lien asymétrique : un seul des deux le porte).
+
+   Une coïncidence — deux élèves d'une même vague, seuls présents ce jour-là — ne passe pas ce
+   test et reste « Collectif ».
+
+   Partagé depuis `CalendrierProfesseur.tsx` le 2026-10-11 : la même séance s'affichait « Duo »
+   dans l'agenda du professeur et « Individuel » partout ailleurs (fiche admin, agenda de
+   l'élève, comptes rendus), faute d'un seul endroit pour en décider. */
+export function estSeanceDuo(
+  inscriptions: { etudiant: { id: string; duo_partenaire_id?: string | null } | null }[],
+): boolean {
+  if (inscriptions.length !== 2) return false
+  const [a, b] = inscriptions
+  if (!a.etudiant || !b.etudiant) return false
+  return a.etudiant.duo_partenaire_id === b.etudiant.id || b.etudiant.duo_partenaire_id === a.etudiant.id
+}
+
+export function libelleTypeSeance(
+  type: 'individuel' | 'collectif',
+  inscriptions: { etudiant: { id: string; duo_partenaire_id?: string | null } | null }[],
+): string {
+  if (estSeanceDuo(inscriptions)) return 'Duo'
+  return type === 'individuel' ? 'Individuel' : 'Collectif'
+}
