@@ -10,10 +10,19 @@ type TeacherAssignment = Database['public']['Tables']['teacher_assignments']['Ro
 interface AttribuerProfesseurProps {
   studentId: string
   affectationActuelle: TeacherAssignment | null
+  /* Élève en cours collectif (demande client du 2026-10-11, capture à l'appui) : « le bouton
+     attribuer professeur devrait être grisé et non cliquable [...] l'attribution de professeur
+     pour les cours collectifs devrait uniquement se faire dans l'onglet Vagues. » Ce mécanisme
+     (teacher_assignments) n'a jamais concerné le collectif — c'est `cohort_classes.teacher_id`
+     qui tranche, attribué depuis Cours collectifs › Vagues (AttribuerProfesseurClasse.tsx,
+     CohortesAdmin.tsx) — mais rien n'empêchait jusqu'ici de cliquer ce bouton-ci par erreur sur
+     le dossier d'un élève collectif, sans aucun effet puisque son planning ne dépend pas de
+     `teacher_assignments`. */
+  estCollectif?: boolean
   onTermine: () => void
 }
 
-export function AttribuerProfesseur({ studentId, affectationActuelle, onTermine }: AttribuerProfesseurProps) {
+export function AttribuerProfesseur({ studentId, affectationActuelle, estCollectif, onTermine }: AttribuerProfesseurProps) {
   const { session } = useProfileContext()
   const { professeurs, loading: chargementProfs } = useProfesseurs()
   const [ouvert, setOuvert] = useState(false)
@@ -79,6 +88,33 @@ export function AttribuerProfesseur({ studentId, affectationActuelle, onTermine 
         body: JSON.stringify({ studentId }),
       }).catch(() => undefined)
     }
+  }
+
+  if (estCollectif) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <button
+          disabled
+          title="L'attribution de professeur pour les cours collectifs se fait depuis Cours collectifs › Vagues."
+          style={{
+            width: '100%',
+            fontSize: 12.5,
+            padding: 10,
+            borderRadius: 999,
+            border: '1px solid var(--border)',
+            background: 'rgba(255,255,255,.04)',
+            color: 'var(--muted-2)',
+            cursor: 'not-allowed',
+          }}
+        >
+          Attribuer un professeur
+        </button>
+        <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0, lineHeight: 1.5 }}>
+          Élève en cours collectif : le professeur est celui de sa classe de niveau, attribué depuis{' '}
+          <strong>Cours collectifs › Vagues</strong>, pas depuis ce dossier.
+        </p>
+      </div>
+    )
   }
 
   if (!ouvert) {

@@ -233,7 +233,12 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
     <DossierEtudiantVue
       dossier={dossier}
       panneauProfesseur={
-        <AttribuerProfesseur studentId={etudiant.id} affectationActuelle={affectationActuelle} onTermine={recharger} />
+        <AttribuerProfesseur
+          studentId={etudiant.id}
+          affectationActuelle={affectationActuelle}
+          estCollectif={!!dossier.cohorte}
+          onTermine={recharger}
+        />
       }
       panneauInformations={<PanneauInformationsDuo etudiant={etudiant} duoPartenaire={dossier.duoPartenaire} onChange={recharger} />}
       panneauSuppression={

@@ -13,6 +13,7 @@ import { ConvertirCandidatCollectif } from '../prospects/ConvertirCandidatCollec
 import { FraisInscriptionCollectifModale, type FraisInscription } from '../prospects/FraisInscriptionCollectifModale'
 import { DetailPaiementModale, type CiblePaiement } from '../paiements/DetailPaiementModale'
 import { AssignerVague } from '../etudiants/AssignerVague'
+import { ChangerClasseEtudiant } from '../etudiants/ChangerClasseEtudiant'
 import { Modale } from '../ui/Modale'
 import { GroupeSection } from '../ui/Section'
 import { LigneInfo } from '../ui/Champ'
@@ -61,6 +62,7 @@ export function FicheCandidatCollectifModale({
   const [prospect, setProspect] = useState<Prospect | null>(null)
   const [profilEtudiant, setProfilEtudiant] = useState<Profile | null>(null)
   const [vagueId, setVagueId] = useState<string | null>(null)
+  const [classeId, setClasseId] = useState<string | null>(null)
   const [paiements, setPaiements] = useState<StudentPayment[] | null>(null)
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -98,17 +100,19 @@ export function FicheCandidatCollectifModale({
       // De même, la vague et les deux requêtes de paiements ne dépendent que de `profilData`,
       // jamais l'une de l'autre : les trois partent ensemble.
       const [{ data: inscriptionVague }, { data: parProspect }, { data: parEtudiant }] = await Promise.all([
-        supabase.from('cohort_enrollments').select('cohort_id').eq('student_id', profilData.id).maybeSingle(),
+        supabase.from('cohort_enrollments').select('cohort_id, cohort_class_id').eq('student_id', profilData.id).maybeSingle(),
         supabase.from('student_payments').select('*').eq('prospect_id', ligne.prospectId).is('supprime_le', null),
         supabase.from('student_payments').select('*').eq('student_id', profilData.id).is('supprime_le', null),
       ])
       setVagueId(inscriptionVague?.cohort_id ?? null)
+      setClasseId(inscriptionVague?.cohort_class_id ?? null)
       // Une même ligne peut porter les deux clés (convert-prospect.ts pose prospect_id ET
       // student_id) : dédoublonnée par id plutôt que listée deux fois.
       const fusion = new Map([...(parProspect ?? []), ...(parEtudiant ?? [])].map((p) => [p.id, p]))
       setPaiements([...fusion.values()].sort((a, b) => b.created_at.localeCompare(a.created_at)))
     } else {
       setVagueId(null)
+      setClasseId(null)
       setPaiements([])
     }
 
@@ -205,13 +209,23 @@ export function FicheCandidatCollectifModale({
               />
             </div>
             {profilEtudiant && etablissementId && (
-              <div style={{ marginTop: 10 }}>
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <AssignerVague
                   studentId={profilEtudiant.id}
                   etablissementId={etablissementId}
                   vagueActuelle={vagueActuelle}
                   onTermine={toutRecharger}
                 />
+                {/* Changer la CLASSE sans repasser par le choix de la vague — demande client du
+                    2026-10-11. N'a de sens que dans une vague déjà choisie (vagueId). */}
+                {vagueId && (
+                  <ChangerClasseEtudiant
+                    studentId={profilEtudiant.id}
+                    cohortId={vagueId}
+                    classeActuelleId={classeId}
+                    onTermine={toutRecharger}
+                  />
+                )}
               </div>
             )}
           </GroupeSection>
