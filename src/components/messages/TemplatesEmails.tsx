@@ -275,12 +275,33 @@ export function TemplatesEmails() {
       )}
 
       {historique.length > 0 && (
-        <Section titre="Derniers envois" description="Ce qui est parti, à quelle adresse, et ce qui a échoué." compteur={historique.length}>
+        <Section
+          titre="Derniers messages"
+          description="Ce qui a été préparé ou envoyé, à quelle adresse."
+          compteur={historique.length}
+        >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {historique.slice(0, 15).map((e) => (
               <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 11px', borderRadius: 9, background: 'rgba(255,255,255,.03)' }}>
-                <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: e.statut === 'envoye' ? 'var(--accent-teal)' : 'var(--danger)' }}>
-                  {e.statut === 'envoye' ? 'Envoyé' : 'Échec'}
+                {/* « Préparé » (0117) ne vaut ni réussite ni échec : le message a été ouvert dans
+                    Gmail, l'application ne sait pas si l'admin l'a envoyé. Sans ce cas, il
+                    s'affichait « Échec », ce qui serait faux. « Envoyé » reste celui des e-mails
+                    réellement partis par Resend — l'historique d'avant ce changement. */}
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                    color:
+                      e.statut === 'envoye'
+                        ? 'var(--accent-teal)'
+                        : e.statut === 'prepare'
+                          ? 'var(--accent-blue)'
+                          : 'var(--danger)',
+                  }}
+                >
+                  {e.statut === 'envoye' ? 'Envoyé' : e.statut === 'prepare' ? 'Préparé' : 'Échec'}
                 </span>
                 <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1, minWidth: 0 }}>{e.objet}</span>
                 <span style={{ fontSize: 11, color: 'var(--muted)' }}>{e.destinataires_emails.join(', ')}</span>
@@ -308,8 +329,8 @@ export function TemplatesEmails() {
              affiche sa confirmation à l'intérieur et laisse l'admin fermer lui-même. La fenêtre
              affiche désormais sa propre confirmation (voir UtiliserTemplateModale.tsx) ; ce toast
              de page reste une seconde trace, visible une fois qu'elle est refermée. */
-          onEnvoye={(avertissement) => {
-            annoncer(avertissement ? `E-mail envoyé. ${avertissement}` : 'E-mail envoyé.')
+          onEnvoye={() => {
+            annoncer('Message ouvert dans Gmail — envoyez-le depuis Gmail après relecture.')
             rechargerEnvois()
           }}
           onEnregistre={() => rechargerEnvois()}

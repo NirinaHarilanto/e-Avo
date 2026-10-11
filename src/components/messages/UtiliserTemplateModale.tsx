@@ -12,8 +12,7 @@ import { EtatChargement, MessageErreur, MessageInfo, MessageSucces } from '../ui
 import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { EMAIL_OFFICIEL_HOC } from '../../lib/etablissement'
-
-const TAILLE_MAX_PIECE_JOINTE = 10 * 1024 * 1024
+import { lienCompositionGmail, LONGUEUR_MAX_LIEN } from '../../lib/compositionEmail'
 
 /* Valeurs déduites du PREMIER destinataire obligatoire : un modèle du parcours apprenant
    s'adresse à une personne (« Bonjour {{prenom}} »), et l'envoyer à plusieurs reste l'exception
@@ -47,14 +46,11 @@ export function UtiliserTemplateModale({
      du modèle — l'admin retrouve son texte tel qu'il l'avait laissé. */
   brouillon?: EmailEnvoi | null
   onFermer: () => void
-  /* Ne ferme plus la fenêtre (demande client du 2026-10-11) : seulement prévenir l'appelant pour
-     qu'il rafraîchisse sa liste et affiche son propre toast en arrière-plan. La fenêtre affiche
-     sa propre confirmation (voir `succes` ci-dessous) et c'est l'admin qui la referme, comme pour
-     un brouillon enregistré — jamais une fermeture instantanée qui ne laisse rien voir.
-     `avertissement` : le mail est bien parti (Resend l'a accepté) mais la journalisation dans
-     `email_envois` a échoué — l'appelant doit le signaler puisque cette ligne n'apparaîtra pas
-     dans « Derniers envois ». */
-  onEnvoye: (avertissement?: string) => void
+  /* Ne ferme pas la fenêtre (demande client du 2026-10-11) : seulement prévenir l'appelant pour
+     qu'il rafraîchisse sa liste en arrière-plan. La fenêtre affiche sa propre confirmation (voir
+     `succes` ci-dessous) et c'est l'admin qui la referme — jamais une fermeture instantanée qui
+     ne laisse rien voir. */
+  onEnvoye: () => void
   onEnregistre: () => void
 }) {
   const { session, profile } = useProfileContext()
@@ -69,7 +65,6 @@ export function UtiliserTemplateModale({
   const [corps, setCorps] = useState('')
   const [manquantes, setManquantes] = useState<string[]>([])
   const [lignesRetirees, setLignesRetirees] = useState<string[]>([])
-  const [piece, setPiece] = useState<File | null>(null)
   const [enCours, setEnCours] = useState<'envoi' | 'enregistrement' | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [succes, setSucces] = useState<string | null>(null)
@@ -104,27 +99,35 @@ export function UtiliserTemplateModale({
     setLignesRetirees(prepare.lignesRetirees)
   }, [template, brouillon, constantes, obligatoires, etudiants, professeurs, personnes, texteRetouche])
 
-  async function deposerPiece(): Promise<{ nom: string; chemin: string } | null | 'erreur'> {
-    if (!piece) return null
-    if (piece.size > TAILLE_MAX_PIECE_JOINTE) {
-      setErreur('La pièce jointe dépasse 10 Mo. La plupart des messageries refuseraient le message.')
-      return 'erreur'
+  /* Adresses des personnes choisies, lues au moment du clic plutôt que gardées en mémoire : la
+     policy `profiles_admin_select_etablissement` (0004) autorise l'admin à lire les profils de
+     son établissement, e-mail compris — l'annuaire utilisé par le sélecteur, lui, ne porte que
+     les noms (vue `annuaire_etablissement`, 0090). Les comptes supprimés sont écartés, comme le
+     faisait la route serveur qu'on remplace. */
+  async function adressesDe(ids: string[]): Promise<{ emails: string[]; sansAdresse: string[] }> {
+    if (ids.length === 0) return { emails: [], sansAdresse: [] }
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, prenom, nom')
+      .in('id', ids)
+      .neq('status', 'suspended')
+    if (error) throw new Error(error.message)
+    const emails: string[] = []
+    const sansAdresse: string[] = []
+    for (const id of ids) {
+      const personne = (data ?? []).find((p) => p.id === id)
+      if (personne?.email) emails.push(personne.email)
+      else sansAdresse.push(personne ? `${personne.prenom ?? ''} ${personne.nom ?? ''}`.trim() : 'un destinataire')
     }
-    const chemin = `${profile?.etablissement_id}/${crypto.randomUUID()}-${piece.name}`
-    const { error } = await supabase.storage.from('pieces-jointes-emails').upload(chemin, piece)
-    if (error) {
-      setErreur(`Le dépôt de la pièce jointe a échoué : ${error.message}`)
-      return 'erreur'
-    }
-    return { nom: piece.name, chemin }
+    return { emails, sansAdresse }
   }
 
   async function appeler(action: 'envoi' | 'enregistrement') {
     /* Avant correctif (signalé par le client le 2026-10-10) : une session absente sortait
-       silencieusement ici, sans la moindre trace à l'écran — le bouton « Envoyer » redevenait
-       cliquable, et rien n'indiquait qu'aucune requête n'était jamais partie. Le même filet
-       (try/catch/finally) couvre aussi toute exception imprévue plus bas : l'admin doit toujours
-       finir avec un statut visible, succès ou échec, jamais un silence. */
+       silencieusement ici, sans la moindre trace à l'écran — le bouton redevenait cliquable, et
+       rien n'indiquait que rien ne s'était passé. Le même filet (try/catch/finally) couvre aussi
+       toute exception imprévue plus bas : l'admin doit toujours finir avec un statut visible,
+       succès ou échec, jamais un silence. */
     if (!session) {
       setErreur('Votre session a expiré. Rechargez la page et réessayez.')
       return
@@ -134,11 +137,6 @@ export function UtiliserTemplateModale({
     setEnCours(action)
 
     try {
-      const pieceDeposee = await deposerPiece()
-      if (pieceDeposee === 'erreur') {
-        return
-      }
-
       if (action === 'enregistrement') {
         /* Brouillon écrit directement par le navigateur : la policy `email_envois_admin_all`
            (0091) l'autorise, il n'y a ni e-mail à expédier ni adresse à résoudre. */
@@ -149,8 +147,7 @@ export function UtiliserTemplateModale({
           copies_profile_ids: optionnels,
           objet: objet.trim(),
           corps: corps.trim(),
-          piece_jointe_nom: pieceDeposee?.nom ?? brouillon?.piece_jointe_nom ?? null,
-          piece_jointe_chemin: pieceDeposee?.chemin ?? brouillon?.piece_jointe_chemin ?? null,
+          piece_jointe_nom: template?.piece_jointe_attendue ?? brouillon?.piece_jointe_nom ?? null,
           statut: 'brouillon' as const,
           cree_par_profile_id: profile!.id,
         }
@@ -166,33 +163,66 @@ export function UtiliserTemplateModale({
         return
       }
 
-      const reponse = await fetch('/api/admin/envoyer-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({
-          envoiId: brouillon?.id,
-          templateId: template?.id ?? brouillon?.template_id ?? undefined,
-          destinataireIds: obligatoires,
-          copieIds: optionnels,
-          objet: objet.trim(),
-          corps: corps.trim(),
-          pieceJointeNom: pieceDeposee?.nom ?? brouillon?.piece_jointe_nom ?? undefined,
-          pieceJointeChemin: pieceDeposee?.chemin ?? brouillon?.piece_jointe_chemin ?? undefined,
-        }),
-      }).catch(() => null)
-
-      if (!reponse || !reponse.ok) {
-        const detail = reponse ? await reponse.json().catch(() => null) : null
-        setErreur(detail?.error ?? "L'envoi a échoué. Vérifiez votre connexion et réessayez.")
+      /* Le message n'est plus POSTÉ par l'application : il est PRÉPARÉ dans la boîte Gmail de
+         l'établissement, et c'est l'admin qui l'envoie après relecture (demande client du
+         2026-10-11). Voir lib/compositionEmail.ts pour les conséquences de ce choix. */
+      const [principaux, copies] = await Promise.all([adressesDe(obligatoires), adressesDe(optionnels)])
+      const sansAdresse = [...principaux.sansAdresse, ...copies.sansAdresse]
+      if (sansAdresse.length > 0) {
+        setErreur(`Aucune adresse e-mail enregistrée pour : ${sansAdresse.join(', ')}. Complétez sa fiche avant d'envoyer.`)
         return
       }
-      const resultat = await reponse.json().catch(() => null)
-      /* Affichée DANS la fenêtre, comme pour un brouillon — avant ce correctif, `onEnvoye()`
-         fermait la fenêtre dans le même geste, avant que l'admin ait pu voir quoi que ce soit
-         (signalé par le client le 2026-10-11 : « rien ne confirme l'envoi à l'écran », alors que
-         l'e-mail était bien envoyé et délivré). */
-      setSucces(resultat?.avertissement ? `E-mail envoyé. ${resultat.avertissement}` : 'E-mail envoyé.')
-      onEnvoye(resultat?.avertissement)
+
+      const lien = lienCompositionGmail({
+        expediteur: EMAIL_OFFICIEL_HOC,
+        destinataires: principaux.emails,
+        copies: copies.emails,
+        objet: objet.trim(),
+        corps: corps.trim(),
+      })
+      if (lien.length > LONGUEUR_MAX_LIEN) {
+        setErreur(
+          'Ce message est trop long pour être transmis à Gmail par un lien. Raccourcissez-le, ou copiez-collez le texte directement dans Gmail.',
+        )
+        return
+      }
+
+      /* Onglet neuf plutôt que la fenêtre courante : l'admin garde son brouillon à l'écran
+         derrière Gmail, et peut y revenir si quelque chose ne va pas. Un bloqueur de pop-up peut
+         refuser l'ouverture — le cas est dit explicitement plutôt que laissé sans réponse. */
+      const onglet = window.open(lien, '_blank', 'noopener,noreferrer')
+      if (!onglet) {
+        setErreur(
+          'Votre navigateur a bloqué l’ouverture de Gmail. Autorisez les fenêtres surgissantes pour ce site, puis réessayez.',
+        )
+        return
+      }
+
+      /* Journalisé « préparé », jamais « envoyé » : l'application ne peut pas savoir si l'admin a
+         cliqué « Envoyer » dans Gmail (0117). Écrit directement par le navigateur, comme le
+         brouillon — la policy `email_envois_admin_all` (0091) l'autorise. */
+      const ligne = {
+        etablissement_id: profile!.etablissement_id,
+        template_id: template?.id ?? brouillon?.template_id ?? null,
+        destinataires_profile_ids: obligatoires,
+        copies_profile_ids: optionnels,
+        destinataires_emails: [...principaux.emails, ...copies.emails],
+        objet: objet.trim(),
+        corps: corps.trim(),
+        piece_jointe_nom: template?.piece_jointe_attendue ?? brouillon?.piece_jointe_nom ?? null,
+        statut: 'prepare' as const,
+        cree_par_profile_id: profile!.id,
+      }
+      const { error: erreurJournal } = brouillon
+        ? await supabase.from('email_envois').update(ligne).eq('id', brouillon.id)
+        : await supabase.from('email_envois').insert(ligne)
+
+      setSucces(
+        erreurJournal
+          ? `Message ouvert dans Gmail — relisez-le puis cliquez « Envoyer » dans Gmail. Il n’a pas pu être ajouté à l’historique (${erreurJournal.message}).`
+          : 'Message ouvert dans Gmail — relisez-le puis cliquez « Envoyer » dans Gmail.',
+      )
+      onEnvoye()
     } catch (erreurInattendue) {
       setErreur(
         `Une erreur inattendue est survenue : ${erreurInattendue instanceof Error ? erreurInattendue.message : 'réessayez.'}`,
@@ -210,12 +240,14 @@ export function UtiliserTemplateModale({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
         {template?.quand && <MessageInfo>Quand l’utiliser : {template.quand}</MessageInfo>}
 
-        {/* L'admin doit voir de quelle adresse part le message avant de l'envoyer — et surtout à
-            laquelle les réponses lui reviendront. */}
+        {/* L'admin doit voir d'où partira le message — et comprendre que c'est LUI qui l'envoie
+            depuis Gmail, l'application ne faisant que le préparer (demande client du
+            2026-10-11). */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span style={etiquetteStyle}>Expéditeur</span>
           <span style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
-            Hari Online Club — réponses vers <strong>{EMAIL_OFFICIEL_HOC}</strong>
+            Le message s’ouvrira dans Gmail, depuis <strong>{EMAIL_OFFICIEL_HOC}</strong> — relisez-le, puis envoyez-le
+            depuis Gmail.
           </span>
         </div>
 
@@ -242,15 +274,16 @@ export function UtiliserTemplateModale({
           </>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={etiquetteStyle}>
-            Pièce jointe{template?.piece_jointe_attendue ? ` — attendue : ${template.piece_jointe_attendue}` : ' (facultative)'}
-          </span>
-          <input type="file" onChange={(e) => setPiece(e.target.files?.[0] ?? null)} style={{ fontSize: 12.5, color: 'var(--ink)' }} />
-          {brouillon?.piece_jointe_nom && !piece && (
-            <span style={{ fontSize: 11.5, color: 'var(--accent-teal)' }}>Déjà joint : {brouillon.piece_jointe_nom}</span>
-          )}
-        </div>
+        {/* Plus de sélecteur de fichier : aucun navigateur n'autorise une pièce jointe à être
+            pré-attachée par un lien, quel qu'il soit (voir lib/compositionEmail.ts). Demander un
+            fichier ici laisserait croire qu'il partira avec le message. On rappelle donc
+            simplement ce que ce modèle attend, pour que l'admin le joigne dans Gmail. */}
+        {template?.piece_jointe_attendue && (
+          <MessageInfo>
+            Pièce jointe attendue : <strong>{template.piece_jointe_attendue}</strong>. À joindre vous-même dans Gmail,
+            avant d’envoyer.
+          </MessageInfo>
+        )}
 
         {manquantes.length > 0 && (
           <MessageInfo>
@@ -319,7 +352,7 @@ export function UtiliserTemplateModale({
               className="btn-shine"
               style={{ ...boutonPrimaireStyle, fontSize: 12.5, padding: '9px 18px', opacity: enCours !== null || !pret ? 0.6 : 1 }}
             >
-              {enCours === 'envoi' ? 'Envoi…' : 'Envoyer'}
+              {enCours === 'envoi' ? 'Ouverture…' : 'Ouvrir dans ma messagerie'}
             </button>
           </div>
         )}

@@ -1400,7 +1400,7 @@ export interface Database {
           corps: string
           piece_jointe_nom: string | null
           piece_jointe_chemin: string | null
-          statut: 'brouillon' | 'envoye' | 'echec'
+          statut: 'brouillon' | 'envoye' | 'echec' | 'prepare'
           erreur: string | null
           envoye_le: string | null
           cree_par_profile_id: string
@@ -1418,7 +1418,7 @@ export interface Database {
           corps: string
           piece_jointe_nom?: string | null
           piece_jointe_chemin?: string | null
-          statut?: 'brouillon' | 'envoye' | 'echec'
+          statut?: 'brouillon' | 'envoye' | 'echec' | 'prepare'
           erreur?: string | null
           envoye_le?: string | null
           cree_par_profile_id: string
