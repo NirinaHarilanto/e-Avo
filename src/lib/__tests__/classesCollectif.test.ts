@@ -5,6 +5,7 @@ import {
   libelleNiveauCecrl,
   niveauRetenu,
   NIVEAUX_CECRL,
+  parcoursCollectifTermine,
   rangNiveauCecrl,
 } from '../classesCollectif'
 
@@ -117,5 +118,22 @@ describe('fraisInscriptionCollectif', () => {
     expect(fraisInscriptionCollectif([], 'A2')).toBeNull()
     // Un tarif laissé à 0 dans la grille ne décrit pas des frais exploitables.
     expect(fraisInscriptionCollectif([{ type_programme: 'collectif', titre: 'Beginner', prix: 0 }], 'A2')).toBeNull()
+  })
+})
+
+describe('parcoursCollectifTermine', () => {
+  it('est terminé dès que les heures consommées atteignent le forfait', () => {
+    expect(parcoursCollectifTermine(32, 32)).toBe(true)
+    expect(parcoursCollectifTermine(35, 32)).toBe(true)
+  })
+
+  it('n’est pas terminé tant qu’il reste des heures', () => {
+    expect(parcoursCollectifTermine(31.5, 32)).toBe(false)
+    expect(parcoursCollectifTermine(0, 32)).toBe(false)
+  })
+
+  it('n’est jamais terminé sans forfait connu, plutôt qu’une réévaluation prématurée', () => {
+    expect(parcoursCollectifTermine(100, null)).toBe(false)
+    expect(parcoursCollectifTermine(100, 0)).toBe(false)
   })
 })

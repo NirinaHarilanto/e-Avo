@@ -215,6 +215,17 @@ export function SuiviCollectifAdmin() {
             Cliquez l’en-tête d’une colonne pour <strong>trier</strong> le tableau dessus ; un second clic inverse le
             sens.
           </>,
+          <>
+            <strong>Cliquez une ligne</strong> pour ouvrir la fiche complète de la personne : toutes ses informations y
+            sont modifiables (identité, vague, classe, paiements), et un candidat pas encore converti s’y convertit en
+            étudiant·e — toujours précédé de l’enregistrement de ses frais d’inscription.
+          </>,
+          <>
+            Une fois toutes les heures de sa vague consommées, le bouton <strong>« Évaluer l’étudiant »</strong>{' '}
+            apparaît dans sa fiche : il attribue une nouvelle vague, une nouvelle classe et permet de corriger son
+            niveau, toujours précédé de l’enregistrement des frais d’inscription du nouveau niveau — comme pour une
+            première conversion.
+          </>,
         ]}
       />
 

@@ -14,6 +14,27 @@ export interface FraisInscription {
   notes: string
 }
 
+/* Trois situations réutilisent cette même fenêtre, chacune avec un sens différent pour « valider »
+   — repéré en vérifiant à l'écran le 2026-10-11 : le texte « avant que [...] ne devienne
+   étudiant·e » et le bouton « Enregistrer et convertir » n'avaient aucun sens pour un étudiant déjà
+   converti (frais manquants à compléter, ou réévaluation de fin de parcours). */
+export type ContexteFraisInscription = 'conversion' | 'reevaluation' | 'complement'
+
+const TEXTES_CONTEXTE: Record<ContexteFraisInscription, { intro: (nom: string) => string; bouton: string }> = {
+  conversion: {
+    intro: (nom) => `Les frais d'inscription sont enregistrés avant que ${nom} ne devienne étudiant·e. Le montant proposé est celui de son niveau dans la grille des tarifs.`,
+    bouton: 'Enregistrer et convertir',
+  },
+  reevaluation: {
+    intro: (nom) => `Les frais d'inscription du nouveau niveau sont enregistrés avant que le nouveau placement de ${nom} ne soit validé. Le montant proposé est celui de son niveau dans la grille des tarifs.`,
+    bouton: 'Enregistrer et valider le placement',
+  },
+  complement: {
+    intro: (nom) => `Enregistrez les frais d'inscription de ${nom}. Le montant proposé est celui de son niveau dans la grille des tarifs.`,
+    bouton: 'Enregistrer',
+  },
+}
+
 /* Frais d'inscription au collectif, à enregistrer AVANT la conversion en étudiant — demande
    client du 2026-10-11. Partagée par les deux chemins de conversion (Cours collectifs › Session
    orale, et le glisser-déposer du pipeline) pour que la règle et le montant proposé soient les
@@ -26,6 +47,7 @@ export function FraisInscriptionCollectifModale({
   nomCandidat,
   niveau,
   etablissementId,
+  contexte = 'conversion',
   enCours,
   erreur,
   onFermer,
@@ -36,6 +58,7 @@ export function FraisInscriptionCollectifModale({
      C'est lui qui désigne le tarif de la grille, donc le montant proposé. */
   niveau: string | null
   etablissementId: string | undefined
+  contexte?: ContexteFraisInscription
   enCours: boolean
   erreur: string | null
   onFermer: () => void
@@ -56,10 +79,7 @@ export function FraisInscriptionCollectifModale({
   return (
     <Modale titre={`Frais d'inscription · ${nomCandidat}`} onFermer={onFermer} largeurMax={450}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <p style={{ fontSize: 12, lineHeight: 1.55, color: 'var(--muted)', margin: 0 }}>
-          Les frais d’inscription sont enregistrés avant que {nomCandidat} ne devienne étudiant·e. Le montant proposé est
-          celui de son niveau dans la grille des tarifs.
-        </p>
+        <p style={{ fontSize: 12, lineHeight: 1.55, color: 'var(--muted)', margin: 0 }}>{TEXTES_CONTEXTE[contexte].intro(nomCandidat)}</p>
 
         {!loading && montantSuggere == null && (
           <MessageInfo>
@@ -125,7 +145,7 @@ export function FraisInscriptionCollectifModale({
             className="btn-shine"
             style={{ ...boutonPrimaireStyle, flexGrow: 1.4, opacity: enCours || !pret ? 0.6 : 1 }}
           >
-            {enCours ? 'Enregistrement…' : 'Enregistrer et convertir'}
+            {enCours ? 'Enregistrement…' : TEXTES_CONTEXTE[contexte].bouton}
           </button>
         </div>
       </div>

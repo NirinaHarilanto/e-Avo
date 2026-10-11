@@ -3,13 +3,16 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { nomVagueSeul } from '../../lib/cohortes'
-import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
+import { LABEL_NIVEAU_CLASSE, parcoursCollectifTermine } from '../../lib/classesCollectif'
+import { formaterHeures } from '../../lib/heures'
 import { formaterMontant, statutReglement } from '../../lib/paiements'
 import { classePrevue, LIBELLE_ETAPE_COLLECTIF, type LigneSuiviCollectif } from '../../lib/suiviCollectif'
+import { useEtablissement } from '../../hooks/useEtablissement'
 import type { Database } from '../../types/database.types'
 import { InformationsPersonnelles } from '../shared/InformationsPersonnelles'
 import { EditerIdentiteProspect } from '../prospects/EditerIdentiteProspect'
 import { ConvertirCandidatCollectif } from '../prospects/ConvertirCandidatCollectif'
+import { ReevaluerEtudiantCollectif } from '../prospects/ReevaluerEtudiantCollectif'
 import { FraisInscriptionCollectifModale, type FraisInscription } from '../prospects/FraisInscriptionCollectifModale'
 import { DetailPaiementModale, type CiblePaiement } from '../paiements/DetailPaiementModale'
 import { AssignerVague } from '../etudiants/AssignerVague'
@@ -19,7 +22,7 @@ import { GroupeSection } from '../ui/Section'
 import { LigneInfo } from '../ui/Champ'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
 import { boutonSecondaireStyle, boutonPrimaireStyle } from '../ui/Boutons'
-import { EtatChargement, MessageErreur, MessageSucces } from '../ui/Etats'
+import { EtatChargement, MessageErreur, MessageInfo, MessageSucces } from '../ui/Etats'
 
 type Prospect = Database['public']['Tables']['prospects']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -64,11 +67,18 @@ export function FicheCandidatCollectifModale({
   const [vagueId, setVagueId] = useState<string | null>(null)
   const [classeId, setClasseId] = useState<string | null>(null)
   const [paiements, setPaiements] = useState<StudentPayment[] | null>(null)
+  /* Heures consommées DANS LA VAGUE ACTUELLE (pas le cumul à vie du dossier, qui mélangerait
+     plusieurs vagues si l'élève en a déjà changé) — demande client du 2026-10-11 : « quand toutes
+     les heures seront consommées et que le parcours se termine, un bouton évaluer l'étudiant
+     apparaîtra ». `null` tant que non calculé (pas encore de vague, ou dossier en cours de
+     chargement) ; distinct de `0`, une vraie valeur. */
+  const [heuresConsommeesVague, setHeuresConsommeesVague] = useState<number | null>(null)
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState<string | null>(null)
   const [succes, setSucces] = useState<string | null>(null)
 
   const [convertirOuvert, setConvertirOuvert] = useState(false)
+  const [reevaluerOuvert, setReevaluerOuvert] = useState(false)
   const [creerFraisOuvert, setCreerFraisOuvert] = useState(false)
   const [enCoursFrais, setEnCoursFrais] = useState(false)
   const [erreurFrais, setErreurFrais] = useState<string | null>(null)
@@ -110,10 +120,27 @@ export function FicheCandidatCollectifModale({
       // student_id) : dédoublonnée par id plutôt que listée deux fois.
       const fusion = new Map([...(parProspect ?? []), ...(parEtudiant ?? [])].map((p) => [p.id, p]))
       setPaiements([...fusion.values()].sort((a, b) => b.created_at.localeCompare(a.created_at)))
+
+      /* Heures consommées DANS CETTE VAGUE précisément : jointure manuelle sessions→hour_ledger
+         (pas de select imbriqué, piège déjà rencontré sur adopter-seances.ts) plutôt que
+         `student_hours_summary`, qui cumule TOUTE la vie du dossier — compterait aussi les heures
+         d'une vague précédente si l'élève en a déjà changé, déclarant un parcours terminé avant
+         même d'avoir commencé le nouveau. */
+      if (inscriptionVague?.cohort_id) {
+        const { data: seancesVague } = await supabase.from('sessions').select('id').eq('cohort_id', inscriptionVague.cohort_id)
+        const sessionIds = (seancesVague ?? []).map((s) => s.id)
+        const { data: debits } = sessionIds.length
+          ? await supabase.from('hour_ledger').select('heures').eq('student_id', profilData.id).eq('type_ecriture', 'debit_etudiant').in('session_id', sessionIds)
+          : { data: [] as { heures: number }[] }
+        setHeuresConsommeesVague((debits ?? []).reduce((total, d) => total + Number(d.heures), 0))
+      } else {
+        setHeuresConsommeesVague(null)
+      }
     } else {
       setVagueId(null)
       setClasseId(null)
       setPaiements([])
+      setHeuresConsommeesVague(null)
     }
 
     setChargement(false)
@@ -136,7 +163,13 @@ export function FicheCandidatCollectifModale({
   const vagueActuelle = cohortes.find((c) => c.id === vagueId) ?? null
   const vagueAffichee = profilEtudiant ? vagueActuelle : (cohortes.find((c) => c.id === ligne.vagueId) ?? null)
   const etablissementId = profilEtudiant?.etablissement_id ?? prospect?.etablissement_id
+  const etablissement = useEtablissement(etablissementId)
   const etape = profilEtudiant ? 'etudiant' : (prospect?.statut ?? ligne.etape)
+  /* Même formule que CohortesAdmin.tsx (ligne de vague) : le forfait propre à la vague prime,
+     sinon le défaut de l'établissement. */
+  const heuresForfaitVague = vagueActuelle?.heures_forfait ?? etablissement?.heures_forfait_collectif ?? 32
+  const parcoursTermine =
+    !!profilEtudiant && !!vagueActuelle && parcoursCollectifTermine(heuresConsommeesVague ?? 0, heuresForfaitVague)
   /* Le PROFIL fait foi une fois converti — c'est lui que modifie InformationsPersonnelles juste
      en dessous, jamais `prospects` (même règle qu'ailleurs dans le Suivi, voir
      construireSuiviCollectif.ts). Afficher le nom du prospect ici une fois converti aurait montré
@@ -207,7 +240,42 @@ export function FicheCandidatCollectifModale({
                 label="Niveau — test oral"
                 valeur={ligne.niveauFinal ? <strong style={{ color: 'var(--accent-teal)' }}>{ligne.niveauFinal}</strong> : '—'}
               />
+              {profilEtudiant && vagueActuelle && (
+                <LigneInfo
+                  label="Heures du parcours"
+                  valeur={
+                    <span style={{ color: parcoursTermine ? 'var(--accent-gold, #e9cf94)' : undefined, fontWeight: parcoursTermine ? 700 : undefined }}>
+                      {formaterHeures(heuresConsommeesVague ?? 0)} / {formaterHeures(heuresForfaitVague)}
+                      {parcoursTermine ? ' · parcours terminé' : ''}
+                    </span>
+                  }
+                />
+              )}
             </div>
+
+            {/* Fin de parcours — demande client du 2026-10-11 : « quand toutes les heures seront
+                consommées [...] un bouton évaluer l'étudiant apparaîtra [...] l'admin doit lui
+                attribuer une nouvelle classe, et une nouvelle vague, et pourra également modifier
+                son niveau. La validation sera toujours précédée d'un enregistrement de
+                paiement. » Volontairement distinct de « Changer de vague »/« Changer de classe »
+                juste en dessous : ceux-là sont des corrections ponctuelles sans effet sur le
+                niveau ni les frais, celui-ci est le parcours GUIDÉ de fin de cycle, complet. */}
+            {parcoursTermine && (
+              <div style={{ marginTop: 10 }}>
+                <MessageInfo>
+                  Ce parcours est terminé : toutes les heures de la vague ont été consommées. Réévaluez l'élève pour
+                  l'attribuer à sa prochaine vague et classe.
+                </MessageInfo>
+                <button
+                  onClick={() => setReevaluerOuvert(true)}
+                  className="btn-shine"
+                  style={{ ...boutonPrimaireStyle, width: '100%', marginTop: 8 }}
+                >
+                  Évaluer l'étudiant
+                </button>
+              </div>
+            )}
+
             {profilEtudiant && etablissementId && (
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <AssignerVague
@@ -306,11 +374,30 @@ export function FicheCandidatCollectifModale({
         />
       )}
 
+      {reevaluerOuvert && profilEtudiant && etablissementId && (
+        <ReevaluerEtudiantCollectif
+          etudiant={{
+            profilId: profilEtudiant.id,
+            prospectId: ligne.prospectId,
+            etablissementId,
+            nom,
+            niveauActuel: ligne.niveauFinal ?? ligne.niveauTest,
+          }}
+          onFermer={() => setReevaluerOuvert(false)}
+          onEvalue={() => {
+            setReevaluerOuvert(false)
+            setSucces(`${nom} a été réévalué·e et affecté·e à sa nouvelle vague.`)
+            toutRecharger()
+          }}
+        />
+      )}
+
       {creerFraisOuvert && etablissementId && (
         <FraisInscriptionCollectifModale
           nomCandidat={nom}
           niveau={niveauPourFrais}
           etablissementId={etablissementId}
+          contexte="complement"
           enCours={enCoursFrais}
           erreur={erreurFrais}
           onFermer={() => {

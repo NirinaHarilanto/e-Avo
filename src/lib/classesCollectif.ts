@@ -81,6 +81,17 @@ export function rangNiveauCecrl(niveau: string | null): number | null {
   return position === -1 ? null : position
 }
 
+/* Fin de parcours d'une vague — demande client du 2026-10-11 : « à la fin de chaque parcours
+   collectif d'une classe, chaque étudiant [...] sera réévalué [...] quand toutes les heures
+   seront consommées et que le parcours se termine, un bouton évaluer l'étudiant apparaîtra ».
+
+   `heuresForfait` vient de la vague (`cohorts.heures_forfait`, ou le défaut de l'établissement) :
+   `null` tant qu'aucun forfait n'est défini, auquel cas aucun parcours ne peut jamais être déclaré
+   terminé — mieux vaut ne rien proposer qu'une réévaluation prématurée sur une donnée absente. */
+export function parcoursCollectifTermine(heuresConsommees: number, heuresForfait: number | null): boolean {
+  return heuresForfait != null && heuresForfait > 0 && heuresConsommees >= heuresForfait
+}
+
 export interface TarifCollectif {
   type_programme: string
   titre: string

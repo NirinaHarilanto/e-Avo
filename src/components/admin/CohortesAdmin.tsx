@@ -162,6 +162,13 @@ export function CohortesAdmin() {
             promotion sans classe, ou n'importe quel autre élève de l'établissement — sans repasser par son dossier.
           </>,
           <>
+            <strong>Fin de parcours</strong> : une fois toutes les heures de sa vague consommées, chaque élève doit
+            être réévalué et réattribué à une nouvelle vague et une nouvelle classe, avec son niveau mis à jour si
+            besoin. Cela se fait depuis l'onglet <strong>Suivi des candidats</strong> : ouvrez la fiche de l'élève, le
+            bouton <strong>« Évaluer l'étudiant »</strong> y apparaît automatiquement. La validation est toujours
+            précédée de l'enregistrement des frais d'inscription correspondant à son nouveau niveau.
+          </>,
+          <>
             <strong>Rythme officiel d'une vague</strong> : 32 séances réparties sur{' '}
             <strong>lundi, mardi, jeudi et vendredi</strong> — jamais mercredi, samedi ni dimanche. Un jour férié qui
             tombe sur un jour de cours ne compte pas comme l'une des 32. Respectez ce rythme quand vous planifiez les
