@@ -26,6 +26,7 @@ import { ChampRecherche } from '../ui/BarreOutils'
 import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
 import { formaterHeures } from '../../lib/heures'
 import { SessionsOraleAdmin } from './SessionsOraleAdmin'
+import { SuiviCollectifAdmin } from './SuiviCollectifAdmin'
 import { QuizPositionnementAdmin } from './QuizPositionnementAdmin'
 import { ChampDate } from '../ui/ChampDate'
 
@@ -39,7 +40,7 @@ export function CohortesAdmin() {
   const { profile } = useProfileContext()
   const { cohortes, loading, erreur, recharger } = useCohortes()
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
-  const [onglet, setOnglet] = useState<'vagues' | 'sessionOrale' | 'quiz'>('vagues')
+  const [onglet, setOnglet] = useState<'vagues' | 'suivi' | 'sessionOrale' | 'quiz'>('vagues')
 
   /* Les vagues les plus proches d'aujourd'hui en premier — demande client du 2026-10-10. La
      requête de useCohortes() garde son tri `date_debut` brut (simple, stable) ; ce tri-ci est le
@@ -71,13 +72,18 @@ export function CohortesAdmin() {
           compact
           onglets={[
             { value: 'vagues', label: 'Vagues', compteur: cohortes.length },
+            /* Juste après Vagues : c'est la lecture par PERSONNE du même parcours, celle qu'on
+               consulte pour savoir qui reste en route (demande client du 2026-10-11). */
+            { value: 'suivi', label: 'Suivi des candidats' },
             { value: 'sessionOrale', label: 'Session orale' },
             { value: 'quiz', label: 'Quiz de positionnement' },
           ]}
         />
       </div>
 
-      {onglet === 'sessionOrale' ? (
+      {onglet === 'suivi' ? (
+        <SuiviCollectifAdmin />
+      ) : onglet === 'sessionOrale' ? (
         <SessionsOraleAdmin />
       ) : onglet === 'quiz' ? (
         <>
