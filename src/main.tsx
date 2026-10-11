@@ -6,11 +6,18 @@ import './index.css'
 import './vitrine-hx.css'
 import App from './App.tsx'
 import { installerSynchroFetch } from './lib/synchro'
+import { installerCaptureErreurs } from './lib/journalErreurs'
+import { FrontiereErreur } from './components/ui/FrontiereErreur'
 
 installerSynchroFetch()
+/* Capture des erreurs qui échappent à React (promesses rejetées, erreurs de script) — la
+   FrontiereErreur ci-dessous ne voit, elle, que celles levées pendant un rendu. */
+installerCaptureErreurs()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <FrontiereErreur>
+      <App />
+    </FrontiereErreur>
   </StrictMode>,
 )

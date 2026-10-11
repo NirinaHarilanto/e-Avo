@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { IntegrationGoogleMeet } from './IntegrationGoogleMeet'
 import { AgendasProfesseursAdmin } from './AgendasProfesseursAdmin'
 import { DisponibilitesAdmin } from './DisponibilitesAdmin'
+import { JournalErreursAdmin } from './JournalErreursAdmin'
 import type { Database } from '../../types/database.types'
 import { ChampDate } from '../ui/ChampDate'
 
@@ -205,6 +206,10 @@ export function ParametresAdmin() {
         <AgendasProfesseursAdmin />
 
         <DisponibilitesAdmin />
+
+        {/* En dernier : on ne le consulte qu'en cas de doute, il n'a pas à occuper le haut de la
+            page tant que rien ne va mal. */}
+        <JournalErreursAdmin />
       </div>
     </AdminLayout>
   )

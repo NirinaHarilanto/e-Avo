@@ -1431,6 +1431,35 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['email_envois']['Insert']>
         Relationships: []
       }
+      /* Journal des erreurs rencontrées par les utilisateurs (0121) : écrit par leur navigateur
+         (FrontiereErreur + capture globale, voir src/lib/journalErreurs.ts), lu par le seul
+         administrateur de l'établissement depuis Paramètres. */
+      journal_erreurs: {
+        Row: {
+          id: string
+          etablissement_id: string | null
+          profile_id: string | null
+          source: string
+          message: string
+          pile: string | null
+          chemin: string | null
+          navigateur: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id?: string | null
+          profile_id?: string | null
+          source: string
+          message: string
+          pile?: string | null
+          chemin?: string | null
+          navigateur?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['journal_erreurs']['Insert']>
+        Relationships: []
+      }
       /* Constantes de la maison injectées dans les modèles (0093) : liens de réservation, numéros
          Orange Money/Mvola, dates de test oral. Une valeur vide fait tomber la ligne qui la porte
          plutôt que d'exposer un gabarit nu (voir src/lib/templatesEmail.ts). */
