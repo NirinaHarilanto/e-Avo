@@ -50,7 +50,9 @@ export function UtiliserTemplateModale({
      qu'il rafraîchisse sa liste en arrière-plan. La fenêtre affiche sa propre confirmation (voir
      `succes` ci-dessous) et c'est l'admin qui la referme — jamais une fermeture instantanée qui
      ne laisse rien voir. */
-  onEnvoye: () => void
+  /* Le canal effectivement utilisé : l'appelant n'annonce pas « ouvert dans Gmail » quand le
+     message vient d'être déposé dans les espaces personnels, et inversement. */
+  onEnvoye: (canal: 'gmail' | 'interne') => void
   onEnregistre: () => void
 }) {
   const { session, profile } = useProfileContext()
@@ -65,7 +67,7 @@ export function UtiliserTemplateModale({
   const [corps, setCorps] = useState('')
   const [manquantes, setManquantes] = useState<string[]>([])
   const [lignesRetirees, setLignesRetirees] = useState<string[]>([])
-  const [enCours, setEnCours] = useState<'envoi' | 'enregistrement' | null>(null)
+  const [enCours, setEnCours] = useState<'envoi' | 'enregistrement' | 'interne' | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [succes, setSucces] = useState<string | null>(null)
   /* Vrai dès que l'admin a touché au texte : l'aperçu ne doit plus être recalculé derrière lui
@@ -122,7 +124,7 @@ export function UtiliserTemplateModale({
     return { emails, sansAdresse }
   }
 
-  async function appeler(action: 'envoi' | 'enregistrement') {
+  async function appeler(action: 'envoi' | 'enregistrement' | 'interne') {
     /* Avant correctif (signalé par le client le 2026-10-10) : une session absente sortait
        silencieusement ici, sans la moindre trace à l'écran — le bouton redevenait cliquable, et
        rien n'indiquait que rien ne s'était passé. Le même filet (try/catch/finally) couvre aussi
@@ -160,6 +162,73 @@ export function UtiliserTemplateModale({
         }
         setSucces('Brouillon enregistré. Vous le retrouverez dans « Brouillons ».')
         onEnregistre()
+        return
+      }
+
+      /* Envoi INTERNE (0119, demande client du 2026-10-11) : le message ne sort pas de HOC, il est
+         déposé dans la section Messages de chaque destinataire. Seul canal dont l'application
+         puisse garantir l'aboutissement — c'est elle qui distribue. Les destinataires en copie
+         reçoivent le même message : une messagerie personne-à-personne (0090) n'a pas de champ
+         « copie », et les écarter ferait silencieusement moins que ce que l'admin a demandé. */
+      if (action === 'interne') {
+        /* Les comptes suspendus sont écartés AVANT l'insertion : la policy
+           `messages_expediteur_insert` (0090) les refuse, et comme l'insert part en un seul lot,
+           un seul destinataire suspendu ferait échouer l'envoi pour tout le monde, sur un message
+           d'erreur RLS incompréhensible. */
+        const demandes = [...new Set([...obligatoires, ...optionnels])]
+        const { data: joignables, error: erreurProfils } = await supabase
+          .from('profiles')
+          .select('id')
+          .in('id', demandes)
+          .neq('status', 'suspended')
+        if (erreurProfils) {
+          setErreur(`La liste des destinataires n'a pas pu être vérifiée : ${erreurProfils.message}`)
+          return
+        }
+        const tous = (joignables ?? []).map((p) => p.id)
+        if (tous.length === 0) {
+          setErreur('Aucun destinataire joignable : leurs comptes sont suspendus.')
+          return
+        }
+        const ecartes = demandes.length - tous.length
+
+        const { error: erreurMessages } = await supabase.from('messages').insert(
+          tous.map((destinataire) => ({
+            etablissement_id: profile!.etablissement_id,
+            expediteur_profile_id: profile!.id,
+            destinataire_profile_id: destinataire,
+            objet: objet.trim(),
+            corps: corps.trim(),
+          })),
+        )
+        if (erreurMessages) {
+          setErreur(`L'envoi interne a échoué : ${erreurMessages.message}`)
+          return
+        }
+
+        const ligneInterne = {
+          etablissement_id: profile!.etablissement_id,
+          template_id: template?.id ?? brouillon?.template_id ?? null,
+          destinataires_profile_ids: obligatoires,
+          copies_profile_ids: optionnels,
+          objet: objet.trim(),
+          corps: corps.trim(),
+          piece_jointe_nom: template?.piece_jointe_attendue ?? brouillon?.piece_jointe_nom ?? null,
+          statut: 'interne' as const,
+          cree_par_profile_id: profile!.id,
+        }
+        const { error: erreurJournalInterne } = brouillon
+          ? await supabase.from('email_envois').update(ligneInterne).eq('id', brouillon.id)
+          : await supabase.from('email_envois').insert(ligneInterne)
+
+        const combien = `${tous.length} destinataire${tous.length > 1 ? 's' : ''}`
+        const suspendus = ecartes > 0 ? ` ${ecartes} compte${ecartes > 1 ? 's' : ''} suspendu${ecartes > 1 ? 's' : ''} écarté${ecartes > 1 ? 's' : ''}.` : ''
+        setSucces(
+          erreurJournalInterne
+            ? `Message envoyé dans l'espace personnel de ${combien}.${suspendus} Il n'a pas pu être ajouté à l'historique (${erreurJournalInterne.message}).`
+            : `Message envoyé dans l'espace personnel de ${combien}, section Messages.${suspendus}`,
+        )
+        onEnvoye('interne')
         return
       }
 
@@ -222,7 +291,7 @@ export function UtiliserTemplateModale({
           ? `Message ouvert dans Gmail — relisez-le puis cliquez « Envoyer » dans Gmail. Il n’a pas pu être ajouté à l’historique (${erreurJournal.message}).`
           : 'Message ouvert dans Gmail — relisez-le puis cliquez « Envoyer » dans Gmail.',
       )
-      onEnvoye()
+      onEnvoye('gmail')
     } catch (erreurInattendue) {
       setErreur(
         `Une erreur inattendue est survenue : ${erreurInattendue instanceof Error ? erreurInattendue.message : 'réessayez.'}`,
@@ -345,6 +414,11 @@ export function UtiliserTemplateModale({
             <button type="button" onClick={() => appeler('enregistrement')} disabled={enCours !== null || !pret} style={boutonSecondaireStyle}>
               {enCours === 'enregistrement' ? 'Enregistrement…' : 'Enregistrer'}
             </button>
+            {/* Envoi interne (0119) : canal distinct de Gmail, d'où un bouton distinct plutôt
+                qu'un choix caché dans un menu — les deux partent du même texte relu à l'écran. */}
+            <button type="button" onClick={() => appeler('interne')} disabled={enCours !== null || !pret} style={boutonSecondaireStyle}>
+              {enCours === 'interne' ? 'Envoi…' : 'Envoyer'}
+            </button>
             <button
               type="button"
               onClick={() => appeler('envoi')}
@@ -352,9 +426,18 @@ export function UtiliserTemplateModale({
               className="btn-shine"
               style={{ ...boutonPrimaireStyle, fontSize: 12.5, padding: '9px 18px', opacity: enCours !== null || !pret ? 0.6 : 1 }}
             >
-              {enCours === 'envoi' ? 'Ouverture…' : 'Ouvrir dans ma messagerie'}
+              {enCours === 'envoi' ? 'Ouverture…' : 'Envoyer via gmail'}
             </button>
           </div>
+        )}
+
+        {!succes && (
+          <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.55, textAlign: 'right' }}>
+            <strong style={{ color: 'var(--ink-2)' }}>Envoyer</strong> dépose le message dans l’application, section
+            Messages de l’espace personnel de chaque destinataire — il ne part pas par e-mail.{' '}
+            <strong style={{ color: 'var(--ink-2)' }}>Envoyer via gmail</strong> ouvre le message dans Gmail, où vous le
+            relisez et l’envoyez vous-même.
+          </span>
         )}
 
         {obligatoires.length > 1 && (

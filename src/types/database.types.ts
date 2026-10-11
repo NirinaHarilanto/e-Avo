@@ -623,6 +623,8 @@ export interface Database {
           score: number
           total: number
           niveau_estime: string | null
+          /* Niveau arrêté par l'admin au test oral (0118) : fait foi sur `niveau_estime`. */
+          niveau_final: string | null
           bilan: string | null
           created_at: string
         }
@@ -635,6 +637,7 @@ export interface Database {
           score?: number
           total?: number
           niveau_estime?: string | null
+          niveau_final?: string | null
           bilan?: string | null
           created_at?: string
         }
@@ -1400,7 +1403,7 @@ export interface Database {
           corps: string
           piece_jointe_nom: string | null
           piece_jointe_chemin: string | null
-          statut: 'brouillon' | 'envoye' | 'echec' | 'prepare'
+          statut: 'brouillon' | 'envoye' | 'echec' | 'prepare' | 'interne'
           erreur: string | null
           envoye_le: string | null
           cree_par_profile_id: string
@@ -1418,7 +1421,7 @@ export interface Database {
           corps: string
           piece_jointe_nom?: string | null
           piece_jointe_chemin?: string | null
-          statut?: 'brouillon' | 'envoye' | 'echec' | 'prepare'
+          statut?: 'brouillon' | 'envoye' | 'echec' | 'prepare' | 'interne'
           erreur?: string | null
           envoye_le?: string | null
           cree_par_profile_id: string
