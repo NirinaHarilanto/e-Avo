@@ -15,6 +15,7 @@ import { EtatVide } from '../ui/EtatVide'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { CompteRenduAffichage } from '../shared/CompteRenduAffichage'
 import { EnqueteSatisfactionAffichage } from '../shared/EnqueteSatisfactionAffichage'
+import { BoutonRejoindreVisio } from '../shared/BoutonRejoindreVisio'
 import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 import { useCacheRequete } from '../../hooks/useCacheRequete'
 import { useDetailSeance } from '../../hooks/useDetailSeance'
@@ -75,7 +76,7 @@ async function chargerMonRendezVous(): Promise<MesRendezVous> {
    sans aucune action — un élève consulte son emploi du temps, il ne le modifie pas. Les séances
    viennent du dossier déjà chargé (useDossierEtudiant), aucune requête supplémentaire. */
 export function AgendaEtudiant() {
-  const { idEtudiantEffectif, derniereNotification } = useProfileContext()
+  const { profile, idEtudiantEffectif, derniereNotification } = useProfileContext()
   const { dossier, loading, erreur, recharger } = useDossierEtudiant(idEtudiantEffectif ?? undefined)
   /* Couche 2 de la stratégie temps réel du 2026-09-29 : une séance reprogrammée/annulée
      recharge l'agenda de l'élève sans qu'il ait à rafraîchir — voir
@@ -206,12 +207,13 @@ export function AgendaEtudiant() {
 
       {evenementOuvert && (
         <Modale
-          titre={new Date(evenementOuvert.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
+          titre={`Événement de l’agenda de ${profile?.prenom ?? ''}`}
           onFermer={() => setRdvOuvertId(null)}
           largeurMax={430}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <LigneInfo label="Motif" valeur={evenementOuvert.titre} />
+            <LigneInfo label="Date et heure" valeur={new Date(evenementOuvert.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })} />
             <LigneInfo label="Durée" valeur={`${evenementOuvert.duree_minutes} minutes`} />
             {(evenementOuvert.creeParAdmin || evenementOuvert.obligatoires.length > 0) && (
               <LigneInfo
@@ -227,29 +229,23 @@ export function AgendaEtudiant() {
                 {evenementOuvert.notes}
               </p>
             )}
-            {evenementOuvert.lien_meet && (
-              <a
-                href={evenementOuvert.lien_meet}
-                target="_blank"
-                rel="noreferrer"
-                className="btn-shine"
-                style={{ textAlign: 'center', padding: '11px 18px', background: 'var(--accent-blue-gradient)', color: '#fff', fontSize: 13, fontWeight: 700 }}
-              >
-                Rejoindre la visioconférence
-              </a>
-            )}
+            {/* Un événement « autre » de l'admin part toujours du compte Google Meet de
+                l'établissement — jamais Jitsi, réservé aux cours. */}
+            {evenementOuvert.lien_meet && <BoutonRejoindreVisio lien={evenementOuvert.lien_meet} fournisseur="google_meet" variante="primaire" />}
+            {evenementOuvert.creeParAdmin && <LigneInfo label="Organisateur" valeur={LIBELLE_ADMIN} />}
           </div>
         </Modale>
       )}
 
       {rdvOuvert && (
         <Modale
-          titre={new Date(rdvOuvert.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
+          titre={`Événement de l’agenda de ${profile?.prenom ?? ''}`}
           onFermer={() => setRdvOuvertId(null)}
           largeurMax={430}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <LigneInfo label="Rendez-vous" valeur="Appel diagnostic" />
+            <LigneInfo label="Date et heure" valeur={new Date(rdvOuvert.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })} />
             <LigneInfo label="Statut" valeur={rdvOuvert.statut === 'confirme' ? 'Confirmé' : 'À valider'} />
             <LigneInfo label="Durée" valeur={`${rdvOuvert.duree_minutes} minutes`} />
             {rdvOuvert.avecAdmin && <LigneInfo label="Avec" valeur={LIBELLE_ADMIN} />}
@@ -258,17 +254,8 @@ export function AgendaEtudiant() {
                 « {rdvOuvert.message} »
               </p>
             )}
-            {rdvOuvert.lien_meet && (
-              <a
-                href={rdvOuvert.lien_meet}
-                target="_blank"
-                rel="noreferrer"
-                className="btn-shine"
-                style={{ textAlign: 'center', padding: '11px 18px', background: 'var(--accent-blue-gradient)', color: '#fff', fontSize: 13, fontWeight: 700 }}
-              >
-                Rejoindre la visioconférence
-              </a>
-            )}
+            {rdvOuvert.lien_meet && <BoutonRejoindreVisio lien={rdvOuvert.lien_meet} fournisseur="google_meet" variante="primaire" />}
+            {rdvOuvert.avecAdmin && <LigneInfo label="Organisateur" valeur={LIBELLE_ADMIN} />}
           </div>
         </Modale>
       )}
@@ -300,10 +287,11 @@ function FicheSeance({
   // visible par l'étudiant [...] dans les agendas respectifs ». Déjà le cas côté admin
   // (DetailSeanceModale.tsz) ; manquait côté élève. La RLS renvoie déjà exactement ce que
   // l'élève a le droit de voir (son propre avis de satisfaction, le compte rendu du professeur).
+  const { profile } = useProfileContext()
   const { detail } = useDetailSeance(termine ? seance.session.id : null)
   return (
     <Modale
-      titre={new Date(seance.session.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
+      titre={`Événement de l’agenda de ${profile?.prenom ?? ''}`}
       onFermer={onFermer}
       largeurMax={460}
     >
@@ -311,21 +299,15 @@ function FicheSeance({
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <BadgeStatutSeance statut={seance.session.statut} />
         </div>
-        <LigneInfo label="Professeur" valeur={professeur} />
         <LigneInfo label="Type" valeur={seance.session.type === 'individuel' ? 'Cours individuel' : 'Cours collectif'} />
+        <LigneInfo label="Date et heure" valeur={new Date(seance.session.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })} />
         <LigneInfo label="Durée" valeur={`${seance.session.duree_minutes} minutes`} />
+        <LigneInfo label="Participants" valeur={professeur} />
         {termine && <LigneInfo label="Présence" valeur={seance.enrollment.present ? 'Présent' : 'Absent'} />}
-        {aVenir && seance.video && (
-          <a
-            href={getJoinUrl(seance.video)}
-            target="_blank"
-            rel="noreferrer"
-            className="btn-shine"
-            style={{ textAlign: 'center', padding: '11px 18px', background: 'var(--accent-blue-gradient)', color: '#fff', fontSize: 13, fontWeight: 700 }}
-          >
-            Rejoindre le cours
-          </a>
+        {aVenir && seance.video && (seance.video.provider === 'jitsi' || seance.video.provider === 'google_meet') && (
+          <BoutonRejoindreVisio lien={getJoinUrl(seance.video)} fournisseur={seance.video.provider} variante="primaire" />
         )}
+        {seance.video?.organisateur_email && <LigneInfo label="Organisateur" valeur={seance.video.organisateur_email} />}
 
         {termine && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft, var(--border))', paddingTop: 12 }}>

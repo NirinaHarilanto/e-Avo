@@ -13,6 +13,7 @@ import { Modale } from '../ui/Modale'
 import { MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonPrimaireStyle } from '../ui/Boutons'
 import { ChampDate } from '../ui/ChampDate'
+import { BoutonRejoindreVisio } from './BoutonRejoindreVisio'
 
 /* Fiche affichée au clic d'un créneau sur N'IMPORTE QUEL agenda de l'espace admin (page Agenda
    elle-même, fenêtre « Planifier un appel diagnostic », filtre « Admin » de Séances & visio) —
@@ -67,7 +68,7 @@ export function CarteRendezVous({
   onChange,
 }: {
   rdv: RendezVousAvecProspect
-  profile: { id: string } | null
+  profile: { id: string; prenom: string | null } | null
   onChange: () => void
 }) {
   const [enCours, setEnCours] = useState(false)
@@ -194,6 +195,22 @@ export function CarteRendezVous({
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 220 }}>
+          <span
+            style={{
+              alignSelf: 'flex-start',
+              fontSize: 11,
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+              color: 'var(--accent-gold, #e9cf94)',
+              background: 'rgba(233,207,148,.14)',
+              border: '1px solid rgba(233,207,148,.32)',
+              borderRadius: 999,
+              padding: '4px 11px',
+            }}
+          >
+            Appel diagnostic
+          </span>
           <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>
               {prospect ? `${prospect.prenom} ${prospect.nom}` : 'Prospect supprimé'}
@@ -234,11 +251,9 @@ export function CarteRendezVous({
           {rdv.motif_refus && (
             <span style={{ fontSize: 12.5, color: 'var(--danger)' }}>Motif du refus : {rdv.motif_refus}</span>
           )}
-          {rdv.lien_meet && (
-            <a href={rdv.lien_meet} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, fontWeight: 700 }}>
-              Lien de visioconférence
-            </a>
-          )}
+          {/* Appel diagnostic : toujours hébergé par le compte Google de l'établissement, jamais
+              Jitsi (réservé aux cours). */}
+          {rdv.lien_meet && <BoutonRejoindreVisio lien={rdv.lien_meet} fournisseur="google_meet" />}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-end' }}>
@@ -634,11 +649,9 @@ export function CarteEvenementAdmin({
               {evenement.notes}
             </p>
           )}
-          {evenement.lien_meet && (
-            <a href={evenement.lien_meet} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12.5, fontWeight: 700 }}>
-              Lien de visioconférence
-            </a>
-          )}
+          {/* Rendez-vous « autre » : toujours hébergé par le compte Google de l'établissement ou
+              du professeur, jamais Jitsi (réservé aux cours). */}
+          {evenement.lien_meet && <BoutonRejoindreVisio lien={evenement.lien_meet} fournisseur="google_meet" />}
         </>
       )}
       {evenement.annule && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)' }}>Événement annulé.</span>}
@@ -792,7 +805,7 @@ export function PopupEvenementAdmin({
   onFermer: () => void
   rendezVous: RendezVousAvecProspect[]
   evenementsAdmin: EvenementAdminAvecParticipants[]
-  profile: { id: string } | null
+  profile: { id: string; prenom: string | null } | null
   session: { access_token: string } | null
   onChange: () => void
   urlAnnulation?: string
@@ -808,14 +821,14 @@ export function PopupEvenementAdmin({
 
   if (rdvOuvert) {
     return (
-      <Modale titre={formaterDansFuseauEtablissement(rdvOuvert.debut)} onFermer={onFermer} largeurMax={520}>
+      <Modale titre={`Événement de l’agenda de ${profile?.prenom ?? ''}`} onFermer={onFermer} largeurMax={520}>
         <CarteRendezVous rdv={rdvOuvert} profile={profile} onChange={onChange} />
       </Modale>
     )
   }
   if (evenementOuvert) {
     return (
-      <Modale titre={evenementOuvert.titre} onFermer={onFermer} largeurMax={480}>
+      <Modale titre={`Événement de l’agenda de ${profile?.prenom ?? ''}`} onFermer={onFermer} largeurMax={480}>
         <CarteEvenementAdmin
           evenement={evenementOuvert}
           session={session}

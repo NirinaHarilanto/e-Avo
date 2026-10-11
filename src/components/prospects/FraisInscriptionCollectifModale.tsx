@@ -5,6 +5,7 @@ import { Modale } from '../ui/Modale'
 import { Champ, champStyle } from '../ui/Champ'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { MessageErreur, MessageInfo } from '../ui/Etats'
+import { SelectMoyenPaiement } from '../paiements/SelectMoyenPaiement'
 
 export interface FraisInscription {
   montant: number
@@ -73,8 +74,9 @@ export function FraisInscriptionCollectifModale({
   const montant = montantSaisi ?? (montantSuggere != null ? String(montantSuggere) : '')
   const [regle, setRegle] = useState(true)
   const [moyenPaiement, setMoyenPaiement] = useState('')
+  const [moyenValide, setMoyenValide] = useState(true)
   const [reference, setReference] = useState('')
-  const pret = !!montant && Number(montant) > 0
+  const pret = !!montant && Number(montant) > 0 && (!regle || moyenValide)
 
   return (
     <Modale titre={`Frais d'inscription · ${nomCandidat}`} onFermer={onFermer} largeurMax={450}>
@@ -116,7 +118,7 @@ export function FraisInscriptionCollectifModale({
         {regle && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <Champ label="Moyen (facultatif)">
-              <input value={moyenPaiement} onChange={(e) => setMoyenPaiement(e.target.value)} placeholder="Espèces, Mvola…" style={champStyle} />
+              <SelectMoyenPaiement valeur={moyenPaiement} onChange={(v, valide) => { setMoyenPaiement(v); setMoyenValide(valide) }} />
             </Champ>
             <Champ label="Référence (facultatif)">
               <input value={reference} onChange={(e) => setReference(e.target.value)} style={champStyle} />

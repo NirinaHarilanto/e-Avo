@@ -72,3 +72,21 @@ export function estLienReel(videoSession: Pick<VideoSession, 'room_ref' | 'provi
 export function getRecordingUrl(videoSession: Pick<VideoSession, 'enregistrement_url'>): string | null {
   return videoSession.enregistrement_url
 }
+
+/* Nom affichable d'un fournisseur de visio — demande client du 2026-10-11 : « mets le bouton
+   Google Meet ou Jitsi selon le cas, précise si c'est Google Meet ou Jitsi ». Les pop-up
+   d'événement se contentaient jusqu'ici d'un « Rejoindre » générique, qui ne disait pas lequel des
+   deux services allait s'ouvrir. */
+export function libelleFournisseur(fournisseur: 'jitsi' | 'google_meet'): string {
+  return fournisseur === 'google_meet' ? 'Google Meet' : 'Jitsi'
+}
+
+/* Devine le fournisseur à partir d'un lien brut — nécessaire pour un événement lu depuis l'agenda
+   Google (FicheEvenementGoogle.tsx), où seule l'URL est connue, jamais un `provider` structuré
+   comme sur `video_sessions.provider`. Seuls ces deux fournisseurs existent dans l'application
+   (voir FournisseurVisio côté serveur, api/_lib/google.ts) : tout ce qui n'est pas Meet est donc
+   forcément Jitsi, plutôt qu'une détection fragile sur un domaine Jitsi précis qui casserait au
+   prochain changement de `VISIO_DOMAINE`. */
+export function fournisseurDepuisLien(lien: string): 'jitsi' | 'google_meet' {
+  return lien.startsWith('https://meet.google.com/') ? 'google_meet' : 'jitsi'
+}

@@ -16,6 +16,7 @@ import { Champ, champStyle, etiquetteStyle, LigneInfo } from '../ui/Champ'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { ChampDate } from '../ui/ChampDate'
+import { SelectMoyenPaiement } from './SelectMoyenPaiement'
 
 type StudentPayment = Database['public']['Tables']['student_payments']['Row']
 type TeacherPayment = Database['public']['Tables']['teacher_payments']['Row']
@@ -637,6 +638,7 @@ function FormulaireAcompte({
   const [montant, setMontant] = useState(String(suggestion))
   const [date, setDate] = useState(dateDuJour)
   const [moyen, setMoyen] = useState('')
+  const [moyenValide, setMoyenValide] = useState(true)
   const [reference, setReference] = useState('')
   const [notes, setNotes] = useState('')
 
@@ -674,7 +676,7 @@ function FormulaireAcompte({
           <ChampDate type="date" value={date} onChange={(e) => setDate(e.target.value)} style={champStyle} />
         </Champ>
         <Champ label="Moyen">
-          <input value={moyen} onChange={(e) => setMoyen(e.target.value)} placeholder="Espèces, Mvola…" style={champStyle} />
+          <SelectMoyenPaiement valeur={moyen} onChange={(v, valide) => { setMoyen(v); setMoyenValide(valide) }} />
         </Champ>
         <Champ label="Référence">
           <input value={reference} onChange={(e) => setReference(e.target.value)} style={champStyle} />
@@ -685,9 +687,9 @@ function FormulaireAcompte({
       </Champ>
       <button
         onClick={() => onValider({ montant: Number(montant), date, moyen, reference, notes })}
-        disabled={enCours || !montant || Number(montant) <= 0}
+        disabled={enCours || !montant || Number(montant) <= 0 || !moyenValide}
         className="btn-shine"
-        style={{ ...boutonPrimaireStyle, opacity: enCours || !montant ? 0.6 : 1 }}
+        style={{ ...boutonPrimaireStyle, opacity: enCours || !montant || !moyenValide ? 0.6 : 1 }}
       >
         {enCours ? 'Enregistrement…' : 'Enregistrer'}
       </button>

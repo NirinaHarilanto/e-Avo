@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { Database } from '../../types/database.types'
+import { useProfileContext } from '../../context/ProfileContext'
 import { useDetailSeance } from '../../hooks/useDetailSeance'
 import { libelleTypeSeance, nomEleveInscrit } from '../../lib/seances'
 import { formaterMinutes } from '../../lib/heures'
@@ -10,6 +11,7 @@ import { EtatChargement } from '../ui/Etats'
 import { BadgeStatutSeance } from './BadgeStatutSeance'
 import { CompteRenduAffichage } from './CompteRenduAffichage'
 import { EnqueteSatisfactionAffichage } from './EnqueteSatisfactionAffichage'
+import { BoutonRejoindreVisio } from './BoutonRejoindreVisio'
 
 type Session = Database['public']['Tables']['sessions']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -48,6 +50,7 @@ function Bloc({ titre, children }: { titre: string; children: ReactNode }) {
    l'espace admin et l'espace professeur pour que les deux voient exactement la même chose ; ce
    que chacun a le droit de lire est tranché par la RLS, pas par un filtre d'affichage. */
 export function DetailSeanceModale({ session, professeur, eleves, video, onFermer, actions }: DetailSeanceModaleProps) {
+  const { profile } = useProfileContext()
   const { detail, loading } = useDetailSeance(session.id)
   const lienVisio = video ? getJoinUrl(video) : null
   const debut = new Date(session.debut)
@@ -56,7 +59,7 @@ export function DetailSeanceModale({ session, professeur, eleves, video, onFerme
   const satisfactions = detail?.satisfactions ?? []
 
   return (
-    <Modale titre="Détail de la séance" onFermer={onFermer} largeurMax={560}>
+    <Modale titre={`Événement de l’agenda de ${profile?.prenom ?? ''}`} onFermer={onFermer} largeurMax={560}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span className="brand-font" style={{ fontSize: 16, color: 'var(--ink)' }}>
@@ -79,15 +82,8 @@ export function DetailSeanceModale({ session, professeur, eleves, video, onFerme
           )}
         </div>
 
-        {video && lienVisio && estLienReel(video) && (
-          <a
-            href={lienVisio}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent-blue)' }}
-          >
-            Ouvrir le lien de visioconférence
-          </a>
+        {video && lienVisio && estLienReel(video) && (video.provider === 'jitsi' || video.provider === 'google_meet') && (
+          <BoutonRejoindreVisio lien={lienVisio} fournisseur={video.provider} />
         )}
 
         {loading && <EtatChargement lignes={2} hauteur={40} />}

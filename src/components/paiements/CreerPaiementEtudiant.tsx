@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
 import { champStyle } from '../ui/Champ'
 import { ChampDate } from '../ui/ChampDate'
+import { SelectMoyenPaiement } from './SelectMoyenPaiement'
 
 type Package = Database['public']['Tables']['packages']['Row']
 
@@ -25,6 +26,7 @@ export function CreerPaiementEtudiant({ etablissementId, onCree, onAnnuler }: Cr
   const [montant, setMontant] = useState('')
   const [dateEcheance, setDateEcheance] = useState('')
   const [moyenPaiement, setMoyenPaiement] = useState('')
+  const [moyenValide, setMoyenValide] = useState(true)
   const [reference, setReference] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -60,7 +62,7 @@ export function CreerPaiementEtudiant({ etablissementId, onCree, onAnnuler }: Cr
 
   async function creer(e: FormEvent) {
     e.preventDefault()
-    if (!profile || !studentId || !montant) return
+    if (!profile || !studentId || !montant || !moyenValide) return
     setEnCours(true)
     setErreur(null)
     const { error } = await supabase.from('student_payments').insert({
@@ -115,7 +117,7 @@ export function CreerPaiementEtudiant({ etablissementId, onCree, onAnnuler }: Cr
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 160 }}>
         <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Moyen de paiement</label>
-        <input value={moyenPaiement} onChange={(e) => setMoyenPaiement(e.target.value)} placeholder="Virement, carte…" style={champStyle} />
+        <SelectMoyenPaiement valeur={moyenPaiement} onChange={(v, valide) => { setMoyenPaiement(v); setMoyenValide(valide) }} />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 160 }}>
         <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Référence</label>
@@ -126,7 +128,7 @@ export function CreerPaiementEtudiant({ etablissementId, onCree, onAnnuler }: Cr
         <button type="button" onClick={onAnnuler} style={{ fontSize: 12.5, padding: '10px 16px', borderRadius: 999, border: '1px solid var(--border)', background: 'transparent', color: 'var(--ink-2)', cursor: 'pointer' }}>
           Annuler
         </button>
-        <button type="submit" disabled={enCours} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours ? 0.6 : 1 }}>
+        <button type="submit" disabled={enCours || !moyenValide} className="btn-shine" style={{ background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours || !moyenValide ? 0.6 : 1 }}>
           {enCours ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </div>

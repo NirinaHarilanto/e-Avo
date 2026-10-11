@@ -33,11 +33,12 @@ import { ChoixNatureRendezVous } from '../shared/ChoixNatureRendezVous'
 import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
 import { FicheEvenementGoogle, REPETITIONS } from '../shared/FicheEvenementGoogle'
 import { EnqueteSatisfactionAffichage } from '../shared/EnqueteSatisfactionAffichage'
+import { BoutonRejoindreVisio } from '../shared/BoutonRejoindreVisio'
 import { useDetailSeance } from '../../hooks/useDetailSeance'
 import { CompteRenduSeance } from './CompteRenduSeance'
 import { PlanningPrevisionnelProfesseur } from './PlanningPrevisionnelProfesseur'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
-import { champStyle, etiquetteStyle } from '../ui/Champ'
+import { champStyle, etiquetteStyle, LigneInfo } from '../ui/Champ'
 import { formaterHeures } from '../../lib/heures'
 import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 import { ChampDate } from '../ui/ChampDate'
@@ -355,7 +356,7 @@ export function CalendrierProfesseur() {
 
       {seanceOuverte && (
         <Modale
-          titre={new Date(seanceOuverte.session.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
+          titre={`Événement de l’agenda de ${profile?.prenom ?? ''}`}
           onFermer={() => {
             setSeanceOuverteId(null)
             setSeanceACloturerId(null)
@@ -780,20 +781,27 @@ function CarteSeance({
             {libelleTypeSeance(seance.session.type, seance.inscriptions)} · {seance.session.duree_minutes} min ·{' '}
             {nomsElevesInscrits(seance.inscriptions).join(', ')}
           </span>
+          {/* Organisateur — quel compte Google héberge la réunion et a donc envoyé les
+              invitations (0107), même ligne que DetailSeanceModale.tsx côté admin. */}
+          {seance.video?.organisateur_email && !sansCadre && (
+            <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>Invitations envoyées par {seance.video.organisateur_email}</span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <BadgeStatutSeance statut={seance.session.statut} />
         </div>
       </div>
 
+      {sansCadre && seance.video?.organisateur_email && (
+        <LigneInfo accent label="Invitations envoyées par" valeur={seance.video.organisateur_email} />
+      )}
+
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 12.5 }}>{erreur}</p>}
 
       {estAVenir && !clotureOuverte && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {seance.video && (
-            <a href={getJoinUrl(seance.video)} target="_blank" rel="noreferrer" className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: '9px 16px' }}>
-              Rejoindre
-            </a>
+          {seance.video && (seance.video.provider === 'jitsi' || seance.video.provider === 'google_meet') && (
+            <BoutonRejoindreVisio lien={getJoinUrl(seance.video)} fournisseur={seance.video.provider} />
           )}
           {dejaCommencee && (
             <button

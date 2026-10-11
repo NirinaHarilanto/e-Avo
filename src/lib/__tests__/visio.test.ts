@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { creerLienJitsi, DOMAINE_JITSI, estLienReel, getJoinUrl, getRecordingUrl } from '../visio'
+import { creerLienJitsi, DOMAINE_JITSI, estLienReel, fournisseurDepuisLien, getJoinUrl, getRecordingUrl, libelleFournisseur } from '../visio'
 
 describe('getJoinUrl', () => {
   it('renvoie le lien Jitsi tel quel quand la séance en a un', () => {
@@ -82,5 +82,25 @@ describe('getRecordingUrl', () => {
   it('rend l’enregistrement seulement s’il existe', () => {
     expect(getRecordingUrl({ enregistrement_url: null })).toBeNull()
     expect(getRecordingUrl({ enregistrement_url: 'https://exemple/x' })).toBe('https://exemple/x')
+  })
+})
+
+describe('fournisseurDepuisLien', () => {
+  // Demande client du 2026-10-11 : le pop-up d'un événement d'agenda Google ne connaît que
+  // l'URL brute (`lieu`), jamais un `provider` structuré comme sur video_sessions.
+  it('reconnaît un lien Google Meet', () => {
+    expect(fournisseurDepuisLien('https://meet.google.com/abc-defg-hij')).toBe('google_meet')
+  })
+
+  it('retombe sur Jitsi pour tout le reste — seuls ces deux fournisseurs existent', () => {
+    expect(fournisseurDepuisLien(DOMAINE_JITSI + '/hocabcdefghijklmnopqrstu')).toBe('jitsi')
+    expect(fournisseurDepuisLien('https://visio.exemple.org/hocxyz')).toBe('jitsi')
+  })
+})
+
+describe('libelleFournisseur', () => {
+  it('rend un nom lisible pour chaque fournisseur', () => {
+    expect(libelleFournisseur('google_meet')).toBe('Google Meet')
+    expect(libelleFournisseur('jitsi')).toBe('Jitsi')
   })
 })

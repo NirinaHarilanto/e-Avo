@@ -34,7 +34,7 @@ export function PlanifierAppelDiagnosticModale({
   onChange,
 }: {
   prospect: ProspectAPlanifier
-  profile: { id: string } | null
+  profile: { id: string; prenom: string | null } | null
   session: { access_token: string }
   onFermer: () => void
   onChange: () => void

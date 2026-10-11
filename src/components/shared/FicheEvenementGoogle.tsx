@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import type { EvenementGoogle, InviteGoogle } from '../../lib/agendaEvenements'
 import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
+import { fournisseurDepuisLien } from '../../lib/visio'
 import { Modale } from '../ui/Modale'
 import { Icone, type NomIcone } from '../ui/Icones'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { MessageErreur } from '../ui/Etats'
 import { ModaleConfirmation } from '../ui/ModaleConfirmation'
+import { BoutonRejoindreVisio } from './BoutonRejoindreVisio'
 
 /* Fiche d'un événement lu dans l'agenda Google, calquée sur le pop-up de Google Agenda que le
    client a fourni en référence (2026-10-09) : mêmes informations, dans le même ordre — pastille de
@@ -20,7 +22,16 @@ import { ModaleConfirmation } from '../ui/ModaleConfirmation'
    Partagée par les deux espaces depuis 0107 : l'agenda de l'admin écrit dans celui de
    l'établissement (`/api/admin/google-evenement`), celui du professeur dans son agenda personnel
    (`/api/google-personnel/evenement`). Seule l'URL change — d'où la prop `url` — car la fiche, la
-   question de portée et les règles de répétition sont les mêmes de part et d'autre. */
+   question de portée et les règles de répétition sont les mêmes de part et d'autre.
+
+   Titre et bouton de visio retouchés le 2026-10-11 (nouvelle capture client, même pop-up) : le
+   titre générique « Événement de l'agenda Google » devient « Événement de l'agenda de
+   [Prénom] », le prénom de la personne connectée — c'est TOUJOURS son propre agenda Google
+   qu'elle consulte ici, jamais celui de quelqu'un d'autre. Le lien de visioconférence, jusqu'ici
+   seulement lisible dans la description en texte libre (et donc à la merci de ce qui y a été
+   tapé, HTML brut compris si quelqu'un colle un lien déjà formaté), devient un vrai bouton quand
+   `lieu` est une URL reconnue — c'est ce même champ qui sert de source de vérité au lien, voir
+   `descriptionAvecLienVisio` côté serveur (api/_lib/google.ts). */
 
 const LIBELLE_REPONSE: Record<string, string> = {
   accepted: 'a accepté',
@@ -91,7 +102,7 @@ export function FicheEvenementGoogle({
      professeur. Les deux acceptent exactement le même corps de requête. */
   url?: string
 }) {
-  const { session } = useProfileContext()
+  const { session, profile } = useProfileContext()
   const [edition, setEdition] = useState(false)
   const [confirmationSuppression, setConfirmationSuppression] = useState(false)
   const [enCours, setEnCours] = useState(false)
@@ -166,10 +177,15 @@ export function FicheEvenementGoogle({
   }
 
   const reponses = compterReponses(evenement.invites)
+  /* `lieu` ne contient une URL de visio que pour les événements créés par HOC — voir le
+     commentaire en tête de fichier. Un événement Google tout à fait étranger (RDV personnel du
+     professeur avec une vraie adresse postale en lieu) ne doit pas se voir proposer un faux
+     bouton « Rejoindre ». */
+  const lienVisio = evenement.lieu?.startsWith('http') ? evenement.lieu : null
 
   return (
     <>
-      <Modale titre={edition ? 'Modifier l’événement' : 'Événement de l’agenda Google'} onFermer={onFermer} largeurMax={560}>
+      <Modale titre={edition ? 'Modifier l’événement' : `Événement de l’agenda de ${profile?.prenom ?? ''}`} onFermer={onFermer} largeurMax={560}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {erreur && <MessageErreur>{erreur}</MessageErreur>}
 
@@ -283,13 +299,24 @@ export function FicheEvenementGoogle({
                 </Rubrique>
               )}
 
+              {/* Bouton de visio — demande client du 2026-10-11 : précise explicitement Google
+                  Meet ou Jitsi plutôt qu'un lien générique perdu dans la description. */}
+              {lienVisio && (
+                <Rubrique icone="seances">
+                  <BoutonRejoindreVisio lien={lienVisio} fournisseur={fournisseurDepuisLien(lienVisio)} />
+                </Rubrique>
+              )}
+
               {evenement.description && (
                 <Rubrique icone="documents">
                   <DescriptionAvecLiens texte={evenement.description} />
                 </Rubrique>
               )}
 
-              {evenement.lieu && (
+              {/* `lieu` n'est affiché ici que s'il NE s'agit PAS du lien de visio déjà rendu en
+                  bouton ci-dessus — un vrai lieu (RDV personnel) reste utile à lire, le même lien
+                  de visio répété deux fois ne l'est pas. */}
+              {evenement.lieu && !lienVisio && (
                 <Rubrique icone="etablissements">
                   <DescriptionAvecLiens texte={evenement.lieu} />
                 </Rubrique>
