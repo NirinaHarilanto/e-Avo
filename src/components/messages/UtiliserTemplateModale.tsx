@@ -47,7 +47,11 @@ export function UtiliserTemplateModale({
      du modèle — l'admin retrouve son texte tel qu'il l'avait laissé. */
   brouillon?: EmailEnvoi | null
   onFermer: () => void
-  /* `avertissement` : le mail est bien parti (Resend l'a accepté) mais la journalisation dans
+  /* Ne ferme plus la fenêtre (demande client du 2026-10-11) : seulement prévenir l'appelant pour
+     qu'il rafraîchisse sa liste et affiche son propre toast en arrière-plan. La fenêtre affiche
+     sa propre confirmation (voir `succes` ci-dessous) et c'est l'admin qui la referme, comme pour
+     un brouillon enregistré — jamais une fermeture instantanée qui ne laisse rien voir.
+     `avertissement` : le mail est bien parti (Resend l'a accepté) mais la journalisation dans
      `email_envois` a échoué — l'appelant doit le signaler puisque cette ligne n'apparaîtra pas
      dans « Derniers envois ». */
   onEnvoye: (avertissement?: string) => void
@@ -183,6 +187,11 @@ export function UtiliserTemplateModale({
         return
       }
       const resultat = await reponse.json().catch(() => null)
+      /* Affichée DANS la fenêtre, comme pour un brouillon — avant ce correctif, `onEnvoye()`
+         fermait la fenêtre dans le même geste, avant que l'admin ait pu voir quoi que ce soit
+         (signalé par le client le 2026-10-11 : « rien ne confirme l'envoi à l'écran », alors que
+         l'e-mail était bien envoyé et délivré). */
+      setSucces(resultat?.avertissement ? `E-mail envoyé. ${resultat.avertissement}` : 'E-mail envoyé.')
       onEnvoye(resultat?.avertissement)
     } catch (erreurInattendue) {
       setErreur(
@@ -283,25 +292,37 @@ export function UtiliserTemplateModale({
         {erreur && <MessageErreur>{erreur}</MessageErreur>}
         {succes && <MessageSucces>{succes}</MessageSucces>}
 
-        {/* Les trois boutons sont actifs d'emblée (demande client), à la seule réserve qu'il faut
-            un destinataire et un texte : envoyer un mail vide à personne n'a pas de sens. */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
-          <button type="button" onClick={onFermer} style={boutonNeutreStyle}>
-            Annuler
-          </button>
-          <button type="button" onClick={() => appeler('enregistrement')} disabled={enCours !== null || !pret} style={boutonSecondaireStyle}>
-            {enCours === 'enregistrement' ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
-          <button
-            type="button"
-            onClick={() => appeler('envoi')}
-            disabled={enCours !== null || !pret}
-            className="btn-shine"
-            style={{ ...boutonPrimaireStyle, fontSize: 12.5, padding: '9px 18px', opacity: enCours !== null || !pret ? 0.6 : 1 }}
-          >
-            {enCours === 'envoi' ? 'Envoi…' : 'Envoyer'}
-          </button>
-        </div>
+        {/* Une fois `succes` acquis (envoi ou brouillon), les boutons d'action laissent place à un
+            simple « Fermer » — demande client du 2026-10-11. Avant ce correctif, « Envoyer » et
+            « Enregistrer » restaient actifs après succès (seul `enCours` les désactivait
+            temporairement) : rien n'empêchait un second clic sur « Envoyer » de renvoyer le même
+            e-mail une seconde fois, et rien ne distinguait « c'est fait » de « c'est prêt à
+            refaire ». */}
+        {succes ? (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
+            <button type="button" onClick={onFermer} className="btn-shine" style={boutonPrimaireStyle}>
+              Fermer
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
+            <button type="button" onClick={onFermer} style={boutonNeutreStyle}>
+              Annuler
+            </button>
+            <button type="button" onClick={() => appeler('enregistrement')} disabled={enCours !== null || !pret} style={boutonSecondaireStyle}>
+              {enCours === 'enregistrement' ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+            <button
+              type="button"
+              onClick={() => appeler('envoi')}
+              disabled={enCours !== null || !pret}
+              className="btn-shine"
+              style={{ ...boutonPrimaireStyle, fontSize: 12.5, padding: '9px 18px', opacity: enCours !== null || !pret ? 0.6 : 1 }}
+            >
+              {enCours === 'envoi' ? 'Envoi…' : 'Envoyer'}
+            </button>
+          </div>
+        )}
 
         {obligatoires.length > 1 && (
           <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>

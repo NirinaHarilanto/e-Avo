@@ -302,9 +302,13 @@ export function TemplatesEmails() {
             setUtilise(null)
             setBrouillonRepris(null)
           }}
+          /* Ne ferme plus la fenêtre elle-même (demande client du 2026-10-11, « rien ne confirme
+             l'envoi à l'écran ») : un envoi réussi la fermait AVANT que l'admin ait eu le temps
+             de voir quoi que ce soit, contrairement à l'enregistrement d'un brouillon, qui
+             affiche sa confirmation à l'intérieur et laisse l'admin fermer lui-même. La fenêtre
+             affiche désormais sa propre confirmation (voir UtiliserTemplateModale.tsx) ; ce toast
+             de page reste une seconde trace, visible une fois qu'elle est refermée. */
           onEnvoye={(avertissement) => {
-            setUtilise(null)
-            setBrouillonRepris(null)
             annoncer(avertissement ? `E-mail envoyé. ${avertissement}` : 'E-mail envoyé.')
             rechargerEnvois()
           }}
