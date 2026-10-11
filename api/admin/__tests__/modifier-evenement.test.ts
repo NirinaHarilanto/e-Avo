@@ -17,7 +17,7 @@ vi.mock('../../_lib/adminAuth.js', () => ({
   },
 }))
 
-const integrationHoteReunion = vi.fn(async () => ({ googleEmail: 'hote@exemple.test' }))
+const integrationHoteReunion = vi.fn(async (..._args: unknown[]) => ({ googleEmail: 'hote@exemple.test' }))
 const modifierEvenementVisio = vi.fn(async (..._args: unknown[]) => {})
 const supprimerEvenementGoogle = vi.fn(async (..._args: unknown[]) => {})
 vi.mock('../../_lib/google.js', () => ({
