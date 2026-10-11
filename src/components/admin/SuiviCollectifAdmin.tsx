@@ -3,32 +3,38 @@ import { useCohortes } from '../../hooks/useCohortes'
 import { supabase } from '../../lib/supabaseClient'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { nomVagueSeul } from '../../lib/cohortes'
+import { rangNiveauCecrl } from '../../lib/classesCollectif'
 import {
   classePrevue,
   construireSuiviCollectif,
   LIBELLE_ETAPE_COLLECTIF,
+  rangEtapeCollectif,
+  rangFrais,
   type LigneSuiviCollectif,
 } from '../../lib/suiviCollectif'
 import type { ProspectStatut } from '../../types/database.types'
-import { champStyle, etiquetteStyle } from '../ui/Champ'
+import { champStyle } from '../ui/Champ'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
 import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
+import { Icone } from '../ui/Icones'
 
-/* Couleur de l'étape, du candidat tout juste arrivé à l'élève en classe — même progression que
-   les colonnes du pipeline (PipelineCRM.tsx), pour que l'admin retrouve ses repères. */
-const COULEUR_ETAPE: Record<ProspectStatut, string> = {
-  prospect: '#8b96b8',
-  diagnostic_planifie: '#e9cf94',
-  diagnostic_fait: '#a98cff',
-  etudiant: '#6fe3c0',
+/* Couleur de l'étape, du candidat tout juste arrivé à l'élève en classe — mêmes teintes que les
+   colonnes du pipeline (PipelineCRM.tsx), pour que l'admin retrouve ses repères. Fond et bordure
+   posés explicitement (plutôt que dérivés de la teinte par concaténation de chaîne) : `couleur`
+   sert aussi bien à un hex qu'à un `var(--xxx)`, ce que la concaténation ne permet pas. */
+const STYLE_ETAPE: Record<ProspectStatut, { couleur: string; fond: string; bordure: string }> = {
+  prospect: { couleur: '#8b96b8', fond: 'rgba(139,150,184,.14)', bordure: 'rgba(139,150,184,.4)' },
+  diagnostic_planifie: { couleur: '#e9cf94', fond: 'rgba(233,207,148,.14)', bordure: 'rgba(233,207,148,.4)' },
+  diagnostic_fait: { couleur: '#a98cff', fond: 'rgba(169,140,255,.14)', bordure: 'rgba(169,140,255,.4)' },
+  etudiant: { couleur: '#6fe3c0', fond: 'rgba(111,227,192,.14)', bordure: 'rgba(111,227,192,.4)' },
 }
 
-const COULEUR_FRAIS: Record<LigneSuiviCollectif['frais'], string> = {
-  aucun: 'var(--danger)',
-  attendu: 'var(--accent-gold, #e9cf94)',
-  regle: 'var(--accent-teal)',
+const STYLE_FRAIS: Record<LigneSuiviCollectif['frais'], { couleur: string; fond: string; bordure: string }> = {
+  aucun: { couleur: 'var(--danger)', fond: 'rgba(255,138,112,.14)', bordure: 'rgba(255,138,112,.4)' },
+  attendu: { couleur: 'var(--accent-gold, #e9cf94)', fond: 'rgba(233,207,148,.14)', bordure: 'rgba(233,207,148,.4)' },
+  regle: { couleur: 'var(--accent-teal)', fond: 'rgba(111,227,192,.14)', bordure: 'rgba(111,227,192,.4)' },
 }
 
 const LIBELLE_FRAIS: Record<LigneSuiviCollectif['frais'], string> = {
@@ -37,13 +43,39 @@ const LIBELLE_FRAIS: Record<LigneSuiviCollectif['frais'], string> = {
   regle: 'Réglé',
 }
 
+type ColonneTri = 'nom' | 'etape' | 'session' | 'vague' | 'classe' | 'niveauEcrit' | 'niveauOral' | 'frais'
+
+const COLONNES: { colonne: ColonneTri; libelle: string }[] = [
+  { colonne: 'nom', libelle: 'Personne' },
+  { colonne: 'etape', libelle: 'Étape' },
+  { colonne: 'session', libelle: 'Session orale' },
+  { colonne: 'vague', libelle: 'Vague' },
+  { colonne: 'classe', libelle: 'Classe' },
+  { colonne: 'niveauEcrit', libelle: 'Niveau — écrit' },
+  { colonne: 'niveauOral', libelle: 'Niveau — oral' },
+  { colonne: 'frais', libelle: 'Frais' },
+]
+
+function initiales(nom: string): string {
+  return nom
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((mot) => mot[0]?.toUpperCase() ?? '')
+    .join('')
+}
+
 /* Onglet « Suivi » de Cours collectifs — demande client du 2026-10-11 : « un monitoring de tous
    les prospects et étudiants liés au cours collectif avec leurs status d'étapes où ils en sont et
-   les détails les concernant ».
+   les détails les concernant ». Repris en tableau le même jour (« les informations [...] sont
+   très éparpillées [...] un tableau dont la première colonne est destinée aux personnes et les
+   autres [...] pour les attributs ») : chaque ligne est une personne, chaque colonne un attribut
+   de son dossier, pour comparer d'un coup d'œil plutôt que de déplier une carte après l'autre.
 
    Les deux autres onglets répondent à « où en est CETTE vague » (Vagues) et « qui vient à CETTE
    session » (Session orale) : il manquait la lecture par PERSONNE, de la candidature jusqu'à la
-   classe, seule capable de montrer qui reste en route. */
+   classe, seule capable de montrer qui reste en route — d'où aussi l'onglet par défaut de la page
+   (demande client du même jour). */
 export function SuiviCollectifAdmin() {
   const { cohortes, loading: chargementCohortes } = useCohortes()
   const [lignes, setLignes] = useState<LigneSuiviCollectif[] | null>(null)
@@ -51,6 +83,7 @@ export function SuiviCollectifAdmin() {
   const [filtreVague, setFiltreVague] = useState('')
   const [filtreEtape, setFiltreEtape] = useState<'' | ProspectStatut>('')
   const [recherche, setRecherche] = useState('')
+  const [tri, setTri] = useState<{ colonne: ColonneTri; sens: 1 | -1 }>({ colonne: 'nom', sens: 1 })
 
   const charger = useCallback(async () => {
     setErreur(null)
@@ -94,21 +127,70 @@ export function SuiviCollectifAdmin() {
 
   const nomVagueParId = useMemo(() => new Map(cohortes.map((c) => [c.id, nomVagueSeul(c.nom)])), [cohortes])
 
-  const filtrees = useMemo(() => {
+  /* Chaque ligne, enrichie des valeurs déjà résolues (nom de vague, classe prévue, rang du niveau)
+     qui servent à la fois à l'affichage et au tri — calculées une seule fois par ligne plutôt que
+     recalculées séparément par chaque cellule et par le comparateur. */
+  const enrichies = useMemo(() => {
     const terme = recherche.trim().toLowerCase()
-    return (lignes ?? []).filter(
-      (l) =>
-        (!filtreVague || l.vagueId === filtreVague) &&
-        (!filtreEtape || l.etape === filtreEtape) &&
-        (!terme || l.nom.toLowerCase().includes(terme) || (l.email ?? '').toLowerCase().includes(terme)),
-    )
-  }, [lignes, filtreVague, filtreEtape, recherche])
+    return (lignes ?? [])
+      .filter(
+        (l) =>
+          (!filtreVague || l.vagueId === filtreVague) &&
+          (!filtreEtape || l.etape === filtreEtape) &&
+          (!terme || l.nom.toLowerCase().includes(terme) || (l.email ?? '').toLowerCase().includes(terme)),
+      )
+      .map((ligne) => ({
+        ligne,
+        nomVague: ligne.vagueId ? (nomVagueParId.get(ligne.vagueId) ?? null) : null,
+        classePrevueAffichee: ligne.etape !== 'etudiant' ? classePrevue(ligne) : null,
+        rangNiveauEcrit: rangNiveauCecrl(ligne.niveauTest),
+        rangNiveauOral: rangNiveauCecrl(ligne.niveauFinal),
+      }))
+  }, [lignes, filtreVague, filtreEtape, recherche, nomVagueParId])
+
+  const triees = useMemo(() => {
+    function valeur(e: (typeof enrichies)[number]): string | number | null {
+      switch (tri.colonne) {
+        case 'nom':
+          return e.ligne.nom
+        case 'etape':
+          return rangEtapeCollectif(e.ligne.etape)
+        case 'session':
+          return e.ligne.sessionOrale
+        case 'vague':
+          return e.nomVague
+        case 'classe':
+          return e.ligne.classe ?? e.classePrevueAffichee
+        case 'niveauEcrit':
+          return e.rangNiveauEcrit
+        case 'niveauOral':
+          return e.rangNiveauOral
+        case 'frais':
+          return rangFrais(e.ligne.frais)
+      }
+    }
+    /* Une valeur manquante va toujours en fin de liste, quel que soit le sens du tri — inverser
+       aussi l'ordre des vides serait déroutant (ils remonteraient en tête en tri décroissant). */
+    return [...enrichies].sort((a, b) => {
+      const va = valeur(a)
+      const vb = valeur(b)
+      if (va == null && vb == null) return 0
+      if (va == null) return 1
+      if (vb == null) return -1
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * tri.sens
+      return String(va).localeCompare(String(vb), 'fr') * tri.sens
+    })
+  }, [enrichies, tri])
+
+  function basculerTri(colonne: ColonneTri) {
+    setTri((actuel) => (actuel.colonne === colonne ? { colonne, sens: actuel.sens === 1 ? -1 : 1 } : { colonne, sens: 1 }))
+  }
 
   if (lignes === null || chargementCohortes) return <EtatChargement lignes={4} hauteur={60} />
 
-  const etudiants = filtrees.filter((l) => l.etape === 'etudiant').length
-  const sansFrais = filtrees.filter((l) => l.etape === 'etudiant' && l.frais === 'aucun').length
-  const sansClasse = filtrees.filter((l) => l.etape === 'etudiant' && !l.classe).length
+  const etudiants = enrichies.filter((e) => e.ligne.etape === 'etudiant').length
+  const sansFrais = enrichies.filter((e) => e.ligne.etape === 'etudiant' && e.ligne.frais === 'aucun').length
+  const sansClasse = enrichies.filter((e) => e.ligne.etape === 'etudiant' && !e.ligne.classe).length
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -124,13 +206,17 @@ export function SuiviCollectifAdmin() {
             Les deux niveaux sont affichés côte à côte : celui <strong>estimé par le quiz écrit</strong>, indicatif, et
             celui que <strong>vous arrêtez au test oral</strong>, qui fait foi pour la classe et pour les frais.
           </>,
+          <>
+            Cliquez l’en-tête d’une colonne pour <strong>trier</strong> le tableau dessus ; un second clic inverse le
+            sens.
+          </>,
         ]}
       />
 
       {erreur && <MessageErreur>{erreur}</MessageErreur>}
 
       <GrilleStats min={150} compact>
-        <Stat compact libelle="Au total" valeur={filtrees.length} ton="or" />
+        <Stat compact libelle="Au total" valeur={enrichies.length} ton="or" />
         <Stat compact libelle="Devenus étudiants" valeur={etudiants} ton="teal" />
         <Stat compact libelle="Sans frais enregistrés" valeur={sansFrais} ton={sansFrais > 0 ? 'alerte' : 'neutre'} />
         <Stat compact libelle="Sans classe" valeur={sansClasse} ton={sansClasse > 0 ? 'violet' : 'neutre'} />
@@ -167,7 +253,7 @@ export function SuiviCollectifAdmin() {
         </select>
       </div>
 
-      {filtrees.length === 0 ? (
+      {triees.length === 0 ? (
         <EtatVide
           icone="etudiants"
           titre={lignes.length === 0 ? 'Personne dans le parcours collectif' : 'Aucun résultat'}
@@ -178,83 +264,133 @@ export function SuiviCollectifAdmin() {
           }
         />
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          {filtrees.map((ligne) => (
-            <LigneSuivi key={ligne.prospectId} ligne={ligne} nomVague={ligne.vagueId ? nomVagueParId.get(ligne.vagueId) : undefined} />
-          ))}
+        <div className="tableau-suivi-conteneur">
+          <table className="tableau-suivi">
+            <thead>
+              <tr>
+                {COLONNES.map(({ colonne, libelle }) => (
+                  <th key={colonne} className={colonne === 'nom' ? 'col-personne' : undefined} onClick={() => basculerTri(colonne)}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      {libelle}
+                      {tri.colonne === colonne && (
+                        <Icone
+                          nom="chevron"
+                          taille={10}
+                          style={{
+                            flexShrink: 0,
+                            color: 'var(--accent-gold, #e9cf94)',
+                            transform: tri.sens === 1 ? 'rotate(-90deg)' : 'rotate(90deg)',
+                          }}
+                        />
+                      )}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {triees.map(({ ligne, nomVague, classePrevueAffichee }) => {
+                const styleEtape = STYLE_ETAPE[ligne.etape]
+                const styleFrais = STYLE_FRAIS[ligne.frais]
+                return (
+                  <tr key={ligne.prospectId}>
+                    <td className="col-personne" style={{ borderLeft: `3px solid ${styleEtape.couleur}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span
+                          style={{
+                            width: 30,
+                            height: 30,
+                            flexShrink: 0,
+                            borderRadius: 999,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 11,
+                            fontWeight: 800,
+                            color: styleEtape.couleur,
+                            background: styleEtape.fond,
+                            border: `1px solid ${styleEtape.bordure}`,
+                          }}
+                        >
+                          {initiales(ligne.nom)}
+                        </span>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{ligne.nom}</div>
+                          {ligne.email && <div style={{ fontSize: 10.5, color: 'var(--muted-2)', whiteSpace: 'nowrap' }}>{ligne.email}</div>}
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          fontSize: 10.5,
+                          fontWeight: 800,
+                          borderRadius: 999,
+                          padding: '3px 10px',
+                          whiteSpace: 'nowrap',
+                          color: styleEtape.couleur,
+                          background: styleEtape.fond,
+                          border: `1px solid ${styleEtape.bordure}`,
+                        }}
+                      >
+                        {LIBELLE_ETAPE_COLLECTIF[ligne.etape]}
+                      </span>
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {ligne.sessionOrale ? formaterDansFuseauEtablissement(ligne.sessionOrale) : <Vide />}
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{nomVague ?? <Vide />}</td>
+                    <td>
+                      {ligne.classe ? (
+                        ligne.classe
+                      ) : classePrevueAffichee ? (
+                        <span style={{ fontStyle: 'italic', color: 'var(--muted)' }}>{classePrevueAffichee} (prévue)</span>
+                      ) : (
+                        <Vide />
+                      )}
+                    </td>
+                    <td>{ligne.niveauTest ?? <Vide />}</td>
+                    <td>
+                      {ligne.niveauFinal ? (
+                        <span style={{ fontWeight: 800, color: 'var(--accent-teal)' }}>{ligne.niveauFinal}</span>
+                      ) : (
+                        <Vide />
+                      )}
+                    </td>
+                    <td>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          fontSize: 10.5,
+                          fontWeight: 800,
+                          borderRadius: 999,
+                          padding: '3px 10px',
+                          whiteSpace: 'nowrap',
+                          color: styleFrais.couleur,
+                          background: styleFrais.fond,
+                          border: `1px solid ${styleFrais.bordure}`,
+                        }}
+                      >
+                        {LIBELLE_FRAIS[ligne.frais]}
+                      </span>
+                      {ligne.montantFrais > 0 && (
+                        <span style={{ display: 'block', fontSize: 10.5, color: 'var(--muted)', marginTop: 2 }}>
+                          {ligne.montantFrais.toLocaleString('fr-FR')} Ar
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
   )
 }
 
-function LigneSuivi({ ligne, nomVague }: { ligne: LigneSuiviCollectif; nomVague: string | undefined }) {
-  /* Pas encore converti : on annonce la classe où il atterrira, plutôt qu'un vide qui laisserait
-     croire que rien n'est prévu. */
-  const classeAVenir = ligne.etape !== 'etudiant' ? classePrevue(ligne) : null
-
-  return (
-    <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '11px 14px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 800,
-            textTransform: 'uppercase',
-            letterSpacing: 0.5,
-            color: COULEUR_ETAPE[ligne.etape],
-            border: `1px solid ${COULEUR_ETAPE[ligne.etape]}55`,
-            background: `${COULEUR_ETAPE[ligne.etape]}1f`,
-            borderRadius: 999,
-            padding: '2px 9px',
-          }}
-        >
-          {LIBELLE_ETAPE_COLLECTIF[ligne.etape]}
-        </span>
-        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{ligne.nom}</span>
-        {ligne.email && <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>{ligne.email}</span>}
-        <span
-          style={{
-            marginLeft: 'auto',
-            fontSize: 11,
-            fontWeight: 700,
-            color: COULEUR_FRAIS[ligne.frais],
-          }}
-          title="Frais d’inscription"
-        >
-          Frais : {LIBELLE_FRAIS[ligne.frais]}
-          {ligne.montantFrais > 0 && ` · ${ligne.montantFrais.toLocaleString('fr-FR')} Ar`}
-        </span>
-      </div>
-
-      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', borderTop: '1px solid var(--border-soft)', paddingTop: 8 }}>
-        <Detail libelle="Session orale" valeur={ligne.sessionOrale ? formaterDansFuseauEtablissement(ligne.sessionOrale) : null} />
-        <Detail libelle="Vague" valeur={nomVague ?? null} />
-        <Detail
-          libelle="Classe"
-          valeur={ligne.classe ?? (classeAVenir ? `${classeAVenir} (prévue)` : null)}
-          attenue={!ligne.classe}
-        />
-        <Detail libelle="Niveau — quiz écrit" valeur={ligne.niveauTest} />
-        <Detail libelle="Niveau — test oral" valeur={ligne.niveauFinal} accentue={!!ligne.niveauFinal} />
-      </div>
-    </div>
-  )
-}
-
-function Detail({ libelle, valeur, accentue, attenue }: { libelle: string; valeur: string | null; accentue?: boolean; attenue?: boolean }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 110 }}>
-      <span style={{ ...etiquetteStyle, fontSize: 9.5 }}>{libelle}</span>
-      <span
-        style={{
-          fontSize: 12,
-          fontWeight: accentue ? 700 : 500,
-          color: !valeur ? 'var(--muted-2)' : accentue ? 'var(--accent-teal)' : attenue ? 'var(--muted)' : 'var(--ink-2)',
-        }}
-      >
-        {valeur ?? '—'}
-      </span>
-    </div>
-  )
+function Vide() {
+  return <span style={{ color: 'var(--muted-2)' }}>—</span>
 }

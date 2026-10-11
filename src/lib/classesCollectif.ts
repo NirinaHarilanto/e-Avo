@@ -62,6 +62,16 @@ export function niveauRetenu(niveauFinal: string | null | undefined, niveauEstim
   return niveauFinal?.trim() || niveauEstime?.trim() || null
 }
 
+/* Position d'un niveau CECRL dans l'échelle, pour trier une colonne « Niveau » du plus faible au
+   plus avancé (tableau de suivi, 2026-10-11) — un tri alphabétique rangerait B1 avant B2 mais
+   aussi avant A2, faux. `null` pour une valeur absente ou non reconnue (ex. un niveau saisi en
+   texte libre avant l'introduction de la liste déroulante) : l'appelant décide où la ranger plutôt
+   que de la mélanger arbitrairement avec un niveau réel. */
+export function rangNiveauCecrl(niveau: string | null): number | null {
+  const position = NIVEAUX_CECRL.indexOf((niveau ?? '') as NiveauCecrl)
+  return position === -1 ? null : position
+}
+
 export interface TarifCollectif {
   type_programme: string
   titre: string

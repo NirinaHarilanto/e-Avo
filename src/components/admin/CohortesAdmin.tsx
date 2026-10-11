@@ -40,7 +40,12 @@ export function CohortesAdmin() {
   const { profile } = useProfileContext()
   const { cohortes, loading, erreur, recharger } = useCohortes()
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
-  const [onglet, setOnglet] = useState<'vagues' | 'suivi' | 'sessionOrale' | 'quiz'>('vagues')
+  // Onglet par défaut : « Suivi des candidats » (demande client du 2026-10-11, « quand on clique
+  // sur cours collectif, affiche par défaut et en premier le suivi des candidats ») — c'est la
+  // lecture par PERSONNE du parcours, celle qui répond le plus souvent à la question « où ça en
+  // est ». « Vagues » reste la première entrée visible dans les onglets eux-mêmes (c'est là que se
+  // crée une vague), seul l'écran ouvert au premier clic change.
+  const [onglet, setOnglet] = useState<'vagues' | 'suivi' | 'sessionOrale' | 'quiz'>('suivi')
 
   /* Les vagues les plus proches d'aujourd'hui en premier — demande client du 2026-10-10. La
      requête de useCohortes() garde son tri `date_debut` brut (simple, stable) ; ce tri-ci est le

@@ -313,6 +313,87 @@ a:hover {
   box-shadow: 0 20px 46px rgba(0, 0, 0, 0.5), 0 0 30px var(--card-accent-glow, rgba(169, 140, 255, 0.45));
 }
 
+/* Tableau de suivi (Cours collectifs › Suivi des candidats, 2026-10-11) : seul tableau HTML de
+   l'app — tout le reste est en listes de cartes — demandé explicitement par le client comme
+   « un tableau dont la première colonne est destinée aux personnes et les autres [...] pour les
+   attributs ». En-tête ET première colonne figés (`position: sticky`) pour rester lisible en
+   défilant, dans les deux sens, sur une liste qui peut compter plusieurs dizaines de candidats.
+   Couleurs de fond posées en dur (pas de `var(--surface-alt)`, translucide) : une cellule figée
+   doit être OPAQUE, sans quoi le contenu défilé dessous transparaîtrait au travers. */
+.tableau-suivi-conteneur {
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  overflow: auto;
+  background: var(--surface-alt);
+  box-shadow: var(--shadow-card);
+  /* Hauteur de fenêtre plutôt que hauteur de page : au-delà, le tableau défile dans son propre
+     cadre et l'en-tête figé reste utile, sans faire défiler toute la page pour y accéder. */
+  max-height: 72vh;
+}
+.tableau-suivi {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  min-width: 920px;
+  font-size: 12.5px;
+}
+.tableau-suivi thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #1c1139;
+  text-align: left;
+  padding: 11px 14px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border-soft);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+.tableau-suivi thead th:hover {
+  color: var(--ink-2);
+}
+.tableau-suivi thead th.col-personne {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #1c1139;
+  box-shadow: 8px 0 12px -6px rgba(0, 0, 0, 0.45);
+}
+.tableau-suivi tbody td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--ink-2);
+  vertical-align: middle;
+}
+.tableau-suivi tbody tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.015);
+}
+.tableau-suivi tbody tr:hover td {
+  background: rgba(169, 140, 255, 0.07);
+}
+.tableau-suivi tbody tr:last-child td {
+  border-bottom: none;
+}
+.tableau-suivi tbody td.col-personne {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #1c1139;
+  box-shadow: 8px 0 12px -6px rgba(0, 0, 0, 0.45);
+}
+.tableau-suivi tbody tr:nth-child(even) td.col-personne {
+  background: #201546;
+}
+.tableau-suivi tbody tr:hover td.col-personne {
+  background: #251a4f;
+}
+
 /* Halo doré respirant, utilisé pour signaler un élément qui attend une action. */
 @keyframes haloBreath {
   0%, 100% { box-shadow: 0 0 0 2px rgba(212, 175, 106, 0.75) inset, 0 0 22px rgba(212, 175, 106, 0.35); }

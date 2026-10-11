@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classePrevue, construireSuiviCollectif, libelleClasse } from '../suiviCollectif'
+import { classePrevue, construireSuiviCollectif, libelleClasse, rangEtapeCollectif, rangFrais } from '../suiviCollectif'
 
 /* Suivi du parcours collectif (demande client du 2026-10-11). Ce qui compte ici : qu'une
    personne apparaisse avec les bonnes informations à CHAQUE étape de son parcours — simple
@@ -158,6 +158,21 @@ describe('construireSuiviCollectif', () => {
       expect(ligne.frais).toBe('aucun')
       expect(ligne.montantFrais).toBe(0)
     })
+  })
+})
+
+describe('rangEtapeCollectif', () => {
+  it('ordonne les étapes dans le sens du parcours, pas alphabétiquement', () => {
+    expect(rangEtapeCollectif('prospect')).toBeLessThan(rangEtapeCollectif('diagnostic_planifie'))
+    expect(rangEtapeCollectif('diagnostic_planifie')).toBeLessThan(rangEtapeCollectif('diagnostic_fait'))
+    expect(rangEtapeCollectif('diagnostic_fait')).toBeLessThan(rangEtapeCollectif('etudiant'))
+  })
+})
+
+describe('rangFrais', () => {
+  it('ordonne du moins réglé au plus réglé, pour faire remonter ce qui manque', () => {
+    expect(rangFrais('aucun')).toBeLessThan(rangFrais('attendu'))
+    expect(rangFrais('attendu')).toBeLessThan(rangFrais('regle'))
   })
 })
 

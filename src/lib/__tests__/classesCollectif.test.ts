@@ -4,6 +4,7 @@ import {
   fraisInscriptionCollectif,
   niveauRetenu,
   NIVEAUX_CECRL,
+  rangNiveauCecrl,
 } from '../classesCollectif'
 
 describe('categorieDepuisNiveauEstime', () => {
@@ -52,6 +53,20 @@ describe('niveauRetenu', () => {
   it('rend null quand aucun des deux n’est connu', () => {
     expect(niveauRetenu(null, null)).toBeNull()
     expect(niveauRetenu(undefined, undefined)).toBeNull()
+  })
+})
+
+describe('rangNiveauCecrl', () => {
+  it('ordonne les niveaux du plus faible au plus avancé', () => {
+    const rangs = NIVEAUX_CECRL.map(rangNiveauCecrl)
+    expect(rangs).toEqual([0, 1, 2, 3, 4])
+    expect(rangNiveauCecrl('B1')).toBeLessThan(rangNiveauCecrl('B2')!)
+    expect(rangNiveauCecrl('A2')).toBeLessThan(rangNiveauCecrl('B1')!)
+  })
+
+  it('rend null pour une valeur absente ou non reconnue, plutôt qu’un rang arbitraire', () => {
+    expect(rangNiveauCecrl(null)).toBeNull()
+    expect(rangNiveauCecrl('Intermédiaire')).toBeNull()
   })
 })
 

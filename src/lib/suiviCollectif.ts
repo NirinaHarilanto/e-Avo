@@ -92,6 +92,23 @@ export const LIBELLE_ETAPE_COLLECTIF: Record<ProspectStatut, string> = {
   etudiant: 'Étudiant',
 }
 
+/* Ordre du parcours, pour trier la colonne « Étape » du tableau de suivi dans son sens naturel
+   (candidature → étudiant) plutôt que l'ordre alphabétique de son libellé, qui le mélangerait. */
+const ORDRE_ETAPE_COLLECTIF: ProspectStatut[] = ['prospect', 'diagnostic_planifie', 'diagnostic_fait', 'etudiant']
+
+export function rangEtapeCollectif(etape: ProspectStatut): number {
+  return ORDRE_ETAPE_COLLECTIF.indexOf(etape)
+}
+
+/* Ordre du moins réglé au plus réglé — trier dessus fait remonter en premier ce qui mérite
+   l'attention de l'admin : aucune ligne de frais avant un montant encore attendu, lui-même avant
+   un montant déjà soldé. */
+const ORDRE_FRAIS: LigneSuiviCollectif['frais'][] = ['aucun', 'attendu', 'regle']
+
+export function rangFrais(frais: LigneSuiviCollectif['frais']): number {
+  return ORDRE_FRAIS.indexOf(frais)
+}
+
 function nomComplet(prenom: string | null, nom: string | null): string {
   return `${prenom ?? ''} ${nom ?? ''}`.trim() || 'Sans nom'
 }
