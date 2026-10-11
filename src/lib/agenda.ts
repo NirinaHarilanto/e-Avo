@@ -181,6 +181,40 @@ export function libelleSemaine(lundi: Date): string {
   return `${debut} – ${fin}`
 }
 
+/* Heure (en minutes depuis minuit) du créneau cliqué dans la grille hebdomadaire.
+
+   Le calcul part d'un RATIO — où le clic est tombé par rapport à la HAUTEUR MESURÉE de la
+   colonne — et jamais d'une division par la hauteur d'une heure. C'est ce qui le rend insensible
+   au `zoom` CSS posé sur `<body>` dans les espaces connectés (0,82 professeur et étudiant, 0,74
+   admin — voir index.css).
+
+   Le piège, signalé par le client le 2026-10-11 (« je clique sur un créneau aligné avec 18h et le
+   pop-up propose une autre heure ») : `clientY` et `getBoundingClientRect()` rendent des pixels
+   VISUELS, déjà multipliés par le zoom, tandis que la hauteur d'heure utilisée pour la mise en
+   page est en pixels CSS logiques. Diviser les uns par l'autre écrasait l'écart d'un facteur égal
+   au zoom, et l'erreur grandissait à mesure qu'on descendait dans la grille : dans l'espace
+   admin, un clic sur 18 h d'une grille démarrant à 7 h retombait vers 15 h. Comme le ratio met au
+   numérateur et au dénominateur deux mesures prises de la MÊME façon, le zoom s'y annule. */
+export function minutesDuCreneauClique(params: {
+  /* Distance du clic au sommet de la colonne, telle que mesurée à l'écran. */
+  offsetY: number
+  /* Hauteur de la colonne, mesurée de la même façon que `offsetY`. */
+  hauteurColonne: number
+  /* Plage horaire affichée par la grille. */
+  plage: { debut: number; fin: number }
+  pasMinutes: number
+}): number {
+  const { offsetY, hauteurColonne, plage, pasMinutes } = params
+  const minutesAffichees = (plage.fin - plage.debut) * 60
+  // Colonne pas encore mesurée (hauteur nulle) : s'en tenir au début de la plage plutôt que de
+  // diviser par zéro.
+  const ratio = hauteurColonne > 0 ? offsetY / hauteurColonne : 0
+  const minutes = plage.debut * 60 + ratio * minutesAffichees
+  const arrondi = Math.round(minutes / pasMinutes) * pasMinutes
+  // Un clic sur le bord haut ou bas ne doit pas sortir de la journée affichée.
+  return Math.min(Math.max(arrondi, plage.debut * 60), plage.fin * 60)
+}
+
 /* Dit si une couleur de fond est assez claire pour qu'un libellé blanc y devienne illisible.
    Sert aux événements qui portent leur propre couleur, reprise de Google Agenda : sa palette
    contient du jaune et de l'orange vif, sur lesquels un texte blanc disparaît.

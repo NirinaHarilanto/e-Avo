@@ -5,6 +5,7 @@ import {
   joursDeLaSemaine,
   libelleSemaine,
   lundiDeLaSemaine,
+  minutesDuCreneauClique,
   placerEvenementsDuJour,
   plageHoraire,
   type EvenementAgenda,
@@ -211,5 +212,52 @@ describe('estCouleurClaire', () => {
     expect(estCouleurClaire('bleu')).toBe(false)
     expect(estCouleurClaire('')).toBe(false)
     expect(estCouleurClaire('#fff')).toBe(false)
+  })
+})
+
+describe('minutesDuCreneauClique', () => {
+  /* Grille telle qu'elle s'affiche vraiment : de 7 h à 22 h, une heure = 54 px CSS. Le `zoom` de
+     l'espace (0,82 professeur, 0,74 admin) multiplie ce que la souris et getBoundingClientRect
+     rapportent — les deux de la même façon, d'où un résultat qui ne doit pas en dépendre.
+     Bug signalé par le client le 2026-10-11 : un clic sur 18 h proposait 15 h dans l'espace
+     admin, l'écart grandissant à mesure qu'on descendait la grille. */
+  const plage = { debut: 7, fin: 22 }
+  const HAUTEUR_HEURE = 54
+  const hauteurLogique = (plage.fin - plage.debut) * HAUTEUR_HEURE
+
+  function clicSurHeure(heure: number, zoom: number) {
+    return minutesDuCreneauClique({
+      offsetY: (heure - plage.debut) * HAUTEUR_HEURE * zoom,
+      hauteurColonne: hauteurLogique * zoom,
+      plage,
+      pasMinutes: 15,
+    })
+  }
+
+  it('rend l’heure cliquée, quel que soit le zoom de l’espace', () => {
+    for (const zoom of [1, 0.9, 0.82, 0.74]) {
+      expect(clicSurHeure(18, zoom)).toBe(18 * 60)
+      expect(clicSurHeure(9, zoom)).toBe(9 * 60)
+    }
+  })
+
+  it('arrondit au quart d’heure le plus proche', () => {
+    // 18 h 07 → 18 h 00 ; 18 h 08 → 18 h 15.
+    const minutesDepuisHaut = (m: number) => ((m - plage.debut * 60) / 60) * HAUTEUR_HEURE
+    const auPoint = (m: number) =>
+      minutesDuCreneauClique({ offsetY: minutesDepuisHaut(m), hauteurColonne: hauteurLogique, plage, pasMinutes: 15 })
+    expect(auPoint(18 * 60 + 7)).toBe(18 * 60)
+    expect(auPoint(18 * 60 + 8)).toBe(18 * 60 + 15)
+  })
+
+  it('ne sort jamais de la plage affichée', () => {
+    expect(minutesDuCreneauClique({ offsetY: -40, hauteurColonne: hauteurLogique, plage, pasMinutes: 15 })).toBe(plage.debut * 60)
+    expect(
+      minutesDuCreneauClique({ offsetY: hauteurLogique + 40, hauteurColonne: hauteurLogique, plage, pasMinutes: 15 }),
+    ).toBe(plage.fin * 60)
+  })
+
+  it('reste au début de la plage tant que la colonne n’est pas mesurée', () => {
+    expect(minutesDuCreneauClique({ offsetY: 300, hauteurColonne: 0, plage, pasMinutes: 15 })).toBe(plage.debut * 60)
   })
 })

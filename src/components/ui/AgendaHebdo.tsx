@@ -9,6 +9,7 @@ import {
   lundiDeLaSemaine,
   memeJour,
   minutesDepuisMinuit,
+  minutesDuCreneauClique,
   placerEvenementsDuJour,
   plageHoraire,
   type EvenementAgenda,
@@ -198,11 +199,17 @@ export function AgendaHebdo({
 
   function creneauDepuisClic(jour: Date, evenement: MouseEvent<HTMLDivElement>) {
     if (!onCreneauLibre) return
+    /* Les deux mesures viennent du MÊME repère (pixels visuels, zoom compris) : c'est ce qui rend
+       le calcul juste quel que soit le `zoom` de l'espace — voir minutesDuCreneauClique. */
     const rect = evenement.currentTarget.getBoundingClientRect()
-    const minutes = plage.debut * 60 + ((evenement.clientY - rect.top) / hauteurHeure) * 60
-    const arrondi = Math.max(0, Math.round(minutes / PAS_MINUTES) * PAS_MINUTES)
+    const minutes = minutesDuCreneauClique({
+      offsetY: evenement.clientY - rect.top,
+      hauteurColonne: rect.height,
+      plage,
+      pasMinutes: PAS_MINUTES,
+    })
     const debut = new Date(jour)
-    debut.setHours(0, arrondi, 0, 0)
+    debut.setHours(0, minutes, 0, 0)
     onCreneauLibre(debut)
   }
 
