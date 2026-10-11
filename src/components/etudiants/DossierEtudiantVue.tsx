@@ -161,7 +161,16 @@ function HistoriqueForfaits({ packages }: { packages: DossierEtudiant['packages'
                 {p.type_programme === 'duo' ? 'Duo' : 'Individuel'} · {formaterHeures(p.total_heures)}
                 {p.essai && (
                   <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(233,207,148,.14)', border: '1px solid rgba(233,207,148,.32)', borderRadius: 999, padding: '2px 7px' }}>
-                    Essai {p.essai_resultat === 'poursuivi' ? '· poursuivi' : p.essai_resultat === 'arrete' ? '· arrêté' : ''}
+                    {/* 'prolonge' (0115) : tranche close par une prolongation, la suivante a pris
+                        le relais — à distinguer d'un essai encore en attente de décision. */}
+                    Essai{' '}
+                    {p.essai_resultat === 'poursuivi'
+                      ? '· poursuivi'
+                      : p.essai_resultat === 'arrete'
+                        ? '· arrêté'
+                        : p.essai_resultat === 'prolonge'
+                          ? '· prolongé'
+                          : ''}
                   </span>
                 )}
               </span>

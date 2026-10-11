@@ -91,10 +91,19 @@ function PaiementEssaiModale({
 export function DecisionHeureEssai({
   essai,
   heuresConsommees,
+  heuresEssaiCumulees,
+  montantEssaiCumule,
   onDecide,
 }: {
   essai: Package
   heuresConsommees: number
+  /* Toutes les heures d'essai souscrites, tranches de prolongation comprises (0115) : depuis
+     qu'une prolongation crée son propre forfait, `essai.total_heures` ne porte plus que la
+     DERNIÈRE tranche. Comparer la consommation — qui est, elle, un cumul du dossier — à cette
+     seule tranche déclarait l'essai terminé trop tôt : à 2 h consommées sur 1 h + 2 h. */
+  heuresEssaiCumulees: number
+  /* Idem pour le montant : ce que l'essai a coûté EN TOUT, toutes tranches confondues. */
+  montantEssaiCumule: number
   onDecide: () => void
 }) {
   const { session } = useProfileContext()
@@ -112,7 +121,7 @@ export function DecisionHeureEssai({
   const forfaitsProposables = tarifs.filter((t) => t.type_programme === essai.type_programme && t.heures != null && t.heures > 1)
   const tarifRetenu = tarifId || essai.tarif_vise_id || ''
   const tarifChoisi = forfaitsProposables.find((t) => t.id === tarifRetenu) ?? null
-  const essaiTermine = heuresConsommees >= essai.total_heures
+  const essaiTermine = heuresConsommees >= heuresEssaiCumulees
   // Même tarif que celui utilisé pour chiffrer l'essai initial (voir PipelineCRM.tsx) : aperçu du
   // montant affiché avant même d'envoyer la demande au serveur, qui refait le même calcul.
   const tarifUneHeure = tarifs.find((t) => t.type_programme === essai.type_programme && t.heures === 1) ?? null
@@ -201,11 +210,11 @@ export function DecisionHeureEssai({
       }}
     >
       <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>
-        {essaiTermine ? 'Séance d’essai terminée — décision à enregistrer' : `Séance d’essai en cours (${formaterHeures(essai.total_heures)})`}
+        {essaiTermine ? 'Séance d’essai terminée — décision à enregistrer' : `Séance d’essai en cours (${formaterHeures(heuresEssaiCumulees)})`}
       </span>
 
       <p style={{ fontSize: 12, lineHeight: 1.55, color: 'var(--ink-2)', margin: 0 }}>
-        L’essai ({formaterHeures(essai.total_heures)}, {Number(essai.montant ?? 0).toLocaleString('fr-FR')} Ar) est facturé à part. S’il poursuit,
+        L’essai ({formaterHeures(heuresEssaiCumulees)}, {montantEssaiCumule.toLocaleString('fr-FR')} Ar) est facturé à part. S’il poursuit,
         l’élève paie le forfait complet choisi ci-dessous ; s’il s’arrête, il n’aura payé que l’essai ; s’il a besoin de plus de temps avant de
         trancher, l’essai peut être prolongé de quelques heures au même tarif horaire. Poursuivre et prolonger demandent chacun
         l’enregistrement d’un paiement avant d’être appliqués.

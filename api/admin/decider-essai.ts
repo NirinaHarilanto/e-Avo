@@ -27,15 +27,14 @@ interface Corps {
  *
  * L'essai (1 à 3 h au tarif horaire) est facturé À PART : « poursuivre » crée le forfait COMPLET
  * choisi à ce moment-là (celui retenu au départ ou un autre), sans rien en déduire. « Arrêter »
- * ne facture rien de plus. « Prolonger » allonge l'essai EN COURS de X heures supplémentaires, au
- * même tarif horaire — contrairement aux deux autres décisions, elle ne verrouille pas
- * `essai_resultat` : l'essai reste en attente d'une décision finale, juste plus long. Le forfait
- * d'essai lui-même est étendu (total_heures/montant augmentés) plutôt que dupliqué en un second
- * forfait : aucun reçu n'est émis à la création d'un forfait (seulement au paiement, voir 0030),
- * donc rien ne fige le montant initial avant que l'admin n'encaisse — étendre ce même forfait
- * laisse simplement un solde plus grand à régler, sans perturber les totaux cumulés du dossier
- * (sum(total_heures) across packages, lus ailleurs dans l'application) qu'un second forfait
- * essai aurait faussés.
+ * ne facture rien de plus. « Prolonger » ajoute X heures d'essai au même tarif horaire sous la
+ * forme d'un NOUVEAU forfait d'essai (0115) : chaque tranche porte ses propres heures, son propre
+ * montant et son propre paiement, et la précédente est close par `essai_resultat = 'prolonge'`.
+ * Allonger le forfait existant, comme c'était fait au premier jet, revenait à réécrire un forfait
+ * déjà payé — le paiement de la première tranche se retrouvait affiché sous le volume cumulé,
+ * en contradiction avec son propre reçu. La décision finale se prend toujours sur la DERNIÈRE
+ * tranche ; les heures d'essai se lisent, elles, en cumulant les forfaits (voir
+ * `totalHeuresCumulees`), comme partout ailleurs dans l'application.
  *
  * « Poursuivi » et « prolonge » exigent désormais un paiement, créé dans LE MÊME appel, déjà
  * réglé (`statut: 'paye'`) — même principe que l'ajout de forfait (0061, ajouter-forfait.ts) :
@@ -106,18 +105,37 @@ export default async function handler(request: Request): Promise<Response> {
         )
       }
       const montantAjoute = heures * Number(tarifHoraire.prix)
-      const { error: erreurProlongation } = await serviceClient
+
+      /* Un NOUVEAU forfait d'essai, portant les seules heures ajoutées et leur seul montant —
+         jamais un allongement du précédent (0115). Allonger revenait à réécrire après coup un
+         forfait déjà payé : le paiement de la première tranche s'affichait alors sous le volume
+         cumulé (« 3 h » pour 35 000 Ar), en contradiction avec son propre reçu, figé lui sur
+         « 1 h ». Défaut constaté en production et signalé par le client le 2026-10-11, qui
+         demande « deux lignes de paiements distincts pour chaque forfait pris ». C'est aussi le
+         modèle posé par 0057 : des forfaits successifs, jamais un total qu'on réécrit.
+         `tarif_vise_id` est repris pour que l'écran de décision continue de proposer le forfait
+         retenu au départ. */
+      const { data: tranche, error: erreurTranche } = await serviceClient
         .from('packages')
-        .update({ total_heures: essai.total_heures + heures, montant: Number(essai.montant ?? 0) + montantAjoute })
-        .eq('id', essai.id)
-      if (erreurProlongation) {
-        return Response.json({ error: erreurProlongation.message }, { status: 500 })
+        .insert({
+          etablissement_id: etablissementId,
+          student_id: essai.student_id,
+          type_programme: essai.type_programme,
+          total_heures: heures,
+          montant: montantAjoute,
+          essai: true,
+          tarif_vise_id: essai.tarif_vise_id,
+        })
+        .select('id')
+        .single()
+      if (erreurTranche || !tranche) {
+        return Response.json({ error: erreurTranche?.message ?? 'La prolongation n’a pas pu être créée.' }, { status: 500 })
       }
 
       const { error: erreurPaiement } = await serviceClient.from('student_payments').insert({
         etablissement_id: etablissementId,
         student_id: essai.student_id,
-        package_id: essai.id,
+        package_id: tranche.id,
         montant: corps.montantPaiement!,
         montant_regle: corps.montantPaiement!,
         statut: 'paye',
@@ -128,16 +146,27 @@ export default async function handler(request: Request): Promise<Response> {
         created_by_profile_id: profileId,
       })
       if (erreurPaiement) {
-        // La prolongation est déjà en base à ce stade : mieux vaut le signaler explicitement que
-        // de la défaire en silence et faire perdre à l'admin la trace de ce qu'il vient de faire
-        // (même choix que api/admin/ajouter-forfait.ts).
+        // La tranche est déjà en base à ce stade : mieux vaut le signaler explicitement que de la
+        // défaire en silence et faire perdre à l'admin la trace de ce qu'il vient de faire (même
+        // choix que api/admin/ajouter-forfait.ts).
         return Response.json(
           { error: `Les heures ont été ajoutées, mais l’enregistrement du paiement a échoué : ${erreurPaiement.message}` },
           { status: 500 },
         )
       }
 
-      return Response.json({ ok: true, decision: 'prolonge', heuresAjoutees: heures, montantAjoute })
+      /* La tranche précédente est close : sans cela, deux forfaits d'essai resteraient
+         simultanément « en attente de décision » et le dossier afficherait « Essai » sans suite
+         pour le premier. La décision finale se prendra sur la nouvelle tranche, la plus récente. */
+      const { error: erreurCloture } = await serviceClient
+        .from('packages')
+        .update({ essai_resultat: 'prolonge', essai_decide_le: new Date().toISOString() })
+        .eq('id', essai.id)
+      if (erreurCloture) {
+        return Response.json({ error: erreurCloture.message }, { status: 500 })
+      }
+
+      return Response.json({ ok: true, decision: 'prolonge', heuresAjoutees: heures, montantAjoute, packageId: tranche.id })
     }
 
     let complementId: string | null = null

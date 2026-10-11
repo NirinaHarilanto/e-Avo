@@ -18,7 +18,7 @@ import { FormulaireInvitation } from '../shared/FormulaireInvitation'
 import { PanneauInformationsDuo, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
 import { SupprimerCompte } from '../shared/SupprimerCompte'
 import { SyntheseComptesRendus } from '../shared/SyntheseComptesRendus'
-import { heuresRestantes as calculerHeuresRestantes } from '../../lib/heures'
+import { heuresRestantes as calculerHeuresRestantes, totalHeuresCumulees } from '../../lib/heures'
 import { MettreEnPauseCompte } from './MettreEnPauseCompte'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -282,9 +282,18 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
       }
       panneauDecisionEssai={
         /* Ne concerne que le forfait courant : un essai déjà tranché appartient à l'historique
-           des forfaits, il n'a plus de décision à recevoir (0057). */
+           des forfaits, il n'a plus de décision à recevoir (0057) — y compris une tranche close
+           par une prolongation (`essai_resultat = 'prolonge'`, 0115), dont la suivante a pris le
+           relais. Les totaux, eux, additionnent TOUTES les tranches d'essai : depuis 0115, le
+           forfait courant ne porte que la dernière. */
         forfait?.essai && !forfait.essai_resultat ? (
-          <DecisionHeureEssai essai={forfait} heuresConsommees={dossier.heuresConsommees} onDecide={recharger} />
+          <DecisionHeureEssai
+            essai={forfait}
+            heuresConsommees={dossier.heuresConsommees}
+            heuresEssaiCumulees={totalHeuresCumulees(dossier.packages.filter((p) => p.essai))}
+            montantEssaiCumule={dossier.packages.filter((p) => p.essai).reduce((somme, p) => somme + Number(p.montant ?? 0), 0)}
+            onDecide={recharger}
+          />
         ) : undefined
       }
       panneauAjoutForfait={

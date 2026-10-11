@@ -110,20 +110,28 @@ beforeEach(() => {
 })
 
 describe('api/admin/decider-essai — prolongation', () => {
-  it('allonge le forfait d’essai existant au lieu d’en créer un second, et enregistre le paiement payé', async () => {
+  it('crée une tranche d’essai distincte, avec ses seules heures et son propre paiement', async () => {
     essaiRetourne = essaiActif()
     const reponse = await handler(requete({ packageId: 'pkg-1', decision: 'prolonge', heuresSupplementaires: 3, ...paiement }))
     const corps = await reponse.json()
     expect(reponse.status).toBe(200)
-    expect(corps).toEqual({ ok: true, decision: 'prolonge', heuresAjoutees: 3, montantAjoute: 105000 })
-    expect(misAJourCapture).toEqual({ total_heures: 4, montant: 140000 })
-    expect(paiementInsereCapture).toMatchObject({ package_id: 'pkg-1', montant: 105000, statut: 'paye', notes: 'Réglé en espèces' })
+    expect(corps).toEqual({ ok: true, decision: 'prolonge', heuresAjoutees: 3, montantAjoute: 105000, packageId: 'pkg-complement' })
+    // La tranche ne porte QUE les heures ajoutées : le forfait d'origine n'est jamais réécrit,
+    // sinon son paiement déjà encaissé s'afficherait sous le volume cumulé (0115).
+    expect(packageInsereCapture).toMatchObject({ total_heures: 3, montant: 105000, essai: true, student_id: 'eleve-1' })
+    expect(paiementInsereCapture).toMatchObject({ package_id: 'pkg-complement', montant: 105000, statut: 'paye', notes: 'Réglé en espèces' })
   })
 
-  it('ne verrouille pas essai_resultat (pas de champ posé dans la mise à jour)', async () => {
+  it('clôt la tranche précédente par « prolonge », jamais par une décision finale', async () => {
     essaiRetourne = essaiActif()
     await handler(requete({ packageId: 'pkg-1', decision: 'prolonge', heuresSupplementaires: 1, montantPaiement: 35000, motifPaiement: 'Espèces' }))
-    expect(misAJourCapture).not.toHaveProperty('essai_resultat')
+    expect(misAJourCapture).toMatchObject({ essai_resultat: 'prolonge' })
+  })
+
+  it('reprend le forfait visé au départ sur la nouvelle tranche', async () => {
+    essaiRetourne = essaiActif({ tarif_vise_id: 'tarif-30h' })
+    await handler(requete({ packageId: 'pkg-1', decision: 'prolonge', heuresSupplementaires: 2, ...paiement }))
+    expect(packageInsereCapture).toMatchObject({ tarif_vise_id: 'tarif-30h' })
   })
 
   it('refuse une prolongation sans paiement enregistré', async () => {
@@ -156,14 +164,17 @@ describe('api/admin/decider-essai — prolongation', () => {
     expect(misAJourCapture).toBeNull()
   })
 
-  it('signale explicitement un paiement qui échoue sans annuler la prolongation déjà enregistrée', async () => {
+  it('signale explicitement un paiement qui échoue sans défaire la tranche déjà enregistrée', async () => {
     essaiRetourne = essaiActif()
     paiementErreur = { message: 'contrainte violée' }
     const reponse = await handler(requete({ packageId: 'pkg-1', decision: 'prolonge', heuresSupplementaires: 2, ...paiement }))
     const corps = (await reponse.json()) as { error?: string }
     expect(reponse.status).toBe(500)
     expect(corps.error).toContain('ajoutées')
-    expect(misAJourCapture).not.toBeNull()
+    expect(packageInsereCapture).not.toBeNull()
+    // La tranche précédente n'est PAS close tant que le paiement n'a pas abouti : l'admin
+    // retrouve son essai dans l'état où il l'a laissé.
+    expect(misAJourCapture).toBeNull()
   })
 
   it('refuse de prolonger un essai déjà tranché', async () => {

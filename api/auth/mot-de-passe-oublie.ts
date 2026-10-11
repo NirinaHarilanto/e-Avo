@@ -67,14 +67,17 @@ export default async function handler(request: Request): Promise<Response> {
        quand le domaine lui-même sert bien l'application. Un seul domaine canonique, garanti dans
        la liste blanche, supprime cette dépendance au domaine d'origine.
 
-       harionlineclub.app (SANS www) est le domaine dans la liste blanche — vérifié empiriquement,
-       www.harionlineclub.app n'y est PAS et retombe sur le Hero. Le domaine réellement servi est
-       www.harionlineclub.app (harionlineclub.app fait une redirection 308 permanente vers lui) :
-       partir de l'apex fonctionne quand même, un navigateur reportant le fragment `#access_token=…`
-       d'une redirection HTTP vers la suivante quand celle-ci n'en spécifie pas elle-même —
-       Supabase redirige donc vers harionlineclub.app/auth/reinitialiser#…, puis Vercel vers
-       www.harionlineclub.app/auth/reinitialiser en conservant ce même fragment. */
-    const origine = 'https://harionlineclub.app'
+       Le domaine canonique est www.harionlineclub.app, et c'est désormais LUI qui est visé : il a
+       été ajouté à la liste blanche le 2026-10-11, ce qui a été vérifié avant ce changement (un
+       `redirect_to` vers www revient bien sur www, et non plus sur le domaine Vercel par défaut).
+
+       Il a longtemps fallu partir de l'apex (seul domaine en liste blanche), en comptant sur le
+       report du fragment `#access_token=…` à travers la redirection 308 apex → www. C'est
+       précisément ce report qui échouait sur mobile : les navigateurs intégrés aux applications
+       (Gmail, Facebook, Messenger) ne le font pas, et l'utilisateur arrivait sur une URL nue,
+       donc sur un « Lien expiré » trompeur (signalé par le client le 2026-10-11). Viser
+       directement le domaine servi supprime la redirection, et donc la panne. */
+    const origine = 'https://www.harionlineclub.app'
     const { data: lienData, error: erreurLien } = await serviceClient.auth.admin.generateLink({
       type: 'recovery',
       email,

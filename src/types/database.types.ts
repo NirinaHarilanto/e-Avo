@@ -465,7 +465,10 @@ export interface Database {
           echeance: string | null
           essai: boolean
           tarif_vise_id: string | null
-          essai_resultat: 'poursuivi' | 'arrete' | null
+          /* 'prolonge' (0115) : cette tranche d'essai est close parce qu'une tranche
+             supplémentaire a pris le relais — ce n'est pas une décision finale, qui se prend
+             toujours sur la dernière tranche. */
+          essai_resultat: 'poursuivi' | 'arrete' | 'prolonge' | null
           essai_decide_le: string | null
           /* Horodatage de l'e-mail « il vous reste X heures » (modèle 5.3, 0095) — null = jamais
              alerté. Marqué une seule fois par forfait, sinon le cron enverrait l'alerte chaque
@@ -483,7 +486,7 @@ export interface Database {
           echeance?: string | null
           essai?: boolean
           tarif_vise_id?: string | null
-          essai_resultat?: 'poursuivi' | 'arrete' | null
+          essai_resultat?: 'poursuivi' | 'arrete' | 'prolonge' | null
           essai_decide_le?: string | null
           email_fin_heures_le?: string | null
           created_at?: string
