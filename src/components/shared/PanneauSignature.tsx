@@ -94,8 +94,8 @@ export function PanneauSignature({ profile, onChange, avecEntete = true }: Panne
     >
       {avecEntete && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Signature</span>}
       <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
-        Utilisée automatiquement quand vous signez un contrat. Sans signature déposée, le contrat affiche « Vu et approuvé par{' '}
-        {profile.prenom} {profile.nom} ».
+        Utilisée automatiquement quand vous signez un contrat, sous la mention « Lu et approuvé par {profile.prenom}{' '}
+        {profile.nom} », affichée dans tous les cas — avec ou sans signature déposée.
       </p>
       {!chargementApercu && urlSignee && (
         <img src={urlSignee} alt="Votre signature" style={{ maxHeight: 70, maxWidth: 260, background: '#fff', borderRadius: 8, padding: 8 }} />

@@ -54,8 +54,14 @@ function BadgeSignature({ signeLe }: { signeLe: string | null }) {
   )
 }
 
-/* Image de signature (déposée dans "Mon profil", migration 0047) si le profil signataire en a
-   une, sinon repli texte "Vu et approuvé par {prénom} {nom}" — demande client du 2026-09-17.
+/* Mention « Lu et approuvé par {prénom} {nom} » systématiquement affichée dès qu'une partie a
+   signé — demande client du 2026-10-11 : « il faut que systématiquement la signature soit
+   précédée de Lu et approuvé par le signataire ». Avant cela, cette mention n'était qu'un repli,
+   affiché UNIQUEMENT quand le profil signataire n'avait déposé aucune image de signature (voir
+   migration 0047) ; elle précède désormais TOUJOURS l'image quand il y en a une, au lieu d'être
+   remplacée par elle. Même mécanisme, et même composant, pour l'établissement et le(s)
+   destinataire(s) — aucune raison de les traiter différemment, l'un comme l'autre atteste de la
+   même façon qu'une partie a pris connaissance du contrat.
    URL signée récupérée en local (useEffect), PAS via useCacheRequete : ce cache partagé n'a pas
    de TTL (voir son commentaire) alors qu'une URL signée en a un ; comme ce composant est une
    modale démontée à la fermeture, refaire la demande à chaque montage est déjà correct et
@@ -79,20 +85,22 @@ function SignatureAffichee({ profil, signeLe }: { profil: Profile | null; signeL
     }
   }, [profil?.signature_path])
 
+  const nomSignataire = profil ? `${profil.prenom ?? ''} ${profil.nom ?? ''}`.trim() : ''
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {signeLe &&
-        (urlSignee ? (
-          <img
-            src={urlSignee}
-            alt={`Signature de ${profil?.prenom ?? ''} ${profil?.nom ?? ''}`.trim()}
-            style={{ maxHeight: 46, maxWidth: 200, alignSelf: 'flex-start' }}
-          />
-        ) : (
-          <span style={{ fontSize: 12, fontStyle: 'italic', color: '#333' }}>
-            Vu et approuvé par {profil ? `${profil.prenom ?? ''} ${profil.nom ?? ''}`.trim() : 'la partie signataire'}
-          </span>
-        ))}
+      {signeLe && (
+        <span style={{ fontSize: 12, fontStyle: 'italic', color: '#333' }}>
+          Lu et approuvé par {nomSignataire || 'le signataire'}
+        </span>
+      )}
+      {signeLe && urlSignee && (
+        <img
+          src={urlSignee}
+          alt={`Signature de ${nomSignataire || 'la partie signataire'}`}
+          style={{ maxHeight: 46, maxWidth: 200, alignSelf: 'flex-start' }}
+        />
+      )}
       <BadgeSignature signeLe={signeLe} />
     </div>
   )
@@ -144,12 +152,16 @@ export function ContratImprimable({ contrat, destinataire, destinataireSecondair
         <div>
           <p style={{ margin: 0 }}>Fait pour {etablissement?.nom},</p>
           <p style={{ marginTop: 40, marginBottom: 0 }}>Signature</p>
-          <SignatureAffichee profil={signataireEtablissement ?? null} signeLe={contrat.signe_etablissement_at} />
-          {/* Tampon de l'établissement (demande client du 2026-10-09) : UNIQUEMENT dans cette
-              colonne, jamais dans celle du destinataire — un cachet n'authentifie que la partie
-              qui le pose. */}
-          <div style={{ marginTop: 10 }}>
-            <TamponEtablissement etablissement={etablissement} taille={90} />
+          {/* Tampon à côté de la signature, jamais en dessous — demande client du 2026-10-11 :
+              « quand l'admin signe un contrat, il faudrait mettre systématiquement la signature
+              de HOC à côté du logo HOC ». Les deux formaient jusqu'ici deux blocs empilés sans
+              lien visuel ; réunis dans la même ligne, ils se lisent comme un seul bloc
+              d'authentification. Reste UNIQUEMENT dans cette colonne, jamais dans celle du
+              destinataire (demande du 2026-10-09) — un cachet n'authentifie que la partie qui
+              le pose. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <SignatureAffichee profil={signataireEtablissement ?? null} signeLe={contrat.signe_etablissement_at} />
+            <TamponEtablissement etablissement={etablissement} taille={80} />
           </div>
         </div>
         <div>

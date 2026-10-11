@@ -8,7 +8,9 @@ type Etablissement = Database['public']['Tables']['etablissements']['Row']
    2026-10-09) — déposé une fois dans Profil HOC (PanneauTampon.tsx), réutilisé automatiquement
    ici. Rien ne s'affiche tant qu'aucun admin n'en a déposé un : `etablissement.tampon_path` est
    alors `null`, comme pour une signature non déposée (ContratImprimable.tsx), sauf qu'ici il
-   n'y a pas de repli textuel — un tampon n'a pas d'équivalent « Vu et approuvé par… ».
+   n'y a pas de repli textuel — un tampon n'a pas d'équivalent « Lu et approuvé par… ». Sur un
+   contrat, affiché à côté de la signature de l'établissement, jamais en dessous (demande client
+   du 2026-10-11) — voir ContratImprimable.tsx.
 
    URL signée, pas de cache partagé (useCacheRequete n'a pas de TTL, une URL signée en a un) :
    même raisonnement que PanneauSignature.tsx et SignatureAffichee (ContratImprimable.tsx), un
