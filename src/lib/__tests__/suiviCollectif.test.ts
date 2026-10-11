@@ -59,14 +59,14 @@ describe('construireSuiviCollectif', () => {
       ...BASE,
       prospects: [prospect('p1', 'diagnostic_planifie')],
       inscriptions: [
-        { prospect_id: 'p1', creneau_id: 'c1', niveau_estime: 'A1 (débutant)', niveau_final: null, score: 2, total: 10, created_at: '2026-10-01' },
+        { prospect_id: 'p1', creneau_id: 'c1', niveau_estime: 'A1', niveau_final: null, score: 2, total: 10, created_at: '2026-10-01' },
       ],
       creneaux: [{ id: 'c1', debut: '2026-10-17T05:00:00Z', cohort_id: 'vague-nov' }],
     })
     expect(ligne).toMatchObject({
       sessionOrale: '2026-10-17T05:00:00Z',
       vagueId: 'vague-nov',
-      niveauTest: 'A1 (débutant)',
+      niveauTest: 'A1',
       niveauFinal: null,
       classe: null,
     })
@@ -77,7 +77,7 @@ describe('construireSuiviCollectif', () => {
       ...BASE,
       prospects: [prospect('p1')],
       inscriptions: [
-        { prospect_id: 'p1', creneau_id: 'ancien', niveau_estime: 'A1 (débutant)', niveau_final: null, score: 2, total: 10, created_at: '2026-09-01' },
+        { prospect_id: 'p1', creneau_id: 'ancien', niveau_estime: 'A1', niveau_final: null, score: 2, total: 10, created_at: '2026-09-01' },
         { prospect_id: 'p1', creneau_id: 'recent', niveau_estime: 'B1', niveau_final: null, score: 6, total: 10, created_at: '2026-10-01' },
       ],
       creneaux: [
@@ -95,7 +95,7 @@ describe('construireSuiviCollectif', () => {
       ...BASE,
       prospects: [prospect('p1', 'etudiant')],
       inscriptions: [
-        { prospect_id: 'p1', creneau_id: 'c1', niveau_estime: 'A1 (débutant)', niveau_final: 'A2', score: 2, total: 10, created_at: '2026-10-01' },
+        { prospect_id: 'p1', creneau_id: 'c1', niveau_estime: 'A1', niveau_final: 'A2', score: 2, total: 10, created_at: '2026-10-01' },
       ],
       creneaux: [{ id: 'c1', debut: '2026-10-17T05:00:00Z', cohort_id: 'vague-nov' }],
       profils: [profilActif('profil-1', 'p1')],
@@ -106,7 +106,7 @@ describe('construireSuiviCollectif', () => {
       profilId: 'profil-1',
       etape: 'etudiant',
       classe: 'Beginner — CLASSE 1',
-      niveauTest: 'A1 (débutant)',
+      niveauTest: 'A1',
       niveauFinal: 'A2',
     })
   })
@@ -261,7 +261,7 @@ describe('libelleClasse', () => {
 })
 
 describe('classePrevue', () => {
-  const ligne = { niveauTest: 'A1 (débutant)', niveauFinal: null } as Parameters<typeof classePrevue>[0]
+  const ligne = { niveauTest: 'A1', niveauFinal: null } as Parameters<typeof classePrevue>[0]
 
   it('annonce la classe d’atterrissage d’après le niveau retenu', () => {
     expect(classePrevue(ligne)).toBe('Beginner')

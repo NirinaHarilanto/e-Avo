@@ -51,7 +51,7 @@ describe('niveauEstime', () => {
     expect(niveauEstime(8, 10)).toBe('B2')
     expect(niveauEstime(6, 10)).toBe('B1')
     expect(niveauEstime(4, 10)).toBe('A2')
-    expect(niveauEstime(3, 10)).toBe('A1 (débutant)')
+    expect(niveauEstime(3, 10)).toBe('A1')
   })
 
   it('ne divise pas par zéro quand aucune question n’est active', () => {

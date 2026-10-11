@@ -3,7 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { useCohortes } from '../../hooks/useCohortes'
 import { useCohortClasses } from '../../hooks/useCohortClasses'
-import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, libelleNiveauCecrl, NIVEAUX_CECRL } from '../../lib/classesCollectif'
+import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, NIVEAUX_CECRL } from '../../lib/classesCollectif'
 import type { NiveauClasse } from '../../types/database.types'
 import { Champ, champStyle } from '../ui/Champ'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
@@ -201,7 +201,7 @@ function ModalePlacement({
           <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={champStyle}>
             {NIVEAUX_CECRL.map((n) => (
               <option key={n} value={n}>
-                {libelleNiveauCecrl(n)} · classe {LABEL_NIVEAU_CLASSE[categorieDepuisNiveauEstime(n)!]}
+                {n} · classe {LABEL_NIVEAU_CLASSE[categorieDepuisNiveauEstime(n)!]}
               </option>
             ))}
           </select>

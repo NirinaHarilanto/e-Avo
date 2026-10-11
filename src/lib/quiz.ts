@@ -34,7 +34,7 @@ export function niveauEstime(score: number, total: number): string {
   if (part >= 0.8) return 'B2'
   if (part >= 0.6) return 'B1'
   if (part >= 0.4) return 'A2'
-  return 'A1 (débutant)'
+  return 'A1'
 }
 
 export function corriger(questions: QuestionCorrigee[], reponses: ReponseCandidat[]): ResultatQuiz {

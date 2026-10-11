@@ -30,18 +30,14 @@ export const CAPACITE_MAX_CLASSE = 7
    client du 2026-10-11, « mets le niveau d'anglais en liste déroulante ») et non plus en texte
    libre. Une saisie libre laissait écrire « Intermédiaire », que le barème ci-dessous ne reconnaît
    pas — le candidat était alors converti sans classe, à affecter à la main. */
-export const NIVEAUX_CECRL = ['A1 (débutant)', 'A2', 'B1', 'B2', 'C1'] as const
+/* « A1 » tout court, et non « A1 (débutant) » — demande client du 2026-10-11, après un premier
+   raccourcissement limité à l'affichage le même jour : c'est désormais la VALEUR elle-même qui
+   change, en code comme en base (migration 0122). Un seul libellé partout évite d'avoir à
+   traduire d'un côté ce qu'on compare de l'autre, et aligne ce barème sur celui du recrutement
+   (recrutement.ts), qui écrivait déjà « A1 ». */
+export const NIVEAUX_CECRL = ['A1', 'A2', 'B1', 'B2', 'C1'] as const
 
 export type NiveauCecrl = (typeof NIVEAUX_CECRL)[number]
-
-/* Capture client du 2026-10-11 : « A1 (débutant) · classe Beginner » répète la même idée deux
-   fois dans la liste déroulante de choix du niveau — « classe Beginner » dit déjà qu'il s'agit du
-   niveau débutant. Affichage seulement : la VALEUR du niveau reste 'A1 (débutant)' telle quelle
-   (c'est elle qui est comparée partout ailleurs — niveau_estime en base, categorieDepuisNiveauEstime…),
-   seul ce qu'on montre à l'écran est raccourci en « A1 ». */
-export function libelleNiveauCecrl(niveau: NiveauCecrl): string {
-  return niveau === 'A1 (débutant)' ? 'A1' : niveau
-}
 
 /* Barème convenu avec le client : le niveau CECRL du quiz écrit détermine automatiquement la
    classe de niveau, sans ressaisie. `null` quand le niveau n'est pas encore connu (candidat pas
@@ -49,6 +45,10 @@ export function libelleNiveauCecrl(niveau: NiveauCecrl): string {
    automatiquement, l'admin affecte à la main. */
 export function categorieDepuisNiveauEstime(niveauEstime: string | null): NiveauClasse | null {
   switch (niveauEstime) {
+    /* 'A1 (débutant)' reste accepté : c'est la valeur qu'ont portée les lignes écrites avant la
+       migration 0122, et un dossier d'archive ne doit pas perdre sa classe parce que le libellé a
+       changé. Plus rien ne l'écrit. */
+    case 'A1':
     case 'A1 (débutant)':
     case 'A2':
       return 'beginner'

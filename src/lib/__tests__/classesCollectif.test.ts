@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   categorieDepuisNiveauEstime,
   fraisInscriptionCollectif,
-  libelleNiveauCecrl,
   niveauRetenu,
   NIVEAUX_CECRL,
   parcoursCollectifTermine,
@@ -11,8 +10,15 @@ import {
 
 describe('categorieDepuisNiveauEstime', () => {
   it('classe A1 et A2 en beginner', () => {
-    expect(categorieDepuisNiveauEstime('A1 (débutant)')).toBe('beginner')
+    expect(categorieDepuisNiveauEstime('A1')).toBe('beginner')
     expect(categorieDepuisNiveauEstime('A2')).toBe('beginner')
+  })
+
+  /* Les dossiers écrits avant la migration 0122 portent encore l'ancien libellé : ils doivent
+     continuer de retrouver leur classe, sans quoi un ancien élève se retrouverait sans
+     affectation à la relecture de son parcours. */
+  it('reconnaît encore l’ancien libellé « A1 (débutant) »', () => {
+    expect(categorieDepuisNiveauEstime('A1 (débutant)')).toBe('beginner')
   })
 
   it('classe B1 et B2 en intermediate', () => {
@@ -42,7 +48,7 @@ describe('categorieDepuisNiveauEstime', () => {
 
 describe('niveauRetenu', () => {
   it('fait primer le niveau du test oral sur celui du quiz écrit', () => {
-    expect(niveauRetenu('A2', 'A1 (débutant)')).toBe('A2')
+    expect(niveauRetenu('A2', 'A1')).toBe('A2')
   })
 
   it('retombe sur le quiz écrit tant que l’oral n’a rien arrêté', () => {
@@ -72,18 +78,13 @@ describe('rangNiveauCecrl', () => {
   })
 })
 
-describe('libelleNiveauCecrl', () => {
-  // Capture client du 2026-10-11 : « A1 (débutant) · classe Beginner » répétait deux fois la
-  // même idée dans la liste déroulante — raccourci à l'affichage seulement.
-  it('raccourcit A1 (débutant) en A1', () => {
-    expect(libelleNiveauCecrl('A1 (débutant)')).toBe('A1')
-  })
-
-  it('laisse les autres niveaux inchangés', () => {
-    expect(libelleNiveauCecrl('A2')).toBe('A2')
-    expect(libelleNiveauCecrl('B1')).toBe('B1')
-    expect(libelleNiveauCecrl('B2')).toBe('B2')
-    expect(libelleNiveauCecrl('C1')).toBe('C1')
+describe('NIVEAUX_CECRL', () => {
+  /* Demande client du 2026-10-11 : « remplace tous les "A1 (débutant)" par "A1" dans toute
+     l'application ». La valeur elle-même a changé (migration 0122), pas seulement son affichage —
+     ce test est le garde-fou qui empêche la parenthèse de revenir par une retouche ultérieure. */
+  it('écrit A1 sans mention « débutant »', () => {
+    expect(NIVEAUX_CECRL).toEqual(['A1', 'A2', 'B1', 'B2', 'C1'])
+    expect(NIVEAUX_CECRL.some((n) => n.includes('débutant'))).toBe(false)
   })
 })
 
@@ -98,7 +99,7 @@ describe('fraisInscriptionCollectif', () => {
   ]
 
   it('prend le prix du niveau du candidat', () => {
-    expect(fraisInscriptionCollectif(grille, 'A1 (débutant)')).toBe(150000)
+    expect(fraisInscriptionCollectif(grille, 'A1')).toBe(150000)
     expect(fraisInscriptionCollectif(grille, 'A2')).toBe(150000)
     expect(fraisInscriptionCollectif(grille, 'B1')).toBe(180000)
     expect(fraisInscriptionCollectif(grille, 'C1')).toBe(210000)

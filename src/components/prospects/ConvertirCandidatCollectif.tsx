@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
-import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, libelleNiveauCecrl, NIVEAUX_CECRL } from '../../lib/classesCollectif'
+import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, NIVEAUX_CECRL } from '../../lib/classesCollectif'
 import type { NiveauClasse } from '../../types/database.types'
 import { Champ, champStyle } from '../ui/Champ'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
@@ -209,7 +209,7 @@ function ModaleResultatsTestOral({
           <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={champStyle}>
             {NIVEAUX_CECRL.map((n) => (
               <option key={n} value={n}>
-                {libelleNiveauCecrl(n)} · classe {LABEL_NIVEAU_CLASSE[categorieDepuisNiveauEstime(n)!]}
+                {n} · classe {LABEL_NIVEAU_CLASSE[categorieDepuisNiveauEstime(n)!]}
               </option>
             ))}
           </select>
