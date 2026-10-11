@@ -160,7 +160,7 @@ describe('api/admin/decider-essai — prolongation', () => {
     essaiRetourne = essaiActif()
     paiementErreur = { message: 'contrainte violée' }
     const reponse = await handler(requete({ packageId: 'pkg-1', decision: 'prolonge', heuresSupplementaires: 2, ...paiement }))
-    const corps = await reponse.json()
+    const corps = (await reponse.json()) as { error?: string }
     expect(reponse.status).toBe(500)
     expect(corps.error).toContain('ajoutées')
     expect(misAJourCapture).not.toBeNull()

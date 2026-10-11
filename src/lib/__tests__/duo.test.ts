@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nomAvecDuo, nomGroupeDuo } from '../duo'
+import { nomAvecDuo, nomGroupeDuo, sansSecondairesDuo } from '../duo'
 
 describe('nomGroupeDuo', () => {
   it('reprend le nom saisi quand il est fourni', () => {
@@ -29,5 +29,31 @@ describe('nomAvecDuo', () => {
 
   it('tolère un prénom ou nom manquant des deux côtés', () => {
     expect(nomAvecDuo({ prenom: null, nom: 'Ramavoharisoa' }, { prenom: 'Bensas', nom: null })).toBe('Ramavoharisoa & Bensas')
+  })
+})
+
+describe('sansSecondairesDuo', () => {
+  const principal = { id: 'francois', duo_partenaire_id: null }
+  const secondaire = { id: 'malalatiaina', duo_partenaire_id: 'francois' }
+  const isole = { id: 'miary', duo_partenaire_id: null }
+
+  it('retire le secondaire quand son principal est dans la liste', () => {
+    expect(sansSecondairesDuo([principal, secondaire, isole]).map((p) => p.id)).toEqual(['francois', 'miary'])
+  })
+
+  it('ne retire jamais le principal, qui ne porte pas duo_partenaire_id (lien asymétrique, 0054)', () => {
+    expect(sansSecondairesDuo([principal, secondaire]).map((p) => p.id)).toEqual(['francois'])
+  })
+
+  it('garde un secondaire dont le principal est absent de la liste', () => {
+    expect(sansSecondairesDuo([secondaire, isole]).map((p) => p.id)).toEqual(['malalatiaina', 'miary'])
+  })
+
+  it('ne touche pas une liste sans aucun duo', () => {
+    expect(sansSecondairesDuo([principal, isole]).map((p) => p.id)).toEqual(['francois', 'miary'])
+  })
+
+  it('renvoie une liste vide pour une liste vide', () => {
+    expect(sansSecondairesDuo([])).toEqual([])
   })
 })

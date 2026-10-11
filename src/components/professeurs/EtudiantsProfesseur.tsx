@@ -5,6 +5,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { useSecondairesDuo } from '../../hooks/useSecondairesDuo'
+import { sansSecondairesDuo } from '../../lib/duo'
 import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
 import { useTypesProgrammeEtudiants } from '../../hooks/useTypesProgrammeEtudiants'
 import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
@@ -49,14 +50,21 @@ export function EtudiantsProfesseur() {
   const idsActifs = useMemo(() => etudiantsActifs.map((e) => e.id), [etudiantsActifs])
   const { secondaireParPrincipal } = useSecondairesDuo(idsActifs)
 
+  /* Une seule carte par binôme (demande client du 2026-10-11) : `etudiantsActifs` contient aussi
+     les partenaires DUO, ajoutés exprès par useCalendrierProfesseur pour le formulaire de
+     planification — ici, ils donnaient une seconde carte au même binôme. Voir sansSecondairesDuo.
+     `idsActifs` reste construit sur la liste COMPLÈTE : le secondaire doit continuer d'alimenter
+     la résolution de binôme, les statuts de contrat et les programmes. */
+  const aAfficher = useMemo(() => sansSecondairesDuo(etudiantsActifs), [etudiantsActifs])
+
   const filtres = useMemo(
     () =>
-      etudiantsActifs.filter((e) => {
+      aAfficher.filter((e) => {
         const secondaire = secondaireParPrincipal.get(e.id)
         const cible = `${e.prenom ?? ''} ${e.nom ?? ''} ${secondaire ? `${secondaire.prenom ?? ''} ${secondaire.nom ?? ''}` : ''}`
         return cible.toLowerCase().includes(recherche.toLowerCase())
       }),
-    [etudiantsActifs, recherche, secondaireParPrincipal],
+    [aAfficher, recherche, secondaireParPrincipal],
   )
   const anciensFiltres = useMemo(
     () => etudiantsAnciens.filter((e) => `${e.profil.prenom ?? ''} ${e.profil.nom ?? ''}`.toLowerCase().includes(recherche.toLowerCase())),
@@ -102,7 +110,7 @@ export function EtudiantsProfesseur() {
 
           {loading && <EtatChargement lignes={3} hauteur={58} />}
 
-          {!loading && etudiantsActifs.length === 0 && (
+          {!loading && aAfficher.length === 0 && (
             <EtatVide
               compact
               icone="etudiants"
@@ -111,7 +119,7 @@ export function EtudiantsProfesseur() {
             />
           )}
 
-          {!loading && etudiantsActifs.length > 0 && filtres.length === 0 && (
+          {!loading && aAfficher.length > 0 && filtres.length === 0 && (
             <EtatVide compact icone="recherche" titre="Aucun résultat" description={`Aucun élève ne correspond à « ${recherche} ».`} />
           )}
 

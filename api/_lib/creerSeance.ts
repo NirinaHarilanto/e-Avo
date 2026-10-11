@@ -2,6 +2,7 @@
 import type { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
 import { creerEvenementVisio, integrationHoteReunion, noterErreurGoogle, noterErreurHote } from './google.js'
+import { avecPartenairesDuo } from './duo.js'
 
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
@@ -190,13 +191,22 @@ export async function emailsParticipants(
   teacherId: string,
   studentIds: string[],
 ): Promise<{ emails: string[]; titreCours: string }> {
+  /* Les deux membres d'un binôme DUO sont conviés, pas seulement celui qui porte la séance
+     (demande client du 2026-10-11 : « pour un DUO, les deux personnes formant le DUO devraient
+     être invitées »). Le secondaire n'est inscrit à aucune séance (0054 : tout vit sur le
+     principal), donc aucune liste bâtie sur `session_enrollments` ne le contient — il faut le
+     résoudre ici. Placé dans CETTE fonction plutôt que chez ses appelants : les quatre chemins
+     qui créent ou recréent une réunion (planification, génération de lien, réalignement, reprise
+     automatique) passent tous par elle, et aucun ne peut donc l'oublier. */
+  const tousLesEleves = await avecPartenairesDuo(serviceClient, studentIds)
+
   const { data: profils } = await serviceClient
     .from('profiles')
     .select('id, nom, prenom, email')
-    .in('id', [teacherId, ...studentIds])
+    .in('id', [teacherId, ...tousLesEleves])
 
   const professeur = (profils ?? []).find((p) => p.id === teacherId)
-  const eleves = studentIds
+  const eleves = tousLesEleves
     .map((id) => (profils ?? []).find((p) => p.id === id))
     .filter((p): p is NonNullable<typeof p> => Boolean(p))
 

@@ -1,5 +1,5 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
-import { identifiantsEvenementsHOC } from '../_lib/evenementsHOC.js'
+import { empreintesEvenementsHOC, estPoseParHOC } from '../_lib/evenementsHOC.js'
 import {
   integrationDeLEtablissement,
   integrationPersonnelleDeLaPersonne,
@@ -51,13 +51,13 @@ export default async function handler(request: Request): Promise<Response> {
            depuis 0107, les cours d'un professeur naissent dans son propre agenda Google, donc sans
            ce filtre chacun apparaîtrait deux fois dans sa grille — une fois comme séance HOC, une
            fois comme événement Google. Même raison et même fonction que pour l'admin plus bas. */
-        const posesParHOC = await identifiantsEvenementsHOC(serviceClient, etablissementId, debut, fin)
+        const posesParHOC = await empreintesEvenementsHOC(serviceClient, etablissementId, debut, fin)
         /* Modifiable depuis HOC si — et seulement si — le jeton porte `calendar.events` (0107).
            Un compte connecté avant ce changement n'a que la lecture : la fiche doit alors montrer
            les informations sans proposer de boutons qui échoueraient. */
         return Response.json({
           evenements: evenements
-            .filter((e) => !posesParHOC.has(e.id))
+            .filter((e) => !estPoseParHOC(e, posesParHOC))
             .map((e) => ({ ...e, modifiable: integration.peutEcrire })),
         })
       } catch (erreurGoogle) {
@@ -87,12 +87,12 @@ export default async function handler(request: Request): Promise<Response> {
 
     try {
       const tous = await evenementsPersonnels(integrationEtablissement, debut, fin)
-      const posesParHOC = await identifiantsEvenementsHOC(serviceClient, etablissementId, debut, fin)
+      const posesParHOC = await empreintesEvenementsHOC(serviceClient, etablissementId, debut, fin)
       /* Ceux-là sont dans l'agenda de l'établissement, dont le jeton porte `calendar.events` :
          l'admin peut les modifier et les supprimer depuis HOC, séries récurrentes comprises
          depuis que l'écran sait demander « cette occurrence ou toute la série ? ». */
       return Response.json({
-        evenements: tous.filter((e) => !posesParHOC.has(e.id)).map((e) => ({ ...e, modifiable: true })),
+        evenements: tous.filter((e) => !estPoseParHOC(e, posesParHOC)).map((e) => ({ ...e, modifiable: true })),
       })
     } catch {
       return Response.json({ evenements: [] })

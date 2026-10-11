@@ -297,11 +297,15 @@ export default async function handler(request: Request): Promise<Response> {
 
           /* L'ancien événement est retiré de l'agenda qui le portait, sinon la réunion y
              resterait en double — l'ancienne occurrence chez l'établissement, la nouvelle chez le
-             professeur — et l'agenda de l'admin afficherait deux fois le même cours. Best effort :
-             un événement hérité d'un compte Google précédent est inaccessible, il ne peut qu'y
-             rester orphelin. */
-          if (visio?.google_event_id && integration && visio.google_event_id !== cree.eventId) {
-            await supprimerEvenement(integration, visio.google_event_id).catch(() => {})
+             professeur — et l'agenda de l'admin afficherait deux fois le même cours. Les DEUX
+             comptes sont tentés depuis le 2026-10-11 : avec le seul jeton de l'établissement, un
+             événement déjà hébergé par le professeur renvoyait 404 et survivait dans son agenda.
+             Chaque jeton n'ouvre que son propre agenda, donc tenter les deux ne touche jamais
+             celui d'un tiers. Best effort : un événement hérité d'un compte Google abandonné
+             reste de toute façon hors de portée. */
+          if (visio?.google_event_id && visio.google_event_id !== cree.eventId) {
+            const comptes = [hoteSeance, ...(integration ? [integration] : [])]
+            await Promise.all(comptes.map((compte) => supprimerEvenement(compte, visio.google_event_id!).catch(() => {})))
           }
 
           const { error } = await serviceClient.from('video_sessions').upsert(

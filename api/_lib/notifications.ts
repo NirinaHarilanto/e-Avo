@@ -2,6 +2,7 @@
 import type { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
 import { signalerSynchro } from './synchro.js'
+import { avecPartenairesDuo } from './duo.js'
 
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
@@ -74,7 +75,12 @@ export async function notifierParticipantsSeance(
   },
 ) {
   const { data: enrollments } = await serviceClient.from('session_enrollments').select('student_id').eq('session_id', params.sessionId)
-  const destinataireIds = new Set<string>([params.teacherId, ...(enrollments ?? []).map((e) => e.student_id)])
+  /* Le second membre d'un binôme DUO suit le même cours sans y être inscrit (0054 : tout vit sur
+     le principal) : sans cette résolution, il est invité à la réunion Google mais n'apprend
+     jamais dans l'application que sa séance a été déplacée ou annulée. Même helper que la liste
+     d'invités (api/_lib/duo.ts), pour que les deux ne divergent pas. */
+  const eleves = await avecPartenairesDuo(serviceClient, (enrollments ?? []).map((e) => e.student_id))
+  const destinataireIds = new Set<string>([params.teacherId, ...eleves])
   destinataireIds.delete(params.acteurId)
   if (destinataireIds.size === 0) return
 

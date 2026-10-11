@@ -152,8 +152,18 @@ export default async function handler(request: Request): Promise<Response> {
           fournisseur: cible,
         })
 
-        if (visio?.google_event_id && etablissement && visio.google_event_id !== cree.eventId) {
-          await supprimerEvenement(etablissement, visio.google_event_id).catch(() => {})
+        /* L'ancien événement est retiré des DEUX agendas possibles, le mien et celui de
+           l'établissement (demande client du 2026-10-11 : le cours apparaissait en double dans
+           l'agenda du professeur). Il était jusqu'ici supprimé avec le seul jeton de
+           l'établissement : quand il était déjà hébergé par le professeur — reprise précédente,
+           ou `evenementAccessible` retombé à faux sur un incident Google passager — Google
+           répondait 404, l'erreur était avalée, et l'ancien événement survivait dans son agenda
+           pendant que la base ne gardait plus que le nouvel identifiant. Chaque jeton n'ouvre
+           que son propre agenda : tenter les deux ne peut rien supprimer chez un tiers, et une
+           tentative sur le mauvais compte ne fait rien. */
+        if (visio?.google_event_id && visio.google_event_id !== cree.eventId) {
+          const comptes = [mien, ...(etablissement ? [etablissement] : [])]
+          await Promise.all(comptes.map((compte) => supprimerEvenement(compte, visio.google_event_id!).catch(() => {})))
         }
 
         const { error } = await serviceClient.from('video_sessions').upsert(
