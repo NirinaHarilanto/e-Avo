@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCohortes } from '../../hooks/useCohortes'
-import { trierVaguesParProximite } from '../../lib/cohortes'
+import { nomVagueSeul, trierVaguesParProximite } from '../../lib/cohortes'
 import { useCohortClasses } from '../../hooks/useCohortClasses'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useEtablissement } from '../../hooks/useEtablissement'
@@ -434,7 +434,7 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
   }
 
   async function supprimer() {
-    if (!window.confirm(`Supprimer la vague « ${cohorte.nom} » ? Les étudiants inscrits en seront retirés.`)) return
+    if (!window.confirm(`Supprimer la vague « ${nomVagueSeul(cohorte.nom)} » ? Les étudiants inscrits en seront retirés.`)) return
     setEnCours(true)
     const { error } = await supabase.from('cohorts').delete().eq('id', cohorte.id)
     setEnCours(false)

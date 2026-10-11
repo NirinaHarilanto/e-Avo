@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import type { Database } from '../../types/database.types'
 import type { SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
+import { libelleVague, nomVagueSeul } from '../../lib/cohortes'
 import { nomsElevesInscrits } from '../../lib/seances'
 import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
@@ -93,7 +94,7 @@ export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, vague
           ))}
           {vagues.map(({ cohorte, eleves }) => (
             <button key={cohorte.id} type="button" onClick={() => choisirVague(cohorte.id)} style={pastilleStyle(vagueId === cohorte.id)}>
-              Vague {cohorte.nom} · {eleves.length} élève{eleves.length > 1 ? 's' : ''}
+              {libelleVague(cohorte.nom)} · {eleves.length} élève{eleves.length > 1 ? 's' : ''}
             </button>
           ))}
         </div>
@@ -119,7 +120,7 @@ export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, vague
               dateFinParDefaut={vagueChoisie?.cohorte.date_fin}
               heuresForfait={vagueChoisie?.cohorte.heures_forfait}
               endpoint="/api/professeur/planifier-seances-prevision"
-              titre={vagueChoisie ? `Planning de la vague ${vagueChoisie.cohorte.nom}` : 'Générer les séances récurrentes'}
+              titre={vagueChoisie ? `Planning de la vague ${nomVagueSeul(vagueChoisie.cohorte.nom)}` : 'Générer les séances récurrentes'}
               onCree={() => {
                 setGenerateurOuvert(false)
                 onChange()

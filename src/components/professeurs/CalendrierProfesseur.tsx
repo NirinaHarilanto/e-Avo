@@ -9,6 +9,7 @@ import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import type { Database } from '../../types/database.types'
 import { getJoinUrl } from '../../lib/visio'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
+import { nomVagueSeul } from '../../lib/cohortes'
 import { estSeanceDuo, libelleTypeSeance, nomsElevesInscrits } from '../../lib/seances'
 import { versEvenementAdmin, estEvenementGooglePersonnel, idGoogleDepuisEvenement, seanceSansEffet } from '../../lib/agendaEvenements'
 import { useEvenementsGoogleCalendarPersonnel, useStatutGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
@@ -634,7 +635,7 @@ function FormulairePlanification({
       )}
       {nature === 'seance_cours' && !classeDeLaSeance && vagueDeLaSeance && (
         <p style={{ fontSize: 12, color: 'var(--accent-violet)', margin: 0, lineHeight: 1.5 }}>
-          Séance de la vague « {vagueDeLaSeance.cohorte.nom} » : une fois clôturée, l’heure sera décomptée du forfait de
+          Séance de la vague « {nomVagueSeul(vagueDeLaSeance.cohorte.nom)} » : une fois clôturée, l’heure sera décomptée du forfait de
           ses {vagueDeLaSeance.membreIds.length} inscrits, présents ou non.
         </p>
       )}

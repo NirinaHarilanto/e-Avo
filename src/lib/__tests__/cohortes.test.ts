@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { trierVaguesParProximite } from '../cohortes'
+import { libelleVague, nomVagueSeul, trierVaguesParProximite } from '../cohortes'
 
 /* Tri des vagues par proximité à aujourd'hui (demande client du 2026-10-10) — fige la date de
    référence à une valeur connue dans chaque test, pour un résultat indépendant du jour où la
@@ -61,5 +61,52 @@ describe('trierVaguesParProximite', () => {
 
   it('une liste vide reste vide', () => {
     expect(trierVaguesParProximite([], AUJOURDHUI)).toEqual([])
+  })
+})
+
+/* Le mot « vague » ne doit apparaître qu'une fois à l'écran, que l'admin l'ait mis dans le nom de
+   la vague ou pas (capture client du 2026-10-11 : « (vague Vague Novembre) »). */
+describe('nomVagueSeul', () => {
+  it('retire le mot quand la phrase le porte déjà', () => {
+    expect(nomVagueSeul('Vague Novembre')).toBe('Novembre')
+    expect(nomVagueSeul('vague novembre')).toBe('novembre')
+  })
+
+  it('absorbe l’article avec le mot, sans laisser de « de » orphelin', () => {
+    expect(nomVagueSeul('Vague de Décembre')).toBe('Décembre')
+    expect(nomVagueSeul('Vague du printemps')).toBe('printemps')
+    expect(nomVagueSeul('Vague d’octobre')).toBe('octobre')
+  })
+
+  it('laisse intact un nom qui ne porte pas le mot', () => {
+    expect(nomVagueSeul('Novembre')).toBe('Novembre')
+    expect(nomVagueSeul('Promotion 2026')).toBe('Promotion 2026')
+  })
+
+  it('ne mord pas sur un nom qui commence par les mêmes lettres', () => {
+    expect(nomVagueSeul('Vaguemestre')).toBe('Vaguemestre')
+  })
+
+  it('rend le nom tel quel quand le retrait ne laisserait rien', () => {
+    expect(nomVagueSeul('Vague')).toBe('Vague')
+    expect(nomVagueSeul('  ')).toBe('')
+    expect(nomVagueSeul(null)).toBe('')
+  })
+})
+
+describe('libelleVague', () => {
+  it('n’ajoute pas le mot à un nom qui le contient déjà', () => {
+    expect(libelleVague('Vague Novembre')).toBe('Vague Novembre')
+    expect(libelleVague('Vague de Décembre')).toBe('Vague de Décembre')
+  })
+
+  it('ajoute le mot au nom qui en manque', () => {
+    expect(libelleVague('Novembre')).toBe('Vague Novembre')
+    expect(libelleVague('Promotion 2026')).toBe('Vague Promotion 2026')
+  })
+
+  it('ne rend rien pour un nom absent, plutôt qu’un « Vague » esseulé', () => {
+    expect(libelleVague('')).toBe('')
+    expect(libelleVague(undefined)).toBe('')
   })
 })

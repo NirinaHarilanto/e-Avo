@@ -8,6 +8,7 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useVagues } from '../../hooks/useVagues'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { lundiDeLaSemaine } from '../../lib/agenda'
+import { nomVagueSeul } from '../../lib/cohortes'
 import { agendaAdminComplet, estEvenementGooglePersonnel, idGoogleDepuisEvenement } from '../../lib/agendaEvenements'
 import { FicheEvenementGoogle, REPETITIONS } from '../shared/FicheEvenementGoogle'
 import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
@@ -502,7 +503,7 @@ function FormulaireCreerEvenement({
         )}
         {nature === 'seance_cours' && !classeDeLaSeance && vagueDeLaSeance && (
           <p style={{ fontSize: 12, color: 'var(--accent-violet)', margin: 0, lineHeight: 1.5 }}>
-            Séance de la vague « {vagueDeLaSeance.cohorte.nom} » : une fois clôturée, l’heure sera décomptée du forfait
+            Séance de la vague « {nomVagueSeul(vagueDeLaSeance.cohorte.nom)} » : une fois clôturée, l’heure sera décomptée du forfait
             de ses {vagueDeLaSeance.membreIds.length} inscrits, présents ou non.
           </p>
         )}

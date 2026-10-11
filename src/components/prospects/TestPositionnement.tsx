@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react'
 import type { AccentPalette } from '../../lib/accent'
+import { libelleVague } from '../../lib/cohortes'
 import { fuseauDuVisiteur, libelleFuseau } from '../../lib/creneaux'
 import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 
@@ -157,7 +158,7 @@ export function TestPositionnement({
           Vous avez obtenu <strong style={{ color: accent.accent }}>{confirmation.score}/{confirmation.total}</strong> au
           questionnaire écrit, soit un niveau estimé <strong style={{ color: accent.accent }}>{confirmation.niveau}</strong>.
           Ce résultat est indicatif : il sera confirmé lors du test oral du{' '}
-          <strong>{confirmation.quand}</strong> (vague {confirmation.vague}).
+          <strong>{confirmation.quand}</strong> ({libelleVague(confirmation.vague)}).
         </p>
         <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0, maxWidth: 440 }}>
           {etablissementNom} vous envoie le lien de visioconférence à l’adresse {email} avant la séance.
@@ -232,7 +233,7 @@ export function TestPositionnement({
             >
               <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{formaterCreneau(creneau.debut)}</span>
               <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                {creneau.dureeMinutes} min · vague {creneau.vague}
+                {creneau.dureeMinutes} min · {libelleVague(creneau.vague)}
                 {creneau.placesRestantes !== null && ` · ${creneau.placesRestantes} place(s) restante(s)`}
               </span>
             </button>

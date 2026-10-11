@@ -1,3 +1,4 @@
+import { nomVagueSeul } from '../../src/lib/cohortes.js'
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { envoyerEmail, modeleRelanceProspect } from '../_lib/email.js'
 import { dateLisible, envoyerDepuisModele } from '../_lib/templatesEmail.js'
@@ -58,7 +59,10 @@ export default async function handler(request: Request): Promise<Response> {
       destinataires: [prospect.email],
       valeurs: {
         prenom: prospect.prenom,
-        numero_vague: prochaineVague?.nom,
+        /* Les modèles écrivent déjà le mot autour de la variable (« la vague {{numero_vague}}
+           démarre le… », migration 0091) : y injecter « Vague Novembre » tel qu'il est nommé en
+           base donnerait « la vague Vague Novembre démarre ». */
+        numero_vague: nomVagueSeul(prochaineVague?.nom) || undefined,
         date_debut_vague: dateLisible(prochaineVague?.date_debut),
         date_fin_vague: dateLisible(prochaineVague?.date_fin),
       },

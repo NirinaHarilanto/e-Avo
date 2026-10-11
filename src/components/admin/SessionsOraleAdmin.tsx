@@ -3,6 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useCohortes } from '../../hooks/useCohortes'
 import { supabase } from '../../lib/supabaseClient'
 import { formaterDansFuseauEtablissement, FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
+import { nomVagueSeul } from '../../lib/cohortes'
 import { instantDepuisLocal, partiesLocales } from '../../lib/creneaux'
 import type { Database, NiveauClasse } from '../../types/database.types'
 import { Champ, champStyle, etiquetteStyle } from '../ui/Champ'
@@ -386,7 +387,7 @@ export function SessionsOraleAdmin() {
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 6px' }}>
-              Vague : <strong style={{ color: 'var(--ink-2)' }}>{cohorteParId.get(inscritsOuvertPour.cohort_id)?.nom ?? 'Vague supprimée'}</strong>
+              Vague : <strong style={{ color: 'var(--ink-2)' }}>{nomVagueSeul(cohorteParId.get(inscritsOuvertPour.cohort_id)?.nom) || 'supprimée'}</strong>
             </p>
             {(candidatsParCreneau.get(inscritsOuvertPour.id) ?? []).length === 0 ? (
               <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0 }}>Aucun candidat inscrit pour le moment.</p>

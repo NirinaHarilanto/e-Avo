@@ -1,4 +1,5 @@
 /// <reference types="node" />
+import { libelleVague } from '../../src/lib/cohortes.js'
 import { EMAIL_OFFICIEL_HOC } from '../../src/lib/etablissement.js'
 
 /**
@@ -208,7 +209,7 @@ export function modeleTestPositionnementInscrit(params: {
   </p>
   <p style="font-size:14px;line-height:1.65;margin:0 0 14px">
     Votre place est retenue pour le test oral du <strong>${echapper(params.quand)}</strong>
-    (vague ${echapper(params.vague)}). ${echapper(params.etablissement)} vous transmet le lien de
+    (${echapper(libelleVague(params.vague))}). ${echapper(params.etablissement)} vous transmet le lien de
     visioconférence avant la séance.
   </p>`)
 }

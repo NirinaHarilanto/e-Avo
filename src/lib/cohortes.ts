@@ -16,6 +16,39 @@ export interface VagueDatee {
   date_fin: string
 }
 
+/* Les admins nomment leurs vagues en incluant le mot : « Vague Novembre », « Vague de Décembre »
+   (les deux seuls noms en base au 2026-10-11). Les écrans, eux, préfixaient le nom par le mot
+   « vague » à l'affichage — d'où « (vague Vague Novembre) » dans le pop-up de confirmation du
+   test de positionnement, signalé par le client le 2026-10-11.
+
+   Supprimer le mot des écrans ne suffit pas : rien n'oblige un admin à le mettre dans le nom,
+   et une vague nommée « Novembre » tout court s'afficherait alors sans dire ce qu'elle est.
+   Symétriquement, retirer systématiquement le préfixe du nom casserait les phrases où le mot
+   n'est pas une étiquette mais un morceau de grammaire (« Séance de la vague « … » »).
+
+   D'où deux fonctions, à choisir selon la place du mot dans la phrase affichée. Les deux
+   convergent vers une seule occurrence du mot, quel que soit le nom saisi. */
+
+/* `\b` après le mot pour ne pas mordre sur un nom comme « Vaguemestre » ; « de/du/d' » absorbés
+   avec lui, sans quoi « Vague de Décembre » laisserait un « de » orphelin. */
+const PREFIXE_VAGUE = /^vagues?\b\s*(?:de\s+|du\s+|d[’']\s*)?/i
+
+/* Le nom seul, pour une phrase qui porte déjà le mot : « Séance de la vague « Novembre » »,
+   « Vague : Novembre ». Un nom réduit au seul mot « Vague » est rendu tel quel — le retrait ne
+   laisserait rien à afficher. */
+export function nomVagueSeul(nom: string | null | undefined): string {
+  const propre = (nom ?? '').trim()
+  return propre.replace(PREFIXE_VAGUE, '').trim() || propre
+}
+
+/* Le libellé complet, pour un affichage autonome : « Vague Novembre · 3 élèves ». Le mot n'est
+   ajouté que s'il manque au nom. */
+export function libelleVague(nom: string | null | undefined): string {
+  const propre = (nom ?? '').trim()
+  if (!propre) return ''
+  return PREFIXE_VAGUE.test(propre) ? propre : `Vague ${propre}`
+}
+
 /* `date_debut` est une colonne Postgres `date` (AAAA-MM-JJ, sans heure) : `new Date(...)` la lit
    comme minuit UTC. En reformatant `aujourdHui` au même format avant de le reparser, les deux
    valeurs comparées sont deux minuits UTC — sans ce passage, comparer un minuit UTC à l'heure
