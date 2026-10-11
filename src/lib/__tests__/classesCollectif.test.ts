@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   categorieDepuisNiveauEstime,
   fraisInscriptionCollectif,
+  libelleNiveauCecrl,
   niveauRetenu,
   NIVEAUX_CECRL,
   rangNiveauCecrl,
@@ -67,6 +68,21 @@ describe('rangNiveauCecrl', () => {
   it('rend null pour une valeur absente ou non reconnue, plutôt qu’un rang arbitraire', () => {
     expect(rangNiveauCecrl(null)).toBeNull()
     expect(rangNiveauCecrl('Intermédiaire')).toBeNull()
+  })
+})
+
+describe('libelleNiveauCecrl', () => {
+  // Capture client du 2026-10-11 : « A1 (débutant) · classe Beginner » répétait deux fois la
+  // même idée dans la liste déroulante — raccourci à l'affichage seulement.
+  it('raccourcit A1 (débutant) en A1', () => {
+    expect(libelleNiveauCecrl('A1 (débutant)')).toBe('A1')
+  })
+
+  it('laisse les autres niveaux inchangés', () => {
+    expect(libelleNiveauCecrl('A2')).toBe('A2')
+    expect(libelleNiveauCecrl('B1')).toBe('B1')
+    expect(libelleNiveauCecrl('B2')).toBe('B2')
+    expect(libelleNiveauCecrl('C1')).toBe('C1')
   })
 })
 

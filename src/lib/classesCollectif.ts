@@ -34,6 +34,15 @@ export const NIVEAUX_CECRL = ['A1 (débutant)', 'A2', 'B1', 'B2', 'C1'] as const
 
 export type NiveauCecrl = (typeof NIVEAUX_CECRL)[number]
 
+/* Capture client du 2026-10-11 : « A1 (débutant) · classe Beginner » répète la même idée deux
+   fois dans la liste déroulante de choix du niveau — « classe Beginner » dit déjà qu'il s'agit du
+   niveau débutant. Affichage seulement : la VALEUR du niveau reste 'A1 (débutant)' telle quelle
+   (c'est elle qui est comparée partout ailleurs — niveau_estime en base, categorieDepuisNiveauEstime…),
+   seul ce qu'on montre à l'écran est raccourci en « A1 ». */
+export function libelleNiveauCecrl(niveau: NiveauCecrl): string {
+  return niveau === 'A1 (débutant)' ? 'A1' : niveau
+}
+
 /* Barème convenu avec le client : le niveau CECRL du quiz écrit détermine automatiquement la
    classe de niveau, sans ressaisie. `null` quand le niveau n'est pas encore connu (candidat pas
    encore passé au quiz, ou test non concluant) — dans ce cas, aucune classe n'est proposée
