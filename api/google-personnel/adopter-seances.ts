@@ -11,6 +11,7 @@ import {
   type FournisseurVisio,
 } from '../_lib/google.js'
 import { emailsParticipants } from '../_lib/creerSeance.js'
+import { synchroniserInvitesVisio } from '../_lib/synchroniserVisio.js'
 
 export const config = { runtime: 'edge' }
 
@@ -255,6 +256,52 @@ export default async function handler(request: Request): Promise<Response> {
           id: evenement.id,
           raison: erreur instanceof Error ? erreur.message : 'Reprise impossible.',
         })
+      }
+    }
+
+    /* Réunions de BINÔME dont l'invitation ne porte qu'un seul des deux membres — demande client
+       du 2026-10-11 : « je ne vois toujours pas le binôme de François dans l'invitation Google
+       Meet ». Les deux membres sont inscrits et conviés depuis la veille, mais les réunions créées
+       AVANT gardent leur liste d'invités d'origine, et rien ne la réalignait : `deplacerVisio` ne
+       synchronise que l'horaire. Elles sont donc rattrapées ici, au même endroit que le reste de
+       la reprise automatique — le professeur n'a rien à demander.
+
+       Le repérage est purement SQL (deux inscrits liés par `duo_partenaire_id`), donc **gratuit
+       pour un professeur sans binôme** : aucun appel Google n'est fait si la liste est vide. La
+       réunion est MODIFIÉE, pas recréée : le lien Meet déjà noté par les participants reste
+       valable. Idempotent — réaligner une invitation déjà correcte ne change rien. */
+    const { data: seancesAVenir } = await serviceClient
+      .from('sessions')
+      .select('id')
+      .eq('teacher_id', profileId)
+      .eq('etablissement_id', etablissementId)
+      .eq('statut', 'planifiee')
+      .gte('debut', new Date().toISOString())
+
+    const idsSeances = (seancesAVenir ?? []).map((s) => s.id)
+    if (idsSeances.length > 0) {
+      const { data: inscriptions } = await serviceClient
+        .from('session_enrollments')
+        .select('session_id, student_id')
+        .in('session_id', idsSeances)
+
+      const parSeance = new Map<string, string[]>()
+      for (const i of inscriptions ?? []) {
+        parSeance.set(i.session_id, [...(parSeance.get(i.session_id) ?? []), i.student_id])
+      }
+      const candidates = [...parSeance.entries()].filter(([, eleves]) => eleves.length === 2)
+
+      if (candidates.length > 0) {
+        const { data: profils } = await serviceClient
+          .from('profiles')
+          .select('id, duo_partenaire_id')
+          .in('id', [...new Set(candidates.flatMap(([, eleves]) => eleves))])
+        const lienParId = new Map((profils ?? []).map((p) => [p.id, p.duo_partenaire_id]))
+
+        for (const [sessionId, [a, b]] of candidates) {
+          if (lienParId.get(a) !== b && lienParId.get(b) !== a) continue
+          await synchroniserInvitesVisio(serviceClient, { sessionId, etablissementId })
+        }
       }
     }
 

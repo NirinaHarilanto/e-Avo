@@ -954,7 +954,10 @@ export function DossierEtudiantVue({
       {seanceEnEdition && (
         <EditerSeancePlanifieeModale
           session={seanceEnEdition.session}
-          etudiants={[etudiant]}
+          /* Les DEUX membres d'un binôme, comme partout ailleurs (2026-10-11) : cet écran ne
+             passait que l'élève dont on consulte le dossier, si bien qu'une séance de duo s'y
+             annonçait « Élève : <un seul nom> » alors que les deux la suivent. */
+          etudiants={duoPartenaire ? [etudiant, duoPartenaire] : [etudiant]}
           professeur={periodes.find((p) => p.seances.some((s) => s.session.id === seanceEnEdition.session.id))?.professeur}
           video={seanceEnEdition.video}
           onFermer={() => setSeanceEnEdition(null)}

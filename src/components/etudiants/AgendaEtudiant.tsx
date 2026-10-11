@@ -105,10 +105,13 @@ export function AgendaEtudiant() {
           debut: seance.session.debut,
           dureeMinutes: seance.session.duree_minutes,
           titre: professeurParSeance.get(seance.session.id) ?? 'Cours',
-          sousTitre: `${seance.session.type === 'individuel' ? 'Cours individuel' : 'Cours collectif'} · ${seance.session.duree_minutes} min`,
+          /* « Cours duo » dès que l'élève a un binôme : ses cours individuels sont par définition
+             suivis à deux (0054). Le dossier ne charge que SES propres inscriptions, le partenaire
+             ne s'y lit donc pas séance par séance — c'est `duoPartenaire` qui fait foi ici. */
+          sousTitre: `${seance.session.type === 'collectif' ? 'Cours collectif' : dossier?.duoPartenaire ? 'Cours duo' : 'Cours individuel'} · ${seance.session.duree_minutes} min`,
           ton: seance.session.statut === 'terminee' ? 'teal' : 'bleu',
         })),
-    [seances, professeurParSeance],
+    [seances, professeurParSeance, dossier?.duoPartenaire],
   )
 
   const seanceOuverte = seances.find((s) => s.session.id === seanceOuverteId) ?? null
