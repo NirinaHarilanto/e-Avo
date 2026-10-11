@@ -15,10 +15,36 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setLoading(false)
-    })
+    let annule = false
+
+    /* `getSession()` peut ÉCHOUER, pas seulement répondre « pas de session » : depuis
+       supabase-js 2.x, la lecture de session passe par un verrou exclusif `navigator.locks`, qui
+       lève `NavigatorLockAcquireTimeoutError` quand il ne peut pas être pris à temps — cas typique
+       après une mise en veille de la machine ou quand un autre onglet a laissé le verrou coincé.
+       Sans ce `catch`, la promesse rejetée laissait `loading` à `true` POUR TOUJOURS : chaque
+       espace reste alors bloqué sur son écran « Chargement… » (EspaceLayout.tsx), symptôme signalé
+       par le client le 2026-10-11 (« après un certain temps d'inactivité, l'écran bug »). Un seul
+       nouvel essai, puis on rend la main : `onAuthStateChange` ci-dessous délivrera la session dès
+       que l'authentification se rétablit, et l'utilisateur voit l'écran de connexion au lieu d'un
+       chargement sans fin. */
+    async function resoudreSession(reessayer: boolean) {
+      try {
+        const { data } = await supabase.auth.getSession()
+        if (annule) return
+        setSession(data.session)
+        setLoading(false)
+      } catch {
+        if (annule) return
+        if (reessayer) {
+          setTimeout(() => {
+            if (!annule) resoudreSession(false)
+          }, 1500)
+          return
+        }
+        setLoading(false)
+      }
+    }
+    resoudreSession(true)
 
     /* supabase-js réémet un événement d'auth à chaque retour sur l'onglet (il écoute
        `visibilitychange` pour rafraîchir le jeton) avec un NOUVEL objet session, même quand
@@ -32,7 +58,10 @@ export function useAuth() {
       )
     })
 
-    return () => listener.subscription.unsubscribe()
+    return () => {
+      annule = true
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
   async function seConnecter(email: string, motDePasse: string) {

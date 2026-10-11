@@ -38,12 +38,25 @@ export function usePlatformAdmin(session: Session | null, contextLoading: boolea
       .select('*')
       .eq('id', utilisateurId)
       .maybeSingle()
-      .then(({ data }) => {
-        if (!annule) {
+      /* Forme à deux arguments plutôt que `.catch()` : `.then()` d'une requête Supabase rend un
+         `PromiseLike`, qui n'expose pas `.catch`. */
+      .then(
+        ({ data, error }) => {
+          if (annule) return
+          /* Même raison que dans useProfile.ts : un échec ne doit pas bloquer l'application sur son
+             écran de chargement (`platformAdminLoading` verrouille EspaceLayout.tsx), ni retirer un
+             statut déjà connu. */
+          if (error) {
+            setLoading(false)
+            return
+          }
           setPlatformAdmin(data)
           setLoading(false)
-        }
-      })
+        },
+        () => {
+          if (!annule) setLoading(false)
+        },
+      )
 
     return () => {
       annule = true

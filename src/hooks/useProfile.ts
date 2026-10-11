@@ -41,12 +41,27 @@ export function useProfile(session: Session | null, authLoading: boolean) {
       .select('*')
       .eq('id', utilisateurId)
       .single()
-      .then(({ data }) => {
-        if (!annule) {
+      /* Forme à deux arguments plutôt que `.catch()` : `.then()` d'une requête Supabase rend un
+         `PromiseLike`, qui n'expose pas `.catch`. */
+      .then(
+        ({ data, error }) => {
+          if (annule) return
+          /* Un échec de lecture (jeton expiré, réseau coupé, verrou d'authentification) ne doit
+             JAMAIS effacer un profil déjà chargé : `profile` à `null` alors que la session existe
+             fait rejeter l'utilisateur vers /connexion par EspaceLayout.tsx, alors qu'il est
+             toujours connecté. On garde donc l'ancienne valeur et on rend la main — la prochaine
+             navigation ou le prochain `rafraichir()` retentera. */
+          if (error) {
+            setLoading(false)
+            return
+          }
           setProfile(data)
           setLoading(false)
-        }
-      })
+        },
+        () => {
+          if (!annule) setLoading(false)
+        },
+      )
 
     return () => {
       annule = true
