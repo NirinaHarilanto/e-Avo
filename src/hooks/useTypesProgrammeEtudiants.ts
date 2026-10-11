@@ -28,25 +28,19 @@ export function useTypesProgrammeEtudiants(profileIds: string[]) {
     Promise.all([
       supabase.from('cohort_enrollments').select('student_id, cohort_id').in('student_id', ids),
       supabase.from('packages').select('student_id, type_programme, created_at').in('student_id', ids).order('created_at', { ascending: false }),
-    ]).then(async ([{ data: enrollments }, { data: forfaits }]) => {
-      const cohortIds = [...new Set((enrollments ?? []).map((e) => e.cohort_id))]
-      const { data: vagues } = cohortIds.length
-        ? await supabase.from('cohorts').select('id, nom').in('id', cohortIds)
-        : { data: [] as { id: string; nom: string }[] }
-      const nomVagueParId = new Map((vagues ?? []).map((v) => [v.id, v.nom]))
-
+    ]).then(([{ data: enrollments }, { data: forfaits }]) => {
+      /* Libellés courts (demande client du 2026-10-11, capture à l'appui : « il y a trop
+         d'informations [...] il faut que le nom et les badges tiennent sur une ligne ») — la
+         vague n'est plus dans ce tag, elle reste visible dans le dossier (onglet Programme). */
       const resultat: Record<string, ProgrammeEtudiant> = {}
       for (const inscription of enrollments ?? []) {
         if (resultat[inscription.student_id]) continue
-        resultat[inscription.student_id] = {
-          libelle: `Collectif · ${nomVagueParId.get(inscription.cohort_id) ?? 'vague'}`,
-          ton: 'teal',
-        }
+        resultat[inscription.student_id] = { libelle: 'Collectif', ton: 'teal' }
       }
       for (const forfait of forfaits ?? []) {
         if (resultat[forfait.student_id]) continue
         resultat[forfait.student_id] = {
-          libelle: forfait.type_programme === 'duo' ? 'Duo' : 'Individuel',
+          libelle: forfait.type_programme === 'duo' ? 'DUO' : 'INDIV',
           ton: forfait.type_programme === 'duo' ? 'or' : 'bleu',
         }
       }

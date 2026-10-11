@@ -28,10 +28,12 @@ export function TagProgramme({ programme }: { programme: ProgrammeEtudiant }) {
    adresse, ville — voir informationsPersonnellesCompletes) sont
    encore incomplètes. Même vocabulaire de couleur que BadgeStatutContrat côté « en attente » :
    ambre, pas rouge — ce n'est pas bloquant, seulement à surveiller avant de générer un contrat
-   ou une facture. */
+   ou une facture. Libellé raccourci le 2026-10-11 (« trop d'informations », capture client) : le
+   mot complet reste au survol. */
 export function TagDossierIncomplet() {
   return (
     <span
+      title="Dossier à compléter"
       style={{
         fontSize: 10,
         fontWeight: 700,
@@ -43,7 +45,7 @@ export function TagDossierIncomplet() {
         whiteSpace: 'nowrap',
       }}
     >
-      Dossier à compléter
+      Incomplet
     </span>
   )
 }
@@ -138,32 +140,42 @@ export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick
         </span>
       )}
 
+      {/* Nom et badges (programme, contrat) sur LA MÊME ligne — demande client du 2026-10-11,
+          capture à l'appui : « il y a trop d'informations [...] il faut que le nom et les
+          badges tiennent sur une ligne ». Le nom se tronque en premier (`minWidth: 0` +
+          ellipsis) si la place manque, jamais les badges (`flexShrink: 0`) — c'est tout
+          l'intérêt de les avoir réduits à un mot court ou un glyphe. Pour un binôme DUO, ces
+          deux badges sont communs au principal et ne s'affichent qu'une fois, sous les deux
+          noms (pas de place sur une ligne à deux avatars), jamais par membre. */}
       {membres.map((membre) => (
         <div key={membre.id} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, width: '100%' }}>
           <span style={{ width: secondaire ? 26 : 30, height: secondaire ? 26 : 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: secondaire ? 10.5 : 11.5, fontWeight: 800, flexShrink: 0 }}>
             {initiales(membre)}
           </span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {membre.prenom} {membre.nom}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                {membre.prenom} {membre.nom}
+              </span>
+              {!secondaire && programme && <TagProgramme programme={programme} />}
+              {!secondaire && statutContrat && <BadgeStatutContrat statut={statutContrat} glyphe />}
             </span>
             <span style={{ fontSize: 10.5, color: membre.status === 'en_pause' ? 'var(--warning)' : 'var(--muted)' }}>{libelleStatutProfil(membre.status)}</span>
           </div>
         </div>
       ))}
 
-      {/* Badges du dossier, sur leur propre ligne sous le(s) nom(s) — un seul jeu par bloc :
-          forfait, contrat et heures sont communs au binôme, seules les informations
-          personnelles restent propres à chacun (signalées ci-dessus pour l'un comme pour
-          l'autre). */}
-      {(programme || statutContrat || dossierIncomplet || ancienEleve) && (
+      {/* Pour un binôme : les mêmes badges, communs aux deux, faute de place sur la ligne de
+          chaque nom. Dossier incomplet et « ancien élève » restent toujours à part : ce sont
+          des signaux d'exception, pas des attributs systématiques comme le programme. */}
+      {(secondaire && (programme || statutContrat)) || dossierIncomplet || ancienEleve ? (
         <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
           {ancienEleve && <TagAncienEleve transfereLe={ancienEleve.transfereLe} />}
-          {!secondaire && programme && <TagProgramme programme={programme} />}
-          {statutContrat && <BadgeStatutContrat statut={statutContrat} compact />}
+          {secondaire && programme && <TagProgramme programme={programme} />}
+          {secondaire && statutContrat && <BadgeStatutContrat statut={statutContrat} glyphe />}
           {dossierIncomplet && <TagDossierIncomplet />}
         </span>
-      )}
+      ) : null}
     </button>
   )
 }

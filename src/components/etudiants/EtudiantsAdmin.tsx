@@ -30,6 +30,7 @@ import { boutonPrimaireStyle, boutonNeutreStyle, boutonDangerStyle } from '../ui
 import { Icone } from '../ui/Icones'
 import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
 import { useTypesProgrammeEtudiants } from '../../hooks/useTypesProgrammeEtudiants'
+import { BadgeStatutContrat } from '../shared/BadgeStatutContrat'
 
 export function EtudiantsAdmin() {
   const { id } = useParams<{ id: string }>()
@@ -219,6 +220,12 @@ export function EtudiantsAdmin() {
 
 function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime: () => void }) {
   const { dossier, loading, erreur, recharger } = useDossierEtudiant(studentId)
+  /* Statut de contrat en toutes lettres dans l'en-tête de la fiche (demande client du
+     2026-10-11) : la liste de gauche, elle, ne montre plus qu'un glyphe (CarteListeEtudiant.tsx)
+     — rien n'est perdu, juste déplacé là où il y a la place de le lire. Appelé avec `studentId`
+     (pas `dossier.etudiant.id`, pas encore connu avant le premier rendu) pour respecter les
+     règles des hooks : jamais après un retour anticipé. */
+  const statutsContrats = useStatutsContratsSignature(useMemo(() => [studentId], [studentId]))
 
   if (loading) return <EtatChargement lignes={3} hauteur={110} />
   if (erreur || !dossier) return <MessageErreur>{erreur ?? 'Dossier introuvable.'}</MessageErreur>
@@ -232,6 +239,7 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
   return (
     <DossierEtudiantVue
       dossier={dossier}
+      badgesSupplementaires={statutsContrats[studentId] && <BadgeStatutContrat statut={statutsContrats[studentId]} />}
       panneauProfesseur={
         <AttribuerProfesseur
           studentId={etudiant.id}
