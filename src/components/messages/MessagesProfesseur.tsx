@@ -15,12 +15,16 @@ export function MessagesProfesseur() {
         id="professeur-messages"
         etapes={[
           <>
-            <strong>Nouveau message</strong> ouvre l’annuaire : vous pouvez écrire à n’importe quelle personne inscrite
-            chez Hari Online Club, et à plusieurs à la fois.
+            <strong>Nouveau message</strong> ouvre l’annuaire : tapez un nom pour écrire à n’importe quelle personne
+            inscrite chez Hari Online Club — administration, collègue ou élève — et à plusieurs à la fois.
           </>,
           <>
             Chaque destinataire reçoit son propre message : il voit s’il l’a lu ou non, et vous répond directement, sans
             que les autres destinataires soient en copie.
+          </>,
+          <>
+            Les onglets séparent les messages <strong>Reçus</strong> — le compteur indique les non lus — des{' '}
+            <strong>Envoyés</strong>. Ouvrez un message pour y <strong>Répondre</strong> ou le supprimer.
           </>,
           <>
             Un message reçu déclenche une <strong>notification dans la cloche</strong> en haut de votre espace — vous

@@ -85,21 +85,31 @@ export function ParametresAdmin() {
         id="admin-parametres"
         etapes={[
           <>
-            Le <strong>lien Calendly</strong> est facultatif. Laissé vide, le formulaire de réservation de votre page
-            vitrine se contente d'enregistrer le visiteur comme prospect.
+            Le <strong>lien Calendly</strong> est facultatif. Laissé vide, le formulaire de votre vitrine enregistre
+            simplement le visiteur comme prospect ; renseigné, il l'enregistre <strong>puis le redirige</strong> vers
+            votre Calendly pour qu'il choisisse son créneau lui-même. Dans les deux cas, le dossier arrive dans{' '}
+            <strong>Prospects</strong>.
           </>,
           <>
-            Renseigné, le visiteur est d'abord enregistré comme prospect, <strong>puis redirigé</strong> vers votre
-            Calendly pour choisir son créneau lui-même : vous n'avez plus à organiser la prise de rendez-vous.
+            Le <strong>forfait d'heures par élève en cours collectif</strong> s'applique à chaque inscrit d'une vague —
+            sa dernière heure est consacrée à son évaluation. Une vague peut fixer sa propre valeur depuis sa fiche,
+            qui prime alors sur celle-ci.
           </>,
           <>
-            Dans les deux cas, le dossier apparaît dans la page <strong>Prospects</strong>, où vous le faites avancer
-            jusqu'à sa conversion en étudiant.
+            Les <strong>3 créneaux horaires</strong> (matin, midi, soir) sont ceux proposés aux{' '}
+            <strong>classes de niveau</strong> des cours collectifs. Les changer ici les change pour toutes les
+            promotions.
           </>,
           <>
-            Les <strong>3 créneaux horaires</strong> (matin/midi/soir) réglés ci-dessous sont ceux proposés pour les{' '}
-            <strong>classes de niveau</strong> des cours collectifs, page « Cours collectifs ». Les changer ici les
-            change pour toutes les promotions.
+            <strong>Relances de paiement</strong> : le nombre de jours choisi déclenche une notification à l'élève à
+            l'approche de chaque échéance de son échéancier, puis le jour du dépassement. 0 ne prévient que le jour
+            même.
+          </>,
+          <>
+            Plus bas, l'<strong>agenda Google de l'établissement</strong> porte les rendez-vous de l'administration
+            (appels diagnostic, créneaux de test). Les <strong>cours</strong>, eux, partent du compte Google de chaque
+            professeur : la section <strong>Agendas Google des professeurs</strong> montre qui a connecté le sien et
+            qui reste à relancer.
           </>,
         ]}
       />

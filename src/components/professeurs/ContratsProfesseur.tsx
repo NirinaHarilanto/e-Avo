@@ -18,12 +18,18 @@ export function ContratsProfesseur() {
             Ouvrez le contrat avec <strong>Voir / Imprimer</strong> et lisez-le entièrement avant toute signature.
           </>,
           <>
-            Cliquez sur <strong>Je signe</strong> pour apposer votre signature. L’action est enregistrée avec sa date et
-            ne peut pas être annulée depuis votre espace.
+            Cliquez sur <strong>Je signe</strong>. La mention « Lu et approuvé » et votre nom sont apposés ; si vous
+            avez déposé une image de signature dans <strong>Mon profil</strong>, elle s’y ajoute. L’action est
+            enregistrée avec sa date et ne s’annule pas depuis votre espace.
           </>,
           <>
-            Le contrat passe au statut <strong>Signé</strong> une fois que les deux parties ont signé. Le pied de chaque
-            ligne vous indique où en est chacune d’elles.
+            Le pied de chaque ligne indique où en est chaque partie. Le contrat n’est <strong>Signé</strong> que
+            lorsque l’établissement et vous avez tous deux signé ; une date limite peut y figurer.
+          </>,
+          <>
+            La signature de votre contrat est la première étape de votre <strong>intégration</strong> : elle est
+            constatée automatiquement ici, sans que l’administration ait à la cocher. Les autres étapes
+            (onboarding) suivent de son côté.
           </>,
         ]}
       />

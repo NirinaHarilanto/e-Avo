@@ -84,17 +84,21 @@ export function EtudiantsProfesseur() {
         id="professeur-etudiants"
         etapes={[
           <>
-            Le <strong>parcours pédagogique</strong> d’un élève liste toutes ses séances avec vous et sa présence à
-            chacune, utile pour préparer votre prochain cours.
+            Dans la liste de gauche, chaque nom porte son programme — <strong>Collectif</strong>,{' '}
+            <strong>INDIV</strong> ou <strong>DUO</strong> — et l’état de son contrat : ✓ signé, ⏳ en attente, triangle
+            rouge s’il n’en a pas encore. Cliquez un nom pour ouvrir son dossier.
+          </>,
+          <>
+            Le <strong>parcours pédagogique</strong> liste toutes ses séances avec vous et sa présence à chacune, utile
+            pour préparer votre prochain cours. Ses informations personnelles sont en lecture seule.
           </>,
           <>
             L’onglet <strong>Planning</strong> du forfait vous permet de générer, modifier ou annuler le planning
             prévisionnel d’un élève actuellement attribué — exactement comme dans l’espace admin.
           </>,
           <>
-            Un élève qui change de professeur passe dans la section <strong>« Anciens élèves »</strong> et porte le tag{' '}
-            <strong>« Ancien élève »</strong> avec la date du transfert ; son historique avec vous reste consultable dans
-            son dossier.
+            Un élève qui change de professeur passe dans la section <strong>« Anciens élèves »</strong> avec la date du
+            transfert : son historique avec vous reste consultable, mais son planning n’est plus modifiable.
           </>,
           <>
             Le bouton <strong>« Résumer les comptes rendus »</strong>, en haut du dossier, condense d’un clic tous vos

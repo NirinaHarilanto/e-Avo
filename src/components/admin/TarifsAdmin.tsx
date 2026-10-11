@@ -80,6 +80,13 @@ export function TarifsAdmin() {
             Laissez-le vide pour un tarif Collectif, ou pour toute ligne qui n'est pas un forfait fixe.
           </>,
           <>
+            Deux montants sont lus ailleurs dans l'application à partir de cette grille : la{' '}
+            <strong>séance d'essai</strong> d'un prospect, facturée au tarif d'<strong>1 h</strong> de son programme, et
+            les <strong>frais d'inscription</strong> d'un cours collectif, repris du tarif Collectif dont le{' '}
+            <strong>titre</strong> porte le nom du niveau (Beginner, Intermediate, Advanced). Renommer ces lignes rompt
+            le rapprochement.
+          </>,
+          <>
             Ces tarifs alimentent le montant proposé lors de la création d'un forfait étudiant (et donc les contrats
             générés), mais restent modifiables au cas par cas — remises, ancienneté, accords particuliers.
           </>,

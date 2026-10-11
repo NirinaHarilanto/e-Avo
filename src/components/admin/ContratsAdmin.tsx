@@ -86,9 +86,14 @@ export function ContratsAdmin() {
             ressaisie.
           </>,
           <>
+            Pour un cours collectif, choisissez directement une <strong>classe</strong> dans cette même liste : chaque
+            élève reçoit alors <em>son</em> contrat, à signer individuellement — jamais un contrat commun.
+          </>,
+          <>
             Le contrat part aussitôt en <strong>attente de signature</strong> : il apparaît dans l'espace du
-            destinataire, qui est notifié. Signez de votre côté depuis la ligne du contrat ; le statut bascule seul sur
-            « Signé » une fois les deux signatures posées.
+            destinataire, qui est notifié. Signez de votre côté depuis la ligne du contrat — la mention « Lu et
+            approuvé » et le tampon de l'établissement accompagnent votre signature — et le statut bascule seul sur
+            « Signé » une fois toutes les signatures posées.
           </>,
           <>
             Si vous préférez une signature papier, utilisez <strong>Joindre le scan signé</strong> sur la ligne du

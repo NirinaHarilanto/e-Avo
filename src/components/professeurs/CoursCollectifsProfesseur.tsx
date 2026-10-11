@@ -66,16 +66,22 @@ export function CoursCollectifsProfesseur() {
         id="professeur-cours-collectifs"
         etapes={[
           <>
-            Chaque classe correspond à un niveau (Beginner/Intermediate/Advanced) au sein d'une promotion, avec un
-            créneau horaire qui lui est propre.
+            Chaque carte est une <strong>classe</strong> : un niveau (Beginner, Intermediate, Advanced) au sein d'une
+            promotion, avec son créneau horaire et la liste de ses élèves.
           </>,
           <>
-            <strong>Planning de la classe</strong> génère d'un coup toutes les séances récurrentes du groupe —
-            exactement comme pour un élève individuel.
+            <strong>Planning de la classe</strong> déplie son planning et génère d'un coup toutes les séances
+            récurrentes du groupe — exactement comme pour un élève individuel. Elles rejoignent votre agenda et celui
+            de chaque élève de la classe.
           </>,
           <>
-            La composition de la classe (élèves, créneau) est gérée par l'administration depuis sa page Cours
-            collectifs.
+            Vous clôturez ces séances depuis votre <strong>agenda</strong>, comme un cours individuel : une séance
+            collective compte une heure pour vous, quel que soit le nombre d'élèves présents.
+          </>,
+          <>
+            La composition de la classe (élèves, créneau) et sa professeure ou son professeur sont décidés par
+            l'administration, depuis sa page <strong>Cours collectifs › Vagues</strong>. Une classe absente d'ici ne
+            vous est pas encore attribuée.
           </>,
         ]}
       />

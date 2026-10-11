@@ -212,8 +212,9 @@ export function SuiviCollectifAdmin() {
             celui que <strong>vous arrêtez au test oral</strong>, qui fait foi pour la classe et pour les frais.
           </>,
           <>
-            Cliquez l’en-tête d’une colonne pour <strong>trier</strong> le tableau dessus ; un second clic inverse le
-            sens.
+            Les encadrés du haut comptent ce qu’il reste à régulariser : <strong>sans frais enregistrés</strong> et{' '}
+            <strong>sans classe</strong>. Cliquez l’en-tête d’une colonne pour <strong>trier</strong> le tableau
+            dessus — un second clic inverse le sens — et servez-vous de la recherche pour retrouver un nom.
           </>,
           <>
             <strong>Cliquez une ligne</strong> pour ouvrir la fiche complète de la personne : toutes ses informations y

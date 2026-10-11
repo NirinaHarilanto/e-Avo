@@ -229,12 +229,19 @@ export function PipelineCRM() {
           </>,
           <>
             <strong>Glissez une carte</strong> d’une colonne à l’autre pour changer son statut, ou utilisez les boutons
-            de la carte si vous préférez ne pas faire de glisser-déposer.
+            de la carte. Une pastille signale celles qui attendent une décision de votre part : appel à planifier,
+            rendez-vous réservé en ligne à valider, paiement manquant.
           </>,
           <>
             Dépliez une carte pour planifier l’appel diagnostic, puis y noter le <strong>niveau évalué</strong> et le
             rythme convenu : ces informations suivront l’élève dans son dossier. Un rendez-vous réservé en ligne par
             le prospect lui-même affiche sa date, son lien de visioconférence et son statut de validation.
+          </>,
+          <>
+            Choisissez ensuite son <strong>forfait</strong>, ou une <strong>séance d’essai</strong> (1 à 3 h, facturée
+            au tarif horaire de son programme). Un <strong>paiement</strong> doit être enregistré avant toute
+            conversion — un acompte suffit ; pour un cours collectif, ce sont les <strong>frais d’inscription</strong>{' '}
+            qui vous sont demandés.
           </>,
           <>
             En déposant une carte dans <strong>Étudiant</strong>, une invitation par e-mail est envoyée automatiquement

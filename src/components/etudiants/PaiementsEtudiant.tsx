@@ -15,19 +15,19 @@ export function PaiementsEtudiant() {
         id="etudiant-paiements"
         etapes={[
           <>
-            Les trois encadrés du haut résument votre situation : le total, ce qui est déjà réglé, et ce qui reste en
-            attente.
+            Les onglets séparent vos <strong>Factures</strong> de vos <strong>Reçus</strong> : un reçu est ajouté
+            automatiquement dès que l’établissement enregistre un règlement de votre part.
           </>,
           <>
-            Chaque document se <strong>voit</strong>, s’<strong>imprime</strong> ou se <strong>télécharge</strong> en PDF d’un clic.
+            Les trois encadrés résument l’onglet ouvert : le total, ce qui est déjà réglé, et ce qui reste en attente.
           </>,
           <>
-            Les règlements se font directement auprès de votre établissement, selon les modalités convenues avec lui.{' '}
-            <strong>Aucun paiement ne se fait depuis cette page</strong> : elle sert uniquement au suivi.
+            Chaque document se <strong>voit</strong>, s’<strong>imprime</strong> ou se <strong>télécharge</strong> en
+            PDF d’un clic.
           </>,
           <>
-            Un montant vous semble incorrect ? Contactez l’administration de votre établissement, qui est seule à
-            pouvoir corriger ces lignes.
+            <strong>Aucun règlement ne se fait depuis cette page</strong> : elle sert au suivi. Pour payer, ou si un
+            montant vous semble inexact, adressez-vous à votre établissement — lui seul peut corriger ces lignes.
           </>,
         ]}
       />

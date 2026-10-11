@@ -131,6 +131,11 @@ export function RendezVousAdmin() {
             deux à la fois. Cliquez un événement pour l’ouvrir.
           </>,
           <>
+            Les <strong>cours</strong> entre un professeur et ses élèves n’apparaissent pas ici : ils ne figurent que
+            dans leurs agendas respectifs et dans <strong>Séances &amp; visio</strong>, qui porte le planning de
+            l’établissement. Un rendez-vous auquel vous êtes convié, lui, s’affiche bien dans cette grille.
+          </>,
+          <>
             Les créneaux proposés au public se règlent dans <strong>Paramètres → Disponibilités</strong> : jours,
             horaires, durée de l’appel et délai minimum avant réservation.
           </>,

@@ -54,6 +54,11 @@ export function RecrutementAdmin() {
         id="admin-recrutement"
         etapes={[
           <>
+            Les onglets suivent les quatre phases du recrutement, et les encadrés comptent les dossiers de chacune.
+            Ouvrez une candidature pour dérouler sa checklist : c’est elle qui fait avancer le dossier d’une phase à la
+            suivante.
+          </>,
+          <>
             <strong>Réception</strong> : ouvrez le dossier, consultez CV et diplômes, et cochez « documents obligatoires vérifiés »
             (licence en études anglophones OU certification TEFL reconnue).
           </>,

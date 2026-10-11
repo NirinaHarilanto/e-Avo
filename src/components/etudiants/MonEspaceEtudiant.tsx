@@ -27,20 +27,27 @@ export function MonEspaceEtudiant() {
         id="etudiant-dossier"
         etapes={[
           <>
-            Les quatre encadrés du haut résument votre situation : heures suivies, assiduité, prochaine séance et niveau
-            évalué. Si un lien <strong>Rejoindre la visio</strong> apparaît, c’est par là que vous entrez en cours.
+            Les quatre encadrés du haut résument votre situation : heures suivies sur votre forfait, assiduité,
+            prochaine séance et niveau évalué. Le lien <strong>Rejoindre la visio</strong> y apparaît dès qu’un cours
+            est planifié.
           </>,
           <>
-            Le <strong>parcours pédagogique</strong> liste toutes vos séances, avec votre présence à chacune. Il se
-            remplit tout seul, vous n’avez rien à y saisir.
+            L’onglet <strong>Parcours pédagogique</strong> liste vos séances et votre présence à chacune. Après une
+            séance terminée, <strong>Donner votre avis</strong> ouvre une courte enquête : note du cours, pédagogie et
+            commentaire.
           </>,
           <>
-            Le menu de gauche donne accès à vos <strong>documents</strong>, vos <strong>paiements</strong> et vos{' '}
-            <strong>contrats</strong>. Une pastille sur la cloche en haut à droite signale une nouveauté.
+            L’onglet <strong>Forfait</strong> indique vos heures restantes et son échéance.{' '}
+            <strong>Demander un forfait supplémentaire</strong> envoie votre demande à l’administration, qui la valide
+            après paiement.
           </>,
           <>
-            Une information vous semble inexacte ? Signalez-le à l’administration de votre établissement : ces données
-            sont saisies de leur côté.
+            En cours collectif, l’encadré <strong>Ma classe</strong> en haut de page donne votre professeur, vos
+            camarades et le planning de votre classe ; l’onglet <strong>Programme</strong> y remplace le forfait.
+          </>,
+          <>
+            Rien ne se saisit ici : tout est renseigné par votre professeur et par l’administration. Une information
+            vous semble inexacte ? Signalez-la depuis <strong>Messages</strong>.
           </>,
         ]}
       />

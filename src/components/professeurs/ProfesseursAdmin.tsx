@@ -109,8 +109,9 @@ export function ProfesseursAdmin() {
             <strong>taux horaire</strong> — c’est lui qui alimente le calcul des rémunérations.
           </>,
           <>
-            L’attribution d’un élève ne se fait pas ici mais depuis le dossier de l’élève, page{' '}
-            <strong>Étudiants</strong> : chaque changement y est tracé avec son motif.
+            L’attribution ne se fait pas ici : pour un élève en individuel ou en duo, elle part de son dossier, page{' '}
+            <strong>Étudiants</strong> (chaque changement y est tracé avec son motif) ; pour un cours collectif, elle
+            se décide par classe dans <strong>Cours collectifs › Vagues</strong>.
           </>,
           <>
             Utilisez la <strong>recherche</strong> ou le filtre par <strong>charge</strong> pour retrouver un

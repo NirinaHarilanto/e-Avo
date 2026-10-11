@@ -213,43 +213,37 @@ export function CalendrierProfesseur() {
         id="professeur-calendrier"
         etapes={[
           <>
-            L’<strong>agenda</strong> affiche votre semaine comme un agenda professionnel. Cliquez un{' '}
-            <strong>créneau libre</strong> pour y créer un rendez-vous, ou un événement existant pour l’ouvrir.
+            Trois vues de la même semaine : <strong>Agenda</strong>, <strong>Liste</strong> et{' '}
+            <strong>Planning prévisionnel</strong>. L’encadré <strong>À clôturer</strong> compte vos séances déjà
+            passées restées au statut « planifiée » : c’est votre liste de travail.
           </>,
           <>
-            <strong>Créer un rendez-vous</strong> : choisissez d’abord sa nature — une <strong>séance de cours</strong>{' '}
-            (décompte les heures) ou <strong>autre</strong> (entretien, séance d’information… sans effet sur les
-            heures) — puis un ou plusieurs élèves, une date et une durée. Plusieurs élèves sélectionnés pour une
-            séance de cours créent une séance collective.
+            <strong>Créer un rendez-vous</strong>, ou un clic sur un <strong>créneau libre</strong> : choisissez sa
+            nature — <strong>séance de cours</strong> (décompte les heures) ou <strong>autre</strong> (entretien,
+            séance d’information… sans effet sur les heures) — puis les élèves, la date et la durée. Plusieurs élèves
+            sur une séance de cours en font une séance collective ; aucun participant bloque simplement le créneau pour
+            vous seul.
           </>,
           <>
-            Après le cours, ouvrez la séance et notez la <strong>présence</strong> de chaque élève, puis clôturez-la.
+            Après le cours, ouvrez la séance : notez la <strong>présence</strong> de chaque élève, clôturez, puis{' '}
+            <strong>Rédiger un compte rendu</strong> (objectif, ce qui a été vu, points à améliorer, progrès,
+            remarques, supports joints). Il est visible par l’élève et par l’administration.
           </>,
           <>
-            La clôture est le geste important : c’est elle qui met à jour vos heures enseignées, le forfait de l’élève
-            et son taux d’assiduité. Une séance passée non clôturée ne compte nulle part.
+            La clôture est le geste décisif : elle décompte le forfait de l’élève, crédite vos heures enseignées et met
+            à jour son assiduité. Une séance passée non clôturée ne compte nulle part.
           </>,
           <>
-            L’onglet <strong>Planning prévisionnel</strong> crée d’un coup toutes les séances récurrentes d’un élève
-            (par exemple tous les mardis à 18 h jusqu’à la fin de son forfait) et permet de reprogrammer chaque séance
-            au cas par cas. Un changement d’horaire de votre part est soumis à validation de l’administration.
+            Déplacer une séance exige un <strong>justificatif</strong> et s’applique aussitôt — sans validation
+            préalable : l’élève et l’administration en sont notifiés. Le <strong>Planning prévisionnel</strong> crée
+            d’un coup toutes les séances d’un forfait (tous les mardis à 18 h jusqu’à son terme).
           </>,
           <>
-            Agenda et planning prévisionnel montrent les mêmes séances : un cours créé depuis l’agenda apparaît
-            aussitôt dans le planning de l’élève et dans la vue de l’administration, sans ressaisie.
-          </>,
-          <>
-            <strong>Votre agenda Google.</strong> Connectez-le depuis « Mon profil » et les deux agendas n’en font plus
-            qu’un : <strong>tous</strong> vos événements Google apparaissent dans cette grille, même ceux créés depuis
-            Gmail, et vous pouvez les y <strong>ouvrir, modifier, déplacer et supprimer</strong> — séries récurrentes
-            comprises, avec le choix « cette date seulement » ou « toute la série ». Chaque changement part aussitôt sur
-            Google, et ce que vous changez dans Gmail revient ici de lui-même.
-          </>,
-          <>
-            C’est aussi depuis votre compte que sont créées les réunions de vos cours : vos élèves reçoivent
-            l’invitation de <strong>votre</strong> adresse, et vous en êtes l’organisateur. L’administration n’est pas
-            invitée automatiquement ; ajoutez-la aux participants si vous souhaitez sa présence. Un rendez-vous{' '}
-            <strong>sans aucun participant</strong> est accepté : c’est la façon de bloquer un créneau pour vous seul.
+            <strong>Votre agenda Google</strong>, connecté depuis « Mon profil », ne fait plus qu’un avec celui-ci :
+            vos événements Google apparaissent dans la grille et s’y modifient (séries récurrentes comprises), chaque
+            changement partant aussitôt des deux côtés. C’est de <strong>votre</strong> adresse que partent les
+            invitations de vos cours ; l’administration n’y est pas conviée d’office, ajoutez-la aux participants si
+            vous la souhaitez présente.
           </>,
         ]}
       />

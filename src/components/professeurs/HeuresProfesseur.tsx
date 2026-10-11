@@ -47,16 +47,22 @@ export function HeuresProfesseur() {
         id="professeur-heures"
         etapes={[
           <>
-            Une séance ne compte dans ce total qu’une fois <strong>clôturée</strong> depuis votre agenda. Tant
-            qu’elle reste « planifiée », elle n’est pas comptabilisée.
-          </>,
-          <>
-            Pensez donc à clôturer vos séances passées : c’est le geste qui déclenche à la fois votre décompte d’heures
-            et la mise à jour du forfait de l’élève.
+            Une séance ne compte dans ce total qu’une fois <strong>clôturée</strong> depuis votre agenda. L’encadré{' '}
+            <strong>Séances passées à clôturer</strong> vous dit ce qu’il reste à faire pour être à jour.
           </>,
           <>
             Une séance collective compte <strong>une heure pour vous</strong>, même si plusieurs élèves y participent.
-            La répartition ci-dessous indique donc le temps passé avec chacun, pas la somme de votre total.
+            La répartition par élève indique donc le temps passé avec chacun, pas la somme de votre total.
+          </>,
+          <>
+            <strong>TimeSheet</strong> : choisissez une période, vérifiez les heures retenues — seules y figurent les
+            heures clôturées, non payées et pas encore déclarées — ajoutez un commentaire si besoin, puis{' '}
+            <strong>Envoyer pour validation</strong>.
+          </>,
+          <>
+            <strong>Mes TimeSheets envoyés</strong> suit chaque envoi : <strong>Soumis</strong>,{' '}
+            <strong>Validé</strong> ou <strong>Refusé</strong> avec son motif. Une fois validé, le TimeSheet devient
+            votre facture de rémunération, dans <strong>Mes factures</strong>.
           </>,
         ]}
       />

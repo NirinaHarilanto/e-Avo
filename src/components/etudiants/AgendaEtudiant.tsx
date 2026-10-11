@@ -163,20 +163,23 @@ export function AgendaEtudiant() {
         id="etudiant-agenda"
         etapes={[
           <>
-            Utilisez les flèches pour changer de semaine, et <strong>Aujourd’hui</strong> pour revenir à la semaine en
-            cours.
+            Les flèches changent de semaine, <strong>Aujourd’hui</strong> ramène à la semaine en cours.
           </>,
           <>
-            Un cours <strong>à venir</strong> apparaît en bleu, un cours <strong>déjà donné</strong> en vert, un cours
-            annulé en grisé.
+            Vous y voyez vos cours — <strong>bleu</strong> à venir, <strong>vert</strong> déjà donné — ainsi que vos
+            rendez-vous et les invitations de l’administration. Une séance annulée ou reportée disparaît de l’agenda.
           </>,
           <>
-            Le lien <strong>Rejoindre le cours</strong> se trouve dans la fiche du cours : cliquez dessus quelques
-            minutes avant le début.
+            Cliquez sur un cours à venir pour l’ouvrir : professeur, type, durée, et le bouton{' '}
+            <strong>Rejoindre le cours</strong> à utiliser quelques minutes avant le début.
           </>,
           <>
-            Cet agenda est alimenté par votre professeur et par l’administration. Si un horaire vous semble faux,
-            signalez-le à votre établissement plutôt que de l’ignorer.
+            Sur un cours déjà donné, la même fiche montre votre présence, le <strong>compte rendu</strong> rédigé par
+            votre professeur et l’avis que vous avez laissé.
+          </>,
+          <>
+            Cet agenda est alimenté par votre professeur et par l’administration : un horaire faux se signale depuis{' '}
+            <strong>Messages</strong>, il ne se corrige pas ici.
           </>,
         ]}
       />

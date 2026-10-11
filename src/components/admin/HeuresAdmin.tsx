@@ -39,7 +39,8 @@ export function HeuresAdmin() {
           </>,
           <>
             Un écart entre les deux totaux est normal : une séance collective consomme une heure pour chaque élève
-            inscrit, mais n’en compte qu’une seule pour le professeur.
+            inscrit, mais n’en compte qu’une seule pour le professeur. Un cours en <strong>duo</strong>, lui, ne
+            décompte qu’une fois les heures du binôme, qui partage un seul forfait.
           </>,
         ]}
       />

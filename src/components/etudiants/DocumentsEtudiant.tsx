@@ -25,22 +25,22 @@ export function DocumentsEtudiant() {
         id="etudiant-documents"
         etapes={[
           <>
-            Organisez votre espace comme vous le souhaitez : <strong>Nouveau dossier</strong> crée un dossier à
-            l’endroit où vous êtes, et un dossier peut lui-même en contenir d’autres. Le fil d’Ariane en haut
-            vous ramène où vous voulez.
+            Quatre dossiers existent par défaut, dont <strong>Mes fichiers partagés</strong>, où arrivent les documents
+            que votre professeur ou l’administration vous transmet. <strong>Nouveau dossier</strong> en crée d’autres à
+            l’endroit où vous êtes ; le fil d’Ariane en haut vous ramène en arrière.
           </>,
           <>
-            Déposez vos pièces avec le formulaire : le fichier est rangé dans le dossier ouvert. Choisissez la{' '}
-            <strong>catégorie</strong> qui correspond, puis le fichier. Formats acceptés : PDF, image ou .docx,
-            jusqu’à 20 Mo.
+            Pour déposer une pièce : choisissez sa <strong>catégorie</strong> (ou « + Ajouter une catégorie… »), le
+            fichier — PDF, image ou .docx, 20 Mo maximum — puis <strong>Ajouter le document</strong>. Il est rangé dans
+            le dossier ouvert.
           </>,
           <>
-            Vos documents sont visibles par vous, par votre professeur et par l’administration de votre établissement.
-            Vous pouvez supprimer ceux que vous avez vous-même déposés.
+            Vos documents sont visibles par vous, par votre professeur et par l’administration. Vous ne pouvez
+            supprimer que ceux que vous avez déposés vous-même.
           </>,
           <>
-            Les <strong>comptes rendus</strong> plus bas sont rédigés par votre professeur après vos séances. Ils
-            résument ce qui a été travaillé : relisez-les avant votre cours suivant.
+            Plus bas, <strong>Comptes rendus de mes cours</strong> rassemble ce que votre professeur écrit après chaque
+            séance, avec les supports qu’il y joint. Ils sont en lecture seule : relisez-les avant le cours suivant.
           </>,
         ]}
       />

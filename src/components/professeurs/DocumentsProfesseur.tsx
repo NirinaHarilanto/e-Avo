@@ -34,8 +34,8 @@ export function DocumentsProfesseur() {
         id="professeur-documents"
         etapes={[
           <>
-            Organisez vos pièces avec des <strong>dossiers</strong> : créez-en, renommez-les, rangez vos fichiers à
-            l’intérieur.
+            Déposez vos pièces avec le formulaire — PDF, image ou .docx, 20 Mo maximum — et rangez-les dans des{' '}
+            <strong>dossiers</strong> que vous créez et renommez librement.
           </>,
           <>
             Cliquez un document pour l’ouvrir : vous y trouvez le téléchargement, la suppression, et l’option{' '}
@@ -46,8 +46,8 @@ export function DocumentsProfesseur() {
             espace, section <strong>Mes fichiers partagés</strong>, avec votre nom et le mot que vous avez joint.
           </>,
           <>
-            <strong>Mes comptes rendus</strong>, plus bas, reprend tous ceux que vous avez rédigés après vos séances,
-            avec les supports de cours que vous y avez joints.
+            <strong>Mes comptes rendus</strong>, plus bas, reprend tous ceux que vous avez rédigés depuis votre agenda
+            après avoir clôturé une séance, avec les supports de cours que vous y avez joints.
           </>,
         ]}
       />

@@ -184,8 +184,9 @@ export function SeancesAdmin() {
         compact
         etapes={[
           <>
-            La <strong>vue par semaine</strong> montre l’agenda jour par jour et permet de filtrer par professeur :
-            c’est la vue à utiliser pour repérer les chevauchements et les trous dans un planning.
+            C’est ici — et non dans <strong>Agenda</strong>, réservé aux rendez-vous — que se consulte le planning des
+            cours de toute l’équipe. La <strong>vue par semaine</strong> l’affiche jour par jour et filtre par
+            professeur : la vue à utiliser pour repérer les chevauchements et les trous d’un planning.
           </>,
           <>
             La <strong>vue globale</strong> liste toutes les séances à venir puis toutes les séances passées, sans

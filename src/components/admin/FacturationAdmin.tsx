@@ -99,8 +99,8 @@ export function FacturationAdmin() {
             correspondance entre le document émis et l’encaissement suivi dans la page Paiements.
           </>,
           <>
-            Les factures de vos professeurs apparaissent aussi dans cet onglet : elles sont générées automatiquement au
-            moment du versement de leur rémunération.
+            Les factures de vos professeurs apparaissent aussi dans cet onglet : elles sont générées automatiquement
+            quand vous <strong>validez leur TimeSheet</strong>, page Paiements — rien à créer ici pour eux.
           </>,
           <>
             Le <strong>numéro</strong> affiché sur un devis, une facture ou un reçu se modifie en cliquant dessus.

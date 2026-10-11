@@ -94,12 +94,22 @@ export function EtudiantsAdmin() {
             lui-même son mot de passe.
           </>,
           <>
-            Ouvrez son dossier dans la liste de gauche, puis attribuez-lui un <strong>professeur</strong> depuis la
-            colonne de droite.
+            Dans la liste de gauche, chaque nom porte son programme — <strong>Collectif</strong>,{' '}
+            <strong>INDIV</strong> ou <strong>DUO</strong> — et l’état de son contrat : ✓ signé, ⏳ en attente, triangle
+            rouge s’il n’y en a aucun. La génération d’un contrat se fait page <strong>Contrats</strong>.
+          </>,
+          <>
+            Ouvrez un dossier, puis attribuez-lui un <strong>professeur</strong> depuis l’onglet du même nom. En{' '}
+            <strong>cours collectif</strong>, ce bouton reste grisé : le professeur s’y décide par classe, dans{' '}
+            <strong>Cours collectifs › Vagues</strong>.
           </>,
           <>
             Choisissez ensuite son <strong>programme</strong> : individuel ou duo (forfait d’heures), ou collectif
             (inscription à une vague).
+          </>,
+          <>
+            L’en-tête du dossier signale un <strong>Dossier incomplet</strong> tant que le téléphone, l’adresse ou la
+            ville manquent — à compléter avant de générer un contrat ou une facture.
           </>,
           <>
             Le compteur d’heures et le taux d’assiduité se mettent à jour automatiquement à la clôture de chaque séance,
@@ -109,10 +119,6 @@ export function EtudiantsAdmin() {
             Le bouton doré <strong>« Résumer les comptes rendus »</strong>, en haut du dossier, condense d’un clic tous
             les comptes rendus de séance de l’élève : compétences travaillées, progression, points à améliorer, mots
             récurrents et fil des séances. La synthèse se copie en un clic pour un e-mail.
-          </>,
-          <>
-            Le badge <strong>Contrat signé / en attente / aucun contrat</strong> sous chaque nom indique s’il reste à
-            faire signer un contrat avant le début des cours — la génération se fait page <strong>Contrats</strong>.
           </>,
           <>
             Un étudiant en collectif peut <strong>changer de promotion</strong> tant qu'il n'a suivi aucune séance

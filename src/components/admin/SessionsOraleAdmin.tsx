@@ -194,13 +194,19 @@ export function SessionsOraleAdmin() {
         compact
         etapes={[
           <>
-            Toutes les sessions de test oral, <strong>quelle que soit leur vague</strong>, sont réunies ici. Le
-            rattachement à une vague se choisit à la création et peut être corrigé à tout moment avec « Modifier ».
+            Toutes les sessions de test oral, <strong>quelle que soit leur vague</strong>, sont réunies ici — la liste
+            déroulante filtre sur une vague en particulier. Le rattachement à une vague se choisit à la création et se
+            corrige à tout moment avec <strong>Modifier</strong> ; le lien de visioconférence se génère seul.
           </>,
           <>
-            Le bouton <strong>« Voir les inscrits »</strong> de chaque session ouvre la liste complète des candidats
-            qui s’y sont inscrits depuis la page publique, avec leur score au quiz écrit et le bouton pour les
-            convertir en étudiant une fois le test oral passé.
+            Une session ouverte ici devient un créneau réservable par les candidats depuis la page publique. C’est en y
+            répondant au <strong>quiz de positionnement</strong> qu’ils valident définitivement leur place.
+          </>,
+          <>
+            <strong>Voir les inscrits</strong> ouvre la liste des candidats d’une session, avec leur score au quiz
+            écrit. Une fois le test oral passé, arrêtez leur <strong>niveau</strong> puis convertissez-les en
+            étudiant — la conversion exige d’abord l’enregistrement des <strong>frais d’inscription</strong> du niveau
+            retenu.
           </>,
         ]}
       />

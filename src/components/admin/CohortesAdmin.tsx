@@ -120,53 +120,37 @@ export function CohortesAdmin() {
         compact
         etapes={[
           <>
-            Créez une vague en lui donnant un nom, une langue, ses dates de début et de fin, et une{' '}
-            <strong>capacité maximale</strong> d’élèves.
+            Créez une vague (« promotion ») : nom, langue, dates de début et de fin, <strong>capacité maximale</strong>.
+            Son <strong>statut</strong> se change ensuite dans sa ligne, et <strong>Modifier</strong> corrige ces
+            champs sans toucher aux élèves inscrits. Passez-la en « Terminée » à la fin : elle reste consultable.
           </>,
           <>
-            Inscrivez ensuite les élèves un par un depuis leur dossier, page <strong>Étudiants</strong> : choisissez le
-            programme « collectif » puis la vague voulue.
-          </>,
-          <>
-            Le <strong>statut</strong> de chaque vague se change directement dans sa ligne. Passez-la en « Terminée »
-            quand la session est finie : elle restera consultable dans les dossiers des élèves.
-          </>,
-          <>
-            <strong>Modifier</strong> permet de corriger le nom, la langue, les dates ou la capacité d’une vague déjà
-            créée, sans toucher aux élèves déjà inscrits.
-          </>,
-          <>
-            Le bouton <strong>Voir les inscrits</strong> déplie la liste des élèves rattachés, et donne accès aux{' '}
-            <strong>sessions de test oral</strong> que vous ouvrez pour cette vague : c’est ce que les candidats au
-            collectif réservent depuis la page publique. Une session peut être <strong>modifiée</strong> après coup ;
-            son lien de visioconférence se génère tout seul.
-          </>,
-          <>
-            <strong>Cliquez sur une session</strong> pour dérouler la liste des candidats qui s’y sont inscrits, avec
-            leur note au questionnaire. Une fois le test oral passé, le bouton{' '}
-            <strong>Convertir en étudiant</strong> crée son compte et le rattache automatiquement à cette vague — et,
-            si son niveau a pu être déterminé, à la classe correspondante.
-          </>,
-          <>
-            Une vague (« promotion ») peut être scindée en <strong>classes de niveau</strong> — Beginner, Intermediate,
-            Advanced — chacune avec son propre professeur et son propre créneau (matin/midi/soir, réglés dans{' '}
-            <strong>Paramètres</strong>). Le niveau d’un candidat est déterminé automatiquement à partir de son quiz
-            écrit, sans ressaisie de votre part.
+            Scindez-la en <strong>classes de niveau</strong> — Beginner, Intermediate, Advanced — chacune avec son
+            créneau (matin, midi, soir, réglés dans <strong>Paramètres</strong>). Sur la ligne d'une classe,{' '}
+            <strong>Attribuer un professeur</strong> est le <em>seul</em> endroit où se décide le professeur d'un cours
+            collectif ; l'information est reprise aussitôt partout, y compris chez les élèves concernés.
           </>,
           <>
             Une classe compte <strong>3 à 7 élèves</strong>. En dessous de 3, ne démarrez pas ses cours. À 7, les
             inscriptions supplémentaires sont refusées : créez une seconde classe du même niveau pour les accueillir.
           </>,
           <>
-            Le bouton <strong>+ Élèves</strong> sur une classe permet d'y ajouter directement un élève déjà dans la
-            promotion sans classe, ou n'importe quel autre élève de l'établissement — sans repasser par son dossier.
+            Pour inscrire un élève : depuis son dossier (page <strong>Étudiants</strong>, programme « collectif »), ou
+            directement avec <strong>+ Élèves</strong> sur la ligne d'une classe. Son niveau est déterminé
+            automatiquement à partir de son quiz écrit, corrigé au test oral si besoin.
           </>,
           <>
-            <strong>Fin de parcours</strong> : une fois toutes les heures de sa vague consommées, chaque élève doit
-            être réévalué et réattribué à une nouvelle vague et une nouvelle classe, avec son niveau mis à jour si
-            besoin. Cela se fait depuis l'onglet <strong>Suivi des candidats</strong> : ouvrez la fiche de l'élève, le
-            bouton <strong>« Évaluer l'étudiant »</strong> y apparaît automatiquement. La validation est toujours
-            précédée de l'enregistrement des frais d'inscription correspondant à son nouveau niveau.
+            <strong>Voir les inscrits</strong> déplie la liste et donne accès aux <strong>sessions de test oral</strong>{' '}
+            ouvertes pour cette vague — ce que les candidats réservent depuis la page publique ; leur lien de
+            visioconférence se génère seul. Cliquez une session pour voir ses candidats et leur note, puis{' '}
+            <strong>Convertir en étudiant</strong> : le compte est créé et rattaché à la vague et à la bonne classe.
+          </>,
+          <>
+            <strong>Fin de parcours</strong> : une fois toutes les heures de sa vague consommées, chaque élève est
+            réévalué depuis l'onglet <strong>Suivi des candidats</strong> — ouvrez sa fiche, le bouton{' '}
+            <strong>Évaluer l'étudiant</strong> y apparaît. Vous lui attribuez une nouvelle vague, une nouvelle classe
+            et, si besoin, un nouveau niveau. La validation est toujours précédée de l'enregistrement des{' '}
+            <strong>frais d'inscription</strong> correspondant à ce nouveau niveau.
           </>,
           <>
             <strong>Rythme officiel d'une vague</strong> : 32 séances réparties sur{' '}

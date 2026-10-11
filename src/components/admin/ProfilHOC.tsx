@@ -43,8 +43,15 @@ export function ProfilHOC() {
             contrat (page Contrats), et affichées automatiquement sous l'en-tête de chaque facture, devis et reçu.
           </>,
           <>
+            Le <strong>tampon de l'établissement</strong> et <strong>votre signature</strong> se déposent ici, et
+            s'enregistrent dès le dépôt, sans bouton à presser. Tous deux sont repris sur vos factures, reçus, devis et
+            contrats ; sur un contrat, ils accompagnent la mention « Lu et approuvé », du côté établissement
+            uniquement.
+          </>,
+          <>
             Tous les administrateurs listés plus bas ont <strong>exactement les mêmes droits</strong> sur ce même
-            espace admin — même agenda, mêmes accès. Il n'y a pas de rôle « principal » parmi eux.
+            espace admin — même agenda, mêmes accès. Il n'y a pas de rôle « principal » parmi eux. Vos coordonnées
+            personnelles, elles, se modifient dans <strong>Profils admin</strong>.
           </>,
         ]}
       />

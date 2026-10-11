@@ -15,12 +15,16 @@ export function MessagesEtudiant() {
         id="etudiant-messages"
         etapes={[
           <>
-            <strong>Nouveau message</strong> ouvre l’annuaire de Hari Online Club : vous choisissez la personne à qui
-            écrire en tapant son nom.
+            <strong>Nouveau message</strong> ouvre l’annuaire de Hari Online Club : tapez un nom pour choisir le ou les
+            destinataires, renseignez l’objet et votre texte, puis <strong>Envoyer</strong>.
           </>,
           <>
             Pour une question de planning, d’absence ou de paiement, écrivez à l’<strong>Administration</strong> ; pour
             une question sur le contenu d’un cours, à votre <strong>professeur</strong>.
+          </>,
+          <>
+            Les onglets séparent les messages <strong>Reçus</strong> — le compteur indique les non lus — des{' '}
+            <strong>Envoyés</strong>. Ouvrez un message pour le lire, y <strong>Répondre</strong> ou le supprimer.
           </>,
           <>
             Un message reçu déclenche une <strong>notification dans la cloche</strong> en haut de votre espace.
