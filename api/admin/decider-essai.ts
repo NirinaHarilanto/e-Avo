@@ -11,10 +11,19 @@ interface Corps {
      du 2026-10-11 : « 1h, 2h ou 3h, voir plus », facturées au même tarif horaire que l'essai
      initial. */
   heuresSupplementaires?: number
+  /* Paiement enregistré dans le même geste (demande client du 2026-10-11, même principe que
+     l'ajout de forfait, 0061/api/admin/ajouter-forfait.ts) : « poursuivi » et « prolonge »
+     engagent toujours une dépense, le paiement doit être confirmé AVANT que la décision ne soit
+     appliquée. Absent pour 'arrete', qui ne facture jamais rien de plus. */
+  montantPaiement?: number
+  motifPaiement?: string
+  moyenPaiement?: string
+  referencePaiement?: string
 }
 
 /**
- * Décision prise après la séance d'essai (0057, revue le 2026-09-29, prolongation le 2026-10-11).
+ * Décision prise après la séance d'essai (0057, revue le 2026-09-29, prolongation et paiement
+ * obligatoire le 2026-10-11).
  *
  * L'essai (1 à 3 h au tarif horaire) est facturé À PART : « poursuivre » crée le forfait COMPLET
  * choisi à ce moment-là (celui retenu au départ ou un autre), sans rien en déduire. « Arrêter »
@@ -28,6 +37,10 @@ interface Corps {
  * (sum(total_heures) across packages, lus ailleurs dans l'application) qu'un second forfait
  * essai aurait faussés.
  *
+ * « Poursuivi » et « prolonge » exigent désormais un paiement, créé dans LE MÊME appel, déjà
+ * réglé (`statut: 'paye'`) — même principe que l'ajout de forfait (0061, ajouter-forfait.ts) :
+ * aucune de ces deux décisions ne doit pouvoir s'appliquer sans qu'on sache si elle a été payée.
+ *
  * Côté serveur : le forfait d'essai doit être verrouillé (décision déjà prise) dans le même geste
  * que la création du forfait de suite, pour que deux clics n'en créent pas deux.
  */
@@ -37,11 +50,22 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   try {
-    const { serviceClient, etablissementId } = await requireAdmin(request)
+    const { serviceClient, profileId, etablissementId } = await requireAdmin(request)
     const corps = (await request.json()) as Corps
 
     if (!corps.packageId || (corps.decision !== 'poursuivi' && corps.decision !== 'arrete' && corps.decision !== 'prolonge')) {
       return Response.json({ error: 'Forfait et décision sont obligatoires.' }, { status: 400 })
+    }
+    // Même garde-fou que l'ajout de forfait (0061, api/admin/ajouter-forfait.ts) : « poursuivi »
+    // et « prolonge » engagent toujours une dépense, revérifié ici même si le formulaire bloque
+    // déjà la validation côté écran tant que le paiement n'est pas confirmé.
+    if (corps.decision === 'poursuivi' || corps.decision === 'prolonge') {
+      if (!corps.montantPaiement || corps.montantPaiement <= 0) {
+        return Response.json({ error: 'Le paiement doit être enregistré avant de valider la décision.' }, { status: 400 })
+      }
+      if (!corps.motifPaiement || !corps.motifPaiement.trim()) {
+        return Response.json({ error: 'Un motif est obligatoire pour enregistrer le paiement.' }, { status: 400 })
+      }
     }
 
     const { data: essai } = await serviceClient
@@ -89,6 +113,30 @@ export default async function handler(request: Request): Promise<Response> {
       if (erreurProlongation) {
         return Response.json({ error: erreurProlongation.message }, { status: 500 })
       }
+
+      const { error: erreurPaiement } = await serviceClient.from('student_payments').insert({
+        etablissement_id: etablissementId,
+        student_id: essai.student_id,
+        package_id: essai.id,
+        montant: corps.montantPaiement!,
+        montant_regle: corps.montantPaiement!,
+        statut: 'paye',
+        date_paiement: new Date().toISOString().slice(0, 10),
+        moyen_paiement: corps.moyenPaiement?.trim() || null,
+        reference: corps.referencePaiement?.trim() || null,
+        notes: corps.motifPaiement!.trim(),
+        created_by_profile_id: profileId,
+      })
+      if (erreurPaiement) {
+        // La prolongation est déjà en base à ce stade : mieux vaut le signaler explicitement que
+        // de la défaire en silence et faire perdre à l'admin la trace de ce qu'il vient de faire
+        // (même choix que api/admin/ajouter-forfait.ts).
+        return Response.json(
+          { error: `Les heures ont été ajoutées, mais l’enregistrement du paiement a échoué : ${erreurPaiement.message}` },
+          { status: 500 },
+        )
+      }
+
       return Response.json({ ok: true, decision: 'prolonge', heuresAjoutees: heures, montantAjoute })
     }
 
@@ -131,6 +179,28 @@ export default async function handler(request: Request): Promise<Response> {
         return Response.json({ error: erreurComplement?.message ?? 'Le forfait n’a pas pu être créé.' }, { status: 500 })
       }
       complementId = cree.id
+
+      const { error: erreurPaiement } = await serviceClient.from('student_payments').insert({
+        etablissement_id: etablissementId,
+        student_id: essai.student_id,
+        package_id: cree.id,
+        montant: corps.montantPaiement!,
+        montant_regle: corps.montantPaiement!,
+        statut: 'paye',
+        date_paiement: new Date().toISOString().slice(0, 10),
+        moyen_paiement: corps.moyenPaiement?.trim() || null,
+        reference: corps.referencePaiement?.trim() || null,
+        notes: corps.motifPaiement!.trim(),
+        created_by_profile_id: profileId,
+      })
+      if (erreurPaiement) {
+        // Le forfait existe déjà à ce stade : mieux vaut le signaler à l'admin (même choix que
+        // api/admin/ajouter-forfait.ts) que de le supprimer en silence.
+        return Response.json(
+          { error: `Forfait créé, mais l’enregistrement du paiement a échoué : ${erreurPaiement.message}` },
+          { status: 500 },
+        )
+      }
     }
 
     const { error: erreurDecision } = await serviceClient
