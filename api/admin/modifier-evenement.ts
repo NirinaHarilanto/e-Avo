@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { AdminAuthError, requireAdmin } from '../_lib/adminAuth.js'
-import { integrationHoteReunion, modifierEvenementVisio } from '../_lib/google.js'
+import { integrationHoteReunion, modifierEvenementVisio, supprimerEvenement } from '../_lib/google.js'
 import { notifierModificationEvenement } from '../_lib/notifications.js'
 import type { Database } from '../../src/types/database.types.js'
 
@@ -70,8 +70,36 @@ export default async function handler(request: Request): Promise<Response> {
       corps.optionnelsIds !== undefined
         ? [...new Set(corps.optionnelsIds.filter(Boolean))].filter((id) => !(obligatoiresIds ?? []).includes(id))
         : undefined
-    if (obligatoiresIds !== undefined && optionnelsIds !== undefined && obligatoiresIds.length === 0 && optionnelsIds.length === 0) {
-      return Response.json({ error: 'Choisissez au moins un participant.' }, { status: 400 })
+    /* Demande client du 2026-10-11 : si l'admin retire volontairement TOUS les participants (plus
+       aucun obligatoire ni optionnel), le rendez-vous n'a plus de raison d'exister — au lieu de
+       refuser la modification (ancien comportement), on supprime l'événement lui-même, ce que la
+       contrainte CHECK `evenements_admin_participants` (0045) exige de toute façon : aucune ligne
+       à zéro participant ne peut être écrite en base. */
+    const suppressionCarAucunParticipant =
+      obligatoiresIds !== undefined && optionnelsIds !== undefined && obligatoiresIds.length === 0 && optionnelsIds.length === 0
+    if (suppressionCarAucunParticipant) {
+      if (evenement.google_event_id) {
+        const hote = await integrationHoteReunion(serviceClient, { organisateurId: evenement.cree_par, etablissementId }).catch(() => null)
+        if (hote) {
+          await supprimerEvenement(hote, evenement.google_event_id).catch(() => {})
+        }
+      }
+      const { error: erreurSuppression } = await serviceClient.from('evenements_admin').delete().eq('id', evenement.id)
+      if (erreurSuppression) {
+        return Response.json({ error: erreurSuppression.message }, { status: 500 })
+      }
+      // Même notification que pour un retrait partiel (« Rendez-vous annulé ») : plus personne ne
+      // reste participant, chaque ancien participant la reçoit.
+      await notifierModificationEvenement(serviceClient, {
+        etablissementId,
+        acteurId: profileId,
+        titre: evenement.titre,
+        debut: evenement.debut,
+        anciensIds: [...evenement.participants_obligatoires, ...evenement.participants_optionnels],
+        nouveauxIds: [],
+        contenuChange: false,
+      })
+      return Response.json({ ok: true, supprime: true })
     }
 
     // Mêmes garde-fous qu'à la création : les participants doivent appartenir au même

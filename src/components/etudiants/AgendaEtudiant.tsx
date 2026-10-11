@@ -3,7 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useDossierEtudiant, type SeanceDuParcours } from '../../hooks/useDossierEtudiant'
 import { getJoinUrl } from '../../lib/visio'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
-import { LIBELLE_ADMIN } from '../../lib/agendaEvenements'
+import { LIBELLE_ADMIN, seanceSansEffet } from '../../lib/agendaEvenements'
 import { EtudiantLayout } from '../layout/EtudiantLayout'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -94,20 +94,20 @@ export function AgendaEtudiant() {
     return table
   }, [dossier])
 
+  /* Séance annulée/reportée : retirée de l'agenda (demande client du 2026-10-11), pas seulement
+     grisée — `seances` reste intact pour `seanceOuverte` ci-dessous et les autres usages. */
   const evenements = useMemo(
     () =>
-      seances.map((seance): EvenementAgenda => ({
-        id: seance.session.id,
-        debut: seance.session.debut,
-        dureeMinutes: seance.session.duree_minutes,
-        titre: professeurParSeance.get(seance.session.id) ?? 'Cours',
-        sousTitre: `${seance.session.type === 'individuel' ? 'Cours individuel' : 'Cours collectif'} · ${seance.session.duree_minutes} min`,
-        // 'reportee' (0085) : absence à la clôture, séance reportée — traitée comme 'annulee' à
-        // l'affichage (cette occurrence n'a pas eu lieu), statut exact lisible via `statut`.
-        ton: seance.session.statut === 'terminee' ? 'teal' : seance.session.statut === 'annulee' || seance.session.statut === 'reportee' ? 'neutre' : 'bleu',
-        attenue: seance.session.statut === 'annulee' || seance.session.statut === 'reportee',
-        statut: seance.session.statut === 'reportee' ? 'Reportée' : seance.session.statut === 'annulee' ? 'Annulée' : undefined,
-      })),
+      seances
+        .filter((seance) => !seanceSansEffet(seance.session.statut))
+        .map((seance): EvenementAgenda => ({
+          id: seance.session.id,
+          debut: seance.session.debut,
+          dureeMinutes: seance.session.duree_minutes,
+          titre: professeurParSeance.get(seance.session.id) ?? 'Cours',
+          sousTitre: `${seance.session.type === 'individuel' ? 'Cours individuel' : 'Cours collectif'} · ${seance.session.duree_minutes} min`,
+          ton: seance.session.statut === 'terminee' ? 'teal' : 'bleu',
+        })),
     [seances, professeurParSeance],
   )
 

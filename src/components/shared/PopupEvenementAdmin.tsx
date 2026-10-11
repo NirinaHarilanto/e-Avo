@@ -444,8 +444,20 @@ export function CarteEvenementAdmin({
   const [nouveauDebut, setNouveauDebut] = useState(() => versDatetimeLocal(new Date(evenement.debut)))
   const [nouvelleDuree, setNouvelleDuree] = useState(evenement.duree_minutes)
   const [notes, setNotes] = useState(evenement.notes ?? '')
-  const [obligatoiresIds, setObligatoiresIds] = useState(() => evenement.obligatoires.map((p) => p.id))
-  const [optionnelsIds, setOptionnelsIds] = useState(() => evenement.optionnels.map((p) => p.id))
+  const [obligatoiresIds, setObligatoiresIdsBrut] = useState(() => evenement.obligatoires.map((p) => p.id))
+  const [optionnelsIds, setOptionnelsIdsBrut] = useState(() => evenement.optionnels.map((p) => p.id))
+  /* Confirmation explicite avant qu'un retrait du dernier participant ne supprime le rendez-vous
+     (demande client du 2026-10-11) — tout changement ultérieur de la sélection l'annule, pour ne
+     jamais supprimer sur la base d'une confirmation donnée pour une sélection différente. */
+  const [suppressionParticipantsConfirmee, setSuppressionParticipantsConfirmee] = useState(false)
+  function setObligatoiresIds(ids: string[]) {
+    setObligatoiresIdsBrut(ids)
+    setSuppressionParticipantsConfirmee(false)
+  }
+  function setOptionnelsIds(ids: string[]) {
+    setOptionnelsIdsBrut(ids)
+    setSuppressionParticipantsConfirmee(false)
+  }
   const quand = formaterDansFuseauEtablissement(evenement.debut)
 
   async function annuler() {
@@ -495,8 +507,20 @@ export function CarteEvenementAdmin({
   async function modifier() {
     if (!session || !titre.trim() || !nouveauDebut) return
     if (obligatoiresIds.length + optionnelsIds.length === 0) {
-      setEchec('Gardez au moins un participant.')
-      return
+      /* Suppression automatique réservée à l'espace ADMIN (demande client du 2026-10-11, portée
+         volontairement limitée — même garde que `afficherSuppression`, qui distingue déjà cet
+         usage de celui, partagé, de l'espace professeur). `api/professeur/modifier-evenement.ts`
+         refuse toujours ce cas, donc le professeur garde le blocage d'origine. Un premier clic
+         côté admin demande confirmation plutôt que de supprimer sans prévenir. */
+      if (!afficherSuppression) {
+        setEchec('Gardez au moins un participant.')
+        return
+      }
+      if (!suppressionParticipantsConfirmee) {
+        setSuppressionParticipantsConfirmee(true)
+        setEchec('Il ne reste plus aucun participant : ce rendez-vous sera supprimé. Cliquez à nouveau sur « Enregistrer » pour confirmer.')
+        return
+      }
     }
     setEnCours(true)
     setEchec(null)

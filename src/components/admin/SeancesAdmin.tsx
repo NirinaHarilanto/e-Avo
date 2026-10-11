@@ -5,7 +5,7 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { useRendezVous } from '../../hooks/useRendezVous'
 import { useEvenementsAdmin } from '../../hooks/useEvenementsAdmin'
-import { agendaAdminComplet, estEvenementGooglePersonnel, idGoogleDepuisEvenement, versEvenementSeance } from '../../lib/agendaEvenements'
+import { agendaAdminComplet, estEvenementGooglePersonnel, idGoogleDepuisEvenement, seanceSansEffet, versEvenementSeance } from '../../lib/agendaEvenements'
 import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { nomsElevesInscrits } from '../../lib/seances'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
@@ -106,10 +106,12 @@ export function SeancesAdmin() {
           )
     /* Conversion partagée avec l'agenda de l'espace admin (`versEvenementSeance`) : les deux pages
        doivent montrer la même séance de la même façon. Sans préfixe ici, l'id nu étant celui que
-       les écrans de cette page attendent déjà. */
-    const seancesEvenements = visibles.map((seance) =>
-      versEvenementSeance(seance, nomsElevesInscrits(seance.inscriptions), professeurIds),
-    )
+       les écrans de cette page attendent déjà. Une séance annulée/reportée est retirée de CETTE
+       grille (demande client du 2026-10-11) — elle reste visible dans la vue « globale » en liste
+       ci-dessous (aVenir/passees), qui sert justement d'historique. */
+    const seancesEvenements = visibles
+      .filter((seance) => !seanceSansEffet(seance.session.statut))
+      .map((seance) => versEvenementSeance(seance, nomsElevesInscrits(seance.inscriptions), professeurIds))
 
     if (!adminSelectionne) return seancesEvenements
 

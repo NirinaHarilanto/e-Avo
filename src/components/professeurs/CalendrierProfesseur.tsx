@@ -10,7 +10,7 @@ import type { Database } from '../../types/database.types'
 import { getJoinUrl } from '../../lib/visio'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
 import { nomsElevesInscrits } from '../../lib/seances'
-import { versEvenementAdmin, estEvenementGooglePersonnel, idGoogleDepuisEvenement } from '../../lib/agendaEvenements'
+import { versEvenementAdmin, estEvenementGooglePersonnel, idGoogleDepuisEvenement, seanceSansEffet } from '../../lib/agendaEvenements'
 import { useEvenementsGoogleCalendarPersonnel, useStatutGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { useRepriseAutomatiqueReunions } from '../../hooks/useRepriseReunionsGoogle'
 import { type NatureRendezVous } from '../../lib/natureRendezVous'
@@ -173,8 +173,15 @@ export function CalendrierProfesseur() {
   const { peutEcrire: agendaEnEcriture } = useStatutGoogleCalendarPersonnel()
   const [evenementGoogleOuvertId, setEvenementGoogleOuvertId] = useState<string | null>(null)
   const evenementGoogleOuvert = evenementGoogleOuvertId ? (googleParId.get(evenementGoogleOuvertId) ?? null) : null
+  /* Séance annulée/reportée ou événement annulé : retiré de la grille (demande client du
+     2026-10-11), pas seulement grisé — `seances`/`evenementsAutres` restent intacts pour les
+     autres vues (liste, statistiques d'heures) qui ont besoin de l'historique complet. */
   const evenements = useMemo(
-    () => [...seances.map(versEvenement), ...evenementsAutres.map(versEvenementAdmin), ...evenementsGooglePersonnel],
+    () => [
+      ...seances.filter((s) => !seanceSansEffet(s.session.statut)).map(versEvenement),
+      ...evenementsAutres.filter((e) => !e.annule).map(versEvenementAdmin),
+      ...evenementsGooglePersonnel,
+    ],
     [seances, evenementsAutres, evenementsGooglePersonnel],
   )
   const seanceOuverte = seances.find((s) => s.session.id === seanceOuverteId) ?? null

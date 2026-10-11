@@ -9,6 +9,16 @@ import type { EvenementAdminAvecParticipants } from '../hooks/useEvenementsAdmin
 import type { SeanceAdmin } from '../hooks/useSeancesAdmin'
 import type { EvenementAgenda } from './agenda'
 
+/* Statut d'une séance qui n'a pas eu lieu comme prévu — demande client du 2026-10-11 : ces
+   occurrences doivent disparaître des agendas calendaires (grille hebdomadaire), pas seulement
+   s'y griser. Reste un simple prédicat, réutilisé pour FILTRER les listes avant conversion plutôt
+   que de retoucher versEvenementSeance/versEvenementAdmin/versEvenementProspect elles-mêmes, qui
+   restent correctes et continuent de servir les vues « liste »/historique (ex. la vue globale de
+   Séances & visio), où la trace d'une annulation doit au contraire rester visible. */
+export function seanceSansEffet(statut: string): boolean {
+  return statut === 'annulee' || statut === 'reportee'
+}
+
 /* Les identifiants des deux tables sont chacun des UUID indépendants : rien n'empêche qu'ils
    coïncident un jour par hasard. Un préfixe sur l'id de l'EvenementAgenda lève toute ambiguïté
    au moment de rouvrir la bonne fiche au clic, plutôt que de chercher le même id dans les deux
@@ -135,14 +145,22 @@ export function typeEvenementAdmin(evenement: EvenementAdminAvecParticipants): s
   return 'Étudiants'
 }
 
-/* Tous les rendez-vous prospects et événements admin actifs (utilisés partout où « l'agenda de
-   l'admin » doit être visualisé dans son ensemble) — le rendez-vous d'un prospect donné en
-   priorité pour que l'appelant puisse le repérer distinctement. */
+/* Tous les rendez-vous prospects et événements admin ACTIFS (utilisés partout où « l'agenda de
+   l'admin » doit être visualisé dans son ensemble, y compris la grille de choix de créneau de
+   PlanifierAppelDiagnosticModale) — le rendez-vous d'un prospect donné en priorité pour que
+   l'appelant puisse le repérer distinctement.
+   Un rendez-vous refusé/annulé ou un événement annulé est exclu d'emblée (demande client du
+   2026-10-11, « retirer visuellement le rendez-vous des agendas concernés ») : il ne doit plus
+   apparaître dans aucune grille calendaire, et un créneau qu'il occupait doit redevenir
+   visuellement libre lors de la planification d'un nouveau rendez-vous. */
 export function agendaAdminComplet(
   rendezVous: RendezVousAvecProspect[],
   evenementsAdmin: EvenementAdminAvecParticipants[],
 ): EvenementAgenda[] {
-  return [...rendezVous.map(versEvenementProspect), ...evenementsAdmin.map(versEvenementAdmin)]
+  return [
+    ...rendezVous.filter((rdv) => rdv.statut !== 'refuse' && rdv.statut !== 'annule').map(versEvenementProspect),
+    ...evenementsAdmin.filter((e) => !e.annule).map(versEvenementAdmin),
+  ]
 }
 
 /* Événement lu dans un agenda Google et superposé à l'agenda HOC : soit l'agenda personnel de la

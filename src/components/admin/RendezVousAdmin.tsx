@@ -14,6 +14,7 @@ import {
   estEvenementSeance,
   idGoogleDepuisEvenement,
   idSeanceDepuisEvenement,
+  seanceSansEffet,
   versEvenementSeance,
 } from '../../lib/agendaEvenements'
 import { useSeancesAdmin } from '../../hooks/useSeancesAdmin'
@@ -96,7 +97,10 @@ export function RendezVousAdmin() {
   const { professeurs } = useProfesseurs()
   const professeurIds = useMemo(() => professeurs.map((p) => p.id), [professeurs])
   const evenementsSeances = useMemo(
-    () => seances.map((s) => versEvenementSeance(s, nomsElevesInscrits(s.inscriptions), professeurIds, { prefixe: true })),
+    () =>
+      seances
+        .filter((s) => !seanceSansEffet(s.session.statut))
+        .map((s) => versEvenementSeance(s, nomsElevesInscrits(s.inscriptions), professeurIds, { prefixe: true })),
     [seances, professeurIds],
   )
   const evenementsAgenda = useMemo(
