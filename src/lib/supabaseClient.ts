@@ -1,3 +1,6 @@
+/* Avant toute autre chose : `createClient` ci-dessous déclenche `detectSessionInUrl`, qui vide le
+   fragment de l'URL. Ce module doit l'avoir lu avant — c'est tout son rôle. */
+import './fragmentAuth'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../types/database.types'
 import { fetchAvecSynchro } from './synchro'

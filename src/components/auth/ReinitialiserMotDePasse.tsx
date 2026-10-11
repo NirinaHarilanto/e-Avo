@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { Logo } from '../shared/Logo'
 import { ChampMotDePasse } from '../shared/ChampMotDePasse'
 import { EMAIL_OFFICIEL_HOC } from '../../lib/etablissement'
+import { erreurFragmentAuth, fragmentAuthPresent } from '../../lib/fragmentAuth'
 
 const LONGUEUR_MIN = 8
 const EMAIL_VALIDE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -77,8 +78,12 @@ export function ReinitialiserMotDePasse() {
     navigate(next ?? destinationSelonRole(profile?.role, !!platformAdmin), { replace: true })
   }
 
+  /* `100dvh` et non `100vh` : sur mobile, `100vh` est figé sur la hauteur sans barre d'URL, si
+     bien qu'à l'ouverture du clavier le contenu restait centré sur une zone plus haute que
+     l'écran réel et le bouton « Enregistrer » passait dessous. `dvh` suit le viewport et recentre
+     à chaque fois. */
   return (
-    <div className="page-connexion-hoc" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, padding: 24 }}>
+    <div className="page-connexion-hoc" style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 28, padding: 24 }}>
       <a href="/">
         <Logo fond="clair" />
       </a>
@@ -172,12 +177,32 @@ function LienMort() {
     )
   }
 
+  /* Trois situations très différentes aboutissaient toutes au même « Lien expiré », sans que
+     l'utilisateur ni nous puissions les distinguer (demande client du 2026-10-11 : la
+     réinitialisation « bug » sur mobile). Voir lib/fragmentAuth.ts. */
+  const jetonJamaisArrive = !fragmentAuthPresent
+  const titre = jetonJamaisArrive ? 'Lien incomplet' : 'Lien expiré'
+
   return (
     <form onSubmit={redemander} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <h1 style={{ fontSize: 22, color: 'var(--ink)' }}>Lien expiré</h1>
-      <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink-2)' }}>
-        Ce lien a déjà servi ou n’est plus valable. Indiquez votre adresse pour en recevoir un nouveau.
-      </p>
+      <h1 style={{ fontSize: 22, color: 'var(--ink)' }}>{titre}</h1>
+      {jetonJamaisArrive ? (
+        <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink-2)' }}>
+          Ce lien est arrivé sans sa clé de connexion. C’est fréquent lorsqu’il est ouvert depuis
+          l’application Gmail, Facebook ou Messenger&nbsp;: <strong>ouvrez-le dans votre navigateur</strong>{' '}
+          (Chrome, Safari…) plutôt que dans l’application. Vous pouvez aussi en demander un nouveau ci-dessous.
+        </p>
+      ) : (
+        <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink-2)' }}>
+          Ce lien a déjà servi ou n’est plus valable. Indiquez votre adresse pour en recevoir un nouveau.
+          {erreurFragmentAuth?.description && (
+            <>
+              {' '}
+              <span style={{ color: 'var(--muted)' }}>({erreurFragmentAuth.description})</span>
+            </>
+          )}
+        </p>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
         <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>E-mail</label>
         <input
