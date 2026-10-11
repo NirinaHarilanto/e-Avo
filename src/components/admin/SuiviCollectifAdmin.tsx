@@ -95,7 +95,11 @@ export function SuiviCollectifAdmin() {
       supabase.from('prospects').select('id, prenom, nom, email, statut, type_programme').eq('type_programme', 'collectif'),
       supabase.from('test_positionnement_inscriptions').select('prospect_id, creneau_id, niveau_estime, niveau_final, score, total, created_at'),
       supabase.from('creneaux_test_positionnement').select('id, debut, cohort_id'),
-      supabase.from('profiles').select('id, prospect_id').not('prospect_id', 'is', null),
+      // `status` : exclut un compte supprimé (soft-delete, voir supprimer-utilisateur.ts) du
+      // suivi — demande client du 2026-10-11. `prenom`/`nom`/`email` : source de vérité une fois
+      // converti, le panneau Informations personnelles écrivant dans `profiles`, jamais dans
+      // `prospects` (voir construireSuiviCollectif).
+      supabase.from('profiles').select('id, prospect_id, prenom, nom, email, status').not('prospect_id', 'is', null),
       supabase.from('cohort_enrollments').select('student_id, cohort_id, cohort_class_id'),
       supabase.from('cohort_classes').select('id, nom, niveau'),
       supabase.from('student_payments').select('prospect_id, student_id, montant, montant_regle').is('supprime_le', null),

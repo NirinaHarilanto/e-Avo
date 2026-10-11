@@ -20,6 +20,13 @@ function prospect(id: string, statut: 'prospect' | 'diagnostic_planifie' | 'diag
   return { id, prenom: 'Berndar', nom: 'Bensas', email: 'b@x.test', statut, type_programme: 'collectif' as const }
 }
 
+/* Profil actif par défaut : un étudiant converti ordinaire, pas encore retouché par l'admin.
+   `extra` permet de ne surcharger que ce qui compte pour chaque test (status suspendu, nom
+   corrigé…) sans répéter les cinq champs à chaque fois. */
+function profilActif(id: string, prospectId: string, extra: Partial<{ prenom: string | null; nom: string | null; email: string | null; status: string }> = {}) {
+  return { id, prospect_id: prospectId, prenom: null, nom: null, email: null, status: 'approved', ...extra }
+}
+
 describe('construireSuiviCollectif', () => {
   it('ne retient que les candidats du programme collectif', () => {
     const lignes = construireSuiviCollectif({
@@ -91,7 +98,7 @@ describe('construireSuiviCollectif', () => {
         { prospect_id: 'p1', creneau_id: 'c1', niveau_estime: 'A1 (débutant)', niveau_final: 'A2', score: 2, total: 10, created_at: '2026-10-01' },
       ],
       creneaux: [{ id: 'c1', debut: '2026-10-17T05:00:00Z', cohort_id: 'vague-nov' }],
-      profils: [{ id: 'profil-1', prospect_id: 'p1' }],
+      profils: [profilActif('profil-1', 'p1')],
       inscriptionsVagues: [{ student_id: 'profil-1', cohort_id: 'vague-nov', cohort_class_id: 'classe-1' }],
       classes: [{ id: 'classe-1', nom: 'CLASSE 1', niveau: 'beginner' }],
     })
@@ -108,18 +115,84 @@ describe('construireSuiviCollectif', () => {
     const [ligne] = construireSuiviCollectif({
       ...BASE,
       prospects: [prospect('p1', 'etudiant')],
-      profils: [{ id: 'profil-1', prospect_id: 'p1' }],
+      profils: [profilActif('profil-1', 'p1')],
       inscriptionsVagues: [{ student_id: 'profil-1', cohort_id: 'vague-nov', cohort_class_id: null }],
     })
     expect(ligne.vagueId).toBe('vague-nov')
     expect(ligne.classe).toBeNull()
   })
 
+  /* Capture client du 2026-10-11 : « bensaloc et sandra ont déjà été supprimés [...] dans la
+     section Étudiants. Ils devraient être également supprimés de la section cours collectifs ». */
+  describe('étudiant supprimé', () => {
+    it('disparaît du suivi quand son compte a été supprimé (profil suspendu)', () => {
+      const lignes = construireSuiviCollectif({
+        ...BASE,
+        prospects: [prospect('p1', 'etudiant')],
+        profils: [profilActif('profil-1', 'p1', { status: 'suspended' })],
+      })
+      expect(lignes).toEqual([])
+    })
+
+    it('disparaît aussi si son profil a tout bonnement disparu de la liste fournie', () => {
+      // Même défensive que la policy RLS : un profil absent doit se comporter comme un profil
+      // suspendu, pas planter sur un champ `undefined`.
+      const lignes = construireSuiviCollectif({ ...BASE, prospects: [prospect('p1', 'etudiant')] })
+      expect(lignes).toEqual([])
+    })
+
+    it('ne touche pas un candidat jamais converti (aucun profil n’a jamais existé)', () => {
+      const lignes = construireSuiviCollectif({ ...BASE, prospects: [prospect('p1', 'prospect')] })
+      expect(lignes).toHaveLength(1)
+    })
+
+    it('n’exclut pas un étudiant converti dont le compte est actif', () => {
+      const lignes = construireSuiviCollectif({
+        ...BASE,
+        prospects: [prospect('p1', 'etudiant')],
+        profils: [profilActif('profil-1', 'p1')],
+      })
+      expect(lignes).toHaveLength(1)
+    })
+  })
+
+  /* Capture client du 2026-10-11 : « j'ai déjà modifié le prénom de bernard depuis ses
+     informations personnelles dans la section étudiant. Pourquoi ce n'est pas pris en compte
+     dans la section cours collectif ». `InformationsPersonnelles.tsx` écrit dans `profiles`,
+     jamais dans `prospects` — le suivi doit donc lire le profil une fois qu'il existe. */
+  describe('identité tenue à jour', () => {
+    it('affiche le nom du PROFIL une fois converti, pas l’instantané figé du prospect', () => {
+      const [ligne] = construireSuiviCollectif({
+        ...BASE,
+        prospects: [prospect('p1', 'etudiant')],
+        profils: [profilActif('profil-1', 'p1', { prenom: 'Bernard', nom: 'Bensas', email: 'bernard@corrige.test' })],
+      })
+      expect(ligne.nom).toBe('Bernard Bensas')
+      expect(ligne.email).toBe('bernard@corrige.test')
+    })
+
+    it('retombe sur le prospect tant qu’aucun profil n’existe encore', () => {
+      const [ligne] = construireSuiviCollectif({ ...BASE, prospects: [prospect('p1', 'prospect')] })
+      expect(ligne.nom).toBe('Berndar Bensas')
+      expect(ligne.email).toBe('b@x.test')
+    })
+
+    it('retombe sur le prospect si un champ du profil est resté vide', () => {
+      const [ligne] = construireSuiviCollectif({
+        ...BASE,
+        prospects: [prospect('p1', 'etudiant')],
+        profils: [profilActif('profil-1', 'p1', { prenom: null, nom: null, email: null })],
+      })
+      expect(ligne.nom).toBe('Berndar Bensas')
+      expect(ligne.email).toBe('b@x.test')
+    })
+  })
+
   describe('frais d’inscription', () => {
     const converti = {
       ...BASE,
       prospects: [prospect('p1', 'etudiant')],
-      profils: [{ id: 'profil-1', prospect_id: 'p1' }],
+      profils: [profilActif('profil-1', 'p1')],
     }
 
     it('distingue réglé, attendu et rien du tout', () => {

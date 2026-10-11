@@ -44,6 +44,14 @@ export interface CreneauSuivi {
 export interface ProfilSuivi {
   id: string
   prospect_id: string | null
+  prenom: string | null
+  nom: string | null
+  email: string | null
+  /* `'suspended'` : compte supprimé par l'admin (api/admin/supprimer-utilisateur.ts) — un
+     soft-delete qui laisse la ligne `profiles` en place (l'historique financier en a besoin) mais
+     retire la personne de toute liste active, dans toute l'application (`useEtudiants()` filtre
+     déjà sur ce même statut). Le suivi doit obéir à la même règle. */
+  status: string
 }
 
 export interface InscriptionVagueSuivi {
@@ -135,7 +143,13 @@ export function construireSuiviCollectif(donnees: {
 }): LigneSuiviCollectif[] {
   const creneauParId = new Map(donnees.creneaux.map((c) => [c.id, c]))
   const classeParId = new Map(donnees.classes.map((c) => [c.id, c]))
-  const profilParProspect = new Map(donnees.profils.filter((p) => p.prospect_id).map((p) => [p.prospect_id as string, p]))
+  /* Un profil suspendu (compte supprimé) est exclu de cette table comme s'il n'existait pas :
+     c'est à la fois ce qui fait disparaître un étudiant supprimé du suivi (voir le filtre plus
+     bas) et ce qui évite de rattacher sa vague/classe/paiements à une ligne qui ne devrait plus
+     apparaître. */
+  const profilParProspect = new Map(
+    donnees.profils.filter((p) => p.prospect_id && p.status !== 'suspended').map((p) => [p.prospect_id as string, p]),
+  )
   const vagueParEtudiant = new Map(donnees.inscriptionsVagues.map((i) => [i.student_id, i]))
 
   /* La plus RÉCENTE inscription au test fait foi : un candidat qui a reporté son oral en a
@@ -151,12 +165,30 @@ export function construireSuiviCollectif(donnees: {
 
   return donnees.prospects
     .filter((p) => p.type_programme === 'collectif')
+    /* Un candidat converti puis supprimé (`prospects.statut` reste 'etudiant' pour toujours : la
+       suppression d'un compte ne retouche jamais cette table, voir supprimer-utilisateur.ts) n'a
+       plus de profil actif en face. Capture client du 2026-10-11 : « ils devraient être
+       également supprimés [...] des autres sections de toute l'application » — exactement ce que
+       fait ce filtre, par cohérence avec `useEtudiants()` ailleurs dans l'app. Un prospect qui
+       n'a jamais été converti n'a jamais eu de profil non plus : ce filtre ne le concerne pas,
+       seul `statut === 'etudiant'` sans profil actif déclenche l'exclusion. */
+    .filter((p) => p.statut !== 'etudiant' || profilParProspect.has(p.id))
     .map((prospect) => {
       const inscription = inscriptionParProspect.get(prospect.id)
       const creneau = inscription ? creneauParId.get(inscription.creneau_id) : undefined
       const profil = profilParProspect.get(prospect.id)
       const inscriptionVague = profil ? vagueParEtudiant.get(profil.id) : undefined
       const classe = inscriptionVague?.cohort_class_id ? classeParId.get(inscriptionVague.cohort_class_id) : undefined
+
+      /* Identité résolue en priorité depuis le PROFIL une fois converti : c'est lui que l'admin
+         modifie ensuite (panneau Informations personnelles, qui n'écrit jamais dans `prospects`).
+         Capture client du 2026-10-11 : un prénom corrigé côté Étudiants restait invisible ici,
+         le suivi affichant toujours l'instantané figé pris à la conversion. Repli sur le prospect
+         tant qu'aucun profil n'existe encore (candidat pas converti) ou si un champ du profil est
+         resté vide. */
+      const prenom = profil?.prenom?.trim() || prospect.prenom
+      const nom = profil?.nom?.trim() || prospect.nom
+      const email = profil?.email?.trim() || prospect.email
 
       /* Les frais sont rattachés au prospect ET à l'étudiant (voir convert-prospect.ts) : les
          deux clés sont donc interrogées, et une même ligne ne doit être comptée qu'une fois. */
@@ -173,8 +205,8 @@ export function construireSuiviCollectif(donnees: {
       return {
         prospectId: prospect.id,
         profilId: profil?.id ?? null,
-        nom: nomComplet(prospect.prenom, prospect.nom),
-        email: prospect.email,
+        nom: nomComplet(prenom, nom),
+        email,
         etape: prospect.statut,
         sessionOrale: creneau?.debut ?? null,
         vagueId,
