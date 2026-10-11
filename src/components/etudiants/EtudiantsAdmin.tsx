@@ -13,7 +13,7 @@ import { AjouterForfaitModale } from './AjouterForfaitModale'
 import { useDemandesForfait } from '../../hooks/useDemandesForfait'
 import { PlanifierSeancesForfait } from './PlanifierSeancesForfait'
 import { DossierEtudiantVue } from './DossierEtudiantVue'
-import { CarteListeEtudiant } from './CarteListeEtudiant'
+import { CarteListeEtudiant, TagDossierIncomplet } from './CarteListeEtudiant'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
 import { PanneauInformationsDuo, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
 import { SupprimerCompte } from '../shared/SupprimerCompte'
@@ -190,7 +190,6 @@ export function EtudiantsAdmin() {
                 onClick={() => navigate(`/admin/etudiants/${etudiant.id}`)}
                 programme={programmes[etudiant.id]}
                 statutContrat={statutsContrats[etudiant.id]}
-                dossierIncomplet={(secondaire ? [etudiant, secondaire] : [etudiant]).some((m) => !informationsPersonnellesCompletes(m))}
               />
             )
           })}
@@ -235,11 +234,20 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
   const forfait = dossier.packages[0] ?? null
   const { etudiant } = dossier
   const heuresRestantes = calculerHeuresRestantes(dossier.packages, dossier.heuresConsommees)
+  /* Dossier incomplet en toutes lettres dans l'en-tête de la fiche (déplacé depuis la carte de
+     la liste le 2026-10-11, capture client) : même source que ce que calculait la liste pour
+     chaque bloc, mais ici sur le binôme réel du dossier ouvert. */
+  const dossierIncomplet = (dossier.duoPartenaire ? [etudiant, dossier.duoPartenaire] : [etudiant]).some((m) => !informationsPersonnellesCompletes(m))
 
   return (
     <DossierEtudiantVue
       dossier={dossier}
-      badgesSupplementaires={statutsContrats[studentId] && <BadgeStatutContrat statut={statutsContrats[studentId]} />}
+      badgesSupplementaires={
+        <>
+          {statutsContrats[studentId] && <BadgeStatutContrat statut={statutsContrats[studentId]} />}
+          {dossierIncomplet && <TagDossierIncomplet />}
+        </>
+      }
       panneauProfesseur={
         <AttribuerProfesseur
           studentId={etudiant.id}

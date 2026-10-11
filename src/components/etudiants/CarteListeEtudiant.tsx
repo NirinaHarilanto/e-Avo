@@ -3,7 +3,6 @@ import type { ProgrammeEtudiant } from '../../hooks/useTypesProgrammeEtudiants'
 import type { StatutSignatureContrat } from '../shared/BadgeStatutContrat'
 import { BadgeStatutContrat } from '../shared/BadgeStatutContrat'
 import { libelleStatutProfil } from '../../lib/statutProfil'
-import { initiales } from './DossierEtudiantVue'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -24,28 +23,28 @@ export function TagProgramme({ programme }: { programme: ProgrammeEtudiant }) {
   )
 }
 
-/* Signale, dans la liste de gauche, un étudiant dont les informations personnelles (téléphone,
-   adresse, ville — voir informationsPersonnellesCompletes) sont
-   encore incomplètes. Même vocabulaire de couleur que BadgeStatutContrat côté « en attente » :
-   ambre, pas rouge — ce n'est pas bloquant, seulement à surveiller avant de générer un contrat
-   ou une facture. Libellé raccourci le 2026-10-11 (« trop d'informations », capture client) : le
-   mot complet reste au survol. */
+/* Signale, dans l'en-tête de la fiche de l'étudiant, des informations personnelles (téléphone,
+   adresse, ville — voir informationsPersonnellesCompletes) encore incomplètes. Même vocabulaire
+   de couleur que BadgeStatutContrat côté « en attente » : ambre, pas rouge — ce n'est pas
+   bloquant, seulement à surveiller avant de générer un contrat ou une facture. Déplacé de la
+   carte de la liste vers la fiche le 2026-10-11 (capture client, « le badge incomplet, il faut
+   le mettre sur la fiche étudiant ») : là où il y a la place pour l'écrire en toutes lettres,
+   même gabarit que les badges « Actif »/« Anglais » voisins (DossierEtudiantVue.tsx). */
 export function TagDossierIncomplet() {
   return (
     <span
-      title="Dossier à compléter"
       style={{
-        fontSize: 10,
+        fontSize: 11.5,
         fontWeight: 700,
         color: 'var(--warning)',
         background: 'rgba(233,207,148,.12)',
         border: '1px solid rgba(233,207,148,.32)',
         borderRadius: 999,
-        padding: '2px 8px',
+        padding: '4px 11px',
         whiteSpace: 'nowrap',
       }}
     >
-      Incomplet
+      Dossier incomplet
     </span>
   )
 }
@@ -84,32 +83,29 @@ interface CarteListeEtudiantProps {
   onClick: () => void
   programme?: ProgrammeEtudiant | null
   statutContrat?: StatutSignatureContrat
-  dossierIncomplet?: boolean
   /* Élève transféré à un autre professeur, vu depuis l'espace de son ANCIEN professeur (date du
      transfert). La carte est alors estompée et porte le tag « Ancien élève » — même bloc de liste
      que les élèves en cours, plutôt qu'un rendu parallèle qui divergeait au fil des retouches. */
   ancienEleve?: { transfereLe: string } | null
 }
 
-/* Bloc d'une ligne de liste étudiant — identité, statut, binôme DUO regroupé et badges du
-   dossier. Un seul composant, partagé par l'espace admin (EtudiantsAdmin.tsx) ET l'espace
-   professeur (EtudiantsProfesseur.tsx) plutôt que deux rendus qui divergent au fil du temps —
-   demande client du 2026-09-23, « il faut que le bloc étudiant dans l'espace admin soit repris
-   exactement » côté professeur.
+/* Bloc d'une ligne de liste étudiant — identité et badges du dossier. Un seul composant, partagé
+   par l'espace admin (EtudiantsAdmin.tsx) ET l'espace professeur (EtudiantsProfesseur.tsx)
+   plutôt que deux rendus qui divergent au fil du temps — demande client du 2026-09-23, « il faut
+   que le bloc étudiant dans l'espace admin soit repris exactement » côté professeur.
 
-   Structure TOUJOURS en colonne (`flexDirection: 'column'`), quel que soit le cas (seul ou
-   DUO) : la ligne [avatar + nom] occupe TOUTE la largeur du bloc sur sa propre ligne, les badges
-   (forfait, contrat, dossier…) viennent EN DESSOUS sur leur propre ligne — jamais côte à côte.
-   Exigence redite trois fois par le client (2026-09-21, 2026-09-23 ×2) : un précédent réglage
-   gardait `flexDirection: 'row'` pour le cas non-DUO, ce qui partageait la largeur entre le nom
-   et les badges sur une seule ligne et tronquait le nom en « ETU... » pour faire de la place —
-   visible sur une liste étroite (barre latérale ~260px). Nom et prénom restent sur une seule
-   ligne (`whiteSpace: nowrap` + `textOverflow: ellipsis`, `minWidth: 0` sur toute la chaîne de
-   conteneurs flex parents), mais disposent maintenant de la largeur ENTIÈRE du bloc pour ça. */
-export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick, programme, statutContrat, dossierIncomplet, ancienEleve }: CarteListeEtudiantProps) {
-  const membres = secondaire ? [principal, secondaire] : [principal]
-  const nomGroupe = principal.duo_nom_groupe || secondaire?.duo_nom_groupe || (secondaire ? `${principal.prenom} & ${secondaire.prenom}` : null)
+   Épuré une seconde fois le 2026-10-11 (capture client) : plus d'avatar à initiales (« pas du
+   tout utile »), plus de statut « Actif » affiché (déjà visible dans la fiche — réapparaît
+   seulement si l'étudiant N'EST PAS actif, le seul cas où l'information manque ailleurs dans la
+   liste), et un binôme DUO ne montre plus le détail des deux membres (noms complets, avatars,
+   statuts) : juste « Prénom1/Prénom2 » + le badge DUO + le glyphe de contrat, sur une seule
+   ligne — le détail complet reste dans la fiche du binôme. Le dossier incomplet n'apparaît plus
+   du tout ici, déplacé dans la fiche (TagDossierIncomplet, utilisé par EtudiantsAdmin.tsx /
+   EtudiantsProfesseur.tsx via badgesSupplementaires).
 
+   Le nom se tronque en premier (`whiteSpace: nowrap` + ellipsis, `minWidth: 0` sur toute la
+   chaîne de conteneurs flex parents) si la place manque, jamais les badges (`flexShrink: 0`). */
+export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick, programme, statutContrat, ancienEleve }: CarteListeEtudiantProps) {
   return (
     <button
       onClick={onClick}
@@ -124,7 +120,7 @@ export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'stretch',
-        gap: 6,
+        gap: 4,
         cursor: 'pointer',
         color: 'inherit',
         width: '100%',
@@ -134,48 +130,32 @@ export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick
         opacity: ancienEleve ? 0.68 : 1,
       }}
     >
-      {nomGroupe && (
-        <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--accent-gold, #e9cf94)' }}>
-          Duo · {nomGroupe}
+      {secondaire ? (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, width: '100%' }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+            {principal.prenom}/{secondaire.prenom}
+          </span>
+          {programme && <TagProgramme programme={programme} />}
+          {statutContrat && <BadgeStatutContrat statut={statutContrat} glyphe />}
+        </span>
+      ) : (
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, width: '100%' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+              {principal.prenom} {principal.nom}
+            </span>
+            {programme && <TagProgramme programme={programme} />}
+            {statutContrat && <BadgeStatutContrat statut={statutContrat} glyphe />}
+          </span>
+          {principal.status !== 'approved' && (
+            <span style={{ fontSize: 10.5, color: principal.status === 'en_pause' ? 'var(--warning)' : 'var(--muted)' }}>
+              {libelleStatutProfil(principal.status)}
+            </span>
+          )}
         </span>
       )}
 
-      {/* Nom et badges (programme, contrat) sur LA MÊME ligne — demande client du 2026-10-11,
-          capture à l'appui : « il y a trop d'informations [...] il faut que le nom et les
-          badges tiennent sur une ligne ». Le nom se tronque en premier (`minWidth: 0` +
-          ellipsis) si la place manque, jamais les badges (`flexShrink: 0`) — c'est tout
-          l'intérêt de les avoir réduits à un mot court ou un glyphe. Pour un binôme DUO, ces
-          deux badges sont communs au principal et ne s'affichent qu'une fois, sous les deux
-          noms (pas de place sur une ligne à deux avatars), jamais par membre. */}
-      {membres.map((membre) => (
-        <div key={membre.id} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, width: '100%' }}>
-          <span style={{ width: secondaire ? 26 : 30, height: secondaire ? 26 : 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: secondaire ? 10.5 : 11.5, fontWeight: 800, flexShrink: 0 }}>
-            {initiales(membre)}
-          </span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-                {membre.prenom} {membre.nom}
-              </span>
-              {!secondaire && programme && <TagProgramme programme={programme} />}
-              {!secondaire && statutContrat && <BadgeStatutContrat statut={statutContrat} glyphe />}
-            </span>
-            <span style={{ fontSize: 10.5, color: membre.status === 'en_pause' ? 'var(--warning)' : 'var(--muted)' }}>{libelleStatutProfil(membre.status)}</span>
-          </div>
-        </div>
-      ))}
-
-      {/* Pour un binôme : les mêmes badges, communs aux deux, faute de place sur la ligne de
-          chaque nom. Dossier incomplet et « ancien élève » restent toujours à part : ce sont
-          des signaux d'exception, pas des attributs systématiques comme le programme. */}
-      {(secondaire && (programme || statutContrat)) || dossierIncomplet || ancienEleve ? (
-        <span style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-          {ancienEleve && <TagAncienEleve transfereLe={ancienEleve.transfereLe} />}
-          {secondaire && programme && <TagProgramme programme={programme} />}
-          {secondaire && statutContrat && <BadgeStatutContrat statut={statutContrat} glyphe />}
-          {dossierIncomplet && <TagDossierIncomplet />}
-        </span>
-      ) : null}
+      {ancienEleve && <TagAncienEleve transfereLe={ancienEleve.transfereLe} />}
     </button>
   )
 }

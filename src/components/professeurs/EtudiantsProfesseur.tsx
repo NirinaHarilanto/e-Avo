@@ -10,7 +10,7 @@ import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSigna
 import { useTypesProgrammeEtudiants } from '../../hooks/useTypesProgrammeEtudiants'
 import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
 import { DossierEtudiantVue } from '../etudiants/DossierEtudiantVue'
-import { CarteListeEtudiant, TagAncienEleve } from '../etudiants/CarteListeEtudiant'
+import { CarteListeEtudiant, TagAncienEleve, TagDossierIncomplet } from '../etudiants/CarteListeEtudiant'
 import { PanneauInformationsDuo, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
 import { SyntheseComptesRendus } from '../shared/SyntheseComptesRendus'
 import { EnTetePage } from '../ui/EnTetePage'
@@ -134,7 +134,6 @@ export function EtudiantsProfesseur() {
                 onClick={() => navigate(`/professeur/etudiants/${etudiant.id}`)}
                 programme={programmes[etudiant.id]}
                 statutContrat={statutsContrats[etudiant.id]}
-                dossierIncomplet={(secondaire ? [etudiant, secondaire] : [etudiant]).some((m) => !informationsPersonnellesCompletes(m))}
               />
             )
           })}
@@ -197,6 +196,11 @@ function DossierPanel({ studentId, transfereLe }: { studentId: string; transfere
      échouer. Le collectif (vague) n'a pas de forfait/planning individuel — hors de portée ici,
      comme côté admin : voir CoursCollectifsProfesseur.tsx pour son propre planning de vague. */
   const estProfesseurActuel = dossier.periodeActuelle?.professeur?.id === profile?.id
+  /* Dossier incomplet en toutes lettres dans l'en-tête de la fiche (déplacé depuis la carte de
+     la liste le 2026-10-11, capture client) — même source que la liste, sur le binôme réel. */
+  const dossierIncomplet = (dossier.duoPartenaire ? [dossier.etudiant, dossier.duoPartenaire] : [dossier.etudiant]).some(
+    (m) => !informationsPersonnellesCompletes(m),
+  )
 
   return (
     <DossierEtudiantVue
@@ -204,7 +208,12 @@ function DossierPanel({ studentId, transfereLe }: { studentId: string; transfere
       panneauInformations={
         <PanneauInformationsDuo etudiant={dossier.etudiant} duoPartenaire={dossier.duoPartenaire} onChange={() => {}} lectureSeule />
       }
-      badgesSupplementaires={transfereLe ? <TagAncienEleve transfereLe={transfereLe} /> : undefined}
+      badgesSupplementaires={
+        <>
+          {transfereLe && <TagAncienEleve transfereLe={transfereLe} />}
+          {dossierIncomplet && <TagDossierIncomplet />}
+        </>
+      }
       panneauSynthese={
         /* Portée « mes cours » : la RLS de `session_reports` (0033) ne donne au professeur que les
            comptes rendus dont il est l'auteur — la fenêtre le dit explicitement plutôt que de
