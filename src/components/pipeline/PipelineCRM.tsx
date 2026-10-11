@@ -16,6 +16,7 @@ import { FormulaireDiagnosticCall } from '../prospects/FormulaireDiagnosticCall'
 import { SupprimerProspect } from '../prospects/SupprimerProspect'
 import { PlanifierAppelDiagnosticModale } from '../admin/PlanifierAppelDiagnosticModale'
 import { DetailPaiementModale } from '../paiements/DetailPaiementModale'
+import { FraisInscriptionCollectifModale, type FraisInscription } from '../prospects/FraisInscriptionCollectifModale'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
 import { formaterMontant, resteAPayer, statutReglement } from '../../lib/paiements'
 import { useTarifs } from '../../hooks/useTarifs'
@@ -47,6 +48,10 @@ export function PipelineCRM() {
   useRafraichirSurNotification(derniereNotification, ['rendez_vous_demande', 'test_positionnement'], recharger)
   const [colonneSurvolee, setColonneSurvolee] = useState<ProspectStatut | null>(null)
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
+  /* Candidat collectif dont la conversion attend la saisie de ses frais d'inscription (2026-10-11). */
+  const [fraisPour, setFraisPour] = useState<ProspectAvecDiagnostic | null>(null)
+  const [conversionEnCours, setConversionEnCours] = useState(false)
+  const [erreurFrais, setErreurFrais] = useState<string | null>(null)
 
   // Mutation de statut centralisée : utilisée aussi bien par le glisser-déposer que par les
   // actions rapides des cartes, pour ne jamais dupliquer la logique de transition (conversion
@@ -75,6 +80,16 @@ export function PipelineCRM() {
       ) {
         return false
       }
+      /* Cours collectifs : les frais d'inscription s'enregistrent AVANT la conversion (demande
+         client du 2026-10-11), et le serveur refuse de convertir sans eux. La fenêtre de saisie
+         est la même que dans Cours collectifs › Session orale — sans ce détour, un candidat
+         collectif saisi directement ici, sans passer par une session orale, serait devenu
+         inconvertible. La conversion reprend dans `convertirCollectif` une fois le montant validé. */
+      if (prospect.type_programme === 'collectif') {
+        setFraisPour(prospect)
+        return false
+      }
+
       const reponse = await fetch('/api/admin/convert-prospect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -154,6 +169,34 @@ export function PipelineCRM() {
         if (!(await changerStatut(prospect, statutCible, true))) return
       }
     }, 0)
+  }
+
+  /* Deuxième temps de la conversion d'un candidat collectif : les frais saisis, on repart sur la
+     même route que les autres programmes, qui les enregistre dans le même geste. */
+  async function convertirCollectif(prospect: ProspectAvecDiagnostic, frais: FraisInscription) {
+    if (!session) return
+    setConversionEnCours(true)
+    setErreurFrais(null)
+    const reponse = await fetch('/api/admin/convert-prospect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        prospectId: prospect.id,
+        montantFrais: frais.montant,
+        fraisRegles: frais.regle,
+        moyenPaiement: frais.moyenPaiement || undefined,
+        referencePaiement: frais.reference || undefined,
+        notesPaiement: frais.notes || undefined,
+      }),
+    })
+    setConversionEnCours(false)
+    if (!reponse.ok) {
+      const corps = await reponse.json().catch(() => null)
+      setErreurFrais(corps?.error ?? 'La conversion a échoué.')
+      return
+    }
+    setFraisPour(null)
+    recharger()
   }
 
   return (
@@ -301,6 +344,25 @@ export function PipelineCRM() {
             )
           })}
         </div>
+      )}
+
+      {fraisPour && (
+        <FraisInscriptionCollectifModale
+          nomCandidat={`${fraisPour.prenom} ${fraisPour.nom}`}
+          /* Pas de test oral derrière une conversion faite depuis le pipeline : le niveau connu
+             est celui qu'a noté l'appel diagnostic, à défaut rien — l'admin saisit alors le
+             montant lui-même. */
+          niveau={fraisPour.diagnostic?.niveau_evalue ?? null}
+          etablissementId={profile?.etablissement_id}
+          enCours={conversionEnCours}
+          erreur={erreurFrais}
+          onFermer={() => {
+            if (conversionEnCours) return
+            setFraisPour(null)
+            setErreurFrais(null)
+          }}
+          onValider={(frais) => convertirCollectif(fraisPour, frais)}
+        />
       )}
 
       {formulaireOuvert && profile && (

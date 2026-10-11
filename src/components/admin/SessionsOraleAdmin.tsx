@@ -10,7 +10,8 @@ import { Champ, champStyle, etiquetteStyle } from '../ui/Champ'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
-import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
+import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, NIVEAUX_CECRL } from '../../lib/classesCollectif'
+import { FraisInscriptionCollectifModale, type FraisInscription } from '../prospects/FraisInscriptionCollectifModale'
 import { Modale } from '../ui/Modale'
 import { Icone } from '../ui/Icones'
 import { ChampDate } from '../ui/ChampDate'
@@ -57,7 +58,15 @@ export function SessionsOraleAdmin() {
   const [creneauEnEdition, setCreneauEnEdition] = useState<CreneauTest | null>(null)
   const [inscritsOuvertPour, setInscritsOuvertPour] = useState<CreneauTest | null>(null)
   const [bilanOuvert, setBilanOuvert] = useState<CandidatInscrit | null>(null)
-  const [candidatPourResultats, setCandidatPourResultats] = useState<CandidatInscrit | null>(null)
+  /* Conversion en deux étapes depuis le 2026-10-11 : les résultats de l'oral, puis les frais
+     d'inscription — dont le montant dépend du niveau qui vient d'être arrêté. Un seul état porte
+     les deux, pour que revenir en arrière restitue la saisie au lieu de la perdre. Rien n'est
+     écrit en base tant que la seconde étape n'est pas validée. */
+  const [conversion, setConversion] = useState<{
+    candidat: CandidatInscrit
+    etape: 'resultats' | 'frais'
+    resultats?: { niveau: string; profilDetaille: string; objectifs: string }
+  } | null>(null)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [messageConversion, setMessageConversion] = useState<string | null>(null)
@@ -178,9 +187,13 @@ export function SessionsOraleAdmin() {
     charger()
   }
 
+  /* Conversion en deux temps depuis le 2026-10-11 : les résultats de l'oral d'abord, les frais
+     d'inscription ensuite — ces derniers dépendent du niveau qui vient d'être arrêté. Rien n'est
+     écrit tant que les deux fenêtres ne sont pas validées. */
   async function validerResultatsEtConvertir(
     candidat: CandidatInscrit,
     resultats: { niveau: string; profilDetaille: string; objectifs: string },
+    frais: FraisInscription,
   ) {
     if (!session || !candidat.prospect || !profile) return
     setEnCours(true)
@@ -201,23 +214,36 @@ export function SessionsOraleAdmin() {
       return
     }
 
-    const { data, error } = await appelServeur('/api/admin/convert-prospect', { prospectId: candidat.prospect.id })
+    const { data, error } = await appelServeur('/api/admin/convert-prospect', {
+      prospectId: candidat.prospect.id,
+      niveauFinal: resultats.niveau.trim() || undefined,
+      montantFrais: frais.montant,
+      fraisRegles: frais.regle,
+      moyenPaiement: frais.moyenPaiement || undefined,
+      referencePaiement: frais.reference || undefined,
+      notesPaiement: frais.notes || undefined,
+    })
     setEnCours(false)
     if (error) {
       setErreur(error)
       return
     }
     const resultat = data as { niveauDetecte?: NiveauClasse | null; classeAssignee?: string | null } | undefined
+    const fraisDit = frais.regle
+      ? `Frais d’inscription encaissés : ${frais.montant.toLocaleString('fr-FR')} Ar.`
+      : `Frais d’inscription à encaisser : ${frais.montant.toLocaleString('fr-FR')} Ar (en attente).`
     if (resultat?.niveauDetecte) {
       setMessageConversion(
         resultat.classeAssignee
-          ? `Niveau détecté : ${LABEL_NIVEAU_CLASSE[resultat.niveauDetecte]} · classe assignée automatiquement.`
-          : `Niveau détecté : ${LABEL_NIVEAU_CLASSE[resultat.niveauDetecte]} · aucune classe disponible (complète ou inexistante), à créer ou compléter depuis l'onglet Vagues.`,
+          ? `Niveau retenu : ${LABEL_NIVEAU_CLASSE[resultat.niveauDetecte]} · classe assignée automatiquement. ${fraisDit}`
+          : `Niveau retenu : ${LABEL_NIVEAU_CLASSE[resultat.niveauDetecte]} · aucune classe disponible (complète ou inexistante), à créer ou compléter depuis l'onglet Vagues. ${fraisDit}`,
       )
     } else {
-      setMessageConversion("Niveau non déterminé (quiz non passé ou non concluant) : affectez la classe à la main depuis le dossier de l'élève.")
+      setMessageConversion(
+        `Niveau non déterminé : affectez la classe à la main depuis le dossier de l'élève. ${fraisDit}`,
+      )
     }
-    setCandidatPourResultats(null)
+    setConversion(null)
     charger()
   }
 
@@ -415,7 +441,7 @@ export function SessionsOraleAdmin() {
                       <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-teal)' }}>Converti ✓</span>
                     ) : (
                       <button
-                        onClick={() => setCandidatPourResultats(candidat)}
+                        onClick={() => setConversion({ candidat, etape: 'resultats' })}
                         disabled={enCours || !candidat.prospect}
                         style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'transparent', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '5px 11px', cursor: 'pointer' }}
                       >
@@ -437,17 +463,39 @@ export function SessionsOraleAdmin() {
           </pre>
         </Modale>
       )}
-      {candidatPourResultats && (
+      {conversion?.etape === 'resultats' && (
         <ModaleResultatsTestOral
-          candidat={candidatPourResultats}
+          candidat={conversion.candidat}
+          valeursInitiales={conversion.resultats}
           enCours={enCours}
           erreur={erreur}
           onFermer={() => {
             if (enCours) return
-            setCandidatPourResultats(null)
+            setConversion(null)
             setErreur(null)
           }}
-          onValider={(resultats) => validerResultatsEtConvertir(candidatPourResultats, resultats)}
+          onValider={(resultats) => setConversion({ ...conversion, etape: 'frais', resultats })}
+        />
+      )}
+      {conversion?.etape === 'frais' && conversion.resultats && (
+        <FraisInscriptionCollectifModale
+          nomCandidat={
+            conversion.candidat.prospect
+              ? `${conversion.candidat.prospect.prenom} ${conversion.candidat.prospect.nom}`
+              : 'ce candidat'
+          }
+          niveau={conversion.resultats.niveau}
+          etablissementId={profile?.etablissement_id}
+          enCours={enCours}
+          erreur={erreur}
+          onFermer={() => {
+            if (enCours) return
+            /* Retour sur les résultats plutôt que fermeture sèche : l'admin vient de les saisir,
+               les lui faire reprendre pour corriger un montant serait une perte pure. */
+            setConversion({ ...conversion, etape: 'resultats' })
+            setErreur(null)
+          }}
+          onValider={(frais) => validerResultatsEtConvertir(conversion.candidat, conversion.resultats!, frais)}
         />
       )}
     </div>
@@ -541,31 +589,64 @@ function formaterNotesTestOral(profilDetaille: string, objectifs: string): strin
 
 function ModaleResultatsTestOral({
   candidat,
+  valeursInitiales,
   enCours,
   erreur,
   onFermer,
   onValider,
 }: {
   candidat: CandidatInscrit
+  /* Ce que l'admin avait déjà saisi, quand il revient ici depuis la fenêtre des frais : sans ça,
+     revenir en arrière pour corriger un niveau lui ferait reperdre son compte rendu d'oral. */
+  valeursInitiales?: { niveau: string; profilDetaille: string; objectifs: string }
   enCours: boolean
   erreur: string | null
   onFermer: () => void
   onValider: (resultats: { niveau: string; profilDetaille: string; objectifs: string }) => void
 }) {
-  const [niveau, setNiveau] = useState('')
-  const [profilDetaille, setProfilDetaille] = useState('')
-  const [objectifs, setObjectifs] = useState('')
+  /* Proposé au niveau du quiz écrit quand il en existe un : l'admin confirme d'un clic le cas le
+     plus fréquent (l'oral confirme l'écrit) et ne corrige que les autres. Repli sur le premier
+     niveau de la liste plutôt que sur un choix vide — le champ est obligatoire, et un « — » à
+     sélectionner n'apporterait rien de plus qu'un clic. */
+  const [niveau, setNiveau] = useState<string>(
+    valeursInitiales?.niveau ??
+      candidat.inscription.niveau_final ??
+      NIVEAUX_CECRL.find((n) => n === candidat.inscription.niveau_estime) ??
+      NIVEAUX_CECRL[0],
+  )
+  const [profilDetaille, setProfilDetaille] = useState(valeursInitiales?.profilDetaille ?? '')
+  const [objectifs, setObjectifs] = useState(valeursInitiales?.objectifs ?? '')
   const nom = candidat.prospect ? `${candidat.prospect.prenom} ${candidat.prospect.nom}` : 'ce candidat'
 
   return (
     <Modale titre={`Résultats du test oral · ${nom}`} onFermer={onFermer} largeurMax={520}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: 0, lineHeight: 1.55 }}>
-          Ces résultats sont enregistrés dans le dossier de l'élève (comme un appel diagnostic), puis {nom} est
-          converti·e en étudiant·e et rejoint automatiquement cette vague.
+          Ces résultats sont enregistrés dans le dossier de l'élève (comme un appel diagnostic). L'étape suivante
+          enregistre ses frais d'inscription, puis {nom} devient étudiant·e et rejoint automatiquement cette vague, dans
+          la classe de son niveau.
         </p>
-        <Champ label="Niveau d'anglais" aide="Ex. B1, Intermédiaire…">
-          <input value={niveau} onChange={(e) => setNiveau(e.target.value)} placeholder="Niveau déterminé à l'oral" style={champStyle} />
+        {/* Liste déroulante et non plus saisie libre — demande client du 2026-10-11 : « mets le
+            niveau d'anglais en liste déroulante pour faciliter la sélection et la compréhension ».
+            Au-delà du confort, c'est ce qui garantit que le niveau saisi désigne bien une classe
+            ET un tarif : un « Intermédiaire » tapé à la main n'était reconnu par aucun des deux.
+            Pré-rempli avec le niveau du quiz écrit, que l'admin confirme ou corrige. */}
+        <Champ
+          label="Niveau d'anglais retenu"
+          obligatoire
+          aide={
+            candidat.inscription.niveau_estime
+              ? `Quiz écrit : ${candidat.inscription.niveau_estime} (${candidat.inscription.score}/${candidat.inscription.total}) — indicatif, c'est l'oral qui fait foi.`
+              : 'Le candidat n’a pas passé le quiz écrit.'
+          }
+        >
+          <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={champStyle}>
+            {NIVEAUX_CECRL.map((n) => (
+              <option key={n} value={n}>
+                {n} · classe {LABEL_NIVEAU_CLASSE[categorieDepuisNiveauEstime(n)!]}
+              </option>
+            ))}
+          </select>
         </Champ>
         <Champ label="Profil détaillé">
           <textarea value={profilDetaille} onChange={(e) => setProfilDetaille(e.target.value)} rows={3} style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }} />
@@ -584,7 +665,7 @@ function ModaleResultatsTestOral({
             className="btn-shine"
             style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: enCours ? 0.6 : 1 }}
           >
-            {enCours ? 'Enregistrement…' : 'Valider et convertir en étudiant'}
+            {enCours ? 'Enregistrement…' : 'Continuer vers les frais d’inscription'}
           </button>
         </div>
       </div>

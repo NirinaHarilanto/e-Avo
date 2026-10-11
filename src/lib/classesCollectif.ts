@@ -24,6 +24,16 @@ export const CAPACITE_MIN_CLASSE = 3
    (migration 0074) : il faut ouvrir une seconde classe du même niveau. */
 export const CAPACITE_MAX_CLASSE = 7
 
+/* Les cinq niveaux que rend le quiz écrit (`niveauEstime`, quiz.ts), dans l'ordre croissant.
+   **Ce sont aussi les seules valeurs que `categorieDepuisNiveauEstime` sait traduire en classe**,
+   d'où la liste partagée : le niveau final du test oral se choisit dans cette liste (demande
+   client du 2026-10-11, « mets le niveau d'anglais en liste déroulante ») et non plus en texte
+   libre. Une saisie libre laissait écrire « Intermédiaire », que le barème ci-dessous ne reconnaît
+   pas — le candidat était alors converti sans classe, à affecter à la main. */
+export const NIVEAUX_CECRL = ['A1 (débutant)', 'A2', 'B1', 'B2', 'C1'] as const
+
+export type NiveauCecrl = (typeof NIVEAUX_CECRL)[number]
+
 /* Barème convenu avec le client : le niveau CECRL du quiz écrit détermine automatiquement la
    classe de niveau, sans ressaisie. `null` quand le niveau n'est pas encore connu (candidat pas
    encore passé au quiz, ou test non concluant) — dans ce cas, aucune classe n'est proposée
@@ -41,4 +51,42 @@ export function categorieDepuisNiveauEstime(niveauEstime: string | null): Niveau
     default:
       return null
   }
+}
+
+/* Le niveau qui fait foi pour un candidat au collectif : celui que l'admin arrête à l'issue du
+   test ORAL, et seulement à défaut celui qu'a estimé le quiz écrit. L'ordre compte — le quiz
+   n'est qu'indicatif, il le dit lui-même au candidat (« le niveau définitif est fixé à l'issue du
+   test oral », quiz.ts). C'est ce niveau-là qui décide de la classe ET du montant des frais
+   d'inscription, demande client du 2026-10-11. */
+export function niveauRetenu(niveauFinal: string | null | undefined, niveauEstime: string | null | undefined): string | null {
+  return niveauFinal?.trim() || niveauEstime?.trim() || null
+}
+
+export interface TarifCollectif {
+  type_programme: string
+  titre: string
+  prix: number | string
+}
+
+/* Frais d'inscription au collectif — demande client du 2026-10-11 : « enregistrer un paiement
+   équivalent à ses frais d'inscription, selon son niveau déterminé par l'admin et les frais
+   d'inscription qui sont déjà défini dans HOC ». Montant arrêté avec le client : **le prix de la
+   grille `tarifs` pour sa classe de niveau**, repris tel quel (150 000 Ar pour les trois niveaux
+   au 2026-10-11) — pas un multiple de la durée du programme. Changer un prix dans la page Tarifs
+   change donc aussitôt le montant proposé, sans retoucher ce code.
+
+   Le rapprochement se fait sur le TITRE du tarif (« Beginner », « Intermediate », « Advanced »),
+   seul lien existant entre la grille publique et `cohort_classes.niveau` : un tarif collectif n'a
+   pas de volume d'heures (`heures` est null) et rien d'autre ne le relie à une classe. Insensible
+   à la casse et aux espaces, le titre étant saisi à la main par l'admin. `null` quand le niveau
+   est inconnu ou qu'aucun tarif ne lui correspond : l'admin saisit alors le montant lui-même
+   plutôt que de se voir proposer un 0 trompeur. */
+export function fraisInscriptionCollectif(tarifs: TarifCollectif[], niveau: string | null): number | null {
+  const categorie = categorieDepuisNiveauEstime(niveau)
+  if (!categorie) return null
+  const attendu = LABEL_NIVEAU_CLASSE[categorie].toLowerCase()
+  const tarif = tarifs.find((t) => t.type_programme === 'collectif' && t.titre.trim().toLowerCase() === attendu)
+  if (!tarif) return null
+  const prix = Number(tarif.prix)
+  return Number.isFinite(prix) && prix > 0 ? prix : null
 }

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { categorieDepuisNiveauEstime } from '../classesCollectif'
+import {
+  categorieDepuisNiveauEstime,
+  fraisInscriptionCollectif,
+  niveauRetenu,
+  NIVEAUX_CECRL,
+} from '../classesCollectif'
 
 describe('categorieDepuisNiveauEstime', () => {
   it('classe A1 et A2 en beginner', () => {
@@ -20,5 +25,66 @@ describe('categorieDepuisNiveauEstime', () => {
     expect(categorieDepuisNiveauEstime('Non évalué')).toBeNull()
     expect(categorieDepuisNiveauEstime(null)).toBeNull()
     expect(categorieDepuisNiveauEstime('valeur-inattendue')).toBeNull()
+  })
+
+  /* La liste déroulante du test oral (demande client du 2026-10-11) ne doit jamais proposer un
+     niveau que le barème ci-dessus ne saurait pas traduire en classe : c'était tout l'intérêt de
+     remplacer la saisie libre. */
+  it('ne propose que des niveaux qui donnent une classe', () => {
+    for (const niveau of NIVEAUX_CECRL) {
+      expect(categorieDepuisNiveauEstime(niveau)).not.toBeNull()
+    }
+  })
+})
+
+describe('niveauRetenu', () => {
+  it('fait primer le niveau du test oral sur celui du quiz écrit', () => {
+    expect(niveauRetenu('A2', 'A1 (débutant)')).toBe('A2')
+  })
+
+  it('retombe sur le quiz écrit tant que l’oral n’a rien arrêté', () => {
+    expect(niveauRetenu(null, 'B1')).toBe('B1')
+    expect(niveauRetenu('', 'B1')).toBe('B1')
+    expect(niveauRetenu('   ', 'B1')).toBe('B1')
+    expect(niveauRetenu(undefined, 'B1')).toBe('B1')
+  })
+
+  it('rend null quand aucun des deux n’est connu', () => {
+    expect(niveauRetenu(null, null)).toBeNull()
+    expect(niveauRetenu(undefined, undefined)).toBeNull()
+  })
+})
+
+describe('fraisInscriptionCollectif', () => {
+  // La grille réelle au 2026-10-11 : trois niveaux au même prix, mais rien n'oblige à ce qu'ils
+  // le restent — d'où des prix distincts ici, pour vérifier que c'est bien CELUI du niveau.
+  const grille = [
+    { type_programme: 'collectif', titre: 'Beginner', prix: '150000.00' },
+    { type_programme: 'collectif', titre: 'Intermediate', prix: '180000.00' },
+    { type_programme: 'collectif', titre: 'Advanced', prix: '210000.00' },
+    { type_programme: 'individuel', titre: '10h', prix: '300000.00' },
+  ]
+
+  it('prend le prix du niveau du candidat', () => {
+    expect(fraisInscriptionCollectif(grille, 'A1 (débutant)')).toBe(150000)
+    expect(fraisInscriptionCollectif(grille, 'A2')).toBe(150000)
+    expect(fraisInscriptionCollectif(grille, 'B1')).toBe(180000)
+    expect(fraisInscriptionCollectif(grille, 'C1')).toBe(210000)
+  })
+
+  it('ignore les tarifs des autres programmes', () => {
+    expect(fraisInscriptionCollectif([{ type_programme: 'individuel', titre: 'Beginner', prix: 9 }], 'A2')).toBeNull()
+  })
+
+  it('reconnaît le titre quelle que soit sa casse ou ses espaces', () => {
+    expect(fraisInscriptionCollectif([{ type_programme: 'collectif', titre: '  BEGINNER ', prix: 150000 }], 'A2')).toBe(150000)
+  })
+
+  it('rend null plutôt qu’un montant trompeur quand rien ne correspond', () => {
+    expect(fraisInscriptionCollectif(grille, null)).toBeNull()
+    expect(fraisInscriptionCollectif(grille, 'Intermédiaire')).toBeNull()
+    expect(fraisInscriptionCollectif([], 'A2')).toBeNull()
+    // Un tarif laissé à 0 dans la grille ne décrit pas des frais exploitables.
+    expect(fraisInscriptionCollectif([{ type_programme: 'collectif', titre: 'Beginner', prix: 0 }], 'A2')).toBeNull()
   })
 })

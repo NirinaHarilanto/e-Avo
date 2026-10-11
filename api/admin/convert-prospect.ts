@@ -3,7 +3,7 @@ import { creerCompteSansEmail } from '../_lib/creerCompte.js'
 import { notifierBienvenueEtudiant } from '../_lib/notifications.js'
 import { trouverProfilHomonyme, messageHomonyme } from '../_lib/nomDuplique.js'
 import { nomGroupeDuo } from '../../src/lib/duo.js'
-import { categorieDepuisNiveauEstime, CAPACITE_MAX_CLASSE } from '../../src/lib/classesCollectif.js'
+import { categorieDepuisNiveauEstime, CAPACITE_MAX_CLASSE, niveauRetenu } from '../../src/lib/classesCollectif.js'
 
 export const config = { runtime: 'edge' }
 
@@ -18,8 +18,21 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   try {
-    const { serviceClient, etablissementId } = await requireAdmin(request)
-    const body = (await request.json()) as { prospectId?: string }
+    const { serviceClient, etablissementId, profileId } = await requireAdmin(request)
+    const body = (await request.json()) as {
+      prospectId?: string
+      /* Niveau CECRL arrêté au test oral (0118). Fait foi sur celui du quiz écrit pour la classe
+         ET pour le montant des frais. Absent quand la conversion vient du pipeline individuel. */
+      niveauFinal?: string
+      /* Frais d'inscription au collectif — demande client du 2026-10-11 : le paiement s'enregistre
+         AVANT la conversion, dans le même geste côté serveur (même principe que decider-essai.ts).
+         `fraisRegles` distingue un encaissement effectif d'un montant seulement attendu. */
+      montantFrais?: number
+      fraisRegles?: boolean
+      moyenPaiement?: string
+      referencePaiement?: string
+      notesPaiement?: string
+    }
     if (!body.prospectId) {
       return Response.json({ error: 'prospectId requis.' }, { status: 400 })
     }
@@ -33,6 +46,32 @@ export default async function handler(request: Request): Promise<Response> {
 
     if (prospectError || !prospect) {
       return Response.json({ error: 'Prospect introuvable pour cet établissement.' }, { status: 404 })
+    }
+
+    /* Frais d'inscription au collectif obligatoires — demande client du 2026-10-11 : « il faut
+       pouvoir enregistrer un paiement équivalent à ses frais d'inscription [...] avant de
+       convertir un prospect en étudiant collectif ». La règle est posée ICI, et pas seulement
+       dans la fenêtre qui appelle cette route, pour qu'elle tienne quel que soit le chemin —
+       l'écran Sessions orales comme le glisser-déposer du pipeline.
+
+       Une ligne de paiement déjà enregistrée pour ce prospect vaut acquittement : l'admin qui a
+       saisi les frais ailleurs (page Paiements, acompte encaissé avant l'oral) n'a pas à les
+       ressaisir, et une conversion relancée après un échec ne crée pas de doublon. */
+    if (prospect.type_programme === 'collectif' && body.montantFrais == null) {
+      const { count } = await serviceClient
+        .from('student_payments')
+        .select('id', { count: 'exact', head: true })
+        .eq('prospect_id', prospect.id)
+        .is('supprime_le', null)
+      if (!count) {
+        return Response.json(
+          {
+            error:
+              "Les frais d'inscription doivent être enregistrés avant la conversion. Convertissez ce candidat depuis Cours collectifs › Session orale, qui propose le montant de son niveau.",
+          },
+          { status: 400 },
+        )
+      }
     }
 
     // Même règle qu'à l'invitation directe : la liste des étudiants ne doit jamais contenir
@@ -196,6 +235,46 @@ export default async function handler(request: Request): Promise<Response> {
       .eq('prospect_id', prospect.id)
       .is('student_id', null)
 
+    /* Frais d'inscription au collectif (2026-10-11) : enregistrés dans LE MÊME geste que la
+       conversion, comme le paiement d'une décision d'essai (decider-essai.ts) — une seule
+       validation pour l'admin, et aucun étudiant collectif créé sans sa ligne de frais.
+
+       `prospect_id` est posé en plus de `student_id` : c'est ce qui rattache la ligne au candidat
+       d'origine dans le suivi, comme pour les paiements encaissés avant conversion (0056).
+       `package_id` reste null — le collectif n'a pas de forfait, l'élève est identifié par sa
+       vague (`cohort_enrollments`, 0027).
+
+       Un montant seulement attendu reste une ligne à part entière, au statut 'attendu' : c'est
+       ainsi que le suivi financier sait qu'il reste à encaisser. Le trigger d'acomptes (0049)
+       recalcule le statut depuis `montant_regle`, d'où le 0 explicite dans ce cas. */
+    if (body.montantFrais != null && body.montantFrais > 0) {
+      const regle = body.fraisRegles !== false
+      const { error: erreurFrais } = await serviceClient.from('student_payments').insert({
+        etablissement_id: etablissementId,
+        student_id: invited.user.id,
+        prospect_id: prospect.id,
+        montant: body.montantFrais,
+        montant_regle: regle ? body.montantFrais : 0,
+        statut: regle ? 'paye' : 'attendu',
+        date_paiement: regle ? new Date().toISOString().slice(0, 10) : null,
+        moyen_paiement: body.moyenPaiement?.trim() || null,
+        reference: body.referencePaiement?.trim() || null,
+        notes: body.notesPaiement?.trim() || "Frais d'inscription — cours collectifs",
+        created_by_profile_id: profileId,
+      })
+      if (erreurFrais) {
+        /* Le compte étudiant existe déjà à ce stade : le signaler plutôt que de le défaire en
+           silence (même choix que decider-essai.ts et ajouter-forfait.ts). L'admin régularise le
+           paiement depuis la page Paiements, sans refaire la conversion. */
+        return Response.json(
+          {
+            error: `L'étudiant a bien été créé, mais l'enregistrement des frais d'inscription a échoué : ${erreurFrais.message}. Saisissez-les depuis la page Paiements.`,
+          },
+          { status: 500 },
+        )
+      }
+    }
+
     if (profilPrincipal) {
       const nomGroupe = nomGroupeDuo(prospect.duo_nom_groupe, profilPrincipal.prenom ?? prenomPartenaireReplie ?? '', prospect.prenom)
       await serviceClient
@@ -214,24 +293,37 @@ export default async function handler(request: Request): Promise<Response> {
     let classeAssignee: string | null = null
     const { data: inscription } = await serviceClient
       .from('test_positionnement_inscriptions')
-      .select('creneau_id, niveau_estime')
+      .select('id, creneau_id, niveau_estime, niveau_final')
       .eq('prospect_id', prospect.id)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
     if (inscription) {
+      /* Niveau arrêté au test oral (0118) : conservé sur l'inscription elle-même, à côté du
+         niveau estimé par le quiz, pour que le suivi des cours collectifs puisse montrer les deux
+         côte à côte sans aller le repêcher dans `diagnostic_calls`. */
+      if (body.niveauFinal?.trim()) {
+        await serviceClient
+          .from('test_positionnement_inscriptions')
+          .update({ niveau_final: body.niveauFinal.trim() })
+          .eq('id', inscription.id)
+      }
       const { data: creneau } = await serviceClient
         .from('creneaux_test_positionnement')
         .select('cohort_id')
         .eq('id', inscription.creneau_id)
         .maybeSingle()
       if (creneau) {
-        // Classe de niveau (0074) : dérivée automatiquement du niveau CECRL du quiz écrit, sans
-        // ressaisie — demande client du 2026-09-23. On ne bloque jamais la conversion faute de
-        // classe disponible : l'étudiant rejoint quand même la promotion, à régulariser ensuite
-        // depuis la page Cours collectifs (le trigger de capacité, migration 0074, empêche de
-        // toute façon de dépasser 7 élèves par classe).
-        const categorie = categorieDepuisNiveauEstime(inscription.niveau_estime)
+        // Classe de niveau (0074) : dérivée automatiquement du niveau CECRL, sans ressaisie —
+        // demande client du 2026-09-23. On ne bloque jamais la conversion faute de classe
+        // disponible : l'étudiant rejoint quand même la promotion, à régulariser ensuite depuis
+        // la page Cours collectifs (le trigger de capacité, migration 0074, empêche de toute
+        // façon de dépasser 7 élèves par classe).
+        /* Le niveau du test ORAL l'emporte sur celui du quiz écrit (0118) : c'est le niveau que
+           l'admin vient d'arrêter, et le quiz annonce lui-même son résultat comme indicatif.
+           Jusqu'ici seul `niveau_estime` était lu — une correction faite à l'oral n'avait donc
+           aucun effet sur la classe assignée. */
+        const categorie = categorieDepuisNiveauEstime(niveauRetenu(body.niveauFinal, inscription.niveau_estime))
         niveauDetecte = categorie
         let cohortClassId: string | null = null
         if (categorie) {
