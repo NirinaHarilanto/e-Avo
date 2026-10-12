@@ -1277,6 +1277,23 @@ body.vitrine-hx {
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  padding: 18px 34px 22px;
+}
+/* L'en-tête se compacte pendant le questionnaire : sur une fenêtre de 620 px de haut, il occupait
+   près de 40 % de la hauteur alors que son titre et son accroche ont déjà été lus — la place
+   récupérée sert à afficher les propositions de réponse sans défilement. */
+.hx-modal .box:has(.content.quiz-actif) .top {
+  padding: 16px 34px 14px;
+}
+.hx-modal .box:has(.content.quiz-actif) h3 {
+  margin: 6px 0 0;
+  font-size: clamp(19px, 2vw, 24px);
+}
+.hx-modal .box:has(.content.quiz-actif) .tagline {
+  display: none;
+}
+.hx-modal .box:has(.content.quiz-actif) .steps {
+  margin-top: 14px;
 }
 .hx-modal .content.quiz-actif > .pane.on,
 .hx-modal .content.quiz-actif > .pane.on > .agenda,

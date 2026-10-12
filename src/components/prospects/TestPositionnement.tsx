@@ -439,10 +439,14 @@ function QuestionnaireEtape({
       >
         <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {support && (
-            /* Plus de hauteur plafonnée ni de défilement propre ici : c'est la zone parente qui
-               défile désormais, et deux ascenseurs imbriqués seraient pénibles à manipuler. */
+            /* Plafonné en PROPORTION de la place disponible, pas en pixels : un texte de
+               compréhension long mangeait sinon toute la zone et reléguait les propositions sous
+               le pli (constaté sur une fenêtre de 620 px de haut). Au-delà de cette part, le texte
+               défile dans son propre bloc ; sur un grand écran il s'affiche en entier. */
             <div
               style={{
+                maxHeight: '42%',
+                overflowY: 'auto',
                 padding: '10px 12px',
                 borderRadius: 11,
                 border: `1px solid ${accent.accentBorder}`,
