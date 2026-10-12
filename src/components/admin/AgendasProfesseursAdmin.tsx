@@ -182,11 +182,8 @@ export function AgendasProfesseursAdmin() {
             changement d'adresse consomme une place, et refuser un essai « pour voir » en préserve
             une. */}
         <MessageAvertissement>
-          <strong>Un professeur est libre de sa première connexion, pas du changement.</strong> Tant que l’application
-          n’a pas reçu la validation officielle de Google, chaque compte Google <em>différent</em> connecté à Hari
-          Online Club occupe une place définitive dans son autorisation Google — place qui n’est pas rendue si le
-          compte est ensuite déconnecté ou si le professeur est supprimé. Les changements d’adresse passent donc par
-          votre validation, et reconnecter la <em>même</em> adresse reste libre et sans coût.
+          <strong>Un professeur est libre de sa première connexion, pas du changement.</strong> Les changements
+          d’adresse passent par votre validation, et reconnecter la <em>même</em> adresse reste libre et sans coût.
         </MessageAvertissement>
       </div>
     </Section>

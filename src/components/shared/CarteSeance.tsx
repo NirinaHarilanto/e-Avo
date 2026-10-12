@@ -11,6 +11,13 @@ import { EnqueteSatisfactionAffichage } from './EnqueteSatisfactionAffichage'
 import { BoutonRejoindreVisio } from './BoutonRejoindreVisio'
 import { CompteRenduSeance } from '../professeurs/CompteRenduSeance'
 import { EditerSeancePlanifieeModale } from './EditerSeancePlanifieeModale'
+import type { CSSProperties } from 'react'
+
+/* Intitulé de l'émargement mis en valeur dans une couleur distincte des autres sections (demande
+   client du 2026-10-12) — l'or de marque, déjà utilisé pour les chiffres clés ailleurs dans
+   l'app, plutôt que le `--ink` neutre des autres intitulés de cette carte (Enquête de
+   satisfaction…), pour qu'il attire l'œil en premier. */
+const etiquettePresenceStyle: CSSProperties = { ...etiquetteStyle, color: 'var(--accent-gold, #e9cf94)' }
 
 /* Carte d'une séance : rejoindre la visio, clôturer (émargement, décision d'absence), reprogrammer,
    annuler, puis compte rendu et résultats de l'enquête de satisfaction une fois terminée. Extraite
@@ -122,24 +129,27 @@ export function CarteSeance({
       className={sansCadre ? undefined : 'card card-lift'}
       style={{ padding: sansCadre ? 0 : 18, display: 'flex', flexDirection: 'column', gap: 12 }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
-            {new Date(seance.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
-          </span>
-          <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-            {libelleTypeSeance(seance.session.type, seance.inscriptions)} · {seance.session.duree_minutes} min ·{' '}
-            {nomsElevesInscrits(seance.inscriptions).join(', ')}
-          </span>
-          {/* Organisateur — quel compte Google héberge la réunion et a donc envoyé les
-              invitations (0107), même ligne que DetailSeanceModale.tsx côté admin. */}
-          {seance.video?.organisateur_email && !sansCadre && (
-            <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>Invitations envoyées par {seance.video.organisateur_email}</span>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <BadgeStatutSeance statut={seance.session.statut} />
-        </div>
+      {/* Statut tout en haut à droite de la carte (demande client du 2026-10-12) : sur sa propre
+          ligne, avant même le titre, pour ne plus dépendre du retour à la ligne du bloc
+          titre/détails — avec une liste de participants longue, le badge se retrouvait poussé
+          sous le texte plutôt qu'aligné avec lui. */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <BadgeStatutSeance statut={seance.session.statut} />
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
+          {new Date(seance.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+        </span>
+        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+          {libelleTypeSeance(seance.session.type, seance.inscriptions)} · {seance.session.duree_minutes} min ·{' '}
+          {nomsElevesInscrits(seance.inscriptions).join(', ')}
+        </span>
+        {/* Organisateur — quel compte Google héberge la réunion et a donc envoyé les
+            invitations (0107), même ligne que DetailSeanceModale.tsx côté admin. */}
+        {seance.video?.organisateur_email && !sansCadre && (
+          <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>Invitations envoyées par {seance.video.organisateur_email}</span>
+        )}
       </div>
 
       {sansCadre && seance.video?.organisateur_email && (
@@ -185,7 +195,7 @@ export function CarteSeance({
               juste en dessous (`--ink`, ligne suivante) — l'inverse de la hiérarchie attendue.
               Demande client du 2026-09-30 : « rendre les intitulés plus visibles pour qu'ils ne
               se mélangent pas avec les autres informations ». */}
-          <span style={etiquetteStyle}>Présence</span>
+          <span style={etiquettePresenceStyle}>Présence</span>
           {seance.inscriptions.map((i) => (
             <label key={i.student_id} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: 'var(--ink)', cursor: 'pointer' }}>
               <input
@@ -250,7 +260,7 @@ export function CarteSeance({
           (api/professeur/cloturer-seance.ts) — jamais modifiable depuis ici. */}
       {seance.session.statut === 'terminee' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
-          <span style={etiquetteStyle}>Présence</span>
+          <span style={etiquettePresenceStyle}>Présence</span>
           {seance.inscriptions.map((i) => (
             <div key={i.student_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, color: 'var(--ink)' }}>
               <span>{i.etudiant?.prenom} {i.etudiant?.nom}</span>

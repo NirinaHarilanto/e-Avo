@@ -6,6 +6,7 @@ import { Champ, champStyle, etiquetteStyle } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
 import { boutonNeutreStyle, boutonSecondaireStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
+import { CompteRenduAffichage } from '../shared/CompteRenduAffichage'
 
 type SessionReport = Database['public']['Tables']['session_reports']['Row']
 type Document = Database['public']['Tables']['documents']['Row']
@@ -56,6 +57,9 @@ type ValeursFormulaire = typeof VALEURS_VIDES
 export function CompteRenduSeance({ sessionId, etablissementId, teacherId, studentIds, ouvrirAutomatiquement }: CompteRenduSeanceProps) {
   const [rapport, setRapport] = useState<SessionReport | null>(null)
   const [ouvert, setOuvert] = useState(!!ouvrirAutomatiquement)
+  // Lecture du compte rendu déjà rédigé, repliée par défaut (demande client du 2026-10-12) —
+  // distincte de `ouvert`, qui ouvre le FORMULAIRE de modification.
+  const [contenuDeplie, setContenuDeplie] = useState(false)
   const [valeurs, setValeurs] = useState<ValeursFormulaire>(VALEURS_VIDES)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -188,13 +192,51 @@ export function CompteRenduSeance({ sessionId, etablissementId, teacherId, stude
 
   if (!ouvert) {
     return (
-      <button
-        onClick={() => setOuvert(true)}
-        style={{ ...(rapport ? boutonNeutreStyle : boutonSecondaireStyle), color: rapport ? 'var(--accent-teal)' : 'var(--accent-blue)', fontSize: 12.5, padding: '9px 16px' }}
-      >
-        <Icone nom={rapport ? 'valide' : 'plus'} taille={14} />
-        {rapport ? 'Modifier le compte rendu' : 'Rédiger un compte rendu'}
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Lecture du compte rendu déjà rédigé, pliée par défaut (demande client du 2026-10-12) —
+            juste en dessous de l'émargement, avec le bouton « Modifier » sous ce bloc plutôt que
+            seul : on voit d'abord ce qui a déjà été écrit avant de rouvrir le formulaire. */}
+        {rapport && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setContenuDeplie((v) => !v)}
+              aria-expanded={contenuDeplie}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                textAlign: 'left',
+              }}
+            >
+              <span style={etiquetteStyle}>Compte rendu</span>
+              <Icone
+                nom="chevron"
+                taille={13}
+                style={{ marginLeft: 'auto', flexShrink: 0, color: 'var(--muted)', transform: contenuDeplie ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}
+              />
+            </button>
+            {contenuDeplie && (
+              <div style={{ marginTop: 10 }}>
+                <CompteRenduAffichage rapport={rapport} />
+              </div>
+            )}
+          </div>
+        )}
+        <button
+          onClick={() => setOuvert(true)}
+          style={{ ...(rapport ? boutonNeutreStyle : boutonSecondaireStyle), color: rapport ? 'var(--accent-teal)' : 'var(--accent-blue)', fontSize: 12.5, padding: '9px 16px' }}
+        >
+          <Icone nom={rapport ? 'valide' : 'plus'} taille={14} />
+          {rapport ? 'Modifier le compte rendu' : 'Rédiger un compte rendu'}
+        </button>
+      </div>
     )
   }
 
