@@ -90,8 +90,12 @@ export default async function handler(request: Request): Promise<Response> {
         .eq('id', rendezVous.id)
 
       /* Le prospect repasse en simple prospect : son créneau est libéré, mais il reste dans le
-         pipeline commercial — un refus de créneau n'est pas une perte de contact. */
-      await serviceClient.from('prospects').update({ statut: 'prospect' }).eq('id', rendezVous.prospect_id)
+         pipeline commercial — un refus de créneau n'est pas une perte de contact.
+         `.neq('statut', 'etudiant')` : même garde-fou qu'annuler-rendez-vous.ts (bug du
+         2026-10-12) — un candidat DÉJÀ converti ne doit jamais retomber dans le pipeline parce
+         qu'une demande de créneau restée en attente (doublon, ancienne requête) est refusée
+         après coup. */
+      await serviceClient.from('prospects').update({ statut: 'prospect' }).eq('id', rendezVous.prospect_id).neq('statut', 'etudiant')
 
       await envoyerEmail({
         destinataire: prospect.email,

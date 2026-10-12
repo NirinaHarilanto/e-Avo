@@ -55,7 +55,15 @@ export default async function handler(request: Request): Promise<Response> {
     if (error) {
       return Response.json({ error: error.message }, { status: 500 })
     }
-    await serviceClient.from('prospects').update({ statut: 'prospect' }).eq('id', rendezVous.prospect_id)
+    /* `.neq('statut', 'etudiant')` : bug signalé le 2026-10-12, capture à l'appui — deux
+       candidats déjà convertis réapparaissaient dans la colonne « Nouveaux prospects » du
+       pipeline après l'annulation d'un rendez-vous resté associé à leur fiche prospect (créneau
+       en double, ou simple ménage d'un ancien créneau après la conversion). Rien n'empêchait ce
+       retour en arrière : la ligne `prospects` est la MÊME avant et après conversion
+       (convert-prospect.ts ne la duplique jamais), donc ce UPDATE touchait aussi bien un
+       prospect qu'un étudiant déjà converti. Un rendez-vous annulé reste un geste sur l'AGENDA,
+       jamais sur le dossier pédagogique une fois la personne devenue étudiante. */
+    await serviceClient.from('prospects').update({ statut: 'prospect' }).eq('id', rendezVous.prospect_id).neq('statut', 'etudiant')
 
     const prospect = rendezVous.prospects as unknown as { nom: string; prenom: string; email: string } | null
     if (prospect) {
