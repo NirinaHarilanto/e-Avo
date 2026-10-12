@@ -200,7 +200,7 @@ export function TestPositionnement({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: etape === 'quiz' ? 11 : 16 }}>
       {/* Le rappel des trois étapes disparaît pendant le questionnaire : il ne dit plus rien que
           le compteur « Question N sur 67 » ne dise mieux, et chaque pixel repris sert à faire
           tenir une question entière dans la fenêtre sans défilement (demande client du
@@ -265,7 +265,7 @@ export function TestPositionnement({
       )}
 
       {etape !== 'creneau' && creneauChoisi && (
-        <button type="button" onClick={() => setEtape('creneau')} style={rappelCreneau(accent)}>
+        <button type="button" onClick={() => setEtape('creneau')} style={rappelCreneau(accent, etape === 'quiz')}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span
               aria-hidden
@@ -632,13 +632,15 @@ function lienBouton(accent: AccentPalette): CSSProperties {
 
 /* Même traitement que le rappel de créneau de ReserverAppel.tsx (demande client du 2026-10-09,
    « plus attractive et joviale ») : fond teinté de l'accent, liseré gauche, légère lueur. */
-function rappelCreneau(accent: AccentPalette): CSSProperties {
+function rappelCreneau(accent: AccentPalette, compact = false): CSSProperties {
   return {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
-    padding: '12px 14px 12px 12px',
+    /* Resserré pendant le questionnaire : le créneau est déjà choisi, ce rappel n'est plus là que
+       pour permettre d'en changer — la hauteur rendue sert à afficher la question entière. */
+    padding: compact ? '8px 12px 8px 10px' : '12px 14px 12px 12px',
     borderRadius: 12,
     border: `1px solid ${accent.accentBorder}`,
     borderLeft: `4px solid ${accent.accent}`,
