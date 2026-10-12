@@ -350,9 +350,7 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
                 )}
               </div>
 
-              {estProfesseur && heures.length > 0 && (
-                <BlocHeures heures={heures} tauxHoraire={cible.type === 'professeur' ? (cible.personne?.taux_horaire ?? null) : null} />
-              )}
+              {estProfesseur && heures.length > 0 && <BlocHeures heures={heures} />}
 
               <BlocVersements
                 versements={versements}
@@ -555,7 +553,11 @@ function CreationLignePaiement({
   )
 }
 
-function BlocHeures({ heures, tauxHoraire }: { heures: HeureEnseignee[]; tauxHoraire: number | null }) {
+/* Pas de « × taux horaire » ici depuis 0126 : un paiement peut couvrir des séances individuelles,
+   duo et collectives mélangées, chacune à son propre taux — un seul multiplicateur affiché
+   induirait en erreur. Le montant total du règlement reste affiché ailleurs dans cette fenêtre
+   (ligne.montant), calculé séance par séance au moment du paiement. */
+function BlocHeures({ heures }: { heures: HeureEnseignee[] }) {
   const total = arrondi(heures.reduce((somme, h) => somme + h.heures, 0))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -570,7 +572,6 @@ function BlocHeures({ heures, tauxHoraire }: { heures: HeureEnseignee[]; tauxHor
       </div>
       <span style={{ fontSize: 12.5, color: 'var(--ink-2)', textAlign: 'right' }}>
         Total : <strong>{formaterHeures(total)}</strong>
-        {tauxHoraire ? ` × ${tauxHoraire} Ar/h` : ''}
       </span>
     </div>
   )

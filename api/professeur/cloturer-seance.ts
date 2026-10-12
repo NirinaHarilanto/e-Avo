@@ -1,6 +1,7 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { notifierParticipantsSeance } from '../_lib/notifications.js'
-import { replierBinomesDuo } from '../_lib/duo.js'
+import { replierBinomesDuo, estBinomeDuo } from '../_lib/duo.js'
+import type { TypeFacturationLedger } from '../../src/types/database.types.js'
 
 export const config = { runtime: 'edge' }
 
@@ -104,6 +105,16 @@ export default async function handler(request: Request): Promise<Response> {
 
     if (nouveauStatut === 'terminee') {
       const heures = session.duree_minutes / 60
+
+      /* Type facturé (0126, demande client du 2026-10-12) — figé ici une fois pour toutes :
+         sessions.type ne distingue que individuel/collectif (0008), jamais duo, et c'est
+         précisément à la clôture que toutes les données nécessaires (cohort_id, émargement
+         encore disponible via body.presences) sont déjà réunies sans requête supplémentaire. */
+      const typeFacturation: TypeFacturationLedger = session.cohort_id
+        ? 'collectif'
+        : (await estBinomeDuo(serviceClient, body.presences.map((p) => p.studentId)))
+          ? 'duo'
+          : 'individuel'
       /* Séance de vague : tous les inscrits sont débités, présents ou non — demande client du
          2026-09-23 (point 10), « le rythme de déduction des forfaits sera le même pour tous les
          étudiants ». Le programme collectif avance au rythme du groupe : une absence ne fait pas
@@ -130,6 +141,7 @@ export default async function handler(request: Request): Promise<Response> {
           teacher_id: session.teacher_id,
           type_ecriture: 'credit_professeur' as const,
           heures,
+          type_facturation: typeFacturation,
         },
         ...debites.map((studentId) => ({
           etablissement_id: etablissementId,
@@ -137,6 +149,7 @@ export default async function handler(request: Request): Promise<Response> {
           student_id: studentId,
           type_ecriture: 'debit_etudiant' as const,
           heures,
+          type_facturation: typeFacturation,
         })),
       ]
       const { error: ledgerError } = await serviceClient.from('hour_ledger').insert(ecritures)

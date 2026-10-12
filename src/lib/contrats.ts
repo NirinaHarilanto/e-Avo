@@ -233,7 +233,11 @@ export function resoudreSource(
     case 'age':
       return ''
     case 'taux_horaire':
-      return destinataire.taux_horaire === null ? null : String(destinataire.taux_horaire)
+      // Le taux horaire d'un contrat professeur reste « le » taux individuel (0126) : un contrat
+      // n'a jamais eu vocation à citer les 3 taux séparément, seul le premier existait à sa
+      // conception — les variables manuelles `taux_horaire_individuel`/`taux_horaire_collectif`
+      // de 0103 restent le seul endroit où un contrat détaille les 3, saisies à la main.
+      return destinataire.taux_horaire_individuel === null ? null : String(destinataire.taux_horaire_individuel)
     case 'etablissement_nom':
       return etablissement?.nom ?? null
     case 'etablissement_specialite':
@@ -547,15 +551,15 @@ export function preparerVariables(
      tapé pourrait créer un doublon silencieux. Un nom erroné se corrige depuis la fiche.
    - `nom_complet` est ABSENT : composite (prénom + nom), rien ne garantit de pouvoir le
      décomposer fiablement en ses deux colonnes d'origine. */
-export const SOURCES_VERS_PROFIL: Partial<Record<SourceVariable, 'telephone' | 'whatsapp' | 'adresse' | 'ville' | 'taux_horaire'>> = {
+export const SOURCES_VERS_PROFIL: Partial<Record<SourceVariable, 'telephone' | 'whatsapp' | 'adresse' | 'ville' | 'taux_horaire_individuel'>> = {
   telephone: 'telephone',
   whatsapp: 'whatsapp',
   adresse: 'adresse',
   ville: 'ville',
-  taux_horaire: 'taux_horaire',
+  taux_horaire: 'taux_horaire_individuel',
 }
 
-export type ChampsProfilAReporter = Partial<Pick<Profile, 'telephone' | 'whatsapp' | 'adresse' | 'ville' | 'taux_horaire'>>
+export type ChampsProfilAReporter = Partial<Pick<Profile, 'telephone' | 'whatsapp' | 'adresse' | 'ville' | 'taux_horaire_individuel'>>
 
 /* Isole, parmi les variables RESTÉES À SAISIR (`valeurAuto === undefined`, donc la fiche ne
    portait pas encore la valeur), celles que l'admin a effectivement renseignées et dont la
@@ -581,9 +585,9 @@ export function completsAReporterSurProfil(
     if (!colonne) continue
 
     const cible = estSecondMembre ? destinataireSecondaire : destinataire
-    if (colonne === 'taux_horaire') {
+    if (colonne === 'taux_horaire_individuel') {
       const nombre = Number(valeur.replace(/[^\d.,-]/g, '').replace(',', '.'))
-      if (Number.isFinite(nombre)) cible.taux_horaire = nombre
+      if (Number.isFinite(nombre)) cible.taux_horaire_individuel = nombre
     } else {
       cible[colonne] = valeur
     }

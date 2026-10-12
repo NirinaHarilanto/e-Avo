@@ -46,7 +46,9 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
   const [whatsapp, setWhatsapp] = useState(personne.whatsapp ?? '')
   const [adresse, setAdresse] = useState(personne.adresse ?? '')
   const [ville, setVille] = useState(personne.ville ?? '')
-  const [tauxHoraire, setTauxHoraire] = useState(personne.taux_horaire?.toString() ?? '')
+  const [tauxIndividuel, setTauxIndividuel] = useState(personne.taux_horaire_individuel?.toString() ?? '')
+  const [tauxDuo, setTauxDuo] = useState(personne.taux_horaire_duo?.toString() ?? '')
+  const [tauxCollectif, setTauxCollectif] = useState(personne.taux_horaire_collectif?.toString() ?? '')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const estProfesseur = personne.role === 'professeur'
@@ -58,7 +60,9 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
     setWhatsapp(personne.whatsapp ?? '')
     setAdresse(personne.adresse ?? '')
     setVille(personne.ville ?? '')
-    setTauxHoraire(personne.taux_horaire?.toString() ?? '')
+    setTauxIndividuel(personne.taux_horaire_individuel?.toString() ?? '')
+    setTauxDuo(personne.taux_horaire_duo?.toString() ?? '')
+    setTauxCollectif(personne.taux_horaire_collectif?.toString() ?? '')
     setErreur(null)
     setEdition(false)
   }
@@ -97,7 +101,11 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
         whatsapp: whatsapp || null,
         adresse: adresse || null,
         ville: ville || null,
-        ...(estProfesseur && { taux_horaire: tauxHoraire ? Number(tauxHoraire) : null }),
+        ...(estProfesseur && {
+          taux_horaire_individuel: tauxIndividuel ? Number(tauxIndividuel) : null,
+          taux_horaire_duo: tauxDuo ? Number(tauxDuo) : null,
+          taux_horaire_collectif: tauxCollectif ? Number(tauxCollectif) : null,
+        }),
       })
       .eq('id', personne.id)
     setEnCours(false)
@@ -133,7 +141,13 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
           <LigneInfo label="WhatsApp" valeur={personne.whatsapp ?? '—'} />
           <LigneInfo label="Adresse" valeur={personne.adresse ?? '—'} />
           <LigneInfo label="Ville" valeur={personne.ville ?? '—'} />
-          {estProfesseur && <LigneInfo label="Taux horaire" valeur={personne.taux_horaire ? `${personne.taux_horaire} Ar/h` : '—'} />}
+          {estProfesseur && (
+            <>
+              <LigneInfo label="Taux horaire individuel" valeur={personne.taux_horaire_individuel ? `${personne.taux_horaire_individuel} Ar/h` : '—'} />
+              <LigneInfo label="Taux horaire duo" valeur={personne.taux_horaire_duo ? `${personne.taux_horaire_duo} Ar/h` : '—'} />
+              <LigneInfo label="Taux horaire collectif" valeur={personne.taux_horaire_collectif ? `${personne.taux_horaire_collectif} Ar/h` : '—'} />
+            </>
+          )}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
@@ -159,9 +173,17 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
             <input value={ville} onChange={(e) => setVille(e.target.value)} style={champStyle} />
           </Champ>
           {estProfesseur && (
-            <Champ label="Taux horaire (Ar/h)" aide="Sert au calcul automatique des rémunérations à l’heure enseignée.">
-              <input type="number" value={tauxHoraire} onChange={(e) => setTauxHoraire(e.target.value)} style={champStyle} />
-            </Champ>
+            <>
+              <Champ label="Taux horaire individuel (Ar/h)" aide="Appliqué à une séance individuelle enseignée.">
+                <input type="number" value={tauxIndividuel} onChange={(e) => setTauxIndividuel(e.target.value)} style={champStyle} />
+              </Champ>
+              <Champ label="Taux horaire duo (Ar/h)" aide="Appliqué à une séance en binôme DUO enseignée.">
+                <input type="number" value={tauxDuo} onChange={(e) => setTauxDuo(e.target.value)} style={champStyle} />
+              </Champ>
+              <Champ label="Taux horaire collectif (Ar/h)" aide="Appliqué à une séance de classe collective enseignée.">
+                <input type="number" value={tauxCollectif} onChange={(e) => setTauxCollectif(e.target.value)} style={champStyle} />
+              </Champ>
+            </>
           )}
           {erreur && <MessageErreur>{erreur}</MessageErreur>}
           <div style={{ display: 'flex', gap: 8 }}>

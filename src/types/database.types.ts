@@ -13,6 +13,9 @@ export type SessionType = 'individuel' | 'collectif'
 export type SessionStatut = 'planifiee' | 'terminee' | 'annulee' | 'reportee'
 export type InvitationStatut = 'en_attente' | 'acceptee' | 'excusee'
 export type LedgerType = 'credit_professeur' | 'debit_etudiant'
+/* Type de séance au moment de la clôture (0126) — pas le même alias que `TypeFacturation` de
+   src/lib/remuneration.ts (celui-ci admet `null`, jamais lui). */
+export type TypeFacturationLedger = 'individuel' | 'collectif' | 'duo'
 export type CategorieDocument =
   | 'identite'
   | 'diplome_certification'
@@ -51,6 +54,12 @@ export interface LigneTimesheet {
   debut: string | null
   eleves: string
   heures: number
+  /* Depuis 0126 (2026-10-12) : absents sur les relevés créés avant ce chantier. `type` vient de
+     `hour_ledger.type_facturation` ; `taux`/`montant` sont l'estimation à l'envoi, puis la valeur
+     figée dès la validation (voir api/admin/traiter-timesheet.ts). */
+  type?: TypeFacturationLedger
+  taux?: number | null
+  montant?: number | null
 }
 
 export interface LigneFacturation {
@@ -82,7 +91,6 @@ export interface Database {
           specialite: string | null
           couleur_accent: string | null
           logo_url: string | null
-          calendly_url: string | null
           /* Forfait d'heures par défaut d'un étudiant en cours collectif (0069). */
           heures_forfait_collectif: number
           /* Nombre de jours avant une échéance à partir duquel la relance part (0070). */
@@ -122,7 +130,6 @@ export interface Database {
           specialite?: string | null
           couleur_accent?: string | null
           logo_url?: string | null
-          calendly_url?: string | null
           heures_forfait_collectif?: number
           relance_echeance_jours?: number
           seuil_alerte_heures_restantes?: number
@@ -159,7 +166,11 @@ export interface Database {
           date_naissance: string | null
           lieu_naissance: string | null
           whatsapp: string | null
-          taux_horaire: number | null
+          /* Trois taux (0126, demande client du 2026-10-12), facturés selon le type de la
+             séance — professeur uniquement, jamais pour un étudiant. */
+          taux_horaire_individuel: number | null
+          taux_horaire_duo: number | null
+          taux_horaire_collectif: number | null
           signature_path: string | null
           mot_de_passe_defini: boolean
           /* DUO (0054) : renseigné uniquement sur le profil « secondaire » (converti en second),
@@ -191,7 +202,9 @@ export interface Database {
           date_naissance?: string | null
           lieu_naissance?: string | null
           whatsapp?: string | null
-          taux_horaire?: number | null
+          taux_horaire_individuel?: number | null
+          taux_horaire_duo?: number | null
+          taux_horaire_collectif?: number | null
           signature_path?: string | null
           mot_de_passe_defini?: boolean
           duo_partenaire_id?: string | null
@@ -682,6 +695,9 @@ export interface Database {
           teacher_payment_id: string | null
           /* TimeSheet sur lequel ce crédit a été déclaré (0081). */
           timesheet_id: string | null
+          /* Type de séance figé à la clôture, pour choisir le taux horaire applicable (0126).
+             NULL pour toute écriture antérieure — traitée comme 'individuel'. */
+          type_facturation: TypeFacturationLedger | null
           created_at: string
         }
         Insert: {
@@ -694,6 +710,7 @@ export interface Database {
           heures: number
           teacher_payment_id?: string | null
           timesheet_id?: string | null
+          type_facturation?: TypeFacturationLedger | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['hour_ledger']['Insert']>
@@ -768,6 +785,11 @@ export interface Database {
           commentaire: string | null
           statut: StatutTimesheet
           motif_refus: string | null
+          /* Modification par l'admin à la validation (0126, demande client du 2026-10-12) : motif
+             obligatoire dès qu'au moins une ligne est retirée avant de valider. NULL si le relevé
+             a été validé sans y toucher. */
+          justificatif_modification: string | null
+          lignes_retirees: LigneTimesheet[]
           soumis_le: string
           traite_le: string | null
           traite_par: string | null
@@ -789,6 +811,8 @@ export interface Database {
           commentaire?: string | null
           statut?: StatutTimesheet
           motif_refus?: string | null
+          justificatif_modification?: string | null
+          lignes_retirees?: LigneTimesheet[]
           soumis_le?: string
           traite_le?: string | null
           traite_par?: string | null

@@ -1,6 +1,7 @@
 import { useEtablissement } from '../../hooks/useEtablissement'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { formaterHeures } from '../../lib/heures'
+import { LIBELLE_TYPE_FACTURATION } from '../../lib/remuneration'
 import type { Database } from '../../types/database.types'
 
 type Timesheet = Database['public']['Tables']['timesheets']['Row']
@@ -16,20 +17,15 @@ const montant = (v: number) => `${v.toLocaleString('fr-FR', { minimumFractionDig
 
 /* Le TimeSheet mis en page comme une facture (demande client : « il se présentera sous forme de
    facture, avec les informations du TimeSheet »). Papier blanc, à placer dans OverlayImpression
-   pour l'impression et le PDF, ou dans la fenêtre de validation de l'admin. `tauxCourant` sert
-   d'estimation tant que le relevé n'est pas validé (le taux définitif est figé à la validation). */
-export function TimesheetDocument({
-  timesheet,
-  nomProfesseur,
-  tauxCourant,
-}: {
-  timesheet: Timesheet
-  nomProfesseur: string
-  tauxCourant?: number | null
-}) {
+   pour l'impression et le PDF, ou dans la fenêtre de validation de l'admin.
+
+   Depuis 0126 (3 taux horaires, demande client du 2026-10-12 : « afficher le montant gagné [...]
+   pour chaque session de cours comptabilisée »), chaque ligne porte son propre type et son propre
+   montant — plus de taux unique affiché en pied de page, un relevé mélange souvent plusieurs
+   types de séance. `l.montant`/`l.type` sont absents sur les relevés antérieurs à ce chantier :
+   la ligne retombe alors sur le total déjà figé du TimeSheet, jamais recalculée après coup. */
+export function TimesheetDocument({ timesheet, nomProfesseur }: { timesheet: Timesheet; nomProfesseur: string }) {
   const etablissement = useEtablissement(timesheet.etablissement_id)
-  const taux = timesheet.statut === 'valide' ? timesheet.taux_horaire : (tauxCourant ?? timesheet.taux_horaire)
-  const total = taux ? Math.round(Number(timesheet.total_heures) * taux * 100) / 100 : null
   const cellule = { padding: '7px 4px', borderBottom: '1px solid #ddd', fontSize: 12.5 } as const
 
   return (
@@ -64,6 +60,7 @@ export function TimesheetDocument({
           <tr style={{ borderBottom: '2px solid #111' }}>
             <th style={{ textAlign: 'left', padding: '8px 4px', fontSize: 12.5 }}>Séance</th>
             <th style={{ textAlign: 'left', padding: '8px 4px', fontSize: 12.5 }}>Élève(s)</th>
+            <th style={{ textAlign: 'left', padding: '8px 4px', fontSize: 12.5 }}>Type</th>
             <th style={{ textAlign: 'right', padding: '8px 4px', fontSize: 12.5 }}>Heures</th>
             <th style={{ textAlign: 'right', padding: '8px 4px', fontSize: 12.5 }}>Montant</th>
           </tr>
@@ -73,8 +70,9 @@ export function TimesheetDocument({
             <tr key={l.hour_ledger_id}>
               <td style={cellule}>{l.debut ? formaterDansFuseauEtablissement(l.debut, { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</td>
               <td style={cellule}>{l.eleves || '—'}</td>
+              <td style={cellule}>{l.type ? LIBELLE_TYPE_FACTURATION[l.type] : '—'}</td>
               <td style={{ ...cellule, textAlign: 'right' }}>{formaterHeures(l.heures)}</td>
-              <td style={{ ...cellule, textAlign: 'right' }}>{taux ? montant(l.heures * taux) : '—'}</td>
+              <td style={{ ...cellule, textAlign: 'right' }}>{l.montant != null ? montant(l.montant) : '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -82,10 +80,9 @@ export function TimesheetDocument({
 
       <div style={{ marginTop: 16, textAlign: 'right', fontSize: 14, display: 'flex', flexDirection: 'column', gap: 3 }}>
         <span>Total des heures : {formaterHeures(Number(timesheet.total_heures))}</span>
-        <span>Taux horaire : {taux ? montant(taux) : 'non renseigné'}</span>
-        <span style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>Total à payer : {total != null ? montant(total) : '—'}</span>
-        {timesheet.statut !== 'valide' && taux && (
-          <span style={{ fontSize: 11, color: '#666' }}>Montant estimé : définitif à la validation par l’établissement.</span>
+        <span style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>Total à payer : {timesheet.montant != null ? montant(timesheet.montant) : '—'}</span>
+        {timesheet.statut !== 'valide' && timesheet.montant != null && (
+          <span style={{ fontSize: 11, color: '#666' }}>Montant estimé : définitif, ligne par ligne, à la validation par l’établissement.</span>
         )}
       </div>
 
@@ -98,6 +95,24 @@ export function TimesheetDocument({
         <p style={{ marginTop: 10, fontSize: 12.5, color: '#b3261e' }}>
           <strong>Motif du refus :</strong> {timesheet.motif_refus}
         </p>
+      )}
+      {/* Lignes retirées par l'admin avant validation (0126) : tracées à part, jamais mêlées au
+          tableau payé ci-dessus, avec le motif donné. */}
+      {timesheet.lignes_retirees.length > 0 && (
+        <div style={{ marginTop: 20, padding: 12, borderRadius: 8, background: '#fdf3e7', border: '1px solid #e9cf94' }}>
+          <p style={{ margin: 0, fontSize: 12.5, color: '#7a5a1a' }}>
+            <strong>{timesheet.lignes_retirees.length} ligne(s) retirée(s) par l’administration avant validation</strong>
+            {timesheet.justificatif_modification ? ` — ${timesheet.justificatif_modification}` : ''}
+          </p>
+          <ul style={{ margin: '8px 0 0', paddingLeft: 18, fontSize: 12, color: '#7a5a1a' }}>
+            {timesheet.lignes_retirees.map((l) => (
+              <li key={l.hour_ledger_id}>
+                {l.debut ? formaterDansFuseauEtablissement(l.debut, { dateStyle: 'medium', timeStyle: 'short' }) : 'Séance'}
+                {l.eleves ? ` — ${l.eleves}` : ''} ({formaterHeures(l.heures)})
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   )

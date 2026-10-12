@@ -21,7 +21,6 @@ export function ParametresAdmin() {
   const { profile } = useProfileContext()
   const [etablissement, setEtablissement] = useState<Etablissement | null>(null)
   const [loading, setLoading] = useState(true)
-  const [calendlyUrl, setCalendlyUrl] = useState('')
   const [heuresForfaitCollectif, setHeuresForfaitCollectif] = useState(32)
   const [creneauMatin, setCreneauMatin] = useState('07:00')
   const [creneauMidi, setCreneauMidi] = useState('12:00')
@@ -40,7 +39,6 @@ export function ParametresAdmin() {
       .maybeSingle()
       .then(({ data }) => {
         setEtablissement(data)
-        setCalendlyUrl(data?.calendly_url ?? '')
         setHeuresForfaitCollectif(data?.heures_forfait_collectif ?? 32)
         setCreneauMatin(data?.creneau_matin?.slice(0, 5) ?? '07:00')
         setCreneauMidi(data?.creneau_midi?.slice(0, 5) ?? '12:00')
@@ -59,7 +57,6 @@ export function ParametresAdmin() {
     const { error } = await supabase
       .from('etablissements')
       .update({
-        calendly_url: calendlyUrl.trim() || null,
         heures_forfait_collectif: heuresForfaitCollectif,
         creneau_matin: creneauMatin,
         creneau_midi: creneauMidi,
@@ -85,12 +82,6 @@ export function ParametresAdmin() {
       <GuidePage
         id="admin-parametres"
         etapes={[
-          <>
-            Le <strong>lien Calendly</strong> est facultatif. Laissé vide, le formulaire de votre vitrine enregistre
-            simplement le visiteur comme prospect ; renseigné, il l'enregistre <strong>puis le redirige</strong> vers
-            votre Calendly pour qu'il choisisse son créneau lui-même. Dans les deux cas, le dossier arrive dans{' '}
-            <strong>Prospects</strong>.
-          </>,
           <>
             Le <strong>forfait d'heures par élève en cours collectif</strong> s'applique à chaque inscrit d'une vague —
             sa dernière heure est consacrée à son évaluation. Une vague peut fixer sa propre valeur depuis sa fiche,
@@ -119,22 +110,7 @@ export function ParametresAdmin() {
         <EtatChargement lignes={1} hauteur={220} />
       ) : (
         <form onSubmit={enregistrer} className="card" style={{ maxWidth: 560, padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <h2 style={{ fontSize: 16, color: 'var(--accent-gold, #e9cf94)', margin: 0 }}>Réservation des appels</h2>
-
-          <Champ
-            label="Lien Calendly"
-            aide="Si renseigné, un visiteur qui valide le formulaire de réservation de votre page vitrine est d'abord enregistré comme prospect, puis redirigé vers ce lien pour choisir son créneau directement sur votre Calendly."
-          >
-            <input
-              type="url"
-              placeholder="https://calendly.com/votre-etablissement/appel-diagnostic"
-              value={calendlyUrl}
-              onChange={(e) => setCalendlyUrl(e.target.value)}
-              style={champStyle}
-            />
-          </Champ>
-
-          <h2 style={{ fontSize: 16, color: 'var(--accent-gold, #e9cf94)', margin: '8px 0 0' }}>Cours collectifs</h2>
+          <h2 style={{ fontSize: 16, color: 'var(--accent-gold, #e9cf94)', margin: 0 }}>Cours collectifs</h2>
 
           <Champ
             label="Forfait d’heures par élève en cours collectif"

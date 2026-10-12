@@ -4,6 +4,7 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useHeuresNonPayeesProfesseur } from '../../hooks/useHeuresNonPayeesProfesseur'
 import { supabase } from '../../lib/supabaseClient'
 import { formaterHeures } from '../../lib/heures'
+import { calculerRemuneration, LIBELLE_TYPE_FACTURATION } from '../../lib/remuneration'
 import { champStyle } from '../ui/Champ'
 import { EtatChargement } from '../ui/Etats'
 import { ChampDate } from '../ui/ChampDate'
@@ -33,11 +34,23 @@ export function CreerRemunerationProfesseur({ etablissementId, onCree, onAnnuler
   const professeur = professeurs.find((p) => p.id === teacherId) ?? null
   const { lignes: heuresNonPayees, loading: chargementHeures } = useHeuresNonPayeesProfesseur(mode === 'horaire' ? teacherId : undefined)
 
-  const heuresSelectionnees = useMemo(
-    () => heuresNonPayees.filter((l) => lignesSelectionnees.has(l.id)).reduce((total, l) => total + l.heures, 0),
-    [heuresNonPayees, lignesSelectionnees],
+  const lignesRetenues = useMemo(() => heuresNonPayees.filter((l) => lignesSelectionnees.has(l.id)), [heuresNonPayees, lignesSelectionnees])
+  const heuresSelectionnees = useMemo(() => lignesRetenues.reduce((total, l) => total + l.heures, 0), [lignesRetenues])
+  // Types SELON LA SÉANCE (0126), pas un taux unique : src/lib/remuneration.ts applique le bon
+  // taux à chaque ligne avant de sommer.
+  const remuneration = useMemo(
+    () =>
+      calculerRemuneration(
+        lignesRetenues.map((l) => ({ heures: l.heures, type_facturation: l.typeFacturation })),
+        {
+          taux_horaire_individuel: professeur?.taux_horaire_individuel ?? null,
+          taux_horaire_duo: professeur?.taux_horaire_duo ?? null,
+          taux_horaire_collectif: professeur?.taux_horaire_collectif ?? null,
+        },
+      ),
+    [lignesRetenues, professeur],
   )
-  const montantHoraire = professeur?.taux_horaire ? Math.round(heuresSelectionnees * professeur.taux_horaire * 100) / 100 : 0
+  const montantHoraire = remuneration.montant
 
   function basculerLigne(id: string) {
     setLignesSelectionnees((s) => {
@@ -157,13 +170,16 @@ export function CreerRemunerationProfesseur({ etablissementId, onCree, onAnnuler
             </div>
           </>
         ) : (
-          professeur && !professeur.taux_horaire && (
-            <p style={{ color: 'var(--danger)', fontSize: 12.5 }}>Ce professeur n'a pas de taux horaire renseigné (informations personnelles).</p>
+          professeur &&
+          !professeur.taux_horaire_individuel &&
+          !professeur.taux_horaire_duo &&
+          !professeur.taux_horaire_collectif && (
+            <p style={{ color: 'var(--danger)', fontSize: 12.5 }}>Ce professeur n'a aucun taux horaire renseigné (informations personnelles).</p>
           )
         )}
       </div>
 
-      {mode === 'horaire' && teacherId && professeur?.taux_horaire && (
+      {mode === 'horaire' && teacherId && professeur && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Heures enseignées non payées</label>
           {chargementHeures ? (
@@ -176,15 +192,25 @@ export function CreerRemunerationProfesseur({ etablissementId, onCree, onAnnuler
                 <label key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--ink)', cursor: 'pointer', padding: '6px 8px', borderRadius: 8, background: 'rgba(255,255,255,.03)' }}>
                   <input type="checkbox" checked={lignesSelectionnees.has(l.id)} onChange={() => basculerLigne(l.id)} />
                   <span style={{ flexGrow: 1 }}>{l.sessionDebut ? new Date(l.sessionDebut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Date inconnue'}</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
+                    {LIBELLE_TYPE_FACTURATION[l.typeFacturation === 'collectif' || l.typeFacturation === 'duo' ? l.typeFacturation : 'individuel']}
+                  </span>
                   <span style={{ color: 'var(--muted)' }}>{formaterHeures(l.heures)}</span>
                 </label>
               ))}
             </div>
           )}
-          <div style={{ fontSize: 12.5, color: 'var(--ink-2)', textAlign: 'right' }}>
-            Total : <strong>{formaterHeures(heuresSelectionnees)}</strong> × {professeur.taux_horaire} Ar/h ={' '}
-            <strong style={{ color: 'var(--accent-gold, #e9cf94)' }}>{montantHoraire.toFixed(2)} Ar</strong>
-          </div>
+          {lignesSelectionnees.size > 0 && (
+            <div style={{ fontSize: 12.5, color: 'var(--ink-2)', textAlign: 'right' }}>
+              {remuneration.manque.length > 0 && (
+                <p style={{ color: 'var(--danger)', margin: '0 0 4px' }}>
+                  Taux manquant pour : {remuneration.manque.map((t) => LIBELLE_TYPE_FACTURATION[t]).join(', ')} — ces heures ne seront pas réglées.
+                </p>
+              )}
+              Total : <strong>{formaterHeures(heuresSelectionnees)}</strong> ={' '}
+              <strong style={{ color: 'var(--accent-gold, #e9cf94)' }}>{montantHoraire.toFixed(2)} Ar</strong>
+            </div>
+          )}
         </div>
       )}
 

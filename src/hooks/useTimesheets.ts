@@ -7,7 +7,7 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 
 export interface TimesheetAvecProfesseur {
   timesheet: Timesheet
-  professeur: Pick<Profile, 'id' | 'prenom' | 'nom' | 'taux_horaire'> | null
+  professeur: Pick<Profile, 'id' | 'prenom' | 'nom' | 'taux_horaire_individuel' | 'taux_horaire_duo' | 'taux_horaire_collectif'> | null
 }
 
 /* TimeSheets visibles par l'utilisateur (0081) : tous ceux de l'établissement pour l'admin, les
@@ -18,7 +18,10 @@ export function useTimesheets(cleSuffixe: string | undefined) {
     if (error) throw new Error(error.message)
     const ids = [...new Set((data ?? []).map((t) => t.teacher_id))]
     const { data: profs } = ids.length
-      ? await supabase.from('profiles').select('id, prenom, nom, taux_horaire').in('id', ids)
+      ? await supabase
+          .from('profiles')
+          .select('id, prenom, nom, taux_horaire_individuel, taux_horaire_duo, taux_horaire_collectif')
+          .in('id', ids)
       : { data: [] as TimesheetAvecProfesseur['professeur'][] }
     const parId = new Map((profs ?? []).map((p) => [p!.id, p]))
     const ordre = { soumis: 0, refuse: 1, valide: 2 } as const
@@ -35,6 +38,9 @@ export interface HeureDeclarable {
   sessionId: string
   debut: string | null
   eleves: string
+  /* Type figé à la clôture (0126) — null pour une écriture antérieure, traitée comme
+     'individuel' par src/lib/remuneration.ts. */
+  typeFacturation: string | null
 }
 
 /* Heures clôturées d'un professeur, ni payées ni déjà déclarées sur un TimeSheet en cours. */
@@ -42,7 +48,7 @@ export function useHeuresDeclarables(teacherId: string | undefined) {
   const { valeur, loading, recharger } = useCacheRequete(teacherId && `heures-declarables-${teacherId}`, async () => {
     const { data: ecritures } = await supabase
       .from('hour_ledger')
-      .select('id, heures, session_id')
+      .select('id, heures, session_id, type_facturation')
       .eq('teacher_id', teacherId as string)
       .eq('type_ecriture', 'credit_professeur')
       .is('teacher_payment_id', null)
@@ -69,6 +75,7 @@ export function useHeuresDeclarables(teacherId: string | undefined) {
           .filter((i) => i.session_id === e.session_id)
           .map((i) => nom.get(i.student_id) ?? 'Élève')
           .join(', '),
+        typeFacturation: e.type_facturation,
       }))
       .sort((a, b) => (a.debut ?? '').localeCompare(b.debut ?? ''))
   })

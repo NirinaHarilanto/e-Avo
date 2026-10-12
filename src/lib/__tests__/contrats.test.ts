@@ -28,7 +28,9 @@ const etudiant: Profile = {
   ville: 'Antananarivo',
   date_naissance: null,
   lieu_naissance: null,
-  taux_horaire: null,
+  taux_horaire_individuel: null,
+  taux_horaire_duo: null,
+  taux_horaire_collectif: null,
   signature_path: null,
   mot_de_passe_defini: true,
   duo_partenaire_id: null,
@@ -47,7 +49,7 @@ const professeur: Profile = {
   nom: 'Randria',
   prenom: 'Fanja',
   email: 'fanja@example.mg',
-  taux_horaire: 25000,
+  taux_horaire_individuel: 25000,
 }
 
 const etablissement: Etablissement = {
@@ -57,7 +59,6 @@ const etablissement: Etablissement = {
   specialite: 'Langues',
   couleur_accent: null,
   logo_url: null,
-  calendly_url: null,
   heures_forfait_collectif: 32,
   creneau_matin: '07:00',
   creneau_midi: '12:00',
@@ -527,8 +528,8 @@ describe('completsAReporterSurProfil', () => {
 
   it('convertit le taux horaire en nombre, y compris avec une unité ou des espaces', () => {
     const variables = [champ({ cle: 'taux', label: 'Taux horaire', source: 'taux_horaire' })]
-    expect(completsAReporterSurProfil(variables, { taux: '50000' }).destinataire).toEqual({ taux_horaire: 50000 })
-    expect(completsAReporterSurProfil(variables, { taux: '50 000 Ar/h' }).destinataire).toEqual({ taux_horaire: 50000 })
+    expect(completsAReporterSurProfil(variables, { taux: '50000' }).destinataire).toEqual({ taux_horaire_individuel: 50000 })
+    expect(completsAReporterSurProfil(variables, { taux: '50 000 Ar/h' }).destinataire).toEqual({ taux_horaire_individuel: 50000 })
   })
 
   it('reporte un champ « _2 » sur le second membre du duo, pas sur le destinataire principal', () => {

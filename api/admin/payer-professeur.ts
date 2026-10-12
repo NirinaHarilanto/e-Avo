@@ -1,4 +1,5 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
+import { calculerRemuneration, LIBELLE_TYPE_FACTURATION } from '../../src/lib/remuneration.js'
 
 export const config = { runtime: 'edge' }
 
@@ -8,9 +9,10 @@ interface Corps {
 }
 
 // Règlement au forfait horaire : calcule le montant à partir des écritures hour_ledger non
-// payées sélectionnées (heures × taux_horaire du professeur), crée la rémunération, puis
-// tague ces écritures comme payées. `hour_ledger` n'a aucune policy update cliente (0011) —
-// cette étape doit donc passer par le service_role, comme la clôture de séance.
+// payées sélectionnées (heures × taux horaire du professeur SELON LE TYPE de chaque séance,
+// 0126), crée la rémunération, puis tague ces écritures comme payées. `hour_ledger` n'a aucune
+// policy update cliente (0011) — cette étape doit donc passer par le service_role, comme la
+// clôture de séance.
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 })
@@ -26,19 +28,16 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: teacher } = await serviceClient
       .from('profiles')
-      .select('id, role, etablissement_id, taux_horaire')
+      .select('id, role, etablissement_id, taux_horaire_individuel, taux_horaire_duo, taux_horaire_collectif')
       .eq('id', body.teacherId)
       .single()
     if (!teacher || teacher.role !== 'professeur' || teacher.etablissement_id !== etablissementId) {
       return Response.json({ error: 'Professeur invalide pour cet établissement.' }, { status: 400 })
     }
-    if (!teacher.taux_horaire) {
-      return Response.json({ error: "Ce professeur n'a pas de taux horaire renseigné." }, { status: 400 })
-    }
 
     const { data: lignes } = await serviceClient
       .from('hour_ledger')
-      .select('id, heures, teacher_id, etablissement_id, type_ecriture, teacher_payment_id, timesheet_id')
+      .select('id, heures, teacher_id, etablissement_id, type_ecriture, type_facturation, teacher_payment_id, timesheet_id')
       .in('id', body.hourLedgerIds)
 
     const lignesValides = (lignes ?? []).filter(
@@ -53,8 +52,13 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Une ou plusieurs écritures sont invalides, déjà payées ou déclarées sur un TimeSheet en attente.' }, { status: 400 })
     }
 
-    const heures = lignesValides.reduce((total, l) => total + l.heures, 0)
-    const montant = Math.round(heures * teacher.taux_horaire * 100) / 100
+    const { montant, heures, manque } = calculerRemuneration(lignesValides, teacher)
+    if (manque.length > 0) {
+      return Response.json(
+        { error: `Taux horaire manquant pour : ${manque.map((t) => LIBELLE_TYPE_FACTURATION[t]).join(', ')}. Renseignez-le dans sa fiche (Professeurs).` },
+        { status: 400 },
+      )
+    }
 
     const { data: paiement, error: paiementError } = await serviceClient
       .from('teacher_payments')

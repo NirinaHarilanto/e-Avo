@@ -76,7 +76,12 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: erreurCompte?.message ?? 'Échec de la création du compte.' }, { status: 500 })
     }
 
+    /* Préremplissage des 3 taux (0126) : l'individuel reprend le taux déclaré par le candidat à
+       sa candidature (inchangé depuis avant ce chantier), le duo s'aligne dessus par défaut — même
+       règle que le remplissage en masse des professeurs déjà en place — et le collectif retombe
+       sur le tarif plateforme (15 000 Ar), ajustables ensuite depuis sa fiche. */
     const tauxSouhaite = Number(candidat.preselection?.taux_horaire)
+    const tauxIndividuelConnu = Number.isFinite(tauxSouhaite) && tauxSouhaite > 0
     const { error: erreurProfil } = await serviceClient
       .from('profiles')
       .update({
@@ -85,7 +90,8 @@ export default async function handler(request: Request): Promise<Response> {
         statut_integration: 'en_integration',
         telephone: candidat.telephone,
         ville: candidat.ville,
-        ...(Number.isFinite(tauxSouhaite) && tauxSouhaite > 0 ? { taux_horaire: tauxSouhaite } : {}),
+        ...(tauxIndividuelConnu ? { taux_horaire_individuel: tauxSouhaite, taux_horaire_duo: tauxSouhaite } : {}),
+        taux_horaire_collectif: 15000,
       })
       .eq('id', compte.user.id)
     if (erreurProfil) {

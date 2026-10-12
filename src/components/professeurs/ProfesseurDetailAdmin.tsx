@@ -1,6 +1,9 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfesseurDetailAdmin, type EleveDuProfesseur } from '../../hooks/useProfesseurDetailAdmin'
+import { useTimesheets } from '../../hooks/useTimesheets'
+import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
+import { useProfileContext } from '../../context/ProfileContext'
 import { InformationsPersonnelles } from '../shared/InformationsPersonnelles'
 import { SupprimerCompte } from '../shared/SupprimerCompte'
 import { initiales } from '../etudiants/DossierEtudiantVue'
@@ -12,11 +15,19 @@ import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { formaterHeures } from '../../lib/heures'
 import { KpiSatisfaction } from './KpiSatisfaction'
 import { DetacherVisioEtablissement } from './DetacherVisioEtablissement'
+import { TimesheetsAdmin } from '../admin/TimesheetsAdmin'
 
 export function ProfesseurDetailAdmin() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { detail, loading, erreur, recharger } = useProfesseurDetailAdmin(id)
+  /* Même clé de cache que PaiementsAdmin.tsx (« admin ») : tous les TimeSheets de
+     l'établissement sont déjà potentiellement en cache, filtrés ici sur ce seul professeur —
+     aucune requête dupliquée si l'admin a déjà visité Paiements. */
+  const { timesheets, loading: chargementTimesheets, recharger: rechargerTimesheets } = useTimesheets('admin')
+  const { derniereNotification } = useProfileContext()
+  useRafraichirSurNotification(derniereNotification, ['timesheet_soumis', 'timesheet_valide', 'timesheet_refuse'], rechargerTimesheets)
+  const timesheetsProfesseur = timesheets.filter((t) => t.timesheet.teacher_id === id)
 
   return (
     <AdminLayout actif="Professeurs">
@@ -44,15 +55,22 @@ export function ProfesseurDetailAdmin() {
             <Stat libelle="Élèves actifs" valeur={detail.eleves.length} ton="bleu" aide="Attributions en cours" />
             <Stat libelle="Heures enseignées" valeur={formaterHeures(detail.heuresTotalEnseignees)} ton="or" aide="Total depuis son arrivée" />
             <Stat
-              libelle="Taux horaire"
-              valeur={detail.professeur.taux_horaire ? `${detail.professeur.taux_horaire}` : '—'}
-              unite={detail.professeur.taux_horaire ? 'Ar/h' : undefined}
-              ton={detail.professeur.taux_horaire ? 'teal' : 'alerte'}
-              aide={
-                detail.professeur.taux_horaire
-                  ? 'Utilisé pour calculer ses rémunérations'
-                  : 'À renseigner pour automatiser le calcul de ses rémunérations'
-              }
+              libelle="Taux individuel"
+              valeur={detail.professeur.taux_horaire_individuel ? `${detail.professeur.taux_horaire_individuel}` : '—'}
+              unite={detail.professeur.taux_horaire_individuel ? 'Ar/h' : undefined}
+              ton={detail.professeur.taux_horaire_individuel ? 'teal' : 'alerte'}
+            />
+            <Stat
+              libelle="Taux duo"
+              valeur={detail.professeur.taux_horaire_duo ? `${detail.professeur.taux_horaire_duo}` : '—'}
+              unite={detail.professeur.taux_horaire_duo ? 'Ar/h' : undefined}
+              ton={detail.professeur.taux_horaire_duo ? 'teal' : 'alerte'}
+            />
+            <Stat
+              libelle="Taux collectif"
+              valeur={detail.professeur.taux_horaire_collectif ? `${detail.professeur.taux_horaire_collectif}` : '—'}
+              unite={detail.professeur.taux_horaire_collectif ? 'Ar/h' : undefined}
+              ton={detail.professeur.taux_horaire_collectif ? 'teal' : 'alerte'}
             />
           </GrilleStats>
 
@@ -63,6 +81,20 @@ export function ProfesseurDetailAdmin() {
             nombreSeances={detail.seancesHergeesParEtablissement}
             onDetache={recharger}
           />
+
+          {/* Résumé des TimeSheets de ce professeur — demande client du 2026-10-12 : « on doit
+              retrouver un bloc qui résume le timesheet de chaque professeur (demande de
+              validation par l'admin, les historiques, etc.) ». Réutilise TimesheetsAdmin tel
+              quel (filtré sur ce seul professeur) : même fenêtre de validation/refus/modification
+              qu'à la page Paiements, un seul endroit à maintenir. */}
+          <Section
+            titre="TimeSheets"
+            description="Les relevés d'heures envoyés par ce professeur, à valider ou déjà traités."
+            compteur={timesheetsProfesseur.length}
+            padding={22}
+          >
+            <TimesheetsAdmin timesheets={timesheetsProfesseur} loading={chargementTimesheets} erreur={null} onChange={rechargerTimesheets} />
+          </Section>
 
           <div className="grille-dossier">
             <Section

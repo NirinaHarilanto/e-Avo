@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { Modale } from '../ui/Modale'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
+import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 import { usePaiementsEtudiants, type ForfaitAPayer, type PaiementEtudiant } from '../../hooks/usePaiementsEtudiants'
 import { useRemunerationsProfesseurs, type RemunerationProfesseur } from '../../hooks/useRemunerationsProfesseurs'
 import { CreerPaiementEtudiant } from '../paiements/CreerPaiementEtudiant'
@@ -59,7 +60,7 @@ function totaux(lignes: LignePayable[]) {
 }
 
 export function PaiementsAdmin() {
-  const { profile } = useProfileContext()
+  const { profile, derniereNotification } = useProfileContext()
   const [onglet, setOnglet] = useState<Onglet>('etudiants')
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [detail, setDetail] = useState<CiblePaiement | null>(null)
@@ -88,6 +89,11 @@ export function PaiementsAdmin() {
     remunerationsProfs.recharger()
     timesheets.recharger()
   }
+
+  /* Demande client du 2026-10-12 : un TimeSheet envoyé par un professeur doit apparaître ici
+     sans que l'admin ait à recharger la page — déjà en place côté fiche professeur
+     (ProfesseurDetailAdmin.tsx), manquait sur cette page globale. */
+  useRafraichirSurNotification(derniereNotification, ['timesheet_soumis'], () => timesheets.recharger())
 
   return (
     <AdminLayout actif="Paiements">

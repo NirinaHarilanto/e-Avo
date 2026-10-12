@@ -5,6 +5,9 @@ export interface LigneHeureNonPayee {
   id: string
   heures: number
   sessionDebut: string | null
+  /* Type figé à la clôture (0126) — null pour une écriture antérieure, traitée comme
+     'individuel' par src/lib/remuneration.ts. */
+  typeFacturation: string | null
 }
 
 /* Écritures hour_ledger de type credit_professeur non encore rattachées à un paiement
@@ -14,7 +17,7 @@ export function useHeuresNonPayeesProfesseur(teacherId: string | undefined) {
   const { valeur, loading, recharger } = useCacheRequete(teacherId && `heures-non-payees-${teacherId}`, async () => {
     const { data: ecritures } = await supabase
       .from('hour_ledger')
-      .select('id, heures, session_id')
+      .select('id, heures, session_id, type_facturation')
       .eq('teacher_id', teacherId as string)
       .eq('type_ecriture', 'credit_professeur')
       .is('teacher_payment_id', null)
@@ -28,7 +31,14 @@ export function useHeuresNonPayeesProfesseur(teacherId: string | undefined) {
     const debutParSession = new Map((sessions ?? []).map((s) => [s.id, s.debut]))
 
     return (ecritures ?? [])
-      .map((e): LigneHeureNonPayee => ({ id: e.id, heures: e.heures, sessionDebut: debutParSession.get(e.session_id) ?? null }))
+      .map(
+        (e): LigneHeureNonPayee => ({
+          id: e.id,
+          heures: e.heures,
+          sessionDebut: debutParSession.get(e.session_id) ?? null,
+          typeFacturation: e.type_facturation,
+        }),
+      )
       .sort((a, b) => (a.sessionDebut ?? '').localeCompare(b.sessionDebut ?? ''))
   })
 

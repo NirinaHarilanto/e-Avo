@@ -2,6 +2,7 @@ import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { adminsDeLEtablissement } from '../_lib/reservation.js'
 import { creerNotification } from '../_lib/notifications.js'
 import { numeroSuivant } from '../_lib/numerotation.js'
+import { calculerRemuneration } from '../../src/lib/remuneration.js'
 import type { LigneTimesheet } from '../../src/types/database.types.js'
 
 export const config = { runtime: 'edge' }
@@ -38,7 +39,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: ecritures } = await serviceClient
       .from('hour_ledger')
-      .select('id, heures, session_id, teacher_id, etablissement_id, type_ecriture, teacher_payment_id, timesheet_id')
+      .select('id, heures, session_id, teacher_id, etablissement_id, type_ecriture, type_facturation, teacher_payment_id, timesheet_id')
       .in('id', corps.hourLedgerIds)
     const valides = (ecritures ?? []).filter(
       (e) =>
@@ -56,7 +57,7 @@ export default async function handler(request: Request): Promise<Response> {
     const [{ data: seances }, { data: inscriptions }, { data: professeur }] = await Promise.all([
       serviceClient.from('sessions').select('id, debut').in('id', sessionIds),
       serviceClient.from('session_enrollments').select('session_id, student_id').in('session_id', sessionIds),
-      serviceClient.from('profiles').select('prenom, nom, taux_horaire').eq('id', profileId).single(),
+      serviceClient.from('profiles').select('prenom, nom, taux_horaire_individuel, taux_horaire_duo, taux_horaire_collectif').eq('id', profileId).single(),
     ])
     const eleveIds = [...new Set((inscriptions ?? []).map((i) => i.student_id))]
     const { data: eleves } = eleveIds.length
@@ -65,8 +66,20 @@ export default async function handler(request: Request): Promise<Response> {
     const nomEleve = new Map((eleves ?? []).map((e) => [e.id, [e.prenom, e.nom].filter(Boolean).join(' ')]))
     const debutSeance = new Map((seances ?? []).map((s) => [s.id, s.debut]))
 
-    const lignes: LigneTimesheet[] = valides
-      .map((e) => ({
+    /* Taux appliqué par ligne SELON LE TYPE de chacune (0126) — simple estimation à ce stade,
+       tant que le relevé n'est pas validé : le montant définitif est recalculé avec le taux en
+       vigueur au moment de la validation (voir api/admin/traiter-timesheet.ts), une ligne peut
+       donc afficher un montant différent une fois le TimeSheet traité si le taux a changé
+       entre-temps. `manque` n'est volontairement pas bloquant ici : un professeur peut envoyer
+       son relevé même si l'admin n'a pas encore renseigné un des 3 taux, la validation le lui
+       demandera alors explicitement. */
+    const { lignes: lignesCalculees, montant: montantEstime } = calculerRemuneration(valides, professeur ?? {
+      taux_horaire_individuel: null,
+      taux_horaire_duo: null,
+      taux_horaire_collectif: null,
+    })
+    const lignes: LigneTimesheet[] = lignesCalculees
+      .map(({ ligne: e, type, taux: tauxLigne, montant: montantLigne }) => ({
         hour_ledger_id: e.id,
         session_id: e.session_id,
         debut: debutSeance.get(e.session_id) ?? null,
@@ -75,11 +88,13 @@ export default async function handler(request: Request): Promise<Response> {
           .map((i) => nomEleve.get(i.student_id) ?? 'Élève')
           .join(', '),
         heures: Number(e.heures),
+        type,
+        taux: tauxLigne,
+        montant: montantLigne,
       }))
       .sort((a, b) => (a.debut ?? '').localeCompare(b.debut ?? ''))
 
     const totalHeures = Math.round(lignes.reduce((t, l) => t + l.heures, 0) * 100) / 100
-    const taux = professeur?.taux_horaire ?? null
     const numero = await numeroSuivant(serviceClient, 'timesheets', 'TS', etablissementId)
 
     const { data: timesheet, error } = await serviceClient
@@ -91,8 +106,10 @@ export default async function handler(request: Request): Promise<Response> {
         periode_debut: corps.periodeDebut,
         periode_fin: corps.periodeFin,
         total_heures: totalHeures,
-        taux_horaire: taux,
-        montant: taux ? Math.round(totalHeures * taux * 100) / 100 : null,
+        // `taux_horaire` (le champ unique d'avant 0126) n'a plus de sens dès qu'un relevé mélange
+        // des types de séance différents : chaque ligne porte désormais son propre taux.
+        taux_horaire: null,
+        montant: montantEstime,
         lignes,
         commentaire: corps.commentaire?.trim() || null,
       })

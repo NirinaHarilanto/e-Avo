@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useHeuresDeclarables, useTimesheets, type TimesheetAvecProfesseur } from '../../hooks/useTimesheets'
+import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 import { FUSEAU_ETABLISSEMENT, formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { formaterHeures } from '../../lib/heures'
+import { calculerRemuneration, LIBELLE_TYPE_FACTURATION } from '../../lib/remuneration'
 import { Section } from '../ui/Section'
 import { Champ, champStyle } from '../ui/Champ'
 import { EtatVide } from '../ui/EtatVide'
@@ -24,7 +26,7 @@ const COULEUR_STATUT = { soumis: 'var(--accent-gold, #e9cf94)', valide: 'var(--a
    non payées d'une période, les vérifie, et les envoie à l'administration, qui les reçoit sous
    forme de facture à valider. */
 export function TimesheetProfesseur() {
-  const { profile, session } = useProfileContext()
+  const { profile, session, derniereNotification } = useProfileContext()
   const { heures, loading, recharger: rechargerHeures } = useHeuresDeclarables(profile?.id)
   const { timesheets, recharger: rechargerTimesheets } = useTimesheets(profile?.id)
   const [debut, setDebut] = useState(premierDuMois)
@@ -36,13 +38,32 @@ export function TimesheetProfesseur() {
   const [succes, setSucces] = useState<string | null>(null)
   const [ouvert, setOuvert] = useState<{ item: TimesheetAvecProfesseur; action: ActionImpression } | null>(null)
 
+  /* Validation/refus d'un TimeSheet par l'admin : reflété ici sans attendre un rechargement
+     manuel (demande client du 2026-10-12, « mis à jour instantanément dans l'espace admin et
+     l'espace professeur »). */
+  useRafraichirSurNotification(derniereNotification, ['timesheet_valide', 'timesheet_refuse'], () => {
+    rechargerHeures()
+    rechargerTimesheets()
+  })
+
   const dansPeriode = useMemo(
     () => heures.filter((h) => h.debut && jourLocal(new Date(h.debut)) >= debut && jourLocal(new Date(h.debut)) <= fin),
     [heures, debut, fin],
   )
   const retenues = dansPeriode.filter((h) => !exclues.has(h.id))
   const total = Math.round(retenues.reduce((t, h) => t + h.heures, 0) * 100) / 100
-  const taux = profile?.taux_horaire ?? null
+  const estimation = useMemo(
+    () =>
+      calculerRemuneration(
+        retenues.map((h) => ({ heures: h.heures, type_facturation: h.typeFacturation })),
+        {
+          taux_horaire_individuel: profile?.taux_horaire_individuel ?? null,
+          taux_horaire_duo: profile?.taux_horaire_duo ?? null,
+          taux_horaire_collectif: profile?.taux_horaire_collectif ?? null,
+        },
+      ),
+    [retenues, profile],
+  )
 
   function basculer(id: string) {
     setExclues((actuel) => {
@@ -118,6 +139,9 @@ export function TimesheetProfesseur() {
                   <span style={{ fontSize: 12, color: 'var(--muted)', flexGrow: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {h.eleves || '—'}
                   </span>
+                  <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
+                    {LIBELLE_TYPE_FACTURATION[h.typeFacturation === 'collectif' || h.typeFacturation === 'duo' ? h.typeFacturation : 'individuel']}
+                  </span>
                   <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)' }}>{formaterHeures(h.heures)}</span>
                 </label>
               ))}
@@ -133,7 +157,9 @@ export function TimesheetProfesseur() {
                 <span>
                   Montant estimé :{' '}
                   <strong style={{ color: 'var(--accent-gold, #e9cf94)' }}>
-                    {taux ? `${(total * taux).toLocaleString('fr-FR')} Ar` : 'taux horaire non renseigné'}
+                    {estimation.manque.length === 0
+                      ? `${estimation.montant.toLocaleString('fr-FR')} Ar`
+                      : `taux horaire non renseigné (${estimation.manque.map((t) => LIBELLE_TYPE_FACTURATION[t]).join(', ')})`}
                   </strong>
                 </span>
               </div>
@@ -178,7 +204,7 @@ export function TimesheetProfesseur() {
 
       {ouvert && (
         <OverlayImpression onFermer={() => setOuvert(null)} nomFichier={`TimeSheet ${ouvert.item.timesheet.numero}`} actionInitiale={ouvert.action}>
-          <TimesheetDocument timesheet={ouvert.item.timesheet} nomProfesseur={nomProfesseur} tauxCourant={taux} />
+          <TimesheetDocument timesheet={ouvert.item.timesheet} nomProfesseur={nomProfesseur} />
         </OverlayImpression>
       )}
     </>
