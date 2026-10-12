@@ -37,11 +37,16 @@ export function useTypesProgrammeEtudiants(profileIds: string[]) {
         if (resultat[inscription.student_id]) continue
         resultat[inscription.student_id] = { libelle: 'Collectif', ton: 'teal' }
       }
+      /* Les trois types, pas deux (2026-10-13) : un forfait collectif sans inscription de vague
+         retrouvée tombait sur « INDIV ». En pratique l'inscription existe presque toujours et le
+         marque « Collectif » juste au-dessus, mais le ternaire mentait dès qu'elle manquait. */
+      const LIBELLE_COURT = { individuel: 'INDIV', duo: 'DUO', collectif: 'Collectif' } as const
+      const TON_COURT = { individuel: 'bleu', duo: 'or', collectif: 'teal' } as const
       for (const forfait of forfaits ?? []) {
         if (resultat[forfait.student_id]) continue
         resultat[forfait.student_id] = {
-          libelle: forfait.type_programme === 'duo' ? 'DUO' : 'INDIV',
-          ton: forfait.type_programme === 'duo' ? 'or' : 'bleu',
+          libelle: LIBELLE_COURT[forfait.type_programme],
+          ton: TON_COURT[forfait.type_programme],
         }
       }
       setProgrammes(resultat)

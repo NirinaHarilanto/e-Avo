@@ -29,6 +29,21 @@ describe('statutReglement', () => {
   it('laisse une ligne annulée annulée, quels que soient les versements', () => {
     expect(statutReglement({ montant: 100, montant_regle: 100, statut: 'annule' })).toBe('annule')
   })
+
+  /* Incident du 2026-10-13 : les forfaits collectifs, dont `packages.montant` est toujours null
+     (le prix est porté par une ligne de frais à part), arrivaient ici avec un montant ramené à 0.
+     `0 >= 0` les affichait « Payé » alors qu'aucun encaissement n'avait eu lieu. */
+  it('n’affiche jamais « Payé » pour un montant jamais renseigné et rien d’encaissé', () => {
+    expect(statutReglement({ montant: 0, montant_regle: 0, statut: 'attendu' })).toBe('a_payer')
+  })
+
+  it('garde « En retard » sur un montant non renseigné déjà échu', () => {
+    expect(statutReglement({ montant: 0, montant_regle: 0, statut: 'en_retard' })).toBe('en_retard')
+  })
+
+  it('respecte un solde explicite en base même à montant nul (geste commercial)', () => {
+    expect(statutReglement({ montant: 0, montant_regle: 0, statut: 'paye' })).toBe('paye')
+  })
 })
 
 describe('resteAPayer', () => {

@@ -1,4 +1,14 @@
-import type { StatutPaiement } from '../types/database.types'
+import type { StatutPaiement, TypeProgrammeProspect } from '../types/database.types'
+
+/* Libellé du type de programme d'un forfait. Centralisé ici (2026-10-13) après avoir trouvé la
+   même table recopiée dans quatre écrans, et DEUX endroits où le ternaire
+   `type_programme === 'duo' ? 'Duo' : 'Individuel'` affichait un forfait COLLECTIF comme
+   « Individuel » — il n'y a pas deux types de forfait mais trois. */
+export const LABEL_TYPE_PROGRAMME: Record<TypeProgrammeProspect, string> = {
+  individuel: 'Individuel',
+  duo: 'Duo',
+  collectif: 'Collectif',
+}
 
 /* Règlement d'une ligne de paiement, du point de vue du client : « À payer », « Payé
    partiellement », « Payé ». Ces trois états ne sont pas des valeurs de l'enum
@@ -25,7 +35,15 @@ export const LABELS_REGLEMENT: Record<StatutReglement, string> = {
 
 export function statutReglement(ligne: LignePayable): StatutReglement {
   if (ligne.statut === 'annule') return 'annule'
-  if (ligne.statut === 'paye' || ligne.montant_regle >= ligne.montant) return 'paye'
+  // Une ligne explicitement soldée en base le reste, même à montant nul (geste commercial).
+  if (ligne.statut === 'paye') return 'paye'
+  /* `montant > 0` obligatoire avant de conclure « Payé » par comparaison (incident du
+     2026-10-13) : un forfait dont le prix n'a jamais été renseigné arrive ici avec un montant
+     ramené à 0, et `0 >= 0` le faisait passer pour payé alors que RIEN n'avait été encaissé —
+     c'était le cas de tous les forfaits collectifs, dont `packages.montant` reste null parce que
+     le prix est porté par une ligne de frais séparée. Même garde-fou que `construireSuiviCollectif`
+     (src/lib/suiviCollectif.ts), qui exigeait déjà `montantFrais > 0` de son côté. */
+  if (ligne.montant > 0 && ligne.montant_regle >= ligne.montant) return 'paye'
   /* Un acompte déjà encaissé prime sur « en retard » : l'information utile est qu'il reste
      quelque chose à percevoir, et le reste dû exact s'affiche à côté. */
   if (ligne.montant_regle > 0) return 'partiel'

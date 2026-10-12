@@ -70,8 +70,8 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
       // Même filtre `supprime_le is null` que usePaiementsEtudiants.ts : une ligne supprimée
       // (motif conservé, mais retirée de la vue) ne doit pas compter pour le statut affiché ici.
       studentIds.length > 0
-        ? supabase.from('student_payments').select('package_id, montant, montant_regle, statut').in('student_id', studentIds).is('supprime_le', null)
-        : Promise.resolve({ data: [] as { package_id: string | null; montant: number; montant_regle: number; statut: Database['public']['Tables']['student_payments']['Row']['statut'] }[] }),
+        ? supabase.from('student_payments').select('student_id, package_id, montant, montant_regle, statut').in('student_id', studentIds).is('supprime_le', null)
+        : Promise.resolve({ data: [] as { student_id: string | null; package_id: string | null; montant: number; montant_regle: number; statut: Database['public']['Tables']['student_payments']['Row']['statut'] }[] }),
       supabase.from('sessions').select('id, duree_minutes').eq('teacher_id', teacherId as string).eq('statut', 'terminee'),
       supabase.from('google_integration_statut').select('google_email').maybeSingle(),
       supabase
@@ -87,12 +87,27 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
        convention que ForfaitAPayer dans usePaiementsEtudiants.ts) — c'est le cas par défaut si
        aucune entrée n'existe dans la map. */
     const paiementParPackage = new Map((paiements ?? []).filter((p) => p.package_id).map((p) => [p.package_id as string, p]))
+    /* Frais rattachés à l'élève sans viser un forfait précis (`package_id` null) : frais
+       d'inscription collectifs créés au stade prospect, rattachés à l'élève à la conversion.
+       Cumulés par élève comme le fait `construireSuiviCollectif`, pour couvrir les forfaits sans
+       prix propre — sinon le forfait collectif d'un élève pourtant à jour de ses frais
+       s'affichait « À payer » ici (incident du 2026-10-13). */
+    const fraisLibresParEleve = new Map<string, { montant: number; montant_regle: number }>()
+    for (const p of paiements ?? []) {
+      if (p.package_id || !p.student_id) continue
+      const cumul = fraisLibresParEleve.get(p.student_id) ?? { montant: 0, montant_regle: 0 }
+      fraisLibresParEleve.set(p.student_id, {
+        montant: cumul.montant + Number(p.montant),
+        montant_regle: cumul.montant_regle + Number(p.montant_regle),
+      })
+    }
     const reglementParPackage = (pkgs: Package[]): Record<string, StatutReglement> => {
       const resultat: Record<string, StatutReglement> = {}
       for (const pkg of pkgs) {
         const paiement = paiementParPackage.get(pkg.id)
+        const fraisLibres = pkg.montant == null ? fraisLibresParEleve.get(pkg.student_id) : undefined
         resultat[pkg.id] = statutReglement(
-          paiement ?? { montant: pkg.montant ?? 0, montant_regle: 0, statut: 'attendu' },
+          paiement ?? (fraisLibres ? { ...fraisLibres, statut: 'attendu' } : { montant: pkg.montant ?? 0, montant_regle: 0, statut: 'attendu' }),
         )
       }
       return resultat

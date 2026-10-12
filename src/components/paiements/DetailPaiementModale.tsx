@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
-import { acompteSuggere, arrondi, formaterMontant, resteAPayer, statutReglement } from '../../lib/paiements'
+import { acompteSuggere, arrondi, formaterMontant, resteAPayer, statutReglement, LABEL_TYPE_PROGRAMME } from '../../lib/paiements'
 import { useEtablissement } from '../../hooks/useEtablissement'
 import { formaterHeures } from '../../lib/heures'
 import { nomAvecDuo } from '../../lib/duo'
@@ -59,12 +59,6 @@ export interface TarifChoisi {
   titre: string
   prix: number
   heures: number | null
-}
-
-const LABEL_PROGRAMME: Record<Package['type_programme'], string> = {
-  individuel: 'Individuel',
-  duo: 'Duo',
-  collectif: 'Collectif',
 }
 
 /* Date du jour telle que l'admin la lit sur son calendrier, pas la date UTC : `toISOString()`
@@ -290,7 +284,7 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
             lignes={
               cible.type === 'forfait'
                 ? [
-                    { label: 'Forfait', valeur: `${LABEL_PROGRAMME[cible.forfait.type_programme]} · ${cible.forfait.total_heures} h` },
+                    { label: 'Forfait', valeur: `${LABEL_TYPE_PROGRAMME[cible.forfait.type_programme]} · ${cible.forfait.total_heures} h` },
                     { label: 'Professeur', valeur: cible.professeur ? `${cible.professeur.prenom} ${cible.professeur.nom}` : 'Non attribué' },
                   ]
                 : [
@@ -333,7 +327,7 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
                 {cible.type === 'etudiant' && cible.forfait && (
                   <LigneInfo
                     label="Forfait"
-                    valeur={`${LABEL_PROGRAMME[cible.forfait.type_programme]} · ${cible.forfait.total_heures} h`}
+                    valeur={`${LABEL_TYPE_PROGRAMME[cible.forfait.type_programme]} · ${cible.forfait.total_heures} h`}
                   />
                 )}
                 {cible.type === 'etudiant' && (

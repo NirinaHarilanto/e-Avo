@@ -116,8 +116,25 @@ export function usePaiementsEtudiants() {
       }))
 
     const forfaitsDejaFactures = new Set((data ?? []).map((p) => p.package_id).filter((id): id is string => !!id))
+    /* Un paiement sans `package_id` ne vise aucun forfait précis : ce sont les frais d'inscription
+       collectifs, créés au stade prospect puis rattachés à l'élève à la conversion
+       (convert-prospect.ts). Ils couvrent les forfaits SANS prix propre de cet élève — typiquement
+       son forfait collectif, dont `packages.montant` reste null justement parce que le prix est
+       porté par cette ligne de frais. Sans ce rapprochement (incident du 2026-10-13), l'élève
+       apparaissait DEUX FOIS sur la page Paiements : son vrai paiement de frais, et son forfait
+       collectif annoncé « aucun paiement enregistré ». Un forfait qui a SON PROPRE montant n'est
+       jamais couvert ainsi : il reste dû tant qu'aucun paiement ne le référence explicitement. */
+    const elevesAvecFraisLibres = new Set(
+      (data ?? []).filter((p) => !p.package_id && p.student_id).map((p) => p.student_id as string),
+    )
     const forfaitsAPayer = (forfaits ?? [])
-      .filter((f) => !forfaitsDejaFactures.has(f.id) && professeurParEleve.has(f.student_id) && etudiantsActifsIds.has(f.student_id))
+      .filter(
+        (f) =>
+          !forfaitsDejaFactures.has(f.id) &&
+          !(f.montant == null && elevesAvecFraisLibres.has(f.student_id)) &&
+          professeurParEleve.has(f.student_id) &&
+          etudiantsActifsIds.has(f.student_id),
+      )
       .map((forfait): ForfaitAPayer => ({
         forfait,
         etudiant: profilParId.get(forfait.student_id) ?? null,

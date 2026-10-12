@@ -10,7 +10,7 @@ import { CreerPaiementEtudiant } from '../paiements/CreerPaiementEtudiant'
 import { CreerRemunerationProfesseur } from '../paiements/CreerRemunerationProfesseur'
 import { DetailPaiementModale, type CiblePaiement } from '../paiements/DetailPaiementModale'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
-import { formaterMontant, resteAPayer, statutReglement, LABELS_REGLEMENT, type LignePayable, type StatutReglement } from '../../lib/paiements'
+import { formaterMontant, resteAPayer, statutReglement, LABELS_REGLEMENT, LABEL_TYPE_PROGRAMME, type LignePayable, type StatutReglement } from '../../lib/paiements'
 import { nomAvecDuo } from '../../lib/duo'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -303,12 +303,6 @@ function BarreFiltres({
   )
 }
 
-const LABEL_PROGRAMME: Record<'individuel' | 'duo' | 'collectif', string> = {
-  individuel: 'Individuel',
-  duo: 'Duo',
-  collectif: 'Collectif',
-}
-
 function ListePaiementsEtudiants({
   paiements,
   forfaitsAPayer,
@@ -349,7 +343,7 @@ function ListePaiementsEtudiants({
           key={`forfait-${forfait.id}`}
           nomPersonne={etudiant ? nomAvecDuo(etudiant, duoPartenaire) : 'Étudiant inconnu'}
           sousTitre={[
-            `Forfait ${LABEL_PROGRAMME[forfait.type_programme]} · ${forfait.total_heures} h`,
+            `Forfait ${LABEL_TYPE_PROGRAMME[forfait.type_programme]} · ${forfait.total_heures} h`,
             professeur ? `prof. ${professeur.prenom} ${professeur.nom}` : null,
             'aucun paiement enregistré',
           ]
@@ -370,7 +364,7 @@ function ListePaiementsEtudiants({
           nomPersonne={etudiant ? nomAvecDuo(etudiant, duoPartenaire) : 'Étudiant inconnu'}
           sousTitre={
             [
-              forfait ? `Forfait ${LABEL_PROGRAMME[forfait.type_programme]} · ${forfait.total_heures} h` : null,
+              forfait ? `Forfait ${LABEL_TYPE_PROGRAMME[forfait.type_programme]} · ${forfait.total_heures} h` : null,
               paiement.moyen_paiement,
               paiement.reference,
             ]

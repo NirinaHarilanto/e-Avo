@@ -2,14 +2,13 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { supabase } from '../../lib/supabaseClient'
+import { LABEL_TYPE_PROGRAMME } from '../../lib/paiements'
 import type { Database } from '../../types/database.types'
 import { champStyle } from '../ui/Champ'
 import { ChampDate } from '../ui/ChampDate'
 import { SelectMoyenPaiement } from './SelectMoyenPaiement'
 
 type Package = Database['public']['Tables']['packages']['Row']
-
-const LABEL_PROGRAMME: Record<Package['type_programme'], string> = { individuel: 'Individuel', duo: 'Duo', collectif: 'Collectif' }
 
 interface CreerPaiementEtudiantProps {
   etablissementId: string
@@ -102,7 +101,7 @@ export function CreerPaiementEtudiant({ etablissementId, onCree, onAnnuler }: Cr
           <option value="">Aucun forfait rattaché</option>
           {forfaits.map((f) => (
             <option key={f.id} value={f.id}>
-              {LABEL_PROGRAMME[f.type_programme]} · {f.total_heures} h
+              {LABEL_TYPE_PROGRAMME[f.type_programme]} · {f.total_heures} h
             </option>
           ))}
         </select>

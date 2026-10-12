@@ -14,6 +14,7 @@ import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { formaterHeures } from '../../lib/heures'
+import { LABEL_TYPE_PROGRAMME } from '../../lib/paiements'
 import { KpiSatisfaction } from './KpiSatisfaction'
 import { DetacherVisioEtablissement } from './DetacherVisioEtablissement'
 import { TimesheetsAdmin } from '../admin/TimesheetsAdmin'
@@ -154,8 +155,10 @@ function LigneEleve({ eleveDuProfesseur }: { eleveDuProfesseur: EleveDuProfesseu
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, borderTop: '1px solid var(--border-soft)', paddingTop: 8 }}>
           {packages.map((pkg) => (
             <div key={pkg.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
+              {/* Les trois types, pas seulement duo/individuel : un forfait collectif s'affichait
+                  à tort « individuel » ici (incident du 2026-10-13). */}
               <span style={{ color: 'var(--muted)' }}>
-                Forfait {pkg.type_programme === 'duo' ? 'duo' : 'individuel'} · {pkg.total_heures} h
+                Forfait {LABEL_TYPE_PROGRAMME[pkg.type_programme]} · {pkg.total_heures} h
               </span>
               <BadgeStatutPaiement statut={reglementParPackage[pkg.id]} />
             </div>

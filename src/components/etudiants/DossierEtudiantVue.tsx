@@ -13,6 +13,7 @@ import {
 import { RecapitulatifDiagnostic } from '../prospects/FormulaireDiagnosticCall'
 import type { Database } from '../../types/database.types'
 import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE } from '../../lib/classesCollectif'
+import { LABEL_TYPE_PROGRAMME } from '../../lib/paiements'
 import { niveauDefinitif } from '../../lib/niveauEtudiant'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { Section } from '../ui/Section'
@@ -158,7 +159,7 @@ function HistoriqueForfaits({ packages }: { packages: DossierEtudiant['packages'
               }}
             >
               <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1 }}>
-                {p.type_programme === 'duo' ? 'Duo' : 'Individuel'} · {formaterHeures(p.total_heures)}
+                {LABEL_TYPE_PROGRAMME[p.type_programme]} · {formaterHeures(p.total_heures)}
                 {p.essai && (
                   <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'rgba(233,207,148,.14)', border: '1px solid rgba(233,207,148,.32)', borderRadius: 999, padding: '2px 7px' }}>
                     {/* 'prolonge' (0115) : tranche close par une prolongation, la suivante a pris
@@ -844,7 +845,7 @@ export function DossierEtudiantVue({
                   </div>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <LigneInfo label="Programme" valeur={forfait.type_programme === 'duo' ? 'Duo' : 'Individuel'} />
+                  <LigneInfo label="Programme" valeur={LABEL_TYPE_PROGRAMME[forfait.type_programme]} />
                   <LigneInfo label="Formule en cours" valeur={formaterHeures(forfait.total_heures)} />
                   <LigneInfo label="Montant" valeur={forfait.montant !== null ? `${forfait.montant.toLocaleString('fr-FR')} Ar` : '—'} />
                   <LigneInfo label="Consommées" valeur={formaterHeures(heuresConsommees)} />
