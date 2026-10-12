@@ -1295,6 +1295,12 @@ body.vitrine-hx {
 .hx-modal .box:has(.content.quiz-actif) .steps {
   margin-top: 14px;
 }
+/* Le pied « ← Retour » disparaît pendant le questionnaire : il fait doublon avec le bouton
+   « ← Précédent » du quiz, et ses ~70 px manquaient aux propositions sur une fenêtre courte. Les
+   onglets en haut et la croix de fermeture restent disponibles pour sortir. */
+.hx-modal .box:has(.content.quiz-actif) .foot {
+  display: none;
+}
 .hx-modal .content.quiz-actif > .pane.on,
 .hx-modal .content.quiz-actif > .pane.on > .agenda,
 .hx-modal .content.quiz-actif .quiz-colonne {

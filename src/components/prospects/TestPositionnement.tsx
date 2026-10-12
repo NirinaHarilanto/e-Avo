@@ -445,7 +445,7 @@ function QuestionnaireEtape({
                défile dans son propre bloc ; sur un grand écran il s'affiche en entier. */
             <div
               style={{
-                maxHeight: '42%',
+                maxHeight: '34%',
                 overflowY: 'auto',
                 padding: '10px 12px',
                 borderRadius: 11,
