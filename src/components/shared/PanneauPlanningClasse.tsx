@@ -1,32 +1,44 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { useSeancesClasse } from '../../hooks/useSeancesClasse'
+import type { SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
-import { EditerSeancePlanifieeModale } from './EditerSeancePlanifieeModale'
+import { CarteSeance } from './CarteSeance'
 import { boutonSecondaireStyle } from '../ui/Boutons'
 import { EtatChargement } from '../ui/Etats'
+import { ListeRepliable } from '../ui/Repliable'
+import { Modale } from '../ui/Modale'
+import { formaterMinutes } from '../../lib/heures'
 import type { Database } from '../../types/database.types'
 
 type Session = Database['public']['Tables']['sessions']['Row']
 
-const LABEL_STATUT: Record<Session['statut'], string> = {
-  planifiee: 'Planifiée',
-  terminee: 'Terminée',
-  annulee: 'Annulée',
-  reportee: 'Reportée',
+/* Mêmes couleurs et même libellé que la colonne « Présence » du parcours pédagogique
+   (DossierEtudiantVue.tsx) — repris à l'identique sur demande du client, à ceci près qu'une ligne
+   de planning décrit la séance pour TOUTE la classe : c'est son statut qui s'affiche, jamais la
+   présence d'un élève en particulier. */
+function StatutSeanceClasse({ statut }: { statut: Session['statut'] }) {
+  if (statut === 'planifiee') return <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-cyan)' }}>Planifiée</span>
+  if (statut === 'annulee') return <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)' }}>Annulée</span>
+  if (statut === 'reportee') return <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--warning, #e0a94d)' }}>Reportée</span>
+  return <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-teal)' }}>Terminée</span>
 }
-const COULEUR_STATUT: Record<Session['statut'], string> = {
-  planifiee: 'var(--muted)',
-  terminee: 'var(--accent-teal)',
-  annulee: 'var(--danger)',
-  reportee: 'var(--warning)',
+
+const enTeteColonne: CSSProperties = {
+  fontSize: 10,
+  fontWeight: 800,
+  color: 'var(--muted-2)',
+  textTransform: 'uppercase',
+  letterSpacing: 0.5,
 }
 
 /* Planning d'une classe (ou d'une vague entière) : le planning DÉJÀ POSÉ, en lecture, et le
    formulaire pour en planifier de nouveaux créneaux — demande client du 2026-10-12, aussi bien
    côté professeur (CoursCollectifsProfesseur.tsx, affiché en accordéon inline) que côté admin
-   (CohortesAdmin.tsx, affiché dans une pop-up). Une séance encore planifiée s'ouvre dans
-   `EditerSeancePlanifieeModale` — le MÊME composant que l'agenda, aucune règle dupliquée pour la
-   portée « cette séance »/« toute la série » (0123) ni pour la reprogrammation. */
+   (CohortesAdmin.tsx, affiché dans une pop-up). Le tableau reprend trait pour trait celui du
+   parcours pédagogique d'un élève (DossierEtudiantVue.tsx), sur demande expresse du client.
+   Chaque ligne ouvre `CarteSeance` — le MÊME composant que l'agenda du professeur : clôturer une
+   séance dont la date est passée, la reprogrammer, l'annuler, puis rédiger son compte rendu et
+   relire l'enquête de satisfaction, sans qu'aucune de ces règles ne soit dupliquée ici. */
 export function PanneauPlanningClasse({
   studentIds,
   cohortId,
@@ -54,7 +66,10 @@ export function PanneauPlanningClasse({
 }) {
   const { seances, loading, recharger } = useSeancesClasse({ cohortClassId, cohortId })
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
-  const [seanceEnEdition, setSeanceEnEdition] = useState<Session | null>(null)
+  const [seanceOuverte, setSeanceOuverte] = useState<SeanceProfesseur | null>(null)
+  // Figé au montage : `new Date()` pendant le rendu rendrait celui-ci impur (et relancerait les
+  // comparaisons « séance déjà commencée » à chaque re-rendu).
+  const [maintenant] = useState(() => new Date().toISOString())
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -65,37 +80,57 @@ export function PanneauPlanningClasse({
         ) : seances.length === 0 ? (
           <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: 0 }}>Aucune séance planifiée pour l'instant.</p>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 300, overflowY: 'auto' }}>
-            {seances.map((s) => {
-              const modifiable = peutModifier && s.statut === 'planifiee'
-              return (
+          <div style={{ borderRadius: 16, border: '1px solid var(--border)', background: 'var(--surface)', overflow: 'hidden' }}>
+            {/* En-têtes purement visuels : chaque ligne reste lisible seule à la lecture d'écran
+                (une date, un libellé, une durée, un statut) — même choix que le tableau d'origine. */}
+            <div
+              aria-hidden
+              style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '7px 18px', background: 'rgba(0,0,0,.18)', borderBottom: '1px solid var(--border-soft)' }}
+            >
+              <span style={{ ...enTeteColonne, width: 118, flexShrink: 0 }}>Date</span>
+              <span style={{ ...enTeteColonne, flexGrow: 1 }}>Séance</span>
+              <span style={enTeteColonne}>Durée</span>
+              <span style={{ ...enTeteColonne, width: 72, textAlign: 'right' }}>Présence</span>
+            </div>
+            <ListeRepliable visibles={3} nom="séances">
+              {seances.map((s) => (
                 <div
-                  key={s.id}
-                  className={modifiable ? 'row-hl' : undefined}
-                  onClick={modifiable ? () => setSeanceEnEdition(s) : undefined}
+                  key={s.session.id}
+                  className="row-hl"
+                  onClick={peutModifier ? () => setSeanceOuverte(s) : undefined}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 10,
-                    fontSize: 12.5,
-                    padding: '9px 12px',
-                    borderRadius: 10,
-                    background: 'rgba(255,255,255,.03)',
-                    cursor: modifiable ? 'pointer' : 'default',
+                    gap: 16,
+                    padding: '11px 18px',
+                    borderBottom: '1px solid var(--border-soft)',
+                    cursor: peutModifier ? 'pointer' : 'default',
                   }}
                 >
-                  <span style={{ color: 'var(--ink)' }}>
-                    {new Date(s.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })} · {s.duree_minutes} min
+                  {/* L'heure accompagne la date : une même classe peut avoir plusieurs créneaux
+                      dans la semaine (18:00 / 19:00), et c'est précisément elle qu'on vient
+                      reprogrammer depuis cet écran. */}
+                  <span style={{ fontSize: 12, color: 'var(--muted)', width: 118, flexShrink: 0 }}>
+                    {new Date(s.session.debut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                    {' · '}
+                    {new Date(s.session.debut).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                   </span>
-                  <span style={{ color: COULEUR_STATUT[s.statut], fontSize: 11.5, fontWeight: 700 }}>{LABEL_STATUT[s.statut]}</span>
+                  <span style={{ fontSize: 13, color: 'var(--ink)', flexGrow: 1 }}>
+                    {s.session.type === 'individuel' ? 'Séance individuelle' : 'Séance collective'}
+                  </span>
+                  <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{formaterMinutes(s.session.duree_minutes)}</span>
+                  <span style={{ width: 72, textAlign: 'right' }}>
+                    <StatutSeanceClasse statut={s.session.statut} />
+                  </span>
                 </div>
-              )
-            })}
+              ))}
+            </ListeRepliable>
           </div>
         )}
         {!loading && seances.length > 0 && peutModifier && (
-          <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Cliquez une séance encore planifiée pour la reprogrammer ou l'annuler.</span>
+          <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
+            Cliquez une séance pour la clôturer une fois sa date passée, la reprogrammer ou l'annuler.
+          </span>
         )}
       </div>
 
@@ -124,16 +159,23 @@ export function PanneauPlanningClasse({
         />
       )}
 
-      {seanceEnEdition && (
-        <EditerSeancePlanifieeModale
-          session={seanceEnEdition}
-          onFermer={() => setSeanceEnEdition(null)}
-          onEnregistre={() => {
-            setSeanceEnEdition(null)
-            recharger()
-            onChange?.()
-          }}
-        />
+      {seanceOuverte && (
+        <Modale
+          titre={`Séance du ${new Date(seanceOuverte.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}`}
+          onFermer={() => setSeanceOuverte(null)}
+          largeurMax={560}
+        >
+          <CarteSeance
+            seance={seanceOuverte}
+            maintenant={maintenant}
+            sansCadre
+            onChange={() => {
+              setSeanceOuverte(null)
+              recharger()
+              onChange?.()
+            }}
+          />
+        </Modale>
       )}
     </div>
   )
