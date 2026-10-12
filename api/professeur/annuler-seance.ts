@@ -1,11 +1,37 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { annulerVisio } from '../_lib/synchroniserVisio.js'
 import { formaterDateSeance, notifierAdminsMouvementPlanning, notifierParticipantsSeance } from '../_lib/notifications.js'
+import type { createClient } from '@supabase/supabase-js'
+import type { Database } from '../../src/types/database.types.js'
 
 export const config = { runtime: 'edge' }
 
+type ServiceClient = ReturnType<typeof createClient<Database>>
+type SeanceAAnnuler = Pick<Database['public']['Tables']['sessions']['Row'], 'id' | 'teacher_id' | 'statut' | 'etablissement_id' | 'debut' | 'duree_minutes'>
+
 interface Corps {
   sessionId?: string
+  /* Portée d'une séance faisant partie d'une série (0123, `serie_id`) — demande client du
+     2026-10-12 : « il faut lui demander si cela concerne uniquement le rendez-vous ou la série ».
+     Absent/'occurrence' : seule la séance visée. 'serie' : toutes les séances encore planifiées
+     de la même série. */
+  portee?: 'occurrence' | 'serie'
+}
+
+/* Annule UNE séance en base (statut + historique + visio), sans notifier personne — la
+   notification est l'affaire de l'appelant, qui décide d'en envoyer une par séance ou une seule
+   consolidée pour toute une série (voir plus bas). */
+async function annulerUneSeance(serviceClient: ServiceClient, session: SeanceAAnnuler, profileId: string, etablissementId: string): Promise<void> {
+  await serviceClient.from('sessions').update({ statut: 'annulee' }).eq('id', session.id)
+  await serviceClient.from('session_modifications').insert({
+    session_id: session.id,
+    etablissement_id: etablissementId,
+    modifie_par: profileId,
+    type_modification: 'annulee',
+    ancien_debut: session.debut,
+    ancienne_duree_minutes: session.duree_minutes,
+  })
+  await annulerVisio(serviceClient, { sessionId: session.id, etablissementId })
 }
 
 // Annulation d'une séance. Le professeur pouvait déjà le faire directement depuis le navigateur
@@ -30,7 +56,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: session, error: sessionError } = await serviceClient
       .from('sessions')
-      .select('id, teacher_id, statut, etablissement_id, debut, duree_minutes')
+      .select('id, teacher_id, statut, etablissement_id, debut, duree_minutes, serie_id')
       .eq('id', body.sessionId)
       .single()
 
@@ -43,34 +69,40 @@ export default async function handler(request: Request): Promise<Response> {
     if (session.statut !== 'planifiee') {
       return Response.json({ error: 'Seule une séance encore planifiée peut être annulée.' }, { status: 409 })
     }
-
-    const { error: updateError } = await serviceClient
-      .from('sessions')
-      .update({ statut: 'annulee' })
-      .eq('id', session.id)
-    if (updateError) {
-      return Response.json({ error: updateError.message }, { status: 500 })
+    if (body.portee === 'serie' && !session.serie_id) {
+      return Response.json({ error: "Cette séance ne fait pas partie d'une série." }, { status: 400 })
     }
 
-    await serviceClient.from('session_modifications').insert({
-      session_id: session.id,
-      etablissement_id: etablissementId,
-      modifie_par: profileId,
-      type_modification: 'annulee',
-      ancien_debut: session.debut,
-      ancienne_duree_minutes: session.duree_minutes,
-    })
+    /* « Toute la série » (0123) : toutes les séances ENCORE PLANIFIÉES de la même série, la
+       séance cliquée comprise — jamais celles déjà terminées ou déjà annulées, exactement la
+       même garantie que le garde-fou ci-dessus appliqué séance par séance. Une séance passée ne
+       se détricote pas rétroactivement : ses heures sont déjà décomptées. */
+    const sessionsAAnnuler =
+      body.portee === 'serie' && session.serie_id
+        ? (
+            await serviceClient
+              .from('sessions')
+              .select('id, teacher_id, statut, etablissement_id, debut, duree_minutes')
+              .eq('serie_id', session.serie_id)
+              .eq('statut', 'planifiee')
+          ).data ?? [session]
+        : [session]
 
-    await annulerVisio(serviceClient, { sessionId: session.id, etablissementId })
+    for (const s of sessionsAAnnuler) {
+      await annulerUneSeance(serviceClient, s, profileId, etablissementId)
+    }
 
+    const estSerie = sessionsAAnnuler.length > 1
     await notifierParticipantsSeance(serviceClient, {
       etablissementId,
       sessionId: session.id,
       teacherId: session.teacher_id,
       acteurId: profileId,
       type: 'seance_annulee',
-      titre: 'Séance annulée',
-      message: `La séance du ${formaterDateSeance(session.debut)} a été annulée.`,
+      titre: estSerie ? 'Série de séances annulée' : 'Séance annulée',
+      message: estSerie
+        ? `${sessionsAAnnuler.length} séances de la série ont été annulées, à partir du ${formaterDateSeance(session.debut)}.`
+        : `La séance du ${formaterDateSeance(session.debut)} a été annulée.`,
     })
 
     const { data: inscrits } = await serviceClient.from('session_enrollments').select('student_id').eq('session_id', session.id)
@@ -79,8 +111,10 @@ export default async function handler(request: Request): Promise<Response> {
       acteurId: profileId,
       teacherId: session.teacher_id,
       type: 'planning_seance_annulee',
-      titre: 'Séance annulée',
-      detail: `La séance du ${formaterDateSeance(session.debut)} a été annulée.`,
+      titre: estSerie ? 'Série de séances annulée' : 'Séance annulée',
+      detail: estSerie
+        ? `${sessionsAAnnuler.length} séances de la série ont été annulées, à partir du ${formaterDateSeance(session.debut)}.`
+        : `La séance du ${formaterDateSeance(session.debut)} a été annulée.`,
       studentIds: (inscrits ?? []).map((i) => i.student_id),
     })
 

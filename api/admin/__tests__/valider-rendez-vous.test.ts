@@ -23,7 +23,7 @@ vi.mock('../../_lib/google.js', () => ({
   supprimerEvenement: vi.fn(async () => {}),
 }))
 
-const envoyerEmail = vi.fn(async () => ({ ok: true }))
+const envoyerEmail = vi.fn(async (..._args: unknown[]) => ({ ok: true }))
 vi.mock('../../_lib/email.js', () => ({
   envoyerEmail: (...args: unknown[]) => envoyerEmail(...args),
   modeleRendezVousConfirme: vi.fn(() => '<p>confirmé</p>'),

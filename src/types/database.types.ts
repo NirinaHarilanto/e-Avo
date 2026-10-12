@@ -351,6 +351,9 @@ export interface Database {
           cohort_id: string | null
           /* Classe de niveau au sein de la promotion (0074), si la séance en vient une. */
           cohort_class_id: string | null
+          /* Identifiant partagé par toutes les séances créées dans le même lot (0123) — Planning
+             prévisionnel ou récurrence créée depuis l'agenda. `null` pour une séance isolée. */
+          serie_id: string | null
           created_at: string
         }
         Insert: {
@@ -363,6 +366,7 @@ export interface Database {
           statut?: SessionStatut
           cohort_id?: string | null
           cohort_class_id?: string | null
+          serie_id?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['sessions']['Insert']>

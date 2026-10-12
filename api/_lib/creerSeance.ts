@@ -21,6 +21,9 @@ interface ParamsSeance {
   /* Classe de niveau au sein de la vague (0074) — présente seulement quand ce sont les inscrits
      de CETTE classe, et elle seule, qui sont dans `studentIds`. */
   cohortClassId?: string | null
+  /* Identifiant partagé par toutes les séances d'un même lot (0123) — Planning prévisionnel ou
+     récurrence créée depuis l'agenda. `null`/absent pour une séance isolée, créée seule. */
+  serieId?: string | null
 }
 
 /**
@@ -67,6 +70,7 @@ export async function creerSeanceAvecInscriptions(
         statut: 'planifiee',
         cohort_id: params.cohortId ?? null,
         cohort_class_id: params.cohortClassId ?? null,
+        serie_id: params.serieId ?? null,
       })
       .select('id')
       .single(),

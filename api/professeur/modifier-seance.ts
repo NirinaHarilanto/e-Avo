@@ -1,14 +1,52 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { deplacerVisio } from '../_lib/synchroniserVisio.js'
 import { formaterDateSeance, notifierAdminsMouvementPlanning, notifierParticipantsSeance } from '../_lib/notifications.js'
+import type { createClient } from '@supabase/supabase-js'
+import type { Database } from '../../src/types/database.types.js'
 
 export const config = { runtime: 'edge' }
+
+type ServiceClient = ReturnType<typeof createClient<Database>>
+type SeanceAReprogrammer = Pick<Database['public']['Tables']['sessions']['Row'], 'id' | 'debut' | 'duree_minutes'>
 
 interface Corps {
   sessionId?: string
   debut?: string
   dureeMinutes?: number
   justificatif?: string
+  /* Portée d'une séance faisant partie d'une série (0123, `serie_id`), même demande client que
+     pour l'annulation (annuler-seance.ts). 'serie' décale TOUTES les séances encore planifiées de
+     la série du même delta de temps que celui appliqué à la séance cliquée — l'heure de la
+     journée change pour chacune, la date de chacune reste la sienne, exactement le comportement
+     de Google Agenda sur « toute la série ». */
+  portee?: 'occurrence' | 'serie'
+}
+
+/* Reprogramme UNE séance en base (horaire + historique + visio), sans notifier personne — comme
+   pour annuler-seance.ts, une seule notification consolidée est envoyée pour toute une série
+   plutôt qu'une par séance. */
+async function reprogrammerUneSeance(
+  serviceClient: ServiceClient,
+  session: SeanceAReprogrammer,
+  nouveauDebut: string,
+  nouvelleDuree: number,
+  profileId: string,
+  etablissementId: string,
+  justificatif: string,
+): Promise<void> {
+  await serviceClient.from('sessions').update({ debut: nouveauDebut, duree_minutes: nouvelleDuree }).eq('id', session.id)
+  await serviceClient.from('session_modifications').insert({
+    session_id: session.id,
+    etablissement_id: etablissementId,
+    modifie_par: profileId,
+    type_modification: 'reprogrammee',
+    ancien_debut: session.debut,
+    nouveau_debut: nouveauDebut,
+    ancienne_duree_minutes: session.duree_minutes,
+    nouvelle_duree_minutes: nouvelleDuree,
+    justificatif,
+  })
+  await deplacerVisio(serviceClient, { sessionId: session.id, etablissementId, debut: nouveauDebut, dureeMinutes: nouvelleDuree })
 }
 
 // Modifie l'heure/la durée d'une séance encore planifiée — appliqué IMMÉDIATEMENT, professeur
@@ -66,42 +104,43 @@ export default async function handler(request: Request): Promise<Response> {
     if (!justificatif) {
       return Response.json({ error: "Un justificatif est obligatoire pour modifier l'heure ou la durée d'une séance." }, { status: 400 })
     }
-
-    const { error: updateError } = await serviceClient
-      .from('sessions')
-      .update({ debut: nouveauDebut, duree_minutes: nouvelleDuree })
-      .eq('id', session.id)
-    if (updateError) {
-      return Response.json({ error: updateError.message }, { status: 500 })
+    if (body.portee === 'serie' && !session.serie_id) {
+      return Response.json({ error: "Cette séance ne fait pas partie d'une série." }, { status: 400 })
     }
 
-    await serviceClient.from('session_modifications').insert({
-      session_id: session.id,
-      etablissement_id: etablissementId,
-      modifie_par: profileId,
-      type_modification: 'reprogrammee',
-      ancien_debut: session.debut,
-      nouveau_debut: nouveauDebut,
-      ancienne_duree_minutes: session.duree_minutes,
-      nouvelle_duree_minutes: nouvelleDuree,
-      justificatif,
-    })
+    /* « Toute la série » (0123) : même delta de temps appliqué à toutes les séances ENCORE
+       PLANIFIÉES de la série — chacune garde sa propre date, seule l'heure du jour se décale du
+       même écart que celui demandé sur la séance cliquée. Jamais les séances déjà terminées ou
+       annulées, même garde-fou que pour l'annulation (annuler-seance.ts). */
+    const deltaMs = new Date(nouveauDebut).getTime() - new Date(session.debut).getTime()
 
-    await deplacerVisio(serviceClient, {
-      sessionId: session.id,
-      etablissementId,
-      debut: nouveauDebut,
-      dureeMinutes: nouvelleDuree,
-    })
+    const seancesAReprogrammer: SeanceAReprogrammer[] =
+      body.portee === 'serie' && session.serie_id
+        ? (
+            await serviceClient
+              .from('sessions')
+              .select('id, debut, duree_minutes')
+              .eq('serie_id', session.serie_id)
+              .eq('statut', 'planifiee')
+          ).data ?? [session]
+        : [session]
 
+    for (const s of seancesAReprogrammer) {
+      const debutDeS = s.id === session.id ? nouveauDebut : new Date(new Date(s.debut).getTime() + deltaMs).toISOString()
+      await reprogrammerUneSeance(serviceClient, s, debutDeS, nouvelleDuree, profileId, etablissementId, justificatif)
+    }
+
+    const estSerie = seancesAReprogrammer.length > 1
     await notifierParticipantsSeance(serviceClient, {
       etablissementId,
       sessionId: session.id,
       teacherId: session.teacher_id,
       acteurId: profileId,
       type: 'seance_reprogrammee',
-      titre: 'Séance reprogrammée',
-      message: `Nouvelle heure : ${formaterDateSeance(nouveauDebut)}.`,
+      titre: estSerie ? 'Série de séances reprogrammée' : 'Séance reprogrammée',
+      message: estSerie
+        ? `${seancesAReprogrammer.length} séances de la série ont été décalées. Nouvelle heure de celle-ci : ${formaterDateSeance(nouveauDebut)}.`
+        : `Nouvelle heure : ${formaterDateSeance(nouveauDebut)}.`,
     })
 
     const { data: inscrits } = await serviceClient.from('session_enrollments').select('student_id').eq('session_id', session.id)
@@ -110,8 +149,10 @@ export default async function handler(request: Request): Promise<Response> {
       acteurId: profileId,
       teacherId: session.teacher_id,
       type: 'planning_seance_reprogrammee',
-      titre: 'Séance reprogrammée',
-      detail: `Séance du ${formaterDateSeance(session.debut)} déplacée au ${formaterDateSeance(nouveauDebut)} (${nouvelleDuree} min). Motif : ${justificatif}.`,
+      titre: estSerie ? 'Série de séances reprogrammée' : 'Séance reprogrammée',
+      detail: estSerie
+        ? `${seancesAReprogrammer.length} séances de la série décalées du même écart, à partir du ${formaterDateSeance(session.debut)}. Motif : ${justificatif}.`
+        : `Séance du ${formaterDateSeance(session.debut)} déplacée au ${formaterDateSeance(nouveauDebut)} (${nouvelleDuree} min). Motif : ${justificatif}.`,
       studentIds: (inscrits ?? []).map((i) => i.student_id),
     })
 

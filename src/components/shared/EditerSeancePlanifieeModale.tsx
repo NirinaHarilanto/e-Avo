@@ -8,6 +8,7 @@ import { Champ, champStyle, etiquetteStyle } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { ChampDate } from '../ui/ChampDate'
+import { ChoixPortee } from './ChoixPortee'
 
 type Session = Database['public']['Tables']['sessions']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -53,6 +54,10 @@ export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre, e
   const [enCours, setEnCours] = useState(false)
   const [suppressionEnCours, setSuppressionEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  // Séance créée en lot (Planning prévisionnel ou récurrence depuis l'agenda, 0123) : demande
+  // client du 2026-10-12, « demander si cela concerne uniquement le rendez-vous ou la série » —
+  // un seul choix qui conditionne aussi bien « Enregistrer » qu'« Supprimer la séance » ci-dessous.
+  const [portee, setPortee] = useState<'occurrence' | 'serie'>('occurrence')
 
   // Comparaison par instant, pas par égalité de chaîne : PostgREST rend `debut` au format
   // "+00:00" alors que `new Date(...).toISOString()` produit toujours un suffixe "Z" — une
@@ -67,7 +72,7 @@ export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre, e
     const reponse = await fetch('/api/professeur/modifier-seance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.access_token}` },
-      body: JSON.stringify({ sessionId: session.id, debut: new Date(debut).toISOString(), dureeMinutes, justificatif }),
+      body: JSON.stringify({ sessionId: session.id, debut: new Date(debut).toISOString(), dureeMinutes, justificatif, portee }),
     })
     setEnCours(false)
     if (!reponse.ok) {
@@ -90,7 +95,7 @@ export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre, e
     const reponse = await fetch('/api/professeur/annuler-seance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.access_token}` },
-      body: JSON.stringify({ sessionId: session.id }),
+      body: JSON.stringify({ sessionId: session.id, portee }),
     })
     setSuppressionEnCours(false)
     if (!reponse.ok) {
@@ -145,6 +150,14 @@ export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre, e
               </span>
             )}
           </div>
+        )}
+
+        {session.serie_id && (
+          <ChoixPortee
+            valeur={portee}
+            onChange={setPortee}
+            texte="Cette séance fait partie d'une série de cours. Que faut-il modifier ou annuler ?"
+          />
         )}
 
         <Champ label="Date et heure de début" obligatoire>

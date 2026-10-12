@@ -10,7 +10,9 @@ import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { lundiDeLaSemaine } from '../../lib/agenda'
 import { nomVagueSeul } from '../../lib/cohortes'
 import { agendaAdminComplet, estEvenementGooglePersonnel, idGoogleDepuisEvenement } from '../../lib/agendaEvenements'
-import { FicheEvenementGoogle, REPETITIONS } from '../shared/FicheEvenementGoogle'
+import { FicheEvenementGoogle } from '../shared/FicheEvenementGoogle'
+import { SelecteurRecurrence } from '../shared/SelecteurRecurrence'
+import { genererOccurrences, versRRule, type RegleRecurrence } from '../../lib/recurrence'
 import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { etudiantsSelectionnables, vaguesSelectionnables, classesSelectionnables } from '../../lib/invitations'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
@@ -291,9 +293,11 @@ function FormulaireCreerEvenement({
   const [obligatoiresIds, setObligatoiresIds] = useState<string[]>([])
   const [optionnelsIds, setOptionnelsIds] = useState<string[]>([])
   const [notes, setNotes] = useState('')
-  /* Chaîne vide = événement ponctuel, le cas courant. Sinon, une règle de répétition iCalendar
-     telle que Google l'attend (voir REPETITIONS dans FicheEvenementGoogle). */
-  const [repetition, setRepetition] = useState('')
+  /* `null` = événement ponctuel, le cas courant. Sinon, une règle de récurrence construite par
+     SelecteurRecurrence.tsx — traduite en RRULE iCalendar pour un rendez-vous « autre » (Google
+     en porte alors seul la répétition), ou en dates concrètes pour une séance de cours (0123,
+     chaque occurrence devient une vraie `sessions`, liée aux autres par un `serie_id` commun). */
+  const [regleRecurrence, setRegleRecurrence] = useState<RegleRecurrence | null>(null)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -363,7 +367,7 @@ function FormulaireCreerEvenement({
        `evenements_admin` : cette table ne sait pas représenter une répétition, et n'y inscrire que
        la première occurrence ferait apparaître ce jour-là deux fois dans l'agenda. L'agenda HOC
        l'affiche ensuite par la superposition Google, avec sa fiche et ses boutons. */
-    if (nature === 'autre' && repetition) {
+    if (nature === 'autre' && regleRecurrence) {
       const reponseSerie = await fetch('/api/admin/google-evenement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -373,7 +377,36 @@ function FormulaireCreerEvenement({
           debut: new Date(debut).toISOString(),
           dureeMinutes,
           description: notes.trim() || undefined,
-          recurrence: repetition,
+          recurrence: versRRule(regleRecurrence),
+        }),
+      })
+        .then((r) => r.json())
+        .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
+      setEnCours(false)
+      if (reponseSerie.error) {
+        setErreur(reponseSerie.error)
+        return
+      }
+      onCree()
+      return
+    }
+
+    /* Séance de cours récurrente (0123) : chaque occurrence devient une vraie `sessions`, liée
+       aux autres par un `serie_id` commun — même route que le Planning prévisionnel
+       (planifier-seances-prevision.ts), qui sait déjà créer plusieurs séances d'un coup et n'a
+       besoin que de la liste des dates déjà résolues. */
+    if (nature === 'seance_cours' && regleRecurrence) {
+      const debuts = genererOccurrences(regleRecurrence, new Date(debut)).map((d) => d.toISOString())
+      const reponseSerie = await fetch('/api/admin/planifier-seances-prevision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          teacherId: professeursConvies[0],
+          studentIds: etudiantsConvies,
+          dureeMinutes,
+          debuts,
+          cohortId: classeDeLaSeance?.cohorte?.id ?? vagueDeLaSeance?.cohorte.id,
+          cohortClassId: classeDeLaSeance?.classe.id,
         }),
       })
         .then((r) => r.json())
@@ -467,25 +500,22 @@ function FormulaireCreerEvenement({
           </p>
         )}
 
-        {nature === 'autre' && (
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span style={etiquetteStyle}>Répétition</span>
-            <select value={repetition} onChange={(e) => setRepetition(e.target.value)} style={champStyle}>
-              <option value="">Ne se répète pas</option>
-              {REPETITIONS.map((r) => (
-                <option key={r.valeur} value={r.valeur}>
-                  {r.libelle}
-                </option>
-              ))}
-            </select>
-            {repetition && (
-              <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
-                Un rendez-vous qui se répète est créé directement dans l’agenda Google, sans participant HOC. Vous le
-                retrouverez dans cet agenda, où vous pourrez modifier ou supprimer une seule date ou toute la série.
-              </span>
-            )}
-          </label>
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span style={etiquetteStyle}>Répétition</span>
+          <SelecteurRecurrence debut={new Date(debut || debutInitial)} valeur={regleRecurrence} onChange={setRegleRecurrence} />
+          {regleRecurrence && nature === 'autre' && (
+            <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+              Un rendez-vous qui se répète est créé directement dans l’agenda Google, sans participant HOC. Vous le
+              retrouverez dans cet agenda, où vous pourrez modifier ou supprimer une seule date ou toute la série.
+            </span>
+          )}
+          {regleRecurrence && nature === 'seance_cours' && (
+            <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+              {genererOccurrences(regleRecurrence, new Date(debut || debutInitial)).length} séance(s) seront créées, liées entre
+              elles : modifier ou annuler l’une d’elles proposera de le faire pour elle seule ou pour toute la série.
+            </span>
+          )}
+        </div>
         {/* Une séance de cours n'a pas d'invité facultatif : on y est inscrit ou on ne l'est pas,
             et c'est cette inscription qui décompte les heures. */}
         {nature === 'autre' && (

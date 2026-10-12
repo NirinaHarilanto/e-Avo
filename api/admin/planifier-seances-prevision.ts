@@ -116,6 +116,11 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const type = studentIds.length > 1 ? 'collectif' : 'individuel'
+    /* Série (0123) : un identifiant commun dès qu'il y a plus d'une occurrence, pour qu'une
+       modification/annulation ultérieure d'UNE séance puisse proposer « toute la série ». Jamais
+       posé pour une seule date — une séance isolée n'est pas une série, même née de ce même
+       formulaire. */
+    const serieId = body.debuts.length > 1 ? crypto.randomUUID() : null
     const sessionIds: string[] = []
     for (const debut of body.debuts) {
       const resultat = await creerSeanceAvecInscriptions(serviceClient, {
@@ -127,6 +132,7 @@ export default async function handler(request: Request): Promise<Response> {
         studentIds,
         cohortId,
         cohortClassId,
+        serieId,
       })
       if ('error' in resultat) {
         return Response.json({ error: resultat.error, sessionsCreees: sessionIds.length }, { status: 500 })
@@ -134,7 +140,7 @@ export default async function handler(request: Request): Promise<Response> {
       sessionIds.push(resultat.sessionId)
     }
 
-    return Response.json({ sessionIds })
+    return Response.json({ sessionIds, serieId })
   } catch (error) {
     if (error instanceof AdminAuthError) {
       return Response.json({ error: error.message }, { status: error.status })

@@ -3,6 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import type { EvenementGoogle, InviteGoogle } from '../../lib/agendaEvenements'
 import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 import { fournisseurDepuisLien } from '../../lib/visio'
+import { versRRule, type RegleRecurrence } from '../../lib/recurrence'
 import { Modale } from '../ui/Modale'
 import { Icone, type NomIcone } from '../ui/Icones'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
@@ -10,6 +11,8 @@ import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { MessageErreur } from '../ui/Etats'
 import { ModaleConfirmation } from '../ui/ModaleConfirmation'
 import { BoutonRejoindreVisio } from './BoutonRejoindreVisio'
+import { ChoixPortee } from './ChoixPortee'
+import { SelecteurRecurrence } from './SelecteurRecurrence'
 
 /* Fiche d'un événement lu dans l'agenda Google, calquée sur le pop-up de Google Agenda que le
    client a fourni en référence (2026-10-09) : mêmes informations, dans le même ordre — pastille de
@@ -38,55 +41,6 @@ const LIBELLE_REPONSE: Record<string, string> = {
   declined: 'a refusé',
   tentative: 'peut-être',
   needsAction: 'en attente',
-}
-
-/* Répétitions proposées, exprimées directement en règle iCalendar — celle que Google attend.
-   Volontairement limitées aux cas courants d'un établissement de cours : au-delà (un mardi sur
-   trois, le dernier vendredi du mois…), Google Agenda offre un éditeur complet que HOC n'a pas
-   vocation à refaire. */
-export const REPETITIONS: { valeur: string; libelle: string }[] = [
-  { valeur: 'RRULE:FREQ=DAILY', libelle: 'Tous les jours' },
-  { valeur: 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', libelle: 'Tous les jours ouvrés (lundi au vendredi)' },
-  { valeur: 'RRULE:FREQ=WEEKLY', libelle: 'Toutes les semaines, ce jour-là' },
-  { valeur: 'RRULE:FREQ=WEEKLY;INTERVAL=2', libelle: 'Toutes les deux semaines, ce jour-là' },
-  { valeur: 'RRULE:FREQ=MONTHLY', libelle: 'Tous les mois, à cette date' },
-]
-
-/* La question que Google Agenda pose lui-même avant de modifier un événement récurrent. La poser
-   aussi dans HOC est la condition pour y ouvrir la modification de ces événements : sans elle,
-   un clic pouvait effacer toute une série alors qu'on visait une seule date. */
-function ChoixPortee({ valeur, onChange }: { valeur: 'occurrence' | 'serie'; onChange: (v: 'occurrence' | 'serie') => void }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-      <span style={etiquetteStyle}>Cet événement se répète. Que faut-il modifier ?</span>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {(
-          [
-            ['occurrence', 'Cette date seulement'],
-            ['serie', 'Toute la série'],
-          ] as const
-        ).map(([cle, libelle]) => (
-          <button
-            key={cle}
-            type="button"
-            onClick={() => onChange(cle)}
-            style={{
-              fontSize: 12.5,
-              fontWeight: 700,
-              padding: '7px 14px',
-              borderRadius: 999,
-              cursor: 'pointer',
-              color: valeur === cle ? '#1b1510' : 'var(--ink-2)',
-              background: valeur === cle ? 'var(--accent-gradient)' : 'transparent',
-              border: `1px solid ${valeur === cle ? 'transparent' : 'var(--border)'}`,
-            }}
-          >
-            {libelle}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
 }
 
 export function FicheEvenementGoogle({
@@ -118,7 +72,12 @@ export function FicheEvenementGoogle({
      toutes les répétitions ? Par défaut la seule occurrence — c'est le choix le moins destructeur,
      et celui qu'on peut rattraper si on s'est trompé. */
   const [portee, setPortee] = useState<'occurrence' | 'serie'>('occurrence')
-  const [repetition, setRepetition] = useState<string>(() => (evenement.recurrent ? 'inchangee' : 'aucune'))
+  /* `false` par défaut dès que l'événement est déjà récurrent : la plupart des modifications
+     (titre, horaire, description) ne touchent pas à sa répétition, pas de raison de la redemander
+     à chaque fois. Toujours vrai pour un événement pas encore récurrent — il n'y a alors rien à
+     « garder ». */
+  const [modifierRepetition, setModifierRepetition] = useState(!evenement.recurrent)
+  const [nouvelleRegleRecurrence, setNouvelleRegleRecurrence] = useState<RegleRecurrence | null>(null)
 
   const estSerie = evenement.recurrent && Boolean(evenement.serieId)
 
@@ -153,9 +112,9 @@ export function FicheEvenementGoogle({
       dureeMinutes: duree,
       portee: estSerie ? portee : undefined,
       serieId: evenement.serieId ?? undefined,
-      /* « inchangee » laisse la règle telle quelle : le champ est alors omis du PATCH, qui ne
-         touche donc pas à la répétition. */
-      recurrence: repetition === 'inchangee' ? undefined : repetition === 'aucune' ? '' : repetition,
+      /* `undefined` laisse la règle telle quelle (champ omis du PATCH, qui ne touche donc pas à
+         la répétition) ; `''` la retire ; une RegleRecurrence choisie se traduit en RRULE. */
+      recurrence: !modifierRepetition ? undefined : nouvelleRegleRecurrence ? versRRule(nouvelleRegleRecurrence) : '',
     })
     if (ok) {
       onChange()
@@ -220,21 +179,21 @@ export function FicheEvenementGoogle({
                 />
               </label>
               {(!estSerie || portee === 'serie') && (
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <span style={etiquetteStyle}>Répétition</span>
-                  <select value={repetition} onChange={(e) => setRepetition(e.target.value)} style={champStyle}>
-                    {evenement.recurrent && <option value="inchangee">Garder la répétition actuelle</option>}
-                    <option value="aucune">Ne se répète pas</option>
-                    {REPETITIONS.map((r) => (
-                      <option key={r.valeur} value={r.valeur}>
-                        {r.libelle}
-                      </option>
-                    ))}
-                  </select>
-                  {evenement.recurrence && repetition === 'inchangee' && (
-                    <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>Actuellement : {evenement.recurrence}</span>
+                  {evenement.recurrent && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--ink-2)', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={modifierRepetition} onChange={(e) => setModifierRepetition(e.target.checked)} />
+                      Changer la répétition
+                      {evenement.recurrence && !modifierRepetition && (
+                        <span style={{ color: 'var(--muted)' }}>— actuellement : {evenement.recurrence}</span>
+                      )}
+                    </label>
                   )}
-                </label>
+                  {modifierRepetition && (
+                    <SelecteurRecurrence debut={new Date(debut)} valeur={nouvelleRegleRecurrence} onChange={setNouvelleRegleRecurrence} />
+                  )}
+                </div>
               )}
 
               <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
