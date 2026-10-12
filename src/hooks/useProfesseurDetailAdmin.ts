@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
 import { useCacheRequete } from './useCacheRequete'
+import { statutReglement, type StatutReglement } from '../lib/paiements'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type TeacherAssignment = Database['public']['Tables']['teacher_assignments']['Row']
@@ -15,6 +16,13 @@ export interface EleveDuProfesseur {
      permettent donc de connaître que le total toutes classes confondues. */
   heuresEnseignees: number
   packages: Package[]
+  /* État de règlement de chaque forfait ci-dessus (clé = packages.id), même calcul que la page
+     Paiements (usePaiementsEtudiants.ts) : un forfait sans ligne `student_payments` compte comme
+     entièrement « à payer ». Demande client du 2026-10-12 — capture à l'appui : la colonne de
+     droite de chaque forfait affichait son échéance de planning (packages.echeance, posée par
+     « Planning prévisionnel », 0084), lue à tort comme un état de paiement alors que rien ici ne
+     renseignait si le forfait était réglé. */
+  reglementParPackage: Record<string, StatutReglement>
 }
 
 export interface ProfesseurDetail {
@@ -56,9 +64,14 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
     // Un élève supprimé (soft-delete) garde son affectation `teacher_assignments` (date_fin
     // toujours null) — sans ce filtre il continuait à apparaître dans la fiche du professeur
     // comme un élève actuel alors que son compte n'existe plus (demande client du 2026-09-23).
-    const [{ data: eleveProfiles }, { data: packages }, { data: sessionsTerminees }, { data: integrationEtab }, { data: seancesAVenir }] = await Promise.all([
+    const [{ data: eleveProfiles }, { data: packages }, { data: paiements }, { data: sessionsTerminees }, { data: integrationEtab }, { data: seancesAVenir }] = await Promise.all([
       studentIds.length > 0 ? supabase.from('profiles').select('*').in('id', studentIds).neq('status', 'suspended') : Promise.resolve({ data: [] as Profile[] }),
       studentIds.length > 0 ? supabase.from('packages').select('*').in('student_id', studentIds) : Promise.resolve({ data: [] as Package[] }),
+      // Même filtre `supprime_le is null` que usePaiementsEtudiants.ts : une ligne supprimée
+      // (motif conservé, mais retirée de la vue) ne doit pas compter pour le statut affiché ici.
+      studentIds.length > 0
+        ? supabase.from('student_payments').select('package_id, montant, montant_regle, statut').in('student_id', studentIds).is('supprime_le', null)
+        : Promise.resolve({ data: [] as { package_id: string | null; montant: number; montant_regle: number; statut: Database['public']['Tables']['student_payments']['Row']['statut'] }[] }),
       supabase.from('sessions').select('id, duree_minutes').eq('teacher_id', teacherId as string).eq('statut', 'terminee'),
       supabase.from('google_integration_statut').select('google_email').maybeSingle(),
       supabase
@@ -69,6 +82,21 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
         .eq('statut', 'planifiee')
         .gte('debut', new Date().toISOString()),
     ])
+
+    /* Un forfait sans ligne de paiement du tout compte comme entièrement « à payer » (même
+       convention que ForfaitAPayer dans usePaiementsEtudiants.ts) — c'est le cas par défaut si
+       aucune entrée n'existe dans la map. */
+    const paiementParPackage = new Map((paiements ?? []).filter((p) => p.package_id).map((p) => [p.package_id as string, p]))
+    const reglementParPackage = (pkgs: Package[]): Record<string, StatutReglement> => {
+      const resultat: Record<string, StatutReglement> = {}
+      for (const pkg of pkgs) {
+        const paiement = paiementParPackage.get(pkg.id)
+        resultat[pkg.id] = statutReglement(
+          paiement ?? { montant: pkg.montant ?? 0, montant_regle: 0, statut: 'attendu' },
+        )
+      }
+      return resultat
+    }
 
     /* `video_sessions` n'a pas de relation reconnue par PostgREST (voir realigner-visios.ts) :
        une seconde requête, pas une jointure, et seulement si l'établissement a bien un compte
@@ -115,14 +143,15 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
     const eleves: EleveDuProfesseur[] = [...affectationParEleve.values()]
       .map((affectation) => {
         const eleve = eleveParId.get(affectation.student_id)
-        return eleve
-          ? {
-              eleve,
-              affectation,
-              heuresEnseignees: heuresParEleve.get(affectation.student_id) ?? 0,
-              packages: packagesParEleve.get(affectation.student_id) ?? [],
-            }
-          : null
+        if (!eleve) return null
+        const packagesEleve = packagesParEleve.get(affectation.student_id) ?? []
+        return {
+          eleve,
+          affectation,
+          heuresEnseignees: heuresParEleve.get(affectation.student_id) ?? 0,
+          packages: packagesEleve,
+          reglementParPackage: reglementParPackage(packagesEleve),
+        }
       })
       .filter((v): v is EleveDuProfesseur => v !== null)
 

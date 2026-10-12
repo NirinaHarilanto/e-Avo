@@ -6,6 +6,7 @@ import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotifi
 import { useProfileContext } from '../../context/ProfileContext'
 import { InformationsPersonnelles } from '../shared/InformationsPersonnelles'
 import { SupprimerCompte } from '../shared/SupprimerCompte'
+import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { EnTetePage, BoutonRetour } from '../ui/EnTetePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -127,7 +128,7 @@ export function ProfesseurDetailAdmin() {
 }
 
 function LigneEleve({ eleveDuProfesseur }: { eleveDuProfesseur: EleveDuProfesseur }) {
-  const { eleve, affectation, heuresEnseignees, packages } = eleveDuProfesseur
+  const { eleve, affectation, heuresEnseignees, packages, reglementParPackage } = eleveDuProfesseur
   return (
     <div className="card card-lift" style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
@@ -151,7 +152,7 @@ function LigneEleve({ eleveDuProfesseur }: { eleveDuProfesseur: EleveDuProfesseu
               <span style={{ color: 'var(--muted)' }}>
                 Forfait {pkg.type_programme === 'duo' ? 'duo' : 'individuel'} · {pkg.total_heures} h
               </span>
-              <span style={{ color: 'var(--ink-2)' }}>{pkg.echeance ? `Échéance ${new Date(pkg.echeance).toLocaleDateString('fr-FR')}` : 'Sans échéance'}</span>
+              <BadgeStatutPaiement statut={reglementParPackage[pkg.id]} />
             </div>
           ))}
         </div>
