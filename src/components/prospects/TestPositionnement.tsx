@@ -439,13 +439,14 @@ function QuestionnaireEtape({
       >
         <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {support && (
-            /* Plafonné en PROPORTION de la place disponible, pas en pixels : un texte de
-               compréhension long mangeait sinon toute la zone et reléguait les propositions sous
-               le pli (constaté sur une fenêtre de 620 px de haut). Au-delà de cette part, le texte
-               défile dans son propre bloc ; sur un grand écran il s'affiche en entier. */
+            /* Plafond exprimé en hauteur de FENÊTRE, pas en pourcentage : un `%` se réfère au
+               bloc parent, qui n'a ici aucune hauteur définie — il était donc purement ignoré, et
+               le texte continuait de reléguer les propositions sous le pli sur une fenêtre de
+               620 px. Au-delà, le texte défile dans son propre bloc ; sur un grand écran il
+               s'affiche en entier. */
             <div
               style={{
-                maxHeight: '34%',
+                maxHeight: 'clamp(70px, 13vh, 150px)',
                 overflowY: 'auto',
                 padding: '10px 12px',
                 borderRadius: 11,
