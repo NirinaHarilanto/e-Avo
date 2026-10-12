@@ -461,6 +461,27 @@ a:hover {
   animation: textArrive 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Passage d'une question à l'autre du test de positionnement (TestPositionnement.tsx, demande
+   client du 2026-10-13) : la carte entre par la droite quand on avance, par la gauche quand on
+   revient — le déplacement se lit, au lieu d'un remplacement sec. Pas de `filter: blur` ici,
+   contrairement aux arrivées de cartes ci-dessus : le visiteur lit un texte, le voir net dès la
+   première image compte plus que l'effet. Neutralisé par la règle globale `prefers-reduced-motion`
+   plus bas, qui rend simplement l'affichage instantané. */
+@keyframes quizCarteAvant {
+  from { opacity: 0; transform: translateX(26px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes quizCarteArriere {
+  from { opacity: 0; transform: translateX(-26px); }
+  to { opacity: 1; transform: none; }
+}
+.quiz-carte-avant {
+  animation: quizCarteAvant 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.quiz-carte-arriere {
+  animation: quizCarteArriere 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* Liseré doré tournant au survol d'un item de navigation — mécanique "nav-item" d'Axone. */
 @property --glow-angle {
   syntax: '<angle>';

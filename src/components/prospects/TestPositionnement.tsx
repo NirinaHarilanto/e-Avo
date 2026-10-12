@@ -65,6 +65,12 @@ export function TestPositionnement({
   const [objectif, setObjectif] = useState('')
   const [consent, setConsent] = useState(false)
   const [choix, setChoix] = useState<Record<string, number>>({})
+  /* Questionnaire parcouru une question à la fois (demande client du 2026-10-13) : 67 questions
+     empilées dans une fenêtre à défilement ne laissaient voir qu'une question et demie à la fois.
+     `sens` ne sert qu'à l'animation — la carte entre par la droite quand on avance, par la gauche
+     quand on revient, ce qui rend le déplacement lisible plutôt que brutal. */
+  const [indexQuestion, setIndexQuestion] = useState(0)
+  const [sens, setSens] = useState<'avant' | 'arriere'>('avant')
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null)
@@ -302,73 +308,226 @@ export function TestPositionnement({
         </form>
       )}
 
-      {etape === 'quiz' && (
-        <form onSubmit={envoyer} style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-          <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: 0, lineHeight: 1.6 }}>
-            {questions.length} questions, une seule bonne réponse à chaque fois. Répondez sans aide extérieure : ce test
-            sert à vous placer dans le bon groupe, pas à vous juger. Votre réservation ne sera validée qu’une fois les{' '}
-            {questions.length} questions répondues et le questionnaire envoyé.
-          </p>
+      {etape === 'quiz' && questions[indexQuestion] && (
+        <QuestionnaireEtape
+          question={questions[indexQuestion]}
+          index={indexQuestion}
+          total={questions.length}
+          sens={sens}
+          accent={accent}
+          choisi={choix[questions[indexQuestion].id]}
+          onChoisir={(indexOption) => setChoix((c) => ({ ...c, [questions[indexQuestion].id]: indexOption }))}
+          onPrecedent={() => {
+            setSens('arriere')
+            setIndexQuestion((i) => Math.max(0, i - 1))
+          }}
+          onSuivant={() => {
+            setSens('avant')
+            setIndexQuestion((i) => Math.min(questions.length - 1, i + 1))
+          }}
+          onEnvoyer={envoyer}
+          envoi={envoi}
+          toutesRepondues={toutesRepondues}
+          erreur={erreur}
+        />
+      )}
+    </div>
+  )
+}
 
-          {questions.map((question, index) => (
-            <fieldset key={question.id} style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <legend style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', padding: 0, marginBottom: 4 }}>
-                {index + 1}. {question.enonce}
-              </legend>
-              {question.options.map((option, indexOption) => {
-                const coche = choix[question.id] === indexOption
-                return (
-                  <label
-                    key={option}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      gap: 9,
-                      padding: '9px 12px',
-                      borderRadius: 10,
-                      border: `1px solid ${coche ? accent.accentBorder : 'var(--border)'}`,
-                      background: coche ? 'var(--surface-alt)' : 'transparent',
-                      cursor: 'pointer',
-                      fontSize: 13,
-                      color: 'var(--ink-2)',
-                      // Une proposition longue se coupe plutôt que d'élargir la fenêtre.
-                      overflowWrap: 'anywhere',
-                    }}
-                  >
-                    <input
-                      type="radio"
-                      name={question.id}
-                      checked={coche}
-                      onChange={() => setChoix((c) => ({ ...c, [question.id]: indexOption }))}
-                      style={{ marginTop: 2 }}
-                    />
-                    {option}
-                  </label>
-                )
-              })}
-            </fieldset>
-          ))}
+/* Les questions de compréhension répètent leur texte de support dans CHAQUE énoncé, sous la forme
+   « Texte : « … »  Question : "…" » (0124) — un énoncé peut ainsi atteindre 1 200 caractères. Les
+   séparer permet de présenter le texte comme un document à lire, dans un bloc à part et défilant,
+   et de ne garder en titre que la question elle-même. Un énoncé court (la majorité) n'a pas de
+   marqueur et passe tel quel. */
+function decouperEnonce(enonce: string): { support: string | null; question: string } {
+  const marque = enonce.indexOf('Question :')
+  if (marque === -1) return { support: null, question: sansGuillemets(enonce) }
+  const support = sansGuillemets(enonce.slice(0, marque).replace(/^\s*Texte\s*:\s*/i, ''))
+  const question = sansGuillemets(enonce.slice(marque + 'Question :'.length))
+  return { support: support || null, question: question || enonce }
+}
 
-          {erreur && <p style={{ fontSize: 13, color: 'var(--danger)', margin: 0 }}>{erreur}</p>}
+/* Les guillemets d'enrobage viennent du document source ; une fois le texte dans son propre
+   bloc, ils n'apportent plus rien et alourdissent la lecture. */
+function sansGuillemets(texte: string): string {
+  return texte.trim().replace(/^[«"“]\s*/, '').replace(/\s*[»"”]$/, '').trim()
+}
 
+function QuestionnaireEtape({
+  question,
+  index,
+  total,
+  sens,
+  accent,
+  choisi,
+  onChoisir,
+  onPrecedent,
+  onSuivant,
+  onEnvoyer,
+  envoi,
+  toutesRepondues,
+  erreur,
+}: {
+  question: QuestionPublique
+  index: number
+  total: number
+  sens: 'avant' | 'arriere'
+  accent: AccentPalette
+  choisi: number | undefined
+  onChoisir: (indexOption: number) => void
+  onPrecedent: () => void
+  onSuivant: () => void
+  onEnvoyer: (e: FormEvent) => void
+  envoi: boolean
+  toutesRepondues: boolean
+  erreur: string | null
+}) {
+  const { support, question: enonce } = decouperEnonce(question.enonce)
+  const repondu = choisi !== undefined
+  const derniere = index === total - 1
+  const avancement = Math.round(((index + (repondu ? 1 : 0)) / total) * 100)
+
+  return (
+    <form onSubmit={onEnvoyer} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: accent.accent }}>
+            Question {index + 1} <span style={{ color: 'var(--muted-2)', fontWeight: 600 }}>sur {total}</span>
+          </span>
+          <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>Une seule bonne réponse</span>
+        </div>
+        <div style={{ height: 5, borderRadius: 999, background: 'var(--surface-alt)', overflow: 'hidden' }}>
+          <div
+            style={{
+              width: `${avancement}%`,
+              height: '100%',
+              borderRadius: 999,
+              background: accent.accentGrad,
+              transition: 'width .45s cubic-bezier(.22,1,.36,1)',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* `key` sur la question : React remonte le bloc à chaque changement, ce qui rejoue
+          l'animation d'entrée — sans elle, le contenu se remplacerait d'un coup, sans transition. */}
+      <div key={question.id} className={sens === 'avant' ? 'quiz-carte-avant' : 'quiz-carte-arriere'}>
+        <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {support && (
+            <div
+              style={{
+                maxHeight: 148,
+                overflowY: 'auto',
+                padding: '11px 13px',
+                borderRadius: 11,
+                border: `1px solid ${accent.accentBorder}`,
+                background: 'var(--surface-alt)',
+                fontSize: 12.5,
+                lineHeight: 1.65,
+                color: 'var(--ink-2)',
+              }}
+            >
+              {support}
+            </div>
+          )}
+          <legend style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', padding: 0, lineHeight: 1.5 }}>{enonce}</legend>
+          {question.options.map((option, indexOption) => {
+            const coche = choisi === indexOption
+            return (
+              <label
+                key={option}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '9px 12px',
+                  borderRadius: 10,
+                  border: `1px solid ${coche ? accent.accent : 'var(--border)'}`,
+                  background: coche ? accent.accentSoft : 'transparent',
+                  boxShadow: coche ? `0 8px 20px -14px ${accent.accentGlow}` : 'none',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: coche ? 700 : 400,
+                  color: coche ? 'var(--ink)' : 'var(--ink-2)',
+                  transition: 'border-color .18s, background .18s, box-shadow .18s',
+                  // Une proposition longue se coupe plutôt que d'élargir la fenêtre.
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                <input
+                  type="radio"
+                  name={question.id}
+                  checked={coche}
+                  onChange={() => onChoisir(indexOption)}
+                  style={{ accentColor: accent.accent, width: 16, height: 16, flexShrink: 0, margin: 0 }}
+                />
+                {option}
+              </label>
+            )
+          })}
+        </fieldset>
+      </div>
+
+      {erreur && <p style={{ fontSize: 13, color: 'var(--danger)', margin: 0 }}>{erreur}</p>}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button
+          type="button"
+          onClick={onPrecedent}
+          disabled={index === 0 || envoi}
+          style={{
+            padding: '11px 16px',
+            borderRadius: 999,
+            border: '1px solid var(--border)',
+            background: 'transparent',
+            color: index === 0 ? 'var(--muted-2)' : 'var(--ink-2)',
+            fontSize: 13,
+            fontFamily: 'inherit',
+            cursor: index === 0 || envoi ? 'not-allowed' : 'pointer',
+            opacity: index === 0 ? 0.5 : 1,
+          }}
+        >
+          ← Précédent
+        </button>
+        {derniere ? (
           <button
             type="submit"
             disabled={envoi || !toutesRepondues}
             className="btn-shine"
             style={{
+              flexGrow: 1,
               background: accent.accentGrad,
               color: accent.accentInk,
               opacity: envoi || !toutesRepondues ? 0.6 : 1,
               cursor: envoi || !toutesRepondues ? 'not-allowed' : 'pointer',
-              padding: '14px 24px',
-              fontSize: 14.5,
+              padding: '13px 22px',
+              fontSize: 14,
             }}
           >
-            {envoi ? 'Envoi…' : toutesRepondues ? 'Valider ma réservation' : `Répondez aux ${questions.length} questions`}
+            {envoi ? 'Envoi…' : 'Valider ma réservation'}
           </button>
-        </form>
-      )}
-    </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onSuivant}
+            disabled={!repondu}
+            className="btn-shine"
+            style={{
+              flexGrow: 1,
+              background: accent.accentGrad,
+              color: accent.accentInk,
+              opacity: repondu ? 1 : 0.55,
+              cursor: repondu ? 'pointer' : 'not-allowed',
+              padding: '13px 22px',
+              fontSize: 14,
+            }}
+          >
+            {repondu ? 'Valider et continuer →' : 'Choisissez une réponse'}
+          </button>
+        )}
+      </div>
+    </form>
   )
 }
 
