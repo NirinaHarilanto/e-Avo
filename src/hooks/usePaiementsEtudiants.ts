@@ -17,6 +17,15 @@ export interface PaiementEtudiant {
      qu'un membre du binôme à la fois côté `student_payments`, mais reste toujours SON paiement
      à elle/lui aussi. */
   duoPartenaire: Profile | null
+  /* Moyen de paiement ET référence effectifs (2026-10-13) : `student_payments.moyen_paiement`/
+     `reference` ne sont renseignés QUE si le paiement a été réglé en une fois, dès sa création.
+     Réglé en acompte(s) depuis la fenêtre de détail (DetailPaiementModale.tsx,
+     `ajouterVersement`), ce que l'admin saisit n'est écrit QUE sur `paiement_versements`, jamais
+     reporté sur le paiement — l'information existait, la page Paiements regardait juste au
+     mauvais endroit. Retombe sur le plus récent versement qui en précise un, à défaut le
+     paiement lui-même. */
+  moyenPaiementEffectif: string | null
+  referenceEffective: string | null
 }
 
 /* Forfait souscrit par un élève qui a bien un professeur attribué, mais pour lequel aucune
@@ -49,6 +58,29 @@ export function usePaiementsEtudiants() {
       supabase.from('teacher_assignments').select('student_id, teacher_id').is('date_fin', null),
     ])
     if (error) throw new Error(error.message)
+
+    /* Moyen de paiement reporté depuis les acomptes (voir le commentaire de `moyenPaiementEffectif`
+       ci-dessus) : le plus récent par paiement gagne si plusieurs acomptes ont utilisé des moyens
+       différents — c'est la dernière valeur saisie par l'admin, la plus probable à jour. */
+    const paiementIds = (data ?? []).map((p) => p.id)
+    const { data: versements } = paiementIds.length
+      ? await supabase
+          .from('paiement_versements')
+          .select('student_payment_id, moyen_paiement, reference, date_versement')
+          .in('student_payment_id', paiementIds)
+          .order('date_versement', { ascending: false })
+      : { data: [] as { student_payment_id: string | null; moyen_paiement: string | null; reference: string | null; date_versement: string }[] }
+    const moyenVersementParPaiement = new Map<string, string>()
+    const referenceVersementParPaiement = new Map<string, string>()
+    for (const v of versements ?? []) {
+      if (!v.student_payment_id) continue
+      if (v.moyen_paiement && !moyenVersementParPaiement.has(v.student_payment_id)) {
+        moyenVersementParPaiement.set(v.student_payment_id, v.moyen_paiement)
+      }
+      if (v.reference && !referenceVersementParPaiement.has(v.student_payment_id)) {
+        referenceVersementParPaiement.set(v.student_payment_id, v.reference)
+      }
+    }
 
     const professeurParEleve = new Map((affectations ?? []).map((a) => [a.student_id, a.teacher_id]))
 
@@ -127,6 +159,8 @@ export function usePaiementsEtudiants() {
         forfait: forfaitDuPaiement(paiement),
         professeur: paiement.student_id ? professeurDe(paiement.student_id) : null,
         duoPartenaire: paiement.student_id ? partenaireDe(paiement.student_id) : null,
+        moyenPaiementEffectif: paiement.moyen_paiement ?? moyenVersementParPaiement.get(paiement.id) ?? null,
+        referenceEffective: paiement.reference ?? referenceVersementParPaiement.get(paiement.id) ?? null,
       }))
 
     const forfaitsDejaFactures = new Set((data ?? []).map((p) => p.package_id).filter((id): id is string => !!id))
