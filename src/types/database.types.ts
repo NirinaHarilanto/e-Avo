@@ -696,8 +696,11 @@ export interface Database {
           /* TimeSheet sur lequel ce crédit a été déclaré (0081). */
           timesheet_id: string | null
           /* Type de séance figé à la clôture, pour choisir le taux horaire applicable (0126).
-             NULL pour toute écriture antérieure — traitée comme 'individuel'. */
-          type_facturation: TypeFacturationLedger | null
+             OBLIGATOIRE depuis 0127, et requis à l'insertion ci-dessous : tant qu'il pouvait être
+             omis, une écriture sans type retombait en silence sur le taux individuel et
+             sous-payait les séances collectives (incident du 2026-10-13). Le compilateur refuse
+             désormais tout `insert` qui l'oublierait. */
+          type_facturation: TypeFacturationLedger
           created_at: string
         }
         Insert: {
@@ -710,7 +713,7 @@ export interface Database {
           heures: number
           teacher_payment_id?: string | null
           timesheet_id?: string | null
-          type_facturation?: TypeFacturationLedger | null
+          type_facturation: TypeFacturationLedger
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['hour_ledger']['Insert']>

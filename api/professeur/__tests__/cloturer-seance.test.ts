@@ -116,6 +116,36 @@ describe('api/professeur/cloturer-seance — type_facturation (0126)', () => {
     expect(ecrituresInserees.every((e) => e.type_facturation === 'collectif')).toBe(true)
   })
 
+  /* Régression du 2026-10-13 : une séance planifiée pour plusieurs élèves HORS vague est créée
+     `type = 'collectif'` avec `cohort_id` à null (planifier-seances-prevision.ts). En ne lisant
+     que `cohort_id`, elle était facturée au taux individuel — professeur sous-payé en silence,
+     constaté sur une vraie séance de production avant correction. */
+  it('marque "collectif" une séance de type collectif même SANS cohort_id', async () => {
+    seanceRetournee = {
+      id: 'seance-collectif-hors-vague',
+      teacher_id: 'prof-1',
+      statut: 'planifiee',
+      etablissement_id: 'etab-1',
+      debut: '2026-10-12T08:00:00.000Z',
+      duree_minutes: 60,
+      type: 'collectif',
+      cohort_id: null,
+    }
+    const reponse = await handler(
+      requete({
+        sessionId: 'seance-collectif-hors-vague',
+        presences: [
+          { studentId: 'e1', present: true },
+          { studentId: 'e2', present: true },
+          { studentId: 'e3', present: true },
+        ],
+      }),
+    )
+    expect(reponse.status).toBe(200)
+    expect(estBinomeDuo).not.toHaveBeenCalled()
+    expect(ecrituresInserees.every((e) => e.type_facturation === 'collectif')).toBe(true)
+  })
+
   it('marque "duo" une séance individuelle à deux élèves réellement liés en binôme', async () => {
     seanceRetournee = {
       id: 'seance-2',

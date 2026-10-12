@@ -108,13 +108,20 @@ export default async function handler(request: Request): Promise<Response> {
 
       /* Type facturé (0126, demande client du 2026-10-12) — figé ici une fois pour toutes :
          sessions.type ne distingue que individuel/collectif (0008), jamais duo, et c'est
-         précisément à la clôture que toutes les données nécessaires (cohort_id, émargement
-         encore disponible via body.presences) sont déjà réunies sans requête supplémentaire. */
-      const typeFacturation: TypeFacturationLedger = session.cohort_id
-        ? 'collectif'
-        : (await estBinomeDuo(serviceClient, body.presences.map((p) => p.studentId)))
-          ? 'duo'
-          : 'individuel'
+         précisément à la clôture que toutes les données nécessaires (émargement encore
+         disponible via body.presences) sont déjà réunies sans requête supplémentaire.
+
+         `session.type === 'collectif'` D'ABORD, pas seulement `cohort_id` (corrigé le
+         2026-10-13) : une séance planifiée pour PLUSIEURS élèves hors vague est créée
+         `type = 'collectif'` avec `cohort_id` à null (voir planifier-seances-prevision.ts,
+         `studentIds.length > 1 ? 'collectif' : 'individuel'`). En ne regardant que `cohort_id`,
+         elle était facturée au taux individuel — le professeur était sous-payé en silence. */
+      const typeFacturation: TypeFacturationLedger =
+        session.type === 'collectif' || session.cohort_id
+          ? 'collectif'
+          : (await estBinomeDuo(serviceClient, body.presences.map((p) => p.studentId)))
+            ? 'duo'
+            : 'individuel'
       /* Séance de vague : tous les inscrits sont débités, présents ou non — demande client du
          2026-09-23 (point 10), « le rythme de déduction des forfaits sera le même pour tous les
          étudiants ». Le programme collectif avance au rythme du groupe : une absence ne fait pas
