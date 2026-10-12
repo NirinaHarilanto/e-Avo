@@ -358,6 +358,11 @@ function ListePaiementsEtudiants({
         />
       ))}
 
+      {/* Affichage uniforme sur toute ligne de paiement réelle (demande client du 2026-10-13,
+          capture à l'appui : certaines lignes montraient le forfait, d'autres seulement le moyen
+          de paiement, selon que le paiement référence ou non un `package_id`) — désormais
+          toujours, dans le même ordre : forfait, date de paiement, moyen de paiement. `forfait`
+          se résout même sans `package_id` depuis le correctif de usePaiementsEtudiants.ts. */}
       {paiements.map(({ paiement, etudiant, forfait, professeur, duoPartenaire }) => (
         <LigneFinanciere
           key={paiement.id}
@@ -365,6 +370,7 @@ function ListePaiementsEtudiants({
           sousTitre={
             [
               forfait ? `Forfait ${LABEL_TYPE_PROGRAMME[forfait.type_programme]} · ${forfait.total_heures} h` : null,
+              paiement.date_paiement ? `payé le ${new Date(paiement.date_paiement).toLocaleDateString('fr-FR')}` : null,
               paiement.moyen_paiement,
               paiement.reference,
             ]

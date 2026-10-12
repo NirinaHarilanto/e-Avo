@@ -105,12 +105,26 @@ export function usePaiementsEtudiants() {
       return teacherId ? (profilParId.get(teacherId) ?? null) : null
     }
 
+    /* Forfait sans prix propre d'un élève (typiquement son forfait collectif, voir plus bas) —
+       le plus récent si plusieurs, grâce à l'ordre déjà demandé sur `forfaits`. Sert à retrouver
+       le forfait d'un paiement SANS `package_id` (demande client du 2026-10-13 : l'affichage
+       d'une ligne de paiement doit toujours montrer le type de forfait, jamais seulement pour
+       celles qui ont un `package_id`). */
+    const forfaitSansPrixParEleve = new Map<string, Package>()
+    for (const f of forfaits ?? []) {
+      if (f.montant == null && !forfaitSansPrixParEleve.has(f.student_id)) forfaitSansPrixParEleve.set(f.student_id, f)
+    }
+    const forfaitDuPaiement = (paiement: StudentPayment): Package | null => {
+      if (paiement.package_id) return forfaitParId.get(paiement.package_id) ?? null
+      return paiement.student_id ? (forfaitSansPrixParEleve.get(paiement.student_id) ?? null) : null
+    }
+
     const paiements = (data ?? [])
       .filter((paiement) => !paiement.student_id || etudiantsActifsIds.has(paiement.student_id))
       .map((paiement): PaiementEtudiant => ({
         paiement,
         etudiant: paiement.student_id ? (profilParId.get(paiement.student_id) ?? null) : null,
-        forfait: paiement.package_id ? (forfaitParId.get(paiement.package_id) ?? null) : null,
+        forfait: forfaitDuPaiement(paiement),
         professeur: paiement.student_id ? professeurDe(paiement.student_id) : null,
         duoPartenaire: paiement.student_id ? partenaireDe(paiement.student_id) : null,
       }))
