@@ -23,7 +23,7 @@ import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { Onglets } from '../ui/Onglets'
 import { Modale } from '../ui/Modale'
 import { ChampRecherche } from '../ui/BarreOutils'
-import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
+import { PanneauPlanningClasse } from '../shared/PanneauPlanningClasse'
 import { formaterHeures } from '../../lib/heures'
 import { SessionsOraleAdmin } from './SessionsOraleAdmin'
 import { SuiviCollectifAdmin } from './SuiviCollectifAdmin'
@@ -550,14 +550,15 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
               (ci-dessus). */}
           {!chargementClasses && classes.length === 0 && inscrits !== null && inscrits.length > 0 && (
             cohorte.teacher_id ? (
-              <PlanifierSeancesForfait
+              <PanneauPlanningClasse
                 studentIds={inscrits.map((e) => e.id)}
                 cohortId={cohorte.id}
                 teacherId={cohorte.teacher_id}
                 heuresForfait={forfaitVague}
                 dateFinParDefaut={cohorte.date_fin}
                 titre={`Planning prévisionnel · ${cohorte.nom}`}
-                onCree={onChange}
+                peutModifier
+                onChange={onChange}
               />
             ) : (
               <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0, lineHeight: 1.5 }}>
@@ -712,8 +713,8 @@ function ClassesVague({
               <button onClick={() => setClasseEnEdition(classe)} style={boutonSecondaireStyle}>
                 Modifier
               </button>
-              <button onClick={() => setClasseDepliee(classeDepliee === classe.id ? null : classe.id)} style={boutonSecondaireStyle}>
-                {classeDepliee === classe.id ? 'Masquer le planning' : 'Planning de la classe'}
+              <button onClick={() => setClasseDepliee(classe.id)} style={boutonSecondaireStyle}>
+                Planning de la classe
               </button>
               <button onClick={() => supprimer(classe)} style={boutonDangerStyle}>
                 Supprimer
@@ -733,21 +734,27 @@ function ClassesVague({
             )}
 
             {classeDepliee === classe.id && (
-              classe.teacher_id ? (
-                <PlanifierSeancesForfait
-                  studentIds={ids}
-                  cohortClassId={classe.id}
-                  teacherId={classe.teacher_id}
-                  dateFinParDefaut={cohorte.date_fin}
-                  titre={`Planning prévisionnel · ${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` — ${classe.nom}` : ''}`}
-                  onCree={() => {}}
-                />
-              ) : (
-                <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>
-                  Désignez un professeur pour cette classe (bouton <strong>Attribuer un professeur</strong>) afin de
-                  pouvoir établir son planning.
-                </p>
-              )
+              <Modale
+                titre={`Planning · ${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` — ${classe.nom}` : ''}`}
+                onFermer={() => setClasseDepliee(null)}
+                largeurMax={620}
+              >
+                {classe.teacher_id ? (
+                  <PanneauPlanningClasse
+                    studentIds={ids}
+                    cohortClassId={classe.id}
+                    teacherId={classe.teacher_id}
+                    dateFinParDefaut={cohorte.date_fin}
+                    titre={`Planifier de nouveaux créneaux · ${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` — ${classe.nom}` : ''}`}
+                    peutModifier
+                  />
+                ) : (
+                  <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>
+                    Désignez un professeur pour cette classe (bouton <strong>Attribuer un professeur</strong>) afin de
+                    pouvoir établir son planning.
+                  </p>
+                )}
+              </Modale>
             )}
           </div>
         )

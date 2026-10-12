@@ -15,7 +15,7 @@ import { GrilleStats, Stat } from '../ui/Stat'
 import { Onglets } from '../ui/Onglets'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
-import { boutonPrimaireStyle } from '../ui/Boutons'
+import { boutonPrimaireStyle, Bouton } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 
 type Onglet = 'modeles' | 'contrats'
@@ -409,13 +409,14 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
           </button>
         )}
         {contrat.statut === 'envoye' && !contrat.signe_destinataire_at && (
-          <button
+          <Bouton
             onClick={envoyerRappel}
-            disabled={enCours || rappelEnvoye}
+            enCours={enCours}
+            disabled={rappelEnvoye}
+            libelle={rappelEnvoye ? 'Rappel envoyé ✓' : 'Envoyer un rappel'}
+            libelleEnCours="Envoi…"
             style={{ fontSize: 12, fontWeight: 700, color: rappelEnvoye ? 'var(--accent-teal)' : 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: rappelEnvoye ? 'default' : 'pointer' }}
-          >
-            {rappelEnvoye ? 'Rappel envoyé ✓' : 'Envoyer un rappel'}
-          </button>
+          />
         )}
         {/* Demande client du 2026-09-16 : un bouton pour voir l'entièreté du contrat à l'état
             instantané (signé ou non). C'est la même fenêtre qu'ouvrait déjà « Imprimer » — elle
@@ -428,9 +429,13 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
           <Icone nom="oeil" taille={14} />
           Voir le contrat
         </button>
-        <button onClick={supprimer} disabled={enCours} style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
-          Supprimer
-        </button>
+        <Bouton
+          onClick={supprimer}
+          enCours={enCours}
+          libelle="Supprimer"
+          libelleEnCours="Suppression…"
+          style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}
+        />
       </div>
 
       {(contrat.date_envoi || contrat.signe_etablissement_at || contrat.signe_destinataire_at || contrat.date_limite_signature) && (

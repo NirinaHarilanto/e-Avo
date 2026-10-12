@@ -6,7 +6,7 @@ import type { Database } from '../../types/database.types'
 import { Section } from '../ui/Section'
 import { LigneInfo } from '../ui/Champ'
 import { MessageErreur, MessageInfo, MessageSucces, EtatChargement } from '../ui/Etats'
-import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
+import { boutonNeutreStyle, boutonPrimaireStyle, Bouton } from '../ui/Boutons'
 
 type StatutGoogle = Database['public']['Views']['google_integration_statut']['Row']
 
@@ -206,12 +206,21 @@ export function IntegrationGoogleMeet() {
               </MessageErreur>
             )}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button type="button" onClick={connecter} disabled={enCours} className="btn-shine" style={boutonPrimaireStyle}>
-                Reconnecter un autre compte
-              </button>
-              <button type="button" onClick={deconnecter} disabled={enCours} style={{ ...boutonNeutreStyle, color: 'var(--danger)' }}>
-                Déconnecter
-              </button>
+              <Bouton
+                onClick={connecter}
+                enCours={enCours}
+                libelle="Reconnecter un autre compte"
+                libelleEnCours="Ouverture de Google…"
+                className="btn-shine"
+                style={boutonPrimaireStyle}
+              />
+              <Bouton
+                onClick={deconnecter}
+                enCours={enCours}
+                libelle="Déconnecter"
+                libelleEnCours="Déconnexion…"
+                style={{ ...boutonNeutreStyle, color: 'var(--danger)' }}
+              />
             </div>
 
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>

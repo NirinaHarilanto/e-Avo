@@ -404,7 +404,11 @@ function BlocPeriode({
               garde le parcours lisible quand plusieurs périodes s'enchaînent. */}
           <ListeRepliable visibles={3} nom="séances">
           {periode.seances.map((seance) => {
-            const modifiable = !!onModifierSeance && seance.session.statut === 'planifiee'
+            // Une séance de classe collective ne se modifie plus depuis la fiche d'UN élève
+            // (demande client du 2026-10-12) : la classe entière partage le même horaire, donc le
+            // seul endroit cohérent pour le reprogrammer est « Cours collectifs » › Planning de la
+            // classe, qui prévient tous ses élèves d'un coup plutôt qu'un seul.
+            const modifiable = !!onModifierSeance && seance.session.statut === 'planifiee' && seance.session.type !== 'collectif'
             return (
               <div
                 key={seance.enrollment.id}

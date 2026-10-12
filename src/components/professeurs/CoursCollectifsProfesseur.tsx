@@ -4,7 +4,7 @@ import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { supabase } from '../../lib/supabaseClient'
 import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE } from '../../lib/classesCollectif'
 import { initiales } from '../etudiants/DossierEtudiantVue'
-import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
+import { PanneauPlanningClasse } from '../shared/PanneauPlanningClasse'
 import type { Database } from '../../types/database.types'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
@@ -70,9 +70,10 @@ export function CoursCollectifsProfesseur() {
             promotion, avec son créneau horaire et la liste de ses élèves.
           </>,
           <>
-            <strong>Planning de la classe</strong> déplie son planning et génère d'un coup toutes les séances
-            récurrentes du groupe — exactement comme pour un élève individuel. Elles rejoignent votre agenda et celui
-            de chaque élève de la classe.
+            <strong>Planning de la classe</strong> déplie le planning déjà posé pour le groupe, cliquable pour
+            reprogrammer ou annuler une séance encore planifiée, et permet d'en générer d'un coup de nouvelles —
+            exactement comme pour un élève individuel. Toute modification rejoint aussitôt votre agenda et celui de
+            chaque élève de la classe.
           </>,
           <>
             Vous clôturez ces séances depuis votre <strong>agenda</strong>, comme un cours individuel : une séance
@@ -150,13 +151,13 @@ export function CoursCollectifsProfesseur() {
 
                 {depliee &&
                   (eleves.length > 0 ? (
-                    <PlanifierSeancesForfait
+                    <PanneauPlanningClasse
                       studentIds={eleves.map((e) => e.id)}
                       cohortClassId={c.classe.id}
                       endpoint="/api/professeur/planifier-seances-prevision"
                       dateFinParDefaut={c.cohorte?.date_fin}
                       titre={`Planning prévisionnel · ${LABEL_NIVEAU_CLASSE[c.classe.niveau]}${c.classe.nom ? ` — ${c.classe.nom}` : ''}`}
-                      onCree={() => {}}
+                      peutModifier
                     />
                   ) : (
                     <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun élève à planifier pour l'instant.</p>

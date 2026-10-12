@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { formaterMontant } from '../../lib/paiements'
 import type { Database } from '../../types/database.types'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
-import { boutonSecondaireStyle } from '../ui/Boutons'
+import { boutonSecondaireStyle, Bouton } from '../ui/Boutons'
 import { MessageErreur } from '../ui/Etats'
 import { ChampDate } from '../ui/ChampDate'
 
@@ -182,9 +182,14 @@ export function EcheancierPaiement({
           onChange={(e) => setLibelle(e.target.value)}
           style={{ ...champStyle, flexGrow: 1, minWidth: 130 }}
         />
-        <button type="button" onClick={ajouter} disabled={enCours || !montant || !date} style={boutonSecondaireStyle}>
-          Planifier
-        </button>
+        <Bouton
+          onClick={ajouter}
+          enCours={enCours}
+          disabled={!montant || !date}
+          libelle="Planifier"
+          libelleEnCours="Planification…"
+          style={boutonSecondaireStyle}
+        />
       </div>
     </div>
   )

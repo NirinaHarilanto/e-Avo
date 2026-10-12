@@ -18,7 +18,7 @@ import { GrilleStats, Stat } from '../ui/Stat'
 import { Onglets } from '../ui/Onglets'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
-import { boutonPrimaireStyle } from '../ui/Boutons'
+import { boutonPrimaireStyle, Bouton } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 
 type Onglet = 'devis' | 'factures' | 'recus'
@@ -434,9 +434,13 @@ export function LigneDevis({
         </span>
       </ZoneDevis>
       <ZoneDevis intitule="Suppression">
-        <button onClick={supprimer} disabled={enCours} style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
-          Supprimer
-        </button>
+        <Bouton
+          onClick={supprimer}
+          enCours={enCours}
+          libelle="Supprimer"
+          libelleEnCours="Suppression…"
+          style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}
+        />
       </ZoneDevis>
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 11.5, width: '100%' }}>{erreur}</p>}
     </div>
@@ -639,17 +643,22 @@ function LigneFacture({
           ))}
         </select>
       )}
-      <button
+      <Bouton
         onClick={envoyer}
-        disabled={enCours || envoyee || !destinataire}
+        enCours={enCours}
+        disabled={envoyee || !destinataire}
+        libelle={envoyee ? 'Envoyée ✓' : 'Envoyer'}
+        libelleEnCours="Envoi…"
         style={{ fontSize: 12, fontWeight: 700, color: envoyee ? 'var(--accent-teal)' : 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: envoyee ? 'default' : 'pointer' }}
-      >
-        {envoyee ? 'Envoyée ✓' : 'Envoyer'}
-      </button>
+      />
       <ActionsDocument onAction={onImprimer} />
-      <button onClick={supprimer} disabled={enCours} style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
-        Supprimer
-      </button>
+      <Bouton
+        onClick={supprimer}
+        enCours={enCours}
+        libelle="Supprimer"
+        libelleEnCours="Suppression…"
+        style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}
+      />
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 11.5, width: '100%' }}>{erreur}</p>}
     </div>
   )

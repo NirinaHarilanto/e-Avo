@@ -5,6 +5,7 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import type { Database } from '../../types/database.types'
 import { EtatChargement } from '../ui/Etats'
+import { Bouton } from '../ui/Boutons'
 
 type DocumentPermission = Database['public']['Tables']['document_permissions']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -21,6 +22,8 @@ export function GestionAccesDocument({ documentId }: { documentId: string }) {
   const [profileId, setProfileId] = useState('')
   const [niveau, setNiveau] = useState<DocumentPermission['niveau']>('lecture')
   const [erreur, setErreur] = useState<string | null>(null)
+  const [ajoutEnCours, setAjoutEnCours] = useState(false)
+  const [retraitEnCoursId, setRetraitEnCoursId] = useState<string | null>(null)
 
   const charger = useCallback(async () => {
     setLoading(true)
@@ -40,7 +43,9 @@ export function GestionAccesDocument({ documentId }: { documentId: string }) {
   async function ajouter() {
     if (!profileId) return
     setErreur(null)
+    setAjoutEnCours(true)
     const { error } = await supabase.from('document_permissions').insert({ document_id: documentId, profile_id: profileId, niveau })
+    setAjoutEnCours(false)
     if (error) {
       setErreur(error.message)
       return
@@ -50,7 +55,9 @@ export function GestionAccesDocument({ documentId }: { documentId: string }) {
   }
 
   async function retirer(id: string) {
+    setRetraitEnCoursId(id)
     await supabase.from('document_permissions').delete().eq('id', id)
+    setRetraitEnCoursId(null)
     charger()
   }
 
@@ -73,9 +80,13 @@ export function GestionAccesDocument({ documentId }: { documentId: string }) {
                   </span>
                   <span style={{ flexGrow: 1, color: 'var(--ink)' }}>{personne ? `${personne.prenom} ${personne.nom}` : 'Personne inconnue'}</span>
                   <span style={{ color: 'var(--muted)' }}>{LABEL_NIVEAU[perm.niveau]}</span>
-                  <button onClick={() => retirer(perm.id)} style={{ fontSize: 11.5, color: 'var(--danger)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
-                    Retirer
-                  </button>
+                  <Bouton
+                    onClick={() => retirer(perm.id)}
+                    enCours={retraitEnCoursId === perm.id}
+                    libelle="Retirer"
+                    libelleEnCours="Retrait…"
+                    style={{ fontSize: 11.5, color: 'var(--danger)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                  />
                 </div>
               )
             })
@@ -101,9 +112,14 @@ export function GestionAccesDocument({ documentId }: { documentId: string }) {
               <option value="lecture">Lecture</option>
               <option value="ecriture">Écriture</option>
             </select>
-            <button onClick={ajouter} disabled={!profileId} style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer', opacity: !profileId ? 0.6 : 1 }}>
-              Ajouter
-            </button>
+            <Bouton
+              onClick={ajouter}
+              enCours={ajoutEnCours}
+              disabled={!profileId}
+              libelle="Ajouter"
+              libelleEnCours="Ajout…"
+              style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}
+            />
           </div>
           {erreur && <p style={{ color: 'var(--danger)', fontSize: 11.5 }}>{erreur}</p>}
         </>

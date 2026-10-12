@@ -22,7 +22,7 @@ import { GrilleStats, Stat } from '../ui/Stat'
 import { GroupeSection } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
-import { boutonPrimaireStyle } from '../ui/Boutons'
+import { boutonPrimaireStyle, Bouton } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { Onglets } from '../ui/Onglets'
 import { Modale } from '../ui/Modale'
@@ -848,13 +848,13 @@ function CarteSeance({
           >
             Modifier l'heure
           </button>
-          <button
+          <Bouton
             onClick={annuler}
-            disabled={enCours}
+            enCours={enCours}
+            libelle="Annuler la séance"
+            libelleEnCours="Annulation…"
             style={{ fontSize: 12.5, padding: '9px 16px', borderRadius: 999, border: '1px solid var(--border)', background: 'transparent', color: 'var(--danger)', cursor: 'pointer' }}
-          >
-            Annuler la séance
-          </button>
+          />
         </div>
       )}
 
