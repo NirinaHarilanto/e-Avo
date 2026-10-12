@@ -12,6 +12,7 @@ import { BadgeStatutSeance } from './BadgeStatutSeance'
 import { CompteRenduAffichage } from './CompteRenduAffichage'
 import { EnqueteSatisfactionAffichage } from './EnqueteSatisfactionAffichage'
 import { BoutonRejoindreVisio } from './BoutonRejoindreVisio'
+import { SectionRepliable } from './SectionRepliable'
 
 type Session = Database['public']['Tables']['sessions']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -88,16 +89,21 @@ export function DetailSeanceModale({ session, professeur, eleves, video, onFerme
 
         {loading && <EtatChargement lignes={2} hauteur={40} />}
 
+        {/* Repliée par défaut (demande client du 2026-10-13, « c'est à l'utilisateur de le
+            déplier manuellement ») uniquement quand il y a quelque chose à déplier — sans
+            compte rendu rédigé, un bloc repliable n'aurait aucun intérêt. */}
         {!loading && session.statut === 'terminee' && (
-          <Bloc titre="Compte rendu du cours">
-            {detail?.compteRendu ? (
+          detail?.compteRendu ? (
+            <SectionRepliable titre="Compte rendu du cours" couleur="var(--accent-blue)">
               <CompteRenduAffichage rapport={detail.compteRendu} />
-            ) : (
+            </SectionRepliable>
+          ) : (
+            <Bloc titre="Compte rendu du cours">
               <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0 }}>
                 Le professeur n’a pas encore rédigé de compte rendu pour cette séance.
               </p>
-            )}
-          </Bloc>
+            </Bloc>
+          )
         )}
 
         {!loading && session.statut === 'terminee' && (

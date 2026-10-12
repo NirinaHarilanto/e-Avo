@@ -9,13 +9,14 @@ import { EnTetePage } from '../ui/EnTetePage'
 import { GuidePage } from '../ui/GuidePage'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
 import { Modale } from '../ui/Modale'
-import { LigneInfo, etiquetteStyle } from '../ui/Champ'
+import { LigneInfo } from '../ui/Champ'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { CompteRenduAffichage } from '../shared/CompteRenduAffichage'
 import { EnqueteSatisfactionAffichage } from '../shared/EnqueteSatisfactionAffichage'
 import { BoutonRejoindreVisio } from '../shared/BoutonRejoindreVisio'
+import { SectionRepliable, intituleAccentStyle } from '../shared/SectionRepliable'
 import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 import { useCacheRequete } from '../../hooks/useCacheRequete'
 import { useDetailSeance } from '../../hooks/useDetailSeance'
@@ -309,20 +310,24 @@ function FicheSeance({
         )}
         {seance.video?.organisateur_email && <LigneInfo label="Organisateur" valeur={seance.video.organisateur_email} />}
 
+        {/* Repliée par défaut (demande client du 2026-10-13, « c'est à l'utilisateur de le
+            déplier manuellement ») uniquement quand il y a un compte rendu à déplier. */}
         {termine && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft, var(--border))', paddingTop: 12 }}>
-            <span style={{ ...etiquetteStyle, fontSize: 11 }}>Compte rendu du cours</span>
-            {detail?.compteRendu ? (
+          detail?.compteRendu ? (
+            <SectionRepliable titre="Compte rendu du cours">
               <CompteRenduAffichage rapport={detail.compteRendu} />
-            ) : (
+            </SectionRepliable>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft, var(--border))', paddingTop: 12 }}>
+              <span style={intituleAccentStyle()}>Compte rendu du cours</span>
               <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0 }}>Le professeur n’a pas encore rédigé de compte rendu.</p>
-            )}
-          </div>
+            </div>
+          )
         )}
 
         {termine && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft, var(--border))', paddingTop: 12 }}>
-            <span style={{ ...etiquetteStyle, fontSize: 11 }}>Votre avis</span>
+            <span style={intituleAccentStyle()}>Votre avis</span>
             <EnqueteSatisfactionAffichage satisfactions={detail?.satisfactions ?? []} />
           </div>
         )}

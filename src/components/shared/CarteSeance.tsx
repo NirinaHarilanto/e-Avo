@@ -5,19 +5,19 @@ import { useDetailSeance } from '../../hooks/useDetailSeance'
 import { getJoinUrl } from '../../lib/visio'
 import { libelleTypeSeance, nomsElevesInscrits } from '../../lib/seances'
 import { Bouton } from '../ui/Boutons'
-import { champStyle, etiquetteStyle, LigneInfo } from '../ui/Champ'
+import { champStyle, LigneInfo } from '../ui/Champ'
 import { BadgeStatutSeance } from './BadgeStatutSeance'
 import { EnqueteSatisfactionAffichage } from './EnqueteSatisfactionAffichage'
 import { BoutonRejoindreVisio } from './BoutonRejoindreVisio'
 import { CompteRenduSeance } from '../professeurs/CompteRenduSeance'
 import { EditerSeancePlanifieeModale } from './EditerSeancePlanifieeModale'
-import type { CSSProperties } from 'react'
+import { intituleAccentStyle } from './SectionRepliable'
 
-/* Intitulé de l'émargement mis en valeur dans une couleur distincte des autres sections (demande
-   client du 2026-10-12) — l'or de marque, déjà utilisé pour les chiffres clés ailleurs dans
-   l'app, plutôt que le `--ink` neutre des autres intitulés de cette carte (Enquête de
-   satisfaction…), pour qu'il attire l'œil en premier. */
-const etiquettePresenceStyle: CSSProperties = { ...etiquetteStyle, color: 'var(--accent-gold, #e9cf94)' }
+/* Intitulé de section mis en valeur dans une couleur d'accent distincte des autres informations
+   (demande client du 2026-10-12, étendue le 2026-10-13 à « Enquête de satisfaction ») — l'or de
+   marque, déjà utilisé pour les chiffres clés ailleurs dans l'app, plutôt que le `--ink` neutre,
+   pour que ces intitulés attirent l'œil en premier. */
+const etiquettePresenceStyle = intituleAccentStyle()
 
 /* Carte d'une séance : rejoindre la visio, clôturer (émargement, décision d'absence), reprogrammer,
    annuler, puis compte rendu et résultats de l'enquête de satisfaction une fois terminée. Extraite
@@ -287,7 +287,7 @@ export function CarteSeance({
 
       {seance.session.statut === 'terminee' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
-          <span style={{ ...etiquetteStyle, fontSize: 11 }}>Enquête de satisfaction</span>
+          <span style={etiquettePresenceStyle}>Enquête de satisfaction</span>
           <EnqueteSatisfactionAffichage
             satisfactions={detailSatisfaction?.satisfactions ?? []}
             resoudreNom={(id) => nomsElevesInscrits(seance.inscriptions.filter((i) => i.student_id === id))[0] ?? 'Élève'}

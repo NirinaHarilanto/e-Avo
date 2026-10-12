@@ -7,6 +7,7 @@ import { MessageErreur } from '../ui/Etats'
 import { boutonNeutreStyle, boutonSecondaireStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { CompteRenduAffichage } from '../shared/CompteRenduAffichage'
+import { SectionRepliable } from '../shared/SectionRepliable'
 
 type SessionReport = Database['public']['Tables']['session_reports']['Row']
 type Document = Database['public']['Tables']['documents']['Row']
@@ -57,13 +58,6 @@ type ValeursFormulaire = typeof VALEURS_VIDES
 export function CompteRenduSeance({ sessionId, etablissementId, teacherId, studentIds, ouvrirAutomatiquement }: CompteRenduSeanceProps) {
   const [rapport, setRapport] = useState<SessionReport | null>(null)
   const [ouvert, setOuvert] = useState(!!ouvrirAutomatiquement)
-  // Lecture du compte rendu déjà rédigé — distincte de `ouvert`, qui ouvre le FORMULAIRE de
-  // modification. Dépliée par défaut dès qu'un compte rendu existe (demande client du 2026-10-13 :
-  // « le compte rendu s'affiche toujours avant le bouton modifier, quand un compte rendu est
-  // disponible » — même règle déjà suivie par DetailSeanceModale.tsx/AgendaEtudiant.tsx, qui
-  // n'ont même pas de repli). Le chevron reste disponible pour replier au besoin (ex. le
-  // professeur qui parcourt plusieurs séances déjà rédigées).
-  const [contenuDeplie, setContenuDeplie] = useState(false)
   const [valeurs, setValeurs] = useState<ValeursFormulaire>(VALEURS_VIDES)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -80,7 +74,6 @@ export function CompteRenduSeance({ sessionId, etablissementId, teacherId, stude
       .maybeSingle()
       .then(async ({ data }) => {
         setRapport(data)
-        setContenuDeplie(!!data)
         setValeurs({
           objectifs: data?.objectifs ?? [],
           contenu_cours: data?.contenu_cours ?? '',
@@ -198,41 +191,13 @@ export function CompteRenduSeance({ sessionId, etablissementId, teacherId, stude
   if (!ouvert) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* Lecture du compte rendu déjà rédigé, pliée par défaut (demande client du 2026-10-12) —
-            juste en dessous de l'émargement, avec le bouton « Modifier » sous ce bloc plutôt que
-            seul : on voit d'abord ce qui a déjà été écrit avant de rouvrir le formulaire. */}
+        {/* Lecture du compte rendu déjà rédigé, repliée par défaut (demande client du 2026-10-13 :
+            « c'est à l'utilisateur de le déplier manuellement ») — juste en dessous de
+            l'émargement, avec le bouton « Modifier » sous ce bloc plutôt que seul. */}
         {rapport && (
-          <div>
-            <button
-              type="button"
-              onClick={() => setContenuDeplie((v) => !v)}
-              aria-expanded={contenuDeplie}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                width: '100%',
-                background: 'transparent',
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                textAlign: 'left',
-              }}
-            >
-              <span style={etiquetteStyle}>Compte rendu</span>
-              <Icone
-                nom="chevron"
-                taille={13}
-                style={{ marginLeft: 'auto', flexShrink: 0, color: 'var(--muted)', transform: contenuDeplie ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}
-              />
-            </button>
-            {contenuDeplie && (
-              <div style={{ marginTop: 10 }}>
-                <CompteRenduAffichage rapport={rapport} />
-              </div>
-            )}
-          </div>
+          <SectionRepliable titre="Compte rendu">
+            <CompteRenduAffichage rapport={rapport} />
+          </SectionRepliable>
         )}
         <button
           onClick={() => setOuvert(true)}
