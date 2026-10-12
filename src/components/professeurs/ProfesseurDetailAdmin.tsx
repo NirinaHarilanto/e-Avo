@@ -83,20 +83,6 @@ export function ProfesseurDetailAdmin() {
             onDetache={recharger}
           />
 
-          {/* Résumé des TimeSheets de ce professeur — demande client du 2026-10-12 : « on doit
-              retrouver un bloc qui résume le timesheet de chaque professeur (demande de
-              validation par l'admin, les historiques, etc.) ». Réutilise TimesheetsAdmin tel
-              quel (filtré sur ce seul professeur) : même fenêtre de validation/refus/modification
-              qu'à la page Paiements, un seul endroit à maintenir. */}
-          <Section
-            titre="TimeSheets"
-            description="Les relevés d'heures envoyés par ce professeur, à valider ou déjà traités."
-            compteur={timesheetsProfesseur.length}
-            padding={22}
-          >
-            <TimesheetsAdmin timesheets={timesheetsProfesseur} loading={chargementTimesheets} erreur={null} onChange={rechargerTimesheets} />
-          </Section>
-
           <div className="grille-dossier">
             <Section
               titre="Élèves attribués"
@@ -119,7 +105,26 @@ export function ProfesseurDetailAdmin() {
               )}
             </Section>
 
-            <InformationsPersonnelles personne={detail.professeur} onChange={recharger} />
+            {/* Colonne de droite : Informations personnelles puis, juste en dessous (demande
+                client du 2026-10-13), le résumé des TimeSheets de ce professeur. Empilés dans
+                un même conteneur flex pour rester dans cette colonne de 320px plutôt que de
+                retomber sur la ligne suivante de la grille — demande client du 2026-10-12 pour
+                le bloc lui-même : « on doit retrouver un bloc qui résume le timesheet de chaque
+                professeur ». Réutilise TimesheetsAdmin tel quel (filtré sur ce seul professeur) :
+                même fenêtre de validation/refus/modification qu'à la page Paiements, un seul
+                endroit à maintenir. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <InformationsPersonnelles personne={detail.professeur} onChange={recharger} />
+
+              <Section
+                titre="TimeSheets"
+                description="Les relevés d'heures envoyés par ce professeur, à valider ou déjà traités."
+                compteur={timesheetsProfesseur.length}
+                padding={22}
+              >
+                <TimesheetsAdmin timesheets={timesheetsProfesseur} loading={chargementTimesheets} erreur={null} onChange={rechargerTimesheets} />
+              </Section>
+            </div>
           </div>
         </div>
       )}

@@ -4,7 +4,7 @@ import { useHeuresDeclarables, useTimesheets, type TimesheetAvecProfesseur } fro
 import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 import { FUSEAU_ETABLISSEMENT, formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { formaterHeures } from '../../lib/heures'
-import { calculerRemuneration, LIBELLE_TYPE_FACTURATION } from '../../lib/remuneration'
+import { calculerRemuneration, tauxPourType, LIBELLE_TYPE_FACTURATION } from '../../lib/remuneration'
 import { Section } from '../ui/Section'
 import { Champ, champStyle } from '../ui/Champ'
 import { EtatVide } from '../ui/EtatVide'
@@ -52,17 +52,17 @@ export function TimesheetProfesseur() {
   )
   const retenues = dansPeriode.filter((h) => !exclues.has(h.id))
   const total = Math.round(retenues.reduce((t, h) => t + h.heures, 0) * 100) / 100
+  const tauxProfesseur = useMemo(
+    () => ({
+      taux_horaire_individuel: profile?.taux_horaire_individuel ?? null,
+      taux_horaire_duo: profile?.taux_horaire_duo ?? null,
+      taux_horaire_collectif: profile?.taux_horaire_collectif ?? null,
+    }),
+    [profile],
+  )
   const estimation = useMemo(
-    () =>
-      calculerRemuneration(
-        retenues.map((h) => ({ heures: h.heures, type_facturation: h.typeFacturation })),
-        {
-          taux_horaire_individuel: profile?.taux_horaire_individuel ?? null,
-          taux_horaire_duo: profile?.taux_horaire_duo ?? null,
-          taux_horaire_collectif: profile?.taux_horaire_collectif ?? null,
-        },
-      ),
-    [retenues, profile],
+    () => calculerRemuneration(retenues.map((h) => ({ heures: h.heures, type_facturation: h.typeFacturation })), tauxProfesseur),
+    [retenues, tauxProfesseur],
   )
 
   function basculer(id: string) {
@@ -126,25 +126,36 @@ export function TimesheetProfesseur() {
             />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {dansPeriode.map((h) => (
-                <label
-                  key={h.id}
-                  className="row-hl"
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px', borderBottom: '1px solid var(--border-soft)', cursor: 'pointer' }}
-                >
-                  <input type="checkbox" checked={!exclues.has(h.id)} onChange={() => basculer(h.id)} />
-                  <span style={{ fontSize: 12.5, color: 'var(--ink)', minWidth: 150 }}>
-                    {h.debut ? formaterDansFuseauEtablissement(h.debut, { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
-                  </span>
-                  <span style={{ fontSize: 12, color: 'var(--muted)', flexGrow: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {h.eleves || '—'}
-                  </span>
-                  <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
-                    {LIBELLE_TYPE_FACTURATION[h.typeFacturation === 'collectif' || h.typeFacturation === 'duo' ? h.typeFacturation : 'individuel']}
-                  </span>
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)' }}>{formaterHeures(h.heures)}</span>
-                </label>
-              ))}
+              {dansPeriode.map((h) => {
+                // Montant gagné pour CETTE séance (demande client du 2026-10-12 : « afficher le
+                // montant gagné [...] pour chaque session de cours comptabilisée ») — déjà visible
+                // une fois le TimeSheet envoyé (TimesheetDocument.tsx), manquait encore ici, avant
+                // l'envoi, où seul un total global était affiché.
+                const taux = tauxPourType(tauxProfesseur, h.typeFacturation)
+                const montantSeance = taux != null ? Math.round(h.heures * taux * 100) / 100 : null
+                return (
+                  <label
+                    key={h.id}
+                    className="row-hl"
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 6px', borderBottom: '1px solid var(--border-soft)', cursor: 'pointer' }}
+                  >
+                    <input type="checkbox" checked={!exclues.has(h.id)} onChange={() => basculer(h.id)} />
+                    <span style={{ fontSize: 12.5, color: 'var(--ink)', minWidth: 150 }}>
+                      {h.debut ? formaterDansFuseauEtablissement(h.debut, { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--muted)', flexGrow: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {h.eleves || '—'}
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>
+                      {LIBELLE_TYPE_FACTURATION[h.typeFacturation === 'collectif' || h.typeFacturation === 'duo' ? h.typeFacturation : 'individuel']}
+                    </span>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)' }}>{formaterHeures(h.heures)}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', minWidth: 90, textAlign: 'right' }}>
+                      {montantSeance != null ? `${montantSeance.toLocaleString('fr-FR')} Ar` : '—'}
+                    </span>
+                  </label>
+                )
+              })}
             </div>
           )}
 
@@ -188,6 +199,9 @@ export function TimesheetProfesseur() {
                     {new Date(`${t.periode_debut}T12:00:00`).toLocaleDateString('fr-FR')} → {new Date(`${t.periode_fin}T12:00:00`).toLocaleDateString('fr-FR')} ·{' '}
                     {formaterHeures(Number(t.total_heures))}
                     {t.statut === 'refuse' && t.motif_refus ? ` · motif : ${t.motif_refus}` : ''}
+                  </span>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>
+                    {t.montant != null ? `${t.montant.toLocaleString('fr-FR')} Ar` : '—'}
                   </span>
                   <span style={{ fontSize: 11.5, fontWeight: 700, color: COULEUR_STATUT[t.statut] }}>{LABEL_STATUT_TIMESHEET[t.statut]}</span>
                   {(['voir', 'imprimer', 'telecharger'] as const).map((a) => (
