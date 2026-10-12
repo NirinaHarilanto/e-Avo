@@ -427,18 +427,21 @@ function QuestionnaireEtape({
       {/* `key` sur la question : React remonte le bloc à chaque changement, ce qui rejoue
           l'animation d'entrée — sans elle, le contenu se remplacerait d'un coup, sans transition. */}
       <div key={question.id} className={sens === 'avant' ? 'quiz-carte-avant' : 'quiz-carte-arriere'}>
-        <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 9 }}>
+        <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {support && (
+            /* Hauteur plafonnée : les textes de compréhension vont jusqu'à 1 200 caractères et
+               repoussaient le bouton de validation hors de la fenêtre (constaté sur la question
+               41 avant correction). Au-delà, le texte défile dans son propre bloc. */
             <div
               style={{
-                maxHeight: 148,
+                maxHeight: 104,
                 overflowY: 'auto',
-                padding: '11px 13px',
+                padding: '10px 12px',
                 borderRadius: 11,
                 border: `1px solid ${accent.accentBorder}`,
                 background: 'var(--surface-alt)',
-                fontSize: 12.5,
-                lineHeight: 1.65,
+                fontSize: 12,
+                lineHeight: 1.6,
                 color: 'var(--ink-2)',
               }}
             >
@@ -463,7 +466,7 @@ function QuestionnaireEtape({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
-                  padding: '9px 12px',
+                  padding: '8px 12px',
                   borderRadius: 10,
                   border: `1px solid ${coche ? accent.accent : 'var(--border)'}`,
                   background: coche ? accent.accentSoft : 'transparent',
