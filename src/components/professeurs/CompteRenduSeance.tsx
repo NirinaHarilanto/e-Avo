@@ -57,8 +57,12 @@ type ValeursFormulaire = typeof VALEURS_VIDES
 export function CompteRenduSeance({ sessionId, etablissementId, teacherId, studentIds, ouvrirAutomatiquement }: CompteRenduSeanceProps) {
   const [rapport, setRapport] = useState<SessionReport | null>(null)
   const [ouvert, setOuvert] = useState(!!ouvrirAutomatiquement)
-  // Lecture du compte rendu déjà rédigé, repliée par défaut (demande client du 2026-10-12) —
-  // distincte de `ouvert`, qui ouvre le FORMULAIRE de modification.
+  // Lecture du compte rendu déjà rédigé — distincte de `ouvert`, qui ouvre le FORMULAIRE de
+  // modification. Dépliée par défaut dès qu'un compte rendu existe (demande client du 2026-10-13 :
+  // « le compte rendu s'affiche toujours avant le bouton modifier, quand un compte rendu est
+  // disponible » — même règle déjà suivie par DetailSeanceModale.tsx/AgendaEtudiant.tsx, qui
+  // n'ont même pas de repli). Le chevron reste disponible pour replier au besoin (ex. le
+  // professeur qui parcourt plusieurs séances déjà rédigées).
   const [contenuDeplie, setContenuDeplie] = useState(false)
   const [valeurs, setValeurs] = useState<ValeursFormulaire>(VALEURS_VIDES)
   const [enCours, setEnCours] = useState(false)
@@ -76,6 +80,7 @@ export function CompteRenduSeance({ sessionId, etablissementId, teacherId, stude
       .maybeSingle()
       .then(async ({ data }) => {
         setRapport(data)
+        setContenuDeplie(!!data)
         setValeurs({
           objectifs: data?.objectifs ?? [],
           contenu_cours: data?.contenu_cours ?? '',
