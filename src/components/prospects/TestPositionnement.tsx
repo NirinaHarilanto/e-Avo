@@ -44,12 +44,17 @@ export function TestPositionnement({
   accent,
   onPrefererContact,
   onConfirme,
+  onEtapeChange,
 }: {
   etablissementSlug: string
   etablissementNom: string
   accent: AccentPalette
   onPrefererContact?: () => void
   onConfirme?: () => void
+  /* Permet à la page d'alléger ce qui l'entoure pendant le questionnaire (PageCours.tsx y masque
+     son encadré « À savoir », devenu redondant une fois le quiz commencé) — chaque pixel rendu
+     sert à faire tenir une question entière sans défilement. */
+  onEtapeChange?: (etape: Etape) => void
 }) {
   const [creneaux, setCreneaux] = useState<CreneauTest[]>([])
   const [questions, setQuestions] = useState<QuestionPublique[]>([])
@@ -99,6 +104,11 @@ export function TestPositionnement({
       annule = true
     }
   }, [etablissementSlug])
+
+  useEffect(() => {
+    onEtapeChange?.(etape)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [etape])
 
   const toutesRepondues = questions.length > 0 && questions.every((q) => choix[q.id] !== undefined)
 
@@ -191,7 +201,11 @@ export function TestPositionnement({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <Progression etape={etape} accent={accent} />
+      {/* Le rappel des trois étapes disparaît pendant le questionnaire : il ne dit plus rien que
+          le compteur « Question N sur 67 » ne dise mieux, et chaque pixel repris sert à faire
+          tenir une question entière dans la fenêtre sans défilement (demande client du
+          2026-10-13, « le questionnaire n'est pas très visible »). */}
+      {etape !== 'quiz' && <Progression etape={etape} accent={accent} />}
 
       {etape === 'creneau' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -435,9 +449,17 @@ function QuestionnaireEtape({
           {question.options.map((option, indexOption) => {
             const coche = choisi === indexOption
             return (
+              /* Pastille dessinée plutôt que le radio natif : dans la fenêtre claire de la
+                 vitrine, celui du navigateur s'affiche en gros rond noir plein sur TOUTES les
+                 propositions (y compris non choisies), ce qui brouille la lecture — signalé par
+                 le client le 2026-10-13. Le radio reste présent, simplement masqué : le clavier,
+                 les lecteurs d'écran et le groupage par `name` continuent de fonctionner, et
+                 `.quiz-option` redessine un contour au focus clavier. */
               <label
                 key={option}
+                className="quiz-option"
                 style={{
+                  position: 'relative',
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
@@ -460,8 +482,24 @@ function QuestionnaireEtape({
                   name={question.id}
                   checked={coche}
                   onChange={() => onChoisir(indexOption)}
-                  style={{ accentColor: accent.accent, width: 16, height: 16, flexShrink: 0, margin: 0 }}
+                  style={{ position: 'absolute', opacity: 0, width: 1, height: 1, margin: 0, pointerEvents: 'none' }}
                 />
+                <span
+                  aria-hidden
+                  style={{
+                    flexShrink: 0,
+                    width: 17,
+                    height: 17,
+                    borderRadius: 999,
+                    border: `2px solid ${coche ? accent.accent : 'var(--border)'}`,
+                    background: coche ? 'transparent' : 'var(--surface, #fff)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    transition: 'border-color .18s',
+                  }}
+                >
+                  {coche && <span style={{ width: 9, height: 9, borderRadius: 999, background: accent.accent }} />}
+                </span>
                 {option}
               </label>
             )

@@ -481,6 +481,12 @@ a:hover {
 .quiz-carte-arriere {
   animation: quizCarteArriere 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+/* Le radio natif d'une proposition est masqué (voir TestPositionnement.tsx) : sans cette règle,
+   la navigation au clavier n'aurait plus aucun repère visible. */
+.quiz-option:has(input:focus-visible) {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
 
 /* Liseré doré tournant au survol d'un item de navigation — mécanique "nav-item" d'Axone. */
 @property --glow-angle {

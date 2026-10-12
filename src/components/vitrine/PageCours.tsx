@@ -225,6 +225,9 @@ function FenetreFormule({
   onFermer: () => void
 }) {
   const [etape, setEtape] = useState(0)
+  /* Étape atteinte DANS le module de test de positionnement (créneau / coordonnées / quiz), pour
+     dégager la place autour de lui quand le questionnaire démarre. */
+  const [etapeTest, setEtapeTest] = useState<string>('creneau')
   const programme = PROGRAMMES.find((p) => p.type === type)!
   const detail = DETAILS[type]
 
@@ -287,18 +290,27 @@ function FenetreFormule({
           <div className={etape === 2 ? 'pane on' : 'pane'}>
             {type === 'collectif' ? (
               <>
-                <p className="rtitle">Test de positionnement</p>
-                <p>Choisissez votre session de test oral, puis répondez au questionnaire pour valider votre place.</p>
-                <div className="note">
-                  <b>À savoir :</b> votre demande n’est validée qu’une fois le questionnaire terminé. Après avoir choisi
-                  ce créneau, vous répondez à un court quiz écrit — sans lui, la place n’est pas réservée.
-                </div>
+                {/* Titre, phrase d'introduction et encadré d'avertissement s'effacent une fois le
+                    questionnaire commencé (demande client du 2026-10-13) : ils ont déjà été lus,
+                    et la hauteur qu'ils occupaient permet d'afficher une question entière sans
+                    défilement dans cette fenêtre. */}
+                {etapeTest !== 'quiz' && (
+                  <>
+                    <p className="rtitle">Test de positionnement</p>
+                    <p>Choisissez votre session de test oral, puis répondez au questionnaire pour valider votre place.</p>
+                    <div className="note">
+                      <b>À savoir :</b> votre demande n’est validée qu’une fois le questionnaire terminé. Après avoir
+                      choisi ce créneau, vous répondez à un court quiz écrit — sans lui, la place n’est pas réservée.
+                    </div>
+                  </>
+                )}
                 <div className="agenda">
                   <TestPositionnement
                     etablissementSlug={etablissementSlug}
                     etablissementNom={etablissementNom}
                     accent={accent}
                     onConfirme={() => {}}
+                    onEtapeChange={setEtapeTest}
                   />
                 </div>
               </>
