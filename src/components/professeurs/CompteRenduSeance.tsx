@@ -18,6 +18,12 @@ interface CompteRenduSeanceProps {
      (0087, demande client du 2026-09-30). Omis = pas de zone de dépôt affichée (aucun élève à
      qui le donner à voir n'aurait pas de sens). */
   studentIds?: string[]
+  /* Ouvre directement le formulaire au montage — demande client du 2026-10-12 : juste après la
+     clôture d'une séance, proposer tout de suite de renseigner le compte rendu plutôt que de
+     laisser le professeur rouvrir la séance pour le trouver (voir CarteSeance.tsx). Ce composant
+     ne monte qu'une fois la séance `terminee`, donc c'est un vrai premier montage — l'état
+     initial suffit, nul besoin de re-synchroniser `ouvert` sur un changement de prop. */
+  ouvrirAutomatiquement?: boolean
 }
 
 const TAILLE_MAX_SUPPORT = 20 * 1024 * 1024
@@ -47,9 +53,9 @@ type ValeursFormulaire = typeof VALEURS_VIDES
    Le template (objectif, a été vu, points à améliorer, progrès, remarques) vient de
    src/lib/compteRendu.ts — allégé le 2026-09-29. Seules ces rubriques sont écrites : les
    rubriques de l'ancien template déjà remplies restent intactes en base. */
-export function CompteRenduSeance({ sessionId, etablissementId, teacherId, studentIds }: CompteRenduSeanceProps) {
+export function CompteRenduSeance({ sessionId, etablissementId, teacherId, studentIds, ouvrirAutomatiquement }: CompteRenduSeanceProps) {
   const [rapport, setRapport] = useState<SessionReport | null>(null)
-  const [ouvert, setOuvert] = useState(false)
+  const [ouvert, setOuvert] = useState(!!ouvrirAutomatiquement)
   const [valeurs, setValeurs] = useState<ValeursFormulaire>(VALEURS_VIDES)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)

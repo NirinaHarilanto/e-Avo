@@ -1,6 +1,5 @@
 import { useState, type CSSProperties } from 'react'
 import { useSeancesClasse } from '../../hooks/useSeancesClasse'
-import type { SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
 import { CarteSeance } from './CarteSeance'
 import { boutonSecondaireStyle } from '../ui/Boutons'
@@ -66,7 +65,12 @@ export function PanneauPlanningClasse({
 }) {
   const { seances, loading, recharger } = useSeancesClasse({ cohortClassId, cohortId })
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
-  const [seanceOuverte, setSeanceOuverte] = useState<SeanceProfesseur | null>(null)
+  /* Identifiant plutôt qu'un instantané de la séance : après une clôture, le pop-up reste ouvert
+     (demande client du 2026-10-12, « proposer le compte rendu avant de fermer le pop-up ») — il
+     faut donc que `seanceOuverte` se mette à jour avec la séance rechargée (statut, présence),
+     pas qu'elle reste figée sur l'état d'avant clôture. Même pattern que CalendrierProfesseur.tsx. */
+  const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
+  const seanceOuverte = seances.find((s) => s.session.id === seanceOuverteId) ?? null
   // Figé au montage : `new Date()` pendant le rendu rendrait celui-ci impur (et relancerait les
   // comparaisons « séance déjà commencée » à chaque re-rendu).
   const [maintenant] = useState(() => new Date().toISOString())
@@ -97,7 +101,7 @@ export function PanneauPlanningClasse({
                 <div
                   key={s.session.id}
                   className="row-hl"
-                  onClick={peutModifier ? () => setSeanceOuverte(s) : undefined}
+                  onClick={peutModifier ? () => setSeanceOuverteId(s.session.id) : undefined}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -162,15 +166,17 @@ export function PanneauPlanningClasse({
       {seanceOuverte && (
         <Modale
           titre={`Séance du ${new Date(seanceOuverte.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}`}
-          onFermer={() => setSeanceOuverte(null)}
+          onFermer={() => setSeanceOuverteId(null)}
           largeurMax={560}
         >
+          {/* `onChange` ne ferme plus le pop-up : une clôture doit laisser le temps de renseigner
+              le compte rendu qui s'ouvre juste en dessous, pas faire disparaître la fenêtre sous
+              les pieds du professeur. Seule la croix (onFermer ci-dessus) la referme désormais. */}
           <CarteSeance
             seance={seanceOuverte}
             maintenant={maintenant}
             sansCadre
             onChange={() => {
-              setSeanceOuverte(null)
               recharger()
               onChange?.()
             }}

@@ -61,6 +61,7 @@ export function CarteSeance({
      vague (`cohort_id` posé) : le décompte y est déjà indépendant de la présence. */
   const [decisionAbsence, setDecisionAbsence] = useState<'reporter' | 'comptabiliser' | null>(null)
   const [justificatifAbsence, setJustificatifAbsence] = useState('')
+  const [proposerCompteRendu, setProposerCompteRendu] = useState(false)
 
   const estAVenir = seance.session.statut === 'planifiee'
   const dejaCommencee = seance.session.debut <= maintenant
@@ -107,6 +108,12 @@ export function CarteSeance({
       return
     }
     setClotureOuverte(false)
+    // Demande client du 2026-10-12 : proposer le compte rendu tout de suite après la clôture,
+    // sans que le professeur ait à rouvrir la séance pour le trouver. `CompteRenduSeance` ne
+    // monte qu'une fois `statut === 'terminee'` (juste après ce `onChange()`, qui recharge la
+    // séance) : c'est un vrai premier montage, pas un re-rendu, donc cet état initial est pris
+    // en compte de façon fiable.
+    setProposerCompteRendu(true)
     onChange()
   }
 
@@ -237,6 +244,24 @@ export function CarteSeance({
         </div>
       )}
 
+      {/* Émargement en lecture seule — demande client du 2026-10-12 : « afficher l'émargement de
+          chaque étudiant (présent ou absent) » dans le pop-up d'une séance de cours collectif déjà
+          clôturée. Relit `session_enrollments.present`, écrit une fois pour toutes à la clôture
+          (api/professeur/cloturer-seance.ts) — jamais modifiable depuis ici. */}
+      {seance.session.statut === 'terminee' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
+          <span style={etiquetteStyle}>Présence</span>
+          {seance.inscriptions.map((i) => (
+            <div key={i.student_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, color: 'var(--ink)' }}>
+              <span>{i.etudiant?.prenom} {i.etudiant?.nom}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: i.present ? 'var(--accent-teal)' : i.present === false ? 'var(--danger)' : 'var(--muted)' }}>
+                {i.present ? 'Présent(e)' : i.present === false ? 'Absent(e)' : '—'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Établissement et professeur lus sur LA SÉANCE, pas sur le compte connecté : la carte
           s'ouvre désormais aussi depuis le planning d'une classe, où l'admin n'est pas le
           professeur du cours — le compte rendu doit rester attribué à celui qui l'a donné. */}
@@ -246,6 +271,7 @@ export function CarteSeance({
           etablissementId={seance.session.etablissement_id}
           teacherId={seance.session.teacher_id}
           studentIds={seance.inscriptions.map((i) => i.student_id)}
+          ouvrirAutomatiquement={proposerCompteRendu}
         />
       )}
 
