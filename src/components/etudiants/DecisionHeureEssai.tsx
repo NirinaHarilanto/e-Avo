@@ -7,6 +7,7 @@ import { champStyle, Champ } from '../ui/Champ'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { formaterHeures } from '../../lib/heures'
 import { Modale } from '../ui/Modale'
+import { SelectMoyenPaiement } from '../paiements/SelectMoyenPaiement'
 
 type Package = Database['public']['Tables']['packages']['Row']
 
@@ -35,8 +36,9 @@ function PaiementEssaiModale({
   const [montant, setMontant] = useState(String(montantSuggere))
   const [motif, setMotif] = useState('')
   const [moyenPaiement, setMoyenPaiement] = useState('')
+  const [moyenValide, setMoyenValide] = useState(true)
   const [reference, setReference] = useState('')
-  const pret = !!montant && Number(montant) > 0 && !!motif.trim()
+  const pret = !!montant && Number(montant) > 0 && !!motif.trim() && moyenValide
 
   return (
     <Modale titre={titre} onFermer={onFermer} largeurMax={440}>
@@ -52,7 +54,7 @@ function PaiementEssaiModale({
         </Champ>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <Champ label="Moyen (facultatif)">
-            <input value={moyenPaiement} onChange={(e) => setMoyenPaiement(e.target.value)} style={champStyle} />
+            <SelectMoyenPaiement valeur={moyenPaiement} onChange={(v, valide) => { setMoyenPaiement(v); setMoyenValide(valide) }} />
           </Champ>
           <Champ label="Référence (facultatif)">
             <input value={reference} onChange={(e) => setReference(e.target.value)} style={champStyle} />

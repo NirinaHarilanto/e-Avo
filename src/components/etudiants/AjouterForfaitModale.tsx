@@ -5,6 +5,7 @@ import { Champ, champStyle, etiquetteStyle, LigneInfo } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
 import { boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { ChampDate } from '../ui/ChampDate'
+import { SelectMoyenPaiement } from '../paiements/SelectMoyenPaiement'
 
 /* Ajout d'un forfait à un élève qui en a déjà un — demande client du 2026-09-22 : les heures se
    cumulent (nouveau forfait, jamais une correction du précédent, voir HistoriqueForfaits). La
@@ -41,12 +42,13 @@ export function AjouterForfaitModale({
   const [montant, setMontant] = useState('')
   const [motif, setMotif] = useState('')
   const [moyenPaiement, setMoyenPaiement] = useState('')
+  const [moyenValide, setMoyenValide] = useState(true)
   const [reference, setReference] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
   function confirmerPaiement() {
-    if (!montant || Number(montant) <= 0 || !motif.trim()) return
+    if (!montant || Number(montant) <= 0 || !motif.trim() || !moyenValide) return
     setPaiementConfirme(true)
     setPaiementOuvert(false)
   }
@@ -128,7 +130,7 @@ export function AjouterForfaitModale({
               </Champ>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <Champ label="Moyen (facultatif)">
-                  <input value={moyenPaiement} onChange={(e) => setMoyenPaiement(e.target.value)} style={champStyle} />
+                  <SelectMoyenPaiement valeur={moyenPaiement} onChange={(v, valide) => { setMoyenPaiement(v); setMoyenValide(valide) }} />
                 </Champ>
                 <Champ label="Référence (facultatif)">
                   <input value={reference} onChange={(e) => setReference(e.target.value)} style={champStyle} />
@@ -137,9 +139,9 @@ export function AjouterForfaitModale({
               <button
                 type="button"
                 onClick={confirmerPaiement}
-                disabled={!montant || Number(montant) <= 0 || !motif.trim()}
+                disabled={!montant || Number(montant) <= 0 || !motif.trim() || !moyenValide}
                 className="btn-shine btn-secondary"
-                style={{ alignSelf: 'flex-start', opacity: !montant || !motif.trim() ? 0.6 : 1 }}
+                style={{ alignSelf: 'flex-start', opacity: !montant || !motif.trim() || !moyenValide ? 0.6 : 1 }}
               >
                 Confirmer le paiement
               </button>
