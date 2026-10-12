@@ -1301,6 +1301,31 @@ body.vitrine-hx {
 .hx-modal .box:has(.content.quiz-actif) .foot {
   display: none;
 }
+/* Fenêtre courte (ordinateur portable, ou navigateur zoomé) : l'habillage se resserre encore pour
+   que les quatre propositions tiennent à l'écran avec la question et les boutons. Conditionné à
+   la hauteur pour ne rien changer au confort des grands écrans. */
+@media (max-height: 720px) {
+  .hx-modal .content.quiz-actif {
+    padding: 12px 26px 14px;
+  }
+  .hx-modal .box:has(.content.quiz-actif) .top {
+    padding: 12px 26px 10px;
+  }
+  .hx-modal .box:has(.content.quiz-actif) h3 {
+    font-size: 18px;
+  }
+  .hx-modal .box:has(.content.quiz-actif) .steps {
+    margin-top: 10px;
+  }
+  .hx-modal .box:has(.content.quiz-actif) .steps button {
+    padding: 7px 8px;
+    font-size: 12.5px;
+  }
+  .hx-modal .box:has(.content.quiz-actif) .steps b {
+    width: 20px;
+    height: 20px;
+  }
+}
 .hx-modal .content.quiz-actif > .pane.on,
 .hx-modal .content.quiz-actif > .pane.on > .agenda,
 .hx-modal .content.quiz-actif .quiz-colonne {
