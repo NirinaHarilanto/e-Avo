@@ -200,7 +200,10 @@ export function TestPositionnement({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: etape === 'quiz' ? 11 : 16 }}>
+    <div
+      className={etape === 'quiz' ? 'quiz-colonne' : undefined}
+      style={{ display: 'flex', flexDirection: 'column', gap: etape === 'quiz' ? 11 : 16 }}
+    >
       {/* Le rappel des trois étapes disparaît pendant le questionnaire : il ne dit plus rien que
           le compteur « Question N sur 67 » ne dise mieux, et chaque pixel repris sert à faire
           tenir une question entière dans la fenêtre sans défilement (demande client du
@@ -403,8 +406,8 @@ function QuestionnaireEtape({
   const avancement = Math.round(((index + (repondu ? 1 : 0)) / total) * 100)
 
   return (
-    <form onSubmit={onEnvoyer} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+    <form onSubmit={onEnvoyer} className="quiz-colonne" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: accent.accent }}>
             Question {index + 1} <span style={{ color: 'var(--muted-2)', fontWeight: 600 }}>sur {total}</span>
@@ -426,16 +429,20 @@ function QuestionnaireEtape({
 
       {/* `key` sur la question : React remonte le bloc à chaque changement, ce qui rejoue
           l'animation d'entrée — sans elle, le contenu se remplacerait d'un coup, sans transition. */}
-      <div key={question.id} className={sens === 'avant' ? 'quiz-carte-avant' : 'quiz-carte-arriere'}>
+      {/* Seule zone qui défile quand la fenêtre est courte : l'en-tête de progression ci-dessus et
+          les boutons ci-dessous restent visibles en permanence. `minHeight` garantit qu'il reste
+          toujours quelque chose à lire, même sur une fenêtre très basse. */}
+      <div
+        key={question.id}
+        className={sens === 'avant' ? 'quiz-carte-avant' : 'quiz-carte-arriere'}
+        style={{ flex: 1, minHeight: 120, overflowY: 'auto', overflowX: 'hidden' }}
+      >
         <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {support && (
-            /* Hauteur plafonnée : les textes de compréhension vont jusqu'à 1 200 caractères et
-               repoussaient le bouton de validation hors de la fenêtre (constaté sur la question
-               41 avant correction). Au-delà, le texte défile dans son propre bloc. */
+            /* Plus de hauteur plafonnée ni de défilement propre ici : c'est la zone parente qui
+               défile désormais, et deux ascenseurs imbriqués seraient pénibles à manipuler. */
             <div
               style={{
-                maxHeight: 104,
-                overflowY: 'auto',
                 padding: '10px 12px',
                 borderRadius: 11,
                 border: `1px solid ${accent.accentBorder}`,
@@ -510,9 +517,9 @@ function QuestionnaireEtape({
         </fieldset>
       </div>
 
-      {erreur && <p style={{ fontSize: 13, color: 'var(--danger)', margin: 0 }}>{erreur}</p>}
+      {erreur && <p style={{ fontSize: 13, color: 'var(--danger)', margin: 0, flexShrink: 0 }}>{erreur}</p>}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <button
           type="button"
           onClick={onPrecedent}
@@ -638,6 +645,8 @@ function rappelCreneau(accent: AccentPalette, compact = false): CSSProperties {
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
+    // Ne se comprime jamais : c'est la zone des propositions qui absorbe le manque de place.
+    flexShrink: 0,
     /* Resserré pendant le questionnaire : le créneau est déjà choisi, ce rappel n'est plus là que
        pour permettre d'en changer — la hauteur rendue sert à afficher la question entière. */
     padding: compact ? '8px 12px 8px 10px' : '12px 14px 12px 12px',

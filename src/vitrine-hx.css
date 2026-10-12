@@ -1265,6 +1265,27 @@ body.vitrine-hx {
   overflow-y: auto;
   padding: 30px 34px;
 }
+/* Questionnaire de positionnement : la fenêtre ne défile plus d'un bloc (demande client du
+   2026-10-13). Sans cela, sur un écran court — ou simplement zoomé —, l'énoncé passait sous
+   l'en-tête violet pendant que le bouton de validation sortait par le bas : l'utilisateur ne
+   voyait au complet ni la question, ni les réponses, ni les boutons. La hauteur se propage
+   jusqu'au module, qui garde son compteur et ses boutons fixes et ne fait défiler que les
+   propositions. `min-height: 0` est indispensable à chaque étage : sans lui, un enfant flex
+   refuse de rétrécir sous sa taille de contenu et déborde quand même. */
+.hx-modal .content.quiz-actif {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+.hx-modal .content.quiz-actif > .pane.on,
+.hx-modal .content.quiz-actif > .pane.on > .agenda,
+.hx-modal .content.quiz-actif .quiz-colonne {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
 .hx-modal .pane {
   display: none;
   animation: hxfade 0.4s ease;

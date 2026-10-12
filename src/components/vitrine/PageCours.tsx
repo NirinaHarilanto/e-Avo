@@ -271,7 +271,11 @@ function FenetreFormule({
           </div>
         </div>
 
-        <div className="content">
+        {/* `quiz-actif` (demande client du 2026-10-13) : pendant le questionnaire, la fenêtre
+            cesse de défiler d'un seul bloc. Sur un écran court, la question se retrouvait coupée
+            en haut ET le bouton de validation coupé en bas, en même temps. Le CSS associé fait
+            tenir en-tête et boutons à l'écran, et ne laisse défiler que les propositions. */}
+        <div className={etapeTest === 'quiz' && etape === 2 ? 'content quiz-actif' : 'content'}>
           <div className={etape === 0 ? 'pane on' : 'pane'}>
             <p>{detail.description}</p>
             {detail.complement && <p>{detail.complement}</p>}
