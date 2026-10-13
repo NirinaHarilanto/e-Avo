@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formaterHeures, formaterMinutes, totalHeuresCumulees, heuresRestantes } from '../heures'
+import { formaterHeures, formaterMinutes, totalHeuresCumulees, heuresRestantes, forfaitEntierementConsomme } from '../heures'
 
 describe('formaterHeures', () => {
   it('omet les minutes quand elles sont nulles', () => {
@@ -69,5 +69,40 @@ describe('heuresRestantes', () => {
 
   it('vaut le total cumulé sans aucune heure consommée', () => {
     expect(heuresRestantes([{ total_heures: 20 }, { total_heures: 10 }], 0)).toBe(30)
+  })
+})
+
+/* Cette règle décide de l'invitation à déposer un avis (0128). Une invitation envoyée trop tôt
+   demande à quelqu'un de conclure un parcours qui continue : les cas limites comptent. */
+describe('forfaitEntierementConsomme', () => {
+  it('est vrai quand toutes les heures ont été consommées', () => {
+    expect(forfaitEntierementConsomme(20, 20)).toBe(true)
+  })
+
+  it('est vrai au-delà du forfait — une heure offerte ne doit pas annuler la fin du parcours', () => {
+    expect(forfaitEntierementConsomme(21, 20)).toBe(true)
+  })
+
+  it('est faux tant qu’il reste des heures, même une fraction', () => {
+    expect(forfaitEntierementConsomme(19.5, 20)).toBe(false)
+  })
+
+  it('ne conclut jamais rien sans forfait connu', () => {
+    expect(forfaitEntierementConsomme(10, null)).toBe(false)
+    expect(forfaitEntierementConsomme(0, null)).toBe(false)
+  })
+
+  it('ne conclut jamais rien sur un forfait nul ou négatif, même à zéro heure consommée', () => {
+    expect(forfaitEntierementConsomme(0, 0)).toBe(false)
+    expect(forfaitEntierementConsomme(5, -1)).toBe(false)
+  })
+
+  it('s’accorde avec heuresRestantes : plus d’heures restantes = parcours terminé', () => {
+    const forfaits = [{ total_heures: 20 }, { total_heures: 10 }]
+    const total = totalHeuresCumulees(forfaits)
+    expect(heuresRestantes(forfaits, 30)).toBe(0)
+    expect(forfaitEntierementConsomme(30, total)).toBe(true)
+    expect(heuresRestantes(forfaits, 29)).toBe(1)
+    expect(forfaitEntierementConsomme(29, total)).toBe(false)
   })
 })

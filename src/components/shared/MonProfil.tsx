@@ -7,6 +7,8 @@ import { GuidePage } from '../ui/GuidePage'
 import { EtatChargement } from '../ui/Etats'
 import { InformationsPersonnelles } from './InformationsPersonnelles'
 import { PanneauSignature } from './PanneauSignature'
+import { PanneauPhotoProfil } from './PanneauPhotoProfil'
+import { MonAvis } from '../etudiants/MonAvis'
 import { IntegrationGoogleCalendarPersonnel } from './IntegrationGoogleCalendarPersonnel'
 
 /* "Mon profil" : coordonnées personnelles et signature, en self-service pour les 3 rôles (demande
@@ -33,6 +35,7 @@ export function MonProfil() {
   }
 
   const estAdmin = profile.role === 'admin_etablissement'
+  const estEtudiant = profile.role === 'etudiant'
 
   // Demande client du 2026-10-05 : « chaque professeur et admin [...] connecté[s] [...] avec son
   // propre agenda » — la connexion personnelle à Google Calendar n'a de sens que pour ces deux
@@ -86,8 +89,19 @@ export function MonProfil() {
       <InformationsPersonnelles
         personne={profile}
         onChange={rafraichirProfil}
-        extra={!estAdmin && <PanneauSignature profile={profile} onChange={rafraichirProfil} />}
+        extra={
+          <>
+            {/* La photo reste au-dessus de la signature : c'est l'identité visible de la personne,
+                la signature est un outil de contrat. Proposée aux élèves seulement — demande
+                client du 2026-10-13 : elle sert à illustrer leur avis dans les témoignages. */}
+            {estEtudiant && <PanneauPhotoProfil profile={profile} onChange={rafraichirProfil} />}
+            {!estAdmin && <PanneauSignature profile={profile} onChange={rafraichirProfil} />}
+          </>
+        }
       />
+      {/* Sous les informations personnelles : l'avis se nourrit du nom et de la photo juste
+          au-dessus — demande client du 2026-10-13. */}
+      {estEtudiant && <MonAvis profile={profile} />}
       {peutConnecterAgendaPersonnel && (
         <div style={{ marginTop: 20 }}>
           <IntegrationGoogleCalendarPersonnel />

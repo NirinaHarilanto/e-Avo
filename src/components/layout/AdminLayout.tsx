@@ -26,6 +26,7 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
       { label: 'Facturation', href: '/admin/facturation', disponible: true, icone: 'facturation', description: 'Devis et factures' },
       { label: 'Contrats', href: '/admin/contrats', disponible: true, icone: 'contrats', description: 'Modèles et contrats signés' },
       { label: 'Tarifs', href: '/admin/tarifs', disponible: true, icone: 'tarifs', description: 'Grille affichée sur la vitrine' },
+      { label: 'Gestion des avis', href: '/admin/avis', disponible: true, icone: 'communication', description: 'Avis des élèves à valider et témoignages du site' },
       { label: 'Profil HOC', href: '/admin/profil-hoc', disponible: true, icone: 'parametres', description: 'Identité de l’établissement, équipe admin et votre signature' },
       { label: 'Paramètres', href: '/admin/parametres', disponible: true, icone: 'parametres', description: 'Réglages de l’établissement' },
       { label: 'Profils admin', href: '/admin/mon-profil', disponible: true, icone: 'parametres', description: 'Vos coordonnées personnelles' },

@@ -30,3 +30,17 @@ export function totalHeuresCumulees(packages: { total_heures: number }[]): numbe
 export function heuresRestantes(packages: { total_heures: number }[], heuresConsommees: number): number {
   return Math.max(0, totalHeuresCumulees(packages) - heuresConsommees)
 }
+
+/* Parcours arrivé à son terme ? C'est ce qui déclenche l'invitation à déposer un avis
+   (api/_lib/finDeForfait.ts, demande client du 2026-10-13 : « quand un étudiant (DUO, collectif,
+   individuel) finit toutes ses heures de forfait »). Posé ici, au même endroit que le calcul des
+   heures restantes, pour que l'invitation et la jauge affichée à l'élève ne puissent pas dire
+   deux choses différentes.
+
+   `heuresForfait` vaut la somme des forfaits souscrits (individuel/duo, où les prolongations
+   s'additionnent — voir totalHeuresCumulees), ou le forfait de la vague en collectif. `null` ou
+   zéro ne termine JAMAIS rien : sans forfait connu, mieux vaut ne rien déclarer que d'inviter
+   quelqu'un à conclure un parcours qui continue — même prudence que parcoursCollectifTermine. */
+export function forfaitEntierementConsomme(heuresConsommees: number, heuresForfait: number | null): boolean {
+  return heuresForfait != null && heuresForfait > 0 && heuresConsommees >= heuresForfait
+}

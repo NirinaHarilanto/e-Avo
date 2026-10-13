@@ -32,6 +32,7 @@ const etudiant: Profile = {
   taux_horaire_duo: null,
   taux_horaire_collectif: null,
   signature_path: null,
+  photo_path: null,
   mot_de_passe_defini: true,
   duo_partenaire_id: null,
   duo_nom_groupe: null,

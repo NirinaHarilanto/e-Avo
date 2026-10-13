@@ -1,5 +1,6 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { notifierParticipantsSeance } from '../_lib/notifications.js'
+import { inviterAuxAvisSiForfaitTermine } from '../_lib/finDeForfait.js'
 import { replierBinomesDuo, estBinomeDuo } from '../_lib/duo.js'
 import type { TypeFacturationLedger } from '../../src/types/database.types.js'
 
@@ -162,6 +163,20 @@ export default async function handler(request: Request): Promise<Response> {
       const { error: ledgerError } = await serviceClient.from('hour_ledger').insert(ecritures)
       if (ledgerError) {
         return Response.json({ error: ledgerError.message }, { status: 500 })
+      }
+
+      /* Les heures viennent d'être débitées : c'est le seul instant où un forfait peut arriver à
+         son terme. Les élèves concernés sont alors invités à déposer leur avis (0128). Jamais
+         bloquant — une invitation manquée ne doit pas faire échouer la clôture d'une séance, qui
+         est, elle, la vraie opération métier. */
+      try {
+        await inviterAuxAvisSiForfaitTermine(serviceClient, {
+          etablissementId,
+          cohortId: session.cohort_id,
+          studentIds: debites,
+        })
+      } catch {
+        // Silencieux : voir ci-dessus.
       }
     }
 

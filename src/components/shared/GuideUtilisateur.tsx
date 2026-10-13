@@ -91,7 +91,18 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
     {
       titre: 'Mon profil',
       lien: '/mon-espace/profil',
-      points: [<>Vos coordonnées et votre image de signature. Tenez-les à jour : elles servent à préparer vos contrats et vos factures.</>],
+      points: [
+        <>Vos coordonnées et votre image de signature. Tenez-les à jour : elles servent à préparer vos contrats et vos factures.</>,
+        <>
+          <strong>Votre photo</strong> est facultative : elle accompagnera votre avis s’il est publié sur le site.
+          Sans elle, vos initiales s’affichent à la place.
+        </>,
+        <>
+          <strong>Mon avis sur mon parcours</strong> : quand vous avez terminé les heures de votre forfait, vous êtes
+          invité à raconter votre expérience d’ensemble. L’équipe la relit avant de la publier parmi les témoignages du
+          site. C’est différent de la courte enquête proposée après chaque séance, qui reste interne.
+        </>,
+      ],
     },
   ],
   professeur: [
@@ -206,6 +217,14 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
         <><strong>Facturation</strong> : devis, factures et reçus. Chaque document se voit, s’imprime et se télécharge en PDF.</>,
         <><strong>Contrats</strong> : modèles et contrats. Pour un cours collectif, choisissez la classe : chaque élève reçoit son propre contrat. Votre signature et le tampon de l’établissement y accompagnent la mention « Lu et approuvé ».</>,
         <><strong>Tarifs</strong> : la grille affichée sur la vitrine. Deux montants en sont relus ailleurs — la séance d’essai (tarif d’1 h du programme) et les frais d’inscription en collectif (tarif Collectif portant le nom du niveau) : renommer ces lignes rompt le rapprochement.</>,
+        <>
+          <strong>Gestion des avis</strong> : un élève qui a consommé toutes les heures de son forfait est invité à
+          raconter son parcours depuis son espace. Son avis arrive dans <strong>À valider</strong> et n’est visible de
+          personne tant que vous ne l’avez pas publié. Publié, il rejoint la page Témoignages du site avec sa photo de
+          profil. Le même écran gère les témoignages déjà en ligne : les modifier, les réordonner, les retirer, ou en
+          ajouter un reçu hors de l’application. À ne pas confondre avec les enquêtes de satisfaction remplies après
+          chaque séance, qui se lisent sur la fiche de chaque professeur.
+        </>,
         <>
           <strong>Paramètres</strong> : réglages de l’établissement et agendas Google. Le compte de l’établissement
           porte les rendez-vous de l’administration (appels diagnostic, créneaux de test) ; les cours, eux, partent du

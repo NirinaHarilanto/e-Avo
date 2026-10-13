@@ -8,6 +8,9 @@ export type ProfileStatus = 'pending' | 'approved' | 'suspended' | 'en_pause'
 export type ProspectStatut = 'prospect' | 'diagnostic_planifie' | 'diagnostic_fait' | 'etudiant'
 export type TypeProgrammeProspect = 'individuel' | 'duo' | 'collectif'
 export type SessionType = 'individuel' | 'collectif'
+/* Cycle de vie d'un avis (0128) : déposé par l'élève, il attend la validation de l'admin avant
+   d'apparaître sur la page publique Témoignages. */
+export type StatutTemoignage = 'en_attente' | 'publie' | 'refuse'
 // 'reportee' (0085) : absence à la clôture, séance reportée — distincte de 'annulee' (n'aura
 // jamais lieu) et de 'terminee' (effectivement comptée, présence ou non).
 export type SessionStatut = 'planifiee' | 'terminee' | 'annulee' | 'reportee'
@@ -172,6 +175,7 @@ export interface Database {
           taux_horaire_duo: number | null
           taux_horaire_collectif: number | null
           signature_path: string | null
+          photo_path: string | null
           mot_de_passe_defini: boolean
           /* DUO (0054) : renseigné uniquement sur le profil « secondaire » (converti en second),
              pointe vers le profil « principal » qui porte réellement packages/sessions/
@@ -206,6 +210,7 @@ export interface Database {
           taux_horaire_duo?: number | null
           taux_horaire_collectif?: number | null
           signature_path?: string | null
+          photo_path?: string | null
           mot_de_passe_defini?: boolean
           duo_partenaire_id?: string | null
           duo_nom_groupe?: string | null
@@ -320,6 +325,48 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['tarifs']['Insert']>
+        Relationships: []
+      }
+      temoignages: {
+        Row: {
+          id: string
+          etablissement_id: string
+          auteur_profile_id: string | null
+          nom_affiche: string
+          texte: string
+          annee: number | null
+          /* Fichier livré avec le site (témoignages historiques) OU chemin dans le bucket
+             `photos-profil` (avis déposé par un élève) — jamais les deux (contrainte 0128). */
+          photo_fichier: string | null
+          photo_path: string | null
+          statut: StatutTemoignage
+          motif_refus: string | null
+          ordre: number
+          soumis_le: string
+          decide_le: string | null
+          decide_par: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          auteur_profile_id?: string | null
+          nom_affiche: string
+          texte: string
+          annee?: number | null
+          photo_fichier?: string | null
+          photo_path?: string | null
+          statut?: StatutTemoignage
+          motif_refus?: string | null
+          ordre?: number
+          soumis_le?: string
+          decide_le?: string | null
+          decide_par?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['temoignages']['Insert']>
         Relationships: []
       }
       teacher_assignments: {
