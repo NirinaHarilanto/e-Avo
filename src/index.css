@@ -731,51 +731,97 @@ select option {
   bottom: 0;
   left: 0;
   z-index: 30;
+  /* Filet de dernier recours seulement : avec le dimensionnement fluide ci-dessous, le contenu
+     tient sans défiler jusqu'à des fenêtres très basses. `overflow-x: hidden` est indispensable
+     s'il venait quand même à se déclencher — l'ascenseur vertical mange alors de la largeur et en
+     ferait apparaître un second, horizontal, qui recouvrait les dernières entrées (signalé par le
+     client le 2026-10-13, capture à l'appui). */
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px 11px 12px;
+  gap: clamp(4px, 1.7vh, 14px);
+  padding: clamp(6px, 1.95vh, 16px) 11px clamp(5px, 1.45vh, 12px);
   border-right: 1px solid var(--border-soft);
   background: linear-gradient(180deg, rgba(26, 15, 56, 0.92), rgba(11, 6, 24, 0.92));
   backdrop-filter: blur(8px);
 }
 
-/* Le nombre d'entrées de navigation (jusqu'à 14 côté admin) dépasse la hauteur d'un écran de
-   portable standard avec les espacements confortables ci-dessus — la barre latérale se
-   retrouvait alors à défiler verticalement, coupant les derniers liens de la vue. En dessous de
-   ~820px de hauteur, resserre encore les liens, groupes et pied de page pour que tout tienne en
-   une seule vue plutôt que de compter sur ce défilement interne. */
-/* Sur un écran court, `space-evenly` n'a plus d'espace a distribuer : c'est le `gap` minimum des
-   groupes et la hauteur propre des pilules qui decident, et la barre se remettrait a defiler.
-   Ces deux paliers resserrent donc le logo, l'en-tete et les liens pour que les dix-huit entrees
-   continuent de tenir en une seule vue. */
-@media (max-height: 820px) {
-  .barre-laterale {
-    gap: 9px;
-    padding: 10px 11px 8px;
-  }
-  .barre-laterale .nav-item {
-    padding-top: 7px !important;
-    padding-bottom: 7px !important;
-  }
-  .barre-laterale .entete-barre img {
-    height: 34px !important;
-  }
+/* Toute la barre se dimensionne sur la HAUTEUR DE LA FENÊTRE — demande client du 2026-10-13 :
+   « tous les éléments du bloc nav devraient être visibles sur une vue, réduire un peu la taille
+   des police si nécessaire [...] sans chevauchement visuel ».
+
+   Avant, deux paliers fixes (`@media (max-height: 820px)` puis `700px`) resserraient d'un coup
+   le logo, les pilules et le pied de page. Des paliers ne savent couvrir que les hauteurs
+   prévues : calibrés pour dix-huit entrées, ils ne suffisaient plus à dix-neuf (« Gestion des
+   avis »), et surtout ils raisonnent en pixels CSS — or une mise à l'échelle Windows raccourcit
+   la fenêtre RÉELLE sans changer cette valeur. Deux écrans annonçant la même hauteur n'ont donc
+   pas la même place, et le palier se déclenchait trop tard sur l'un des deux.
+
+   `clamp(plancher, Xvh, plafond)` supprime la marche : chaque dimension suit la hauteur
+   disponible en continu, sans jamais descendre sous un plancher lisible ni dépasser la taille
+   d'origine. Les coefficients `vh` sont calés pour redonner EXACTEMENT les valeurs d'avant sur un
+   écran de 828 px de haut (1,81vh = 15 px, 2,17vh = 18 px…) : à hauteur confortable, rien ne
+   change à l'œil ; c'est seulement en dessous que tout se resserre, progressivement.
+
+   `vh` et non `%` : un pourcentage ne se résout pas sans hauteur de parent définie. `vh` se
+   calcule sur la hauteur du viewport et reste cohérent avec le `zoom` de <body> (0,74 côté admin,
+   0,82 ailleurs), qui s'applique de la même façon aux deux. */
+.barre-laterale .nav-item {
+  padding-top: clamp(2px, calc(1.21vh * min(1.5, 19 / var(--nb-entrees, 19))), 10px);
+  padding-bottom: clamp(2px, calc(1.21vh * min(1.5, 19 / var(--nb-entrees, 19))), 10px);
+  padding-left: 12px;
+  padding-right: 12px;
+  font-size: clamp(10.5px, calc(1.81vh * min(1.5, 19 / var(--nb-entrees, 19))), 15px);
+  gap: clamp(6px, calc(1.45vh * min(1.5, 19 / var(--nb-entrees, 19))), 12px);
 }
-@media (max-height: 700px) {
-  .barre-laterale .nav-item {
-    padding-top: 5px !important;
-    padding-bottom: 5px !important;
-    font-size: 13.5px !important;
-  }
-  .barre-laterale .entete-barre {
-    gap: 6px !important;
-  }
-  .barre-laterale .entete-barre img {
-    height: 28px !important;
-  }
+/* Les icônes portent leur taille en attribut (`<Icone taille={18} />`) : une règle CSS l'emporte
+   sur un attribut de présentation, c'est donc ici qu'elles suivent la même réduction. Sans cela,
+   elles resteraient à 18 px au milieu d'un texte descendu à 11 px — disproportionné, et surtout
+   c'est la hauteur de l'icône qui fixerait alors celle de la pilule. */
+.barre-laterale .nav-item svg {
+  width: clamp(13px, calc(2.17vh * min(1.5, 19 / var(--nb-entrees, 19))), 18px);
+  height: clamp(13px, calc(2.17vh * min(1.5, 19 / var(--nb-entrees, 19))), 18px);
+  flex-shrink: 0;
 }
+.zone-nav-barre {
+  gap: clamp(3px, 1.7vh, 14px);
+  /* Jusqu'à ~540 px de fenêtre, le dimensionnement fluide ci-dessus suffit et aucun ascenseur
+     n'apparaît. En dessous, la police a atteint son plancher de lisibilité et il faut bien choisir
+     entre deux défauts : du texte illisible, ou un défilement. C'est le défilement — mais CONFINÉ
+     à cette zone, pour que l'en-tête et le pied de page restent en place et que plus rien ne se
+     dessine par-dessus les pilules. `overflow-x: hidden` empêche le second ascenseur, horizontal,
+     que le premier faisait apparaître en mangeant de la largeur (il recouvrait les dernières
+     entrées — signalé par le client le 2026-10-13). */
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.groupe-nav-barre {
+  gap: clamp(0px, 0.48vh, 4px);
+}
+.titre-groupe-barre {
+  font-size: clamp(9px, calc(1.39vh * min(1.5, 19 / var(--nb-entrees, 19))), 11.5px);
+}
+.barre-laterale .entete-barre {
+  gap: clamp(2px, 1.33vh, 11px) !important;
+}
+.barre-laterale .entete-barre img {
+  height: clamp(24px, calc(5.07vh * min(1.5, 19 / var(--nb-entrees, 19))), 42px) !important;
+  width: auto;
+}
+/* Le nom et le rôle de la personne connectée : même traitement, sinon ce bloc garderait sa taille
+   d'origine et reprendrait à lui seul la place gagnée sur les dix-neuf entrées au-dessus. */
+.pied-barre {
+  padding-top: clamp(4px, 1.57vh, 13px) !important;
+}
+.pied-barre-mention {
+  font-size: clamp(8.5px, calc(1.39vh * min(1.5, 19 / var(--nb-entrees, 19))), 11.5px);
+}
+.pied-barre-nom {
+  font-size: clamp(11px, calc(1.81vh * min(1.5, 19 / var(--nb-entrees, 19))), 15px);
+  margin-top: clamp(1px, 0.36vh, 3px);
+}
+
 .zone-contenu {
   flex-grow: 1;
   min-width: 0;

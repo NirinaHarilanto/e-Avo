@@ -114,6 +114,7 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
     )
   }
 
+  const totalEntreesNav = navGroups.reduce((total, groupe) => total + groupe.items.length, 0)
   const groupeActif = navGroups.find((groupe) => groupe.items.some((item) => item.label === actif))
   const itemActif = groupeActif?.items.find((item) => item.label === actif)
 
@@ -132,6 +133,12 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
         <nav
           className={`barre-laterale${tiroirOuvert ? ' tiroir-ouvert' : ''}`}
           aria-label={`Navigation ${LIBELLE_ESPACE[roleAttendu].toLowerCase()}`}
+          /* Le resserrement sur écran court est proportionné au nombre d'entrées RÉEL de l'espace
+             (voir `--nb-entrees` dans index.css) : l'espace admin en compte 19 et doit se
+             resserrer tôt, l'espace étudiant 8 et garde sa pleine taille bien plus longtemps.
+             Sans cela, un élève sur un écran de portable voyait sa police réduite alors que sa
+             barre avait toute la place voulue. */
+          style={{ '--nb-entrees': totalEntreesNav } as React.CSSProperties}
         >
           {/* Même gouttière de 12 px que les pilules de navigation et que le pied de page : les
               trois zones de la barre s'alignent sur une seule verticale (2026-10-09). L'en-tête
@@ -164,43 +171,25 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
               entrées d'un côté et dix de l'autre, un partage à parts égales aérerait visiblement
               plus le premier groupe que le second. Le `gap` reste un minimum : sur un écran court,
               `space-evenly` n'a plus d'espace à distribuer et c'est lui qui tient l'espacement. */}
-          {/* `overflow-y: auto` posé ICI, pas seulement sur `.barre-laterale` qui l'englobe —
-              demande client du 2026-10-13 : sur une fenêtre trop courte pour que les 19 entrées de
-              menu tiennent (apparu avec le 19ᵉ ajouté, « Gestion des avis »), le pied de page
-              « Connecté en tant que… » se dessinait PAR-DESSUS les dernières pilules plutôt qu'en
-              dessous. En cause : `minHeight: 0` permettait à CE bloc de devenir plus petit que son
-              contenu (nécessaire pour qu'il remplisse l'espace EXTRA quand il y en a, voir plus
-              bas), mais ses pilules, elles, refusaient de rétrécir sous leur propre texte — le
-              débordement se peignait hors de cette boîte SANS l'agrandir, et le pied de page,
-              positionné d'après cette boîte (pas d'après son contenu débordant), atterrissait
-              dessus. En-tête et pied de page restent fixes (aucun des deux n'a `minHeight: 0`) ;
-              seule CETTE zone défile désormais en interne si les 19 entrées ne tiennent pas —
-              jamais de superposition, au pire un ascenseur discret entre deux pilules fixes. */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flexGrow: 1, minHeight: 0, overflowY: 'auto' }}>
+          {/* Hauteur des pilules, taille du texte, des icônes et des écarts : TOUT suit la hauteur
+              de la fenêtre (voir `.barre-laterale` dans index.css, `clamp(min, Xvh, max)`), au lieu
+              de deux paliers fixes qui ne pouvaient couvrir que les hauteurs prévues. Demande
+              client du 2026-10-13 : « tous les éléments du bloc nav devraient être visibles sur une
+              vue [...] réduire un peu la taille des police si nécessaire ». Les 19 entrées, leur
+              en-tête et le pied de page tiennent donc ensemble sans jamais défiler ni se
+              chevaucher, y compris sur un écran mis à l'échelle par Windows — c'est ce qui
+              raccourcissait la fenêtre du client sans que la hauteur CSS ne le laisse voir. */}
+          <div className="zone-nav-barre" style={{ display: 'flex', flexDirection: 'column', flexGrow: 1, minHeight: 0 }}>
             {navGroups.map((groupe, index) => (
               <div
                 key={groupe.titre ?? index}
+                className="groupe-nav-barre"
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-evenly',
-                  gap: 4,
                   flexGrow: groupe.items.length,
                   flexBasis: 0,
-                  /* Sans ce `minHeight: 0`, ce groupe héritait du minimum automatique des flex
-                     items (sa propre taille de contenu = somme de ses pilules) et refusait de
-                     rétrécir, alors que son PARENT (le bloc juste au-dessus) avait, lui, le droit
-                     de le faire — un déséquilibre classique entre deux niveaux de flex imbriqués.
-                     Sur un écran trop court pour que toutes les entrées tiennent, ce groupe
-                     débordait donc de la place qu'on lui avait réellement allouée, SANS agrandir
-                     la boîte de son parent : le pied de page (Connecté en tant que…), positionné
-                     d'après cette boîte, se retrouvait dessiné PAR-DESSUS les dernières pilules
-                     plutôt qu'en dessous — repéré le 2026-10-13 avec l'ajout d'une 19ᵉ entrée de
-                     menu, visible sur une fenêtre de moins de ~580 px de haut. En répercutant le
-                     même `minHeight: 0` ici, le débordement remonte correctement jusqu'à
-                     `.barre-laterale` (seul niveau avec `overflow-y: auto`) : au pire, la barre
-                     défile — elle ne superpose plus jamais deux pilules. */
-                  minHeight: 0,
                 }}
               >
                 {groupe.titre && (
@@ -215,8 +204,8 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
                      arc-en-ciel du logo, qui serait trop voyante pour un repère qu'on regarde en
                      continu pendant qu'on travaille). */
                   <span
+                    className="titre-groupe-barre"
                     style={{
-                      fontSize: 11.5,
                       fontWeight: 800,
                       background: 'var(--accent-gradient)',
                       WebkitBackgroundClip: 'text',
@@ -238,14 +227,14 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
             ))}
           </div>
 
-          <div style={{ padding: '13px 12px 0', borderTop: '1px solid var(--border-soft)' }}>
-            <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.3 }}>
+          <div className="pied-barre" style={{ padding: '0 12px', borderTop: '1px solid var(--border-soft)' }}>
+            <span className="pied-barre-mention" style={{ display: 'block', color: 'var(--muted)', lineHeight: 1.3 }}>
               Connecté en tant que
             </span>
-            <span className="brand-font" style={{ display: 'block', fontSize: 15, color: 'var(--accent-gold, #e9cf94)', marginTop: 3 }}>
+            <span className="brand-font pied-barre-nom" style={{ display: 'block', color: 'var(--accent-gold, #e9cf94)' }}>
               {profile.prenom} {profile.nom}
             </span>
-            <span style={{ display: 'block', fontSize: 11.5, color: 'var(--muted)' }}>{roleLabel}</span>
+            <span className="pied-barre-mention" style={{ display: 'block', color: 'var(--muted)' }}>{roleLabel}</span>
           </div>
         </nav>
 
@@ -345,13 +334,15 @@ function FilAriane({ racine, groupe, page }: { racine: string; groupe?: string; 
    admin, où ces 13,5 px se lisaient à 10 px réels. La hauteur gagnée comble aussi le vide que les
    dix-huit entrées laissaient au-dessus du pied de page (voir `.barre-laterale` dans index.css). */
 function LienNav({ item, actif }: { item: NavItem; actif: boolean }) {
+  /* Ni `fontSize`, ni `padding`, ni `gap` ici : ces trois dimensions suivent la hauteur de la
+     fenêtre et vivent donc dans `.barre-laterale .nav-item` (index.css). Un style inline
+     l'emporterait sur la feuille de style quelle qu'en soit la spécificité — c'est précisément ce
+     qui empêchait la barre de se resserrer sur un écran court (2026-10-13). Seule la gouttière
+     horizontale reste ici : elle ne dépend pas de la hauteur. */
   const style: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
-    gap: 12,
-    padding: '10px 12px',
     borderRadius: 11,
-    fontSize: 15,
     fontWeight: actif ? 800 : 600,
     color: actif ? '#1b1510' : item.disponible ? 'var(--ink-2)' : 'var(--muted-2)',
     background: actif ? 'var(--accent-gradient)' : undefined,
