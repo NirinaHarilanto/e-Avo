@@ -544,9 +544,16 @@ a:hover {
   color: #fff;
   box-shadow: 0 0 24px 4px rgba(124, 86, 214, 0.55);
 }
-.nav-item.nav-item-active::before {
-  opacity: 1;
-}
+/* Le point lumineux qui parcourt le contour (::before, navGlowSpin) est réservé au survol réel
+   de la souris, jamais à la sélection seule — demande client du 2026-10-13 : « une fois que le
+   bouton [...] est sélectionné et non survolé, [...] enlever le point lumineux ». `.nav-item`
+   et `.nav-item-active` partagent cette classe avec les onglets (Onglets.tsx réutilise
+   `nav-item`/`nav-item-active`) : ce retrait vaut donc pour le menu latéral ET pour tous les
+   onglets de l'application, d'un seul geste. `.nav-item:hover::before` reste inchangé plus haut
+   et continue de s'appliquer même sur l'élément actif survolé — rien n'est perdu au survol, seule
+   la persistance hors survol disparaît. Arrête aussi une animation qui tournait en continu sur
+   chaque écran (`navGlowSpin 3.4s linear infinite`, toujours visible sur l'entrée active),
+   répondant à la demande de fluidité du même jour. */
 
 /* Variante de .nav-item pour une nav sur fond sombre sans pilule pleine (nav marketing des
    landings établissement) — même mécanique ::before/navGlowSpin/masque XOR que .nav-item,

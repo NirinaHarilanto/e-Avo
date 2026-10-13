@@ -164,7 +164,19 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
               entrées d'un côté et dix de l'autre, un partage à parts égales aérerait visiblement
               plus le premier groupe que le second. Le `gap` reste un minimum : sur un écran court,
               `space-evenly` n'a plus d'espace à distribuer et c'est lui qui tient l'espacement. */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flexGrow: 1, minHeight: 0 }}>
+          {/* `overflow-y: auto` posé ICI, pas seulement sur `.barre-laterale` qui l'englobe —
+              demande client du 2026-10-13 : sur une fenêtre trop courte pour que les 19 entrées de
+              menu tiennent (apparu avec le 19ᵉ ajouté, « Gestion des avis »), le pied de page
+              « Connecté en tant que… » se dessinait PAR-DESSUS les dernières pilules plutôt qu'en
+              dessous. En cause : `minHeight: 0` permettait à CE bloc de devenir plus petit que son
+              contenu (nécessaire pour qu'il remplisse l'espace EXTRA quand il y en a, voir plus
+              bas), mais ses pilules, elles, refusaient de rétrécir sous leur propre texte — le
+              débordement se peignait hors de cette boîte SANS l'agrandir, et le pied de page,
+              positionné d'après cette boîte (pas d'après son contenu débordant), atterrissait
+              dessus. En-tête et pied de page restent fixes (aucun des deux n'a `minHeight: 0`) ;
+              seule CETTE zone défile désormais en interne si les 19 entrées ne tiennent pas —
+              jamais de superposition, au pire un ascenseur discret entre deux pilules fixes. */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, flexGrow: 1, minHeight: 0, overflowY: 'auto' }}>
             {navGroups.map((groupe, index) => (
               <div
                 key={groupe.titre ?? index}
@@ -175,6 +187,20 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
                   gap: 4,
                   flexGrow: groupe.items.length,
                   flexBasis: 0,
+                  /* Sans ce `minHeight: 0`, ce groupe héritait du minimum automatique des flex
+                     items (sa propre taille de contenu = somme de ses pilules) et refusait de
+                     rétrécir, alors que son PARENT (le bloc juste au-dessus) avait, lui, le droit
+                     de le faire — un déséquilibre classique entre deux niveaux de flex imbriqués.
+                     Sur un écran trop court pour que toutes les entrées tiennent, ce groupe
+                     débordait donc de la place qu'on lui avait réellement allouée, SANS agrandir
+                     la boîte de son parent : le pied de page (Connecté en tant que…), positionné
+                     d'après cette boîte, se retrouvait dessiné PAR-DESSUS les dernières pilules
+                     plutôt qu'en dessous — repéré le 2026-10-13 avec l'ajout d'une 19ᵉ entrée de
+                     menu, visible sur une fenêtre de moins de ~580 px de haut. En répercutant le
+                     même `minHeight: 0` ici, le débordement remonte correctement jusqu'à
+                     `.barre-laterale` (seul niveau avec `overflow-y: auto`) : au pire, la barre
+                     défile — elle ne superpose plus jamais deux pilules. */
+                  minHeight: 0,
                 }}
               >
                 {groupe.titre && (
