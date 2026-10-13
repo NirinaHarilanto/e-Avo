@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { chargerProfilsEtablissement, indexPartenairesDuo } from '../lib/profilsEtablissement'
 import { useCacheRequete } from './useCacheRequete'
 
 type StudentPayment = Database['public']['Tables']['student_payments']['Row']
@@ -42,7 +43,13 @@ export interface ForfaitAPayer {
 
 export function usePaiementsEtudiants() {
   const { valeur, loading, erreur, recharger } = useCacheRequete('paiements-etudiants', async () => {
-    const [{ data, error }, { data: forfaits }, { data: affectations }] = await Promise.all([
+    /* Tout part ensemble (optimisation du 2026-10-13). Cette page enchaînait quatre vagues de
+       requêtes — paiements, puis leurs acomptes, puis les profils des personnes concernées, puis
+       les partenaires de binôme de ces personnes — chacune attendant la précédente. Les profils
+       sont désormais chargés d'un bloc (voir lib/profilsEtablissement.ts) et les acomptes sans
+       filtre par paiement : la RLS borne déjà ces tables à l'établissement, le volume est le même,
+       mais plus rien n'attend. */
+    const [{ data, error }, { data: forfaits }, { data: affectations }, profilsTous, { data: versements }] = await Promise.all([
       /* `student_id is not null` : depuis 0056, une ligne peut être rattachée à un prospect pas
          encore converti. Elle a sa place dans la fiche du prospect, pas dans la page Paiements
          des étudiants — elle y entrera d'elle-même à la conversion, qui lui pose son student_id. */
@@ -56,20 +63,17 @@ export function usePaiementsEtudiants() {
       /* L'affectation courante se reconnaît à `date_fin is null`, jamais à un rang de tri —
          voir migration 0039 et l'index unique partiel qui garantit l'unicité. */
       supabase.from('teacher_assignments').select('student_id, teacher_id').is('date_fin', null),
+      chargerProfilsEtablissement(),
+      /* Moyen de paiement reporté depuis les acomptes (voir le commentaire de
+         `moyenPaiementEffectif` ci-dessus) : le plus récent par paiement gagne si plusieurs
+         acomptes ont utilisé des moyens différents — c'est la dernière valeur saisie par l'admin,
+         la plus probable à jour. */
+      supabase
+        .from('paiement_versements')
+        .select('student_payment_id, moyen_paiement, reference, date_versement')
+        .order('date_versement', { ascending: false }),
     ])
     if (error) throw new Error(error.message)
-
-    /* Moyen de paiement reporté depuis les acomptes (voir le commentaire de `moyenPaiementEffectif`
-       ci-dessus) : le plus récent par paiement gagne si plusieurs acomptes ont utilisé des moyens
-       différents — c'est la dernière valeur saisie par l'admin, la plus probable à jour. */
-    const paiementIds = (data ?? []).map((p) => p.id)
-    const { data: versements } = paiementIds.length
-      ? await supabase
-          .from('paiement_versements')
-          .select('student_payment_id, moyen_paiement, reference, date_versement')
-          .in('student_payment_id', paiementIds)
-          .order('date_versement', { ascending: false })
-      : { data: [] as { student_payment_id: string | null; moyen_paiement: string | null; reference: string | null; date_versement: string }[] }
     const moyenVersementParPaiement = new Map<string, string>()
     const referenceVersementParPaiement = new Map<string, string>()
     for (const v of versements ?? []) {
@@ -84,53 +88,18 @@ export function usePaiementsEtudiants() {
 
     const professeurParEleve = new Map((affectations ?? []).map((a) => [a.student_id, a.teacher_id]))
 
-    const profileIds = [
-      ...new Set([
-        ...(data ?? []).map((p) => p.student_id).filter((id): id is string => !!id),
-        ...(forfaits ?? []).map((f) => f.student_id),
-        ...(affectations ?? []).map((a) => a.teacher_id),
-      ]),
-    ]
     // Un élève supprimé disparaît de la page Paiements — son paiement, comme son forfait « à
     // payer », reste en base mais n'y apparaît plus (demande client du 2026-09-23). Le
     // professeur, lui, n'est PAS filtré ici : son nom peut légitimement manquer (deleted) sans
     // faire disparaître le paiement de l'élève, qui le concerne au premier chef.
-    const { data: profils } = profileIds.length
-      ? await supabase.from('profiles').select('*').in('id', profileIds)
-      : { data: [] as Profile[] }
-    const etudiantsActifsIds = new Set((profils ?? []).filter((p) => p.status !== 'suspended').map((p) => p.id))
-    const profilParId = new Map((profils ?? []).map((p) => [p.id, p]))
+    const etudiantsActifsIds = new Set(profilsTous.filter((p) => p.status !== 'suspended').map((p) => p.id))
+    const profilParId = new Map(profilsTous.map((p) => [p.id, p]))
     const forfaitParId = new Map((forfaits ?? []).map((f) => [f.id, f]))
 
-    /* Partenaire DUO de chaque élève concerné par un paiement — le lien est ASYMÉTRIQUE
-       (0054, migration 0054_forfait_choisi_et_duo.sql) : un secondaire porte son
-       `duo_partenaire_id`, le principal ne porte rien et se retrouve donc à l'inverse, via une
-       recherche de qui pointe VERS lui. Deux requêtes complémentaires plutôt qu'une seule pour
-       couvrir les deux sens. */
-    const idsEtudiantsConcernes = [
-      ...new Set([...(data ?? []).map((p) => p.student_id).filter((id): id is string => !!id), ...(forfaits ?? []).map((f) => f.student_id)]),
-    ]
-    const idsSecondairesConnus = idsEtudiantsConcernes
-      .map((id) => profilParId.get(id)?.duo_partenaire_id)
-      .filter((id): id is string => !!id)
-    const [{ data: principauxManquants }, { data: secondairesDeCesEtudiants }] = await Promise.all([
-      idsSecondairesConnus.length
-        ? supabase.from('profiles').select('*').in('id', idsSecondairesConnus).neq('status', 'suspended')
-        : Promise.resolve({ data: [] as Profile[] }),
-      idsEtudiantsConcernes.length
-        ? supabase.from('profiles').select('*').in('duo_partenaire_id', idsEtudiantsConcernes).neq('status', 'suspended')
-        : Promise.resolve({ data: [] as Profile[] }),
-    ])
-    for (const p of principauxManquants ?? []) profilParId.set(p.id, p)
-    const partenaireParEtudiant = new Map<string, Profile>()
-    for (const secondaire of secondairesDeCesEtudiants ?? []) {
-      if (secondaire.duo_partenaire_id) partenaireParEtudiant.set(secondaire.duo_partenaire_id, secondaire)
-    }
-    const partenaireDe = (studentId: string): Profile | null => {
-      const viaSecondaire = profilParId.get(studentId)?.duo_partenaire_id
-      if (viaSecondaire) return profilParId.get(viaSecondaire) ?? null
-      return partenaireParEtudiant.get(studentId) ?? null
-    }
+    /* Partenaire DUO, résolu en mémoire sur les profils déjà chargés (le lien est asymétrique —
+       voir lib/profilsEtablissement.ts) : c'étaient deux requêtes de plus, et surtout une vague
+       d'attente supplémentaire puisqu'elles ne pouvaient partir qu'une fois les profils connus. */
+    const partenaireDe = indexPartenairesDuo(profilsTous)
 
     const professeurDe = (studentId: string) => {
       const teacherId = professeurParEleve.get(studentId)
