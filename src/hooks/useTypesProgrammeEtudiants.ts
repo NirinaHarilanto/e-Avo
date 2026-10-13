@@ -23,12 +23,20 @@ export function useTypesProgrammeEtudiants(profileIds: string[]) {
       setProgrammes({})
       return
     }
-    const ids = cleIds.split(',')
+
+    /* Plus de filtre `in(ids)` (optimisation du 2026-10-13) : il obligeait à ATTENDRE la liste des
+       élèves avant de pouvoir partir, ajoutant une vague de requêtes au chemin critique de la page
+       Étudiants — environ 2,5 s, pour deux tables qui tiennent en quelques dizaines de lignes. La
+       RLS les borne déjà à l'établissement, donc tout charger coûte le même transfert tout en
+       partant immédiatement, en parallèle du reste. Le filtrage se fait ensuite en mémoire. */
+    const voulus = new Set(cleIds.split(','))
 
     Promise.all([
-      supabase.from('cohort_enrollments').select('student_id, cohort_id').in('student_id', ids),
-      supabase.from('packages').select('student_id, type_programme, created_at').in('student_id', ids).order('created_at', { ascending: false }),
-    ]).then(([{ data: enrollments }, { data: forfaits }]) => {
+      supabase.from('cohort_enrollments').select('student_id, cohort_id'),
+      supabase.from('packages').select('student_id, type_programme, created_at').order('created_at', { ascending: false }),
+    ]).then(([{ data: toutesInscriptions }, { data: tousForfaits }]) => {
+      const enrollments = (toutesInscriptions ?? []).filter((i) => voulus.has(i.student_id))
+      const forfaits = (tousForfaits ?? []).filter((f) => voulus.has(f.student_id))
       /* Libellés courts (demande client du 2026-10-11, capture à l'appui : « il y a trop
          d'informations [...] il faut que le nom et les badges tiennent sur une ligne ») — la
          vague n'est plus dans ce tag, elle reste visible dans le dossier (onglet Programme). */

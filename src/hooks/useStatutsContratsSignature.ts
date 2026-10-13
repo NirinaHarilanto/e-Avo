@@ -18,10 +18,14 @@ export function useStatutsContratsSignature(profileIds: string[]) {
       return
     }
     const ids = cleIds.split(',')
+    /* Sans filtre `in(ids)` (optimisation du 2026-10-13) : attendre la liste des personnes avant
+       de partir ajoutait une vague de requêtes au chemin critique des listes Étudiants et
+       Professeurs, pour une table que la RLS borne déjà à l'établissement et qui tient en quelques
+       dizaines de lignes. La requête part donc immédiatement, en parallèle de la liste, et le
+       regroupement ci-dessous ne retient que les personnes demandées. */
     supabase
       .from('contracts')
       .select('destinataire_profile_id, statut')
-      .in('destinataire_profile_id', ids)
       .then(({ data }) => {
         const parPersonne = new Map<string, string[]>()
         for (const ligne of data ?? []) {

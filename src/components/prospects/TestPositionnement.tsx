@@ -576,7 +576,7 @@ function QuestionnaireEtape({
               fontSize: 14,
             }}
           >
-            {repondu ? 'Valider et continuer →' : 'Choisissez une réponse'}
+            {repondu ? 'Valider' : 'Choisissez une réponse'}
           </button>
         )}
       </div>

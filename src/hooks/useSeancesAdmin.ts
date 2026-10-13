@@ -20,29 +20,30 @@ export interface SeanceAdmin {
    ce projet), mais sans filtre teacher_id : la policy RLS `sessions_admin_all` s'en charge. */
 export function useSeancesAdmin() {
   const { valeur, loading, erreur, recharger } = useCacheRequete('seances-admin', async () => {
-    const { data: sessions, error: sessionsError } = await supabase.from('sessions').select('*').order('debut', { ascending: false })
-    if (sessionsError) throw new Error(sessionsError.message)
-
-    const sessionIds = (sessions ?? []).map((s) => s.id)
-    const teacherIds = [...new Set((sessions ?? []).map((s) => s.teacher_id))]
-
-    const [{ data: enrollments }, { data: professeurs }, { data: videos }] = await Promise.all([
-      sessionIds.length ? supabase.from('session_enrollments').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as SessionEnrollment[] }),
+    /* Les quatre requêtes partent ENSEMBLE (optimisation du 2026-10-13). Elles s'enchaînaient
+       auparavant en quatre allers-retours successifs — séances, puis inscriptions/visios filtrées
+       sur leurs identifiants, puis profils des élèves tirés de ces inscriptions — et le dernier ne
+       démarrait qu'à 4,5 s sur cet écran. Chaque aller-retour coûte ici 0,5 à 2,8 s (base en
+       Europe, utilisateurs à Madagascar), donc c'est leur NOMBRE qui fait le temps d'attente, pas
+       le volume transféré.
+       Les inscriptions et visios ne sont plus filtrées par identifiant de séance : comme toutes
+       les séances de l'établissement sont de toute façon chargées, le volume est le même, et la
+       RLS limite déjà ces tables à l'établissement. Les profils sont chargés d'un bloc plutôt
+       qu'en deux requêtes (professeurs puis élèves) — ils sont peu nombreux. */
+    const [{ data: sessions, error: sessionsError }, { data: enrollments }, { data: videos }, { data: profils }] = await Promise.all([
+      supabase.from('sessions').select('*').order('debut', { ascending: false }),
+      supabase.from('session_enrollments').select('*'),
+      supabase.from('video_sessions').select('*'),
       // Un professeur supprimé disparaît de son propre nom sur la séance — la séance elle-même
       // reste visible, c'est l'historique de l'élève qui la concerne (demande client du
       // 2026-09-23).
-      teacherIds.length ? supabase.from('profiles').select('*').in('id', teacherIds).neq('status', 'suspended') : Promise.resolve({ data: [] as Profile[] }),
-      sessionIds.length ? supabase.from('video_sessions').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as VideoSession[] }),
+      supabase.from('profiles').select('*').neq('status', 'suspended'),
     ])
+    if (sessionsError) throw new Error(sessionsError.message)
 
-    const studentIds = [...new Set((enrollments ?? []).map((e) => e.student_id))]
-    const { data: etudiants } = studentIds.length
-      ? await supabase.from('profiles').select('*').in('id', studentIds).neq('status', 'suspended')
-      : { data: [] as Profile[] }
-
-    const profParId = new Map((professeurs ?? []).map((p) => [p.id, p]))
+    const profParId = new Map((profils ?? []).map((p) => [p.id, p]))
     const videoParSession = new Map((videos ?? []).map((v) => [v.session_id, v]))
-    const etudiantParId = new Map((etudiants ?? []).map((e) => [e.id, e]))
+    const etudiantParId = profParId
 
     return (sessions ?? []).flatMap((session): SeanceAdmin[] => {
       const inscriptions = (enrollments ?? [])
