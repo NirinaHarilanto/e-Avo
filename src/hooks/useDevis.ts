@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { chargerProfilsEtablissement } from '../lib/profilsEtablissement'
 import { useCacheRequete } from './useCacheRequete'
 
 type Quote = Database['public']['Tables']['quotes']['Row']
@@ -12,16 +13,18 @@ export interface DevisAvecEtudiant {
 
 export function useDevis() {
   const { valeur, loading, erreur, recharger } = useCacheRequete('devis', async () => {
-    const { data, error } = await supabase.from('quotes').select('*').order('date_emission', { ascending: false })
+    /* Les profils partent EN MÊME TEMPS que les devis (optimisation du 2026-10-13) : les nommer
+       demandait d'attendre les devis, ce qui faisait deux allers-retours successifs au lieu d'un
+       — voir lib/profilsEtablissement.ts. */
+    const [{ data, error }, profilsTous] = await Promise.all([
+      supabase.from('quotes').select('*').order('date_emission', { ascending: false }),
+      chargerProfilsEtablissement(),
+    ])
     if (error) throw new Error(error.message)
 
-    const studentIds = [...new Set((data ?? []).map((d) => d.student_id))]
     // Un devis rattaché à un compte supprimé disparaît de la liste (demande client du
     // 2026-09-23) — la ligne reste en base, réversible si la personne se réinscrit.
-    const { data: etudiants } = studentIds.length
-      ? await supabase.from('profiles').select('*').in('id', studentIds).neq('status', 'suspended')
-      : { data: [] as Profile[] }
-    const etudiantParId = new Map((etudiants ?? []).map((e) => [e.id, e]))
+    const etudiantParId = new Map(profilsTous.filter((p) => p.status !== 'suspended').map((e) => [e.id, e]))
 
     return (data ?? [])
       .filter((d) => etudiantParId.has(d.student_id))

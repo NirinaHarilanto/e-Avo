@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { chargerProfilsEtablissement } from '../lib/profilsEtablissement'
 import { useCacheRequete } from './useCacheRequete'
 import { inscriptionsVisibles } from '../lib/seances'
 
@@ -37,7 +38,25 @@ interface CalendrierProfesseur {
 
 export function useCalendrierProfesseur(teacherId: string | undefined) {
   const { valeur, loading, erreur, recharger } = useCacheRequete(teacherId && `calendrier-professeur-${teacherId}`, async (): Promise<CalendrierProfesseur> => {
-    const [{ data: sessions, error: sessionsError }, { data: affectations }, { data: resumeHeures }, { data: vagues }] = await Promise.all([
+    /* TOUT part ensemble (optimisation du 2026-10-13). Ce hook enchaînait cinq vagues de requêtes
+       — séances/affectations/vagues, puis les inscrits de ces vagues, puis les inscriptions et
+       visios de ces séances, puis les profils de toutes ces personnes, puis leurs partenaires de
+       binôme — chacune ne pouvant partir qu'une fois la précédente revenue. Un aller-retour coûte
+       ici 330 ms au mieux (base en Europe, utilisateurs à Madagascar), donc c'est leur NOMBRE qui
+       faisait l'attente, pas le volume.
+       Les trois tables de détail ne sont plus filtrées par identifiant : leurs policies de 0009 et
+       0069 les bornent déjà à CE professeur, et le filtrage en mémoire ci-dessous reste en place
+       pour que le résultat soit identique quelle que soit l'étendue réellement lisible. */
+    const [
+      { data: sessions, error: sessionsError },
+      { data: affectations },
+      { data: resumeHeures },
+      { data: vagues },
+      { data: toutesInscriptionsVagues },
+      { data: tousEnrollments },
+      { data: tousVideos },
+      profilsTous,
+    ] = await Promise.all([
       supabase.from('sessions').select('*').eq('teacher_id', teacherId as string).order('debut', { ascending: false }),
       // Tout l'historique, actives ET closes (pas de .is('date_fin', null)) : profils_teacher_
       // select_students (0017) n'a jamais filtré sur date_fin, un ancien élève reste lisible par
@@ -45,34 +64,28 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
       supabase.from('teacher_assignments').select('*').eq('teacher_id', teacherId as string),
       supabase.from('teacher_hours_summary').select('*').eq('teacher_id', teacherId as string).maybeSingle(),
       supabase.from('cohorts').select('*').eq('teacher_id', teacherId as string).order('date_debut', { ascending: false }),
+      supabase.from('cohort_enrollments').select('cohort_id, student_id'),
+      supabase.from('session_enrollments').select('*'),
+      supabase.from('video_sessions').select('*'),
+      /* Les profils lisibles par ce professeur, d'un bloc : ses élèves affectés (0017), ses
+         secondaires DUO (0064/0067), ses élèves de vague (0069) et de classe (0074). C'est
+         exactement l'union de ce que les quatre requêtes filtrées supprimées cherchaient — la RLS
+         décide du périmètre, pas le filtre côté client. */
+      chargerProfilsEtablissement(),
     ])
     if (sessionsError) throw new Error(sessionsError.message)
 
-    const vagueIds = (vagues ?? []).map((v) => v.id)
-    const { data: inscriptionsVagues } = vagueIds.length
-      ? await supabase.from('cohort_enrollments').select('cohort_id, student_id').in('cohort_id', vagueIds)
-      : { data: [] as { cohort_id: string; student_id: string }[] }
+    const vagueIds = new Set((vagues ?? []).map((v) => v.id))
+    const inscriptionsVagues = (toutesInscriptionsVagues ?? []).filter((i) => vagueIds.has(i.cohort_id))
 
-    const sessionIds = (sessions ?? []).map((s) => s.id)
-    const [{ data: enrollments }, { data: videos }] = await Promise.all([
-      sessionIds.length ? supabase.from('session_enrollments').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as SessionEnrollment[] }),
-      sessionIds.length ? supabase.from('video_sessions').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as VideoSession[] }),
-    ])
+    const sessionIds = new Set((sessions ?? []).map((s) => s.id))
+    const enrollments = (tousEnrollments ?? []).filter((e) => sessionIds.has(e.session_id))
+    const videos = (tousVideos ?? []).filter((v) => sessionIds.has(v.session_id))
 
-    const studentIds = [
-      ...new Set([
-        ...(enrollments ?? []).map((e) => e.student_id),
-        ...(affectations ?? []).map((a) => a.student_id),
-        ...(inscriptionsVagues ?? []).map((i) => i.student_id),
-      ]),
-    ]
     // Un élève supprimé (soft-delete) garde son `teacher_assignments`/`session_enrollments`
     // historique — sans ce filtre il continuait à apparaître comme élève actif (ou ancien élève)
     // du professeur alors que son compte n'existe plus (demande client du 2026-09-23).
-    const { data: etudiants } = studentIds.length
-      ? await supabase.from('profiles').select('*').in('id', studentIds).neq('status', 'suspended')
-      : { data: [] as Profile[] }
-    const etudiantParId = new Map((etudiants ?? []).map((e) => [e.id, e]))
+    const etudiantParId = new Map(profilsTous.filter((p) => p.status !== 'suspended').map((e) => [e.id, e]))
     const videoParSession = new Map((videos ?? []).map((v) => [v.session_id, v]))
 
     // Regroupe par élève : actif si au moins une affectation active avec CE professeur (prime
@@ -100,21 +113,20 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
       ...[...parEtudiant.entries()].filter(([, e]) => e.actif).map(([id]) => id),
       ...(inscriptionsVagues ?? []).map((i) => i.student_id),
     ]
-    const idsSecondairesConnus = idsActifsEtVague
-      .map((id) => etudiantParId.get(id)?.duo_partenaire_id)
-      .filter((id): id is string => !!id)
-    const [{ data: principauxManquants }, { data: secondairesManquants }] = await Promise.all([
-      idsSecondairesConnus.length
-        ? supabase.from('profiles').select('*').in('id', idsSecondairesConnus).neq('status', 'suspended')
-        : Promise.resolve({ data: [] as Profile[] }),
-      idsActifsEtVague.length
-        ? supabase.from('profiles').select('*').in('duo_partenaire_id', idsActifsEtVague).neq('status', 'suspended')
-        : Promise.resolve({ data: [] as Profile[] }),
-    ])
-    const partenairesDuo = [...(principauxManquants ?? []), ...(secondairesManquants ?? [])]
-    for (const p of partenairesDuo) {
-      if (!etudiantParId.has(p.id)) etudiantParId.set(p.id, p)
-    }
+    /* Résolu en mémoire sur les profils déjà chargés (optimisation du 2026-10-13) : c'étaient deux
+       requêtes de plus, et surtout une vague d'attente supplémentaire puisqu'elles ne pouvaient
+       partir qu'une fois les élèves actifs connus. Les deux sens sont couverts comme avant — les
+       profils suspendus sont écartés puisque `etudiantParId` ne les contient pas. */
+    const actifsEtVague = new Set(idsActifsEtVague)
+    const partenairesDuo = [
+      // Le principal désigné par un élève actif qui est, lui, le membre secondaire du binôme.
+      ...idsActifsEtVague.map((id) => {
+        const designe = etudiantParId.get(id)?.duo_partenaire_id
+        return designe ? etudiantParId.get(designe) : undefined
+      }),
+      // Le secondaire qui pointe vers un élève actif — sens inverse, le principal ne porte rien.
+      ...profilsTous.filter((p) => p.duo_partenaire_id && actifsEtVague.has(p.duo_partenaire_id) && etudiantParId.has(p.id)),
+    ].filter((p): p is Profile => !!p)
 
     return {
       seances: (sessions ?? []).flatMap((session) => {

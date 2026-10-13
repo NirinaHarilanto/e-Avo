@@ -26,6 +26,24 @@ type Ecouteur = () => void
 const ecouteurs = new Set<Ecouteur>()
 let minuterieLocale: ReturnType<typeof setTimeout> | null = null
 
+/* Caches en mémoire à vider dès que QUOI QUE CE SOIT a changé, ici ou dans un autre espace
+   (2026-10-13). Différent de `surSynchro` : celui-ci recharge ce qui est affiché, après un
+   regroupement de 250 ms, et ne couvre que les signaux distants ; celui-là jette une donnée
+   devenue douteuse, tout de suite, y compris après notre propre écriture. Un cache qui s'accroche
+   à une valeur périmée est la pire façon d'accélérer une application. */
+const videursDeCache = new Set<Ecouteur>()
+
+export function surMutation(videur: Ecouteur): () => void {
+  videursDeCache.add(videur)
+  return () => {
+    videursDeCache.delete(videur)
+  }
+}
+
+function viderLesCaches() {
+  for (const videur of [...videursDeCache]) videur()
+}
+
 /* Abonne un rechargement au signal. Renvoie la fonction de désabonnement. */
 export function surSynchro(ecouteur: Ecouteur): () => void {
   ecouteurs.add(ecouteur)
@@ -37,6 +55,7 @@ export function surSynchro(ecouteur: Ecouteur): () => void {
 /* Appelé à la réception d'un signal distant. Regroupé (250 ms) : une même action serveur crée
    souvent plusieurs notifications, donc plusieurs signaux quasi simultanés. */
 export function declencherSynchroLocale() {
+  viderLesCaches()
   if (minuterieLocale) clearTimeout(minuterieLocale)
   minuterieLocale = setTimeout(() => {
     minuterieLocale = null
@@ -53,6 +72,8 @@ export function definirEmetteurSynchro(fn: (() => void) | null) {
 }
 
 function signalerMutation() {
+  // Sans attendre le regroupement : la donnée est périmée dès maintenant pour CE navigateur.
+  viderLesCaches()
   if (minuterieEmission) clearTimeout(minuterieEmission)
   minuterieEmission = setTimeout(() => {
     minuterieEmission = null

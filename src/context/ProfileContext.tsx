@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { useAuth, type InscriptionInfos } from '../hooks/useAuth'
 import { useProfile } from '../hooks/useProfile'
@@ -6,6 +6,7 @@ import { useEtablissement } from '../hooks/useEtablissement'
 import { usePlatformAdmin } from '../hooks/usePlatformAdmin'
 import { useNotificationsTempsReel } from '../hooks/useNotificationsTempsReel'
 import { useSynchroEtablissement } from '../hooks/useSynchroEtablissement'
+import { chargerProfilsEtablissement } from '../lib/profilsEtablissement'
 import type { Database } from '../types/database.types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -48,6 +49,20 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const { session, loading: authLoading, seConnecter, sInscrire, seDeconnecter } = useAuth()
   const { profile, loading: profileLoading, rafraichir: rafraichirProfil } = useProfile(session, authLoading)
   const loading = authLoading || profileLoading
+
+  /* Les profils de l'établissement sont demandés dès que la session est connue, SANS attendre le
+     profil de la personne (optimisation du 2026-10-13). Presque tous les écrans en ont besoin, mais
+     leurs hooks ne démarrent qu'une fois ce Provider résolu : ils arrivaient donc systématiquement
+     une vague de requêtes trop tard, soit ~330 ms d'attente ajoutés à CHAQUE écran. Partant ici, la
+     réponse est déjà là — ou en route — quand l'écran la réclame.
+     Lancé seulement si quelqu'un est connecté : sur la vitrine publique, la requête n'aurait aucun
+     droit de lecture. L'échec est ignoré, c'est un simple préchargement : l'écran qui en a vraiment
+     besoin refera l'appel et affichera, lui, une vraie erreur. */
+  const utilisateurId = session?.user.id
+  useEffect(() => {
+    if (!utilisateurId) return
+    void chargerProfilsEtablissement().catch(() => {})
+  }, [utilisateurId])
 
   /* Récupérés ici plutôt que dans EspaceLayout/PlateformeLayout/EspacePersonnel : ce Provider
      enveloppe tout le routeur et ne se démonte jamais entre deux pages, contrairement à ces

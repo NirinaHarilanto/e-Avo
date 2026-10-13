@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { surMutation } from './synchro'
 import type { Database } from '../types/database.types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -19,10 +20,19 @@ type Profile = Database['public']['Tables']['profiles']['Row']
    pouvoir afficher le nom du professeur d'une séance passée ou d'un paiement, même si son compte
    n'existe plus. C'est à l'appelant de filtrer selon ce qu'il montre.
 
-   Pas de cache de résultat : seuls les appels SIMULTANÉS sont fusionnés, comme le fait
-   `executerPartagee` dans useCacheRequete.ts. Un rafraîchissement ultérieur refait donc bien un
-   appel réseau, et aucune donnée périmée ne peut être servie. */
+   Le résultat n'est gardé que TRÈS brièvement (DUREE_CACHE_MS) : assez pour qu'un même écran, qui
+   démarre ses requêtes par paquets successifs, n'en redemande pas trois fois en une seconde ; trop
+   peu pour qu'un utilisateur revienne sur un écran et y retrouve une ancienne valeur. Et surtout,
+   la moindre écriture — la nôtre comme celle d'un autre espace — le vide immédiatement
+   (`surMutation`, voir synchro.ts). Un affichage faux est bien plus coûteux qu'un aller-retour. */
+const DUREE_CACHE_MS = 5_000
 let enVol: Promise<Profile[]> | null = null
+let expireLe = 0
+
+surMutation(() => {
+  enVol = null
+  expireLe = 0
+})
 
 async function requeter(): Promise<Profile[]> {
   /* `.then()` sur une requête Supabase rend un `PromiseLike`, pas une vraie `Promise` : l'envelopper
@@ -33,12 +43,20 @@ async function requeter(): Promise<Profile[]> {
 }
 
 export function chargerProfilsEtablissement(): Promise<Profile[]> {
-  if (enVol) return enVol
-  // Libérée dès la réponse reçue : les appels suivants repartiront bien en réseau.
-  const promesse = requeter().finally(() => {
-    if (enVol === promesse) enVol = null
-  })
+  // Tant qu'elle est en vol, toujours la partager ; une fois résolue, seulement le temps du cache.
+  if (enVol && (expireLe === 0 || Date.now() < expireLe)) return enVol
+  const promesse = requeter()
+  promesse.then(
+    () => {
+      if (enVol === promesse) expireLe = Date.now() + DUREE_CACHE_MS
+    },
+    // Un échec ne se met jamais en cache : l'appel suivant doit pouvoir retenter aussitôt.
+    () => {
+      if (enVol === promesse) enVol = null
+    },
+  )
   enVol = promesse
+  expireLe = 0
   return promesse
 }
 

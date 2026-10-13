@@ -13,22 +13,20 @@ export interface SatisfactionProfesseur {
 const VIDE: SatisfactionProfesseur = { repartition: [0, 0, 0, 0, 0], total: 0, moyenne: null, tauxSatisfaction: null }
 
 /* Enquêtes de satisfaction des séances d'un professeur (0068), agrégées pour le KPI en disque
-   demandé le 2026-09-23 (point 5). Deux requêtes plutôt qu'une jointure : `session_satisfaction`
-   n'a pas de `teacher_id`, le lien passe par `sessions.teacher_id`. La RLS laisse déjà un
-   professeur lire les avis de ses seules séances et l'admin ceux de tout l'établissement. */
+   demandé le 2026-09-23 (point 5). `session_satisfaction` n'a pas de `teacher_id` : le lien passe
+   par `sessions.teacher_id`. C'étaient donc deux requêtes enchaînées — les séances du professeur,
+   puis les avis portant leurs identifiants — soit un aller-retour d'attente en plus, le dernier à
+   partir sur la fiche professeur. Une jointure `!inner` filtrée côté serveur fait la même chose en
+   une fois (2026-10-13). La RLS laisse déjà un professeur lire les avis de ses seules séances et
+   l'admin ceux de tout l'établissement. */
 export function useSatisfactionProfesseur(teacherId: string | undefined) {
   const { valeur, loading, erreur, recharger } = useCacheRequete(
     teacherId && `satisfaction-professeur-${teacherId}`,
     async (): Promise<SatisfactionProfesseur> => {
-      const { data: sessions, error } = await supabase.from('sessions').select('id').eq('teacher_id', teacherId as string)
-      if (error) throw new Error(error.message)
-      const ids = (sessions ?? []).map((s) => s.id)
-      if (ids.length === 0) return VIDE
-
       const { data: avis, error: erreurAvis } = await supabase
         .from('session_satisfaction')
-        .select('note_globale')
-        .in('session_id', ids)
+        .select('note_globale, sessions!inner(teacher_id)')
+        .eq('sessions.teacher_id', teacherId as string)
       if (erreurAvis) throw new Error(erreurAvis.message)
 
       const repartition: [number, number, number, number, number] = [0, 0, 0, 0, 0]

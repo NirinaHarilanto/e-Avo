@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { chargerProfilsEtablissement } from '../lib/profilsEtablissement'
 import { useCacheRequete } from './useCacheRequete'
 
 type Invoice = Database['public']['Tables']['invoices']['Row']
@@ -15,16 +16,18 @@ export interface FactureAvecDestinataire {
    Un seul hook/une seule requête, le destinataire est résolu quel que soit le côté renseigné. */
 export function useFactures() {
   const { valeur, loading, erreur, recharger } = useCacheRequete('factures', async () => {
-    const { data, error } = await supabase.from('invoices').select('*').order('date_emission', { ascending: false })
+    /* Les profils partent EN MÊME TEMPS que les factures (optimisation du 2026-10-13) : les nommer
+       demandait d'attendre les factures, ce qui faisait deux allers-retours successifs au lieu d'un
+       — voir lib/profilsEtablissement.ts. */
+    const [{ data, error }, profilsTous] = await Promise.all([
+      supabase.from('invoices').select('*').order('date_emission', { ascending: false }),
+      chargerProfilsEtablissement(),
+    ])
     if (error) throw new Error(error.message)
 
-    const profileIds = [...new Set((data ?? []).map((f) => f.student_id ?? f.teacher_id).filter((id): id is string => !!id))]
     // Une facture rattachée à un compte supprimé disparaît de la liste (demande client du
     // 2026-09-23) — la ligne reste en base, réversible si la personne se réinscrit.
-    const { data: profiles } = profileIds.length
-      ? await supabase.from('profiles').select('*').in('id', profileIds).neq('status', 'suspended')
-      : { data: [] as Profile[] }
-    const profilParId = new Map((profiles ?? []).map((p) => [p.id, p]))
+    const profilParId = new Map(profilsTous.filter((p) => p.status !== 'suspended').map((p) => [p.id, p]))
 
     return (data ?? [])
       .filter((f) => profilParId.has(f.student_id ?? f.teacher_id ?? ''))

@@ -32,13 +32,16 @@ export function useMessagerie(profileId: string | undefined) {
   const { valeur, loading, erreur, recharger } = useCacheRequete(
     profileId && `messagerie-${profileId}`,
     async () => {
-      const { data: messages, error } = await supabase.from('messages').select('*').order('created_at', { ascending: false })
-      if (error) throw new Error(error.message)
-
-      /* Les noms viennent de l'annuaire, pas de `profiles` : un élève ne peut pas lire la ligne
+      /* Les deux requêtes partent ensemble (optimisation du 2026-10-13) : l'annuaire ne dépend pas
+         des messages, les enchaîner doublait l'attente pour rien.
+         Les noms viennent de l'annuaire, pas de `profiles` : un élève ne peut pas lire la ligne
          `profiles` de son correspondant (0004/0017), il verrait « Expéditeur inconnu » sur chaque
          message reçu. */
-      const { data: annuaire } = await supabase.from('annuaire_etablissement').select('*')
+      const [{ data: messages, error }, { data: annuaire }] = await Promise.all([
+        supabase.from('messages').select('*').order('created_at', { ascending: false }),
+        supabase.from('annuaire_etablissement').select('*'),
+      ])
+      if (error) throw new Error(error.message)
       const parId = new Map((annuaire ?? []).map((p) => [p.id, p]))
 
       return (messages ?? []).map((m): MessageAvecPersonnes => ({

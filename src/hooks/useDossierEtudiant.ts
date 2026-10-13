@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
+import { chargerProfilsEtablissement } from '../lib/profilsEtablissement'
 import { useCacheRequete } from './useCacheRequete'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -79,15 +80,18 @@ export function useDossierEtudiant(studentId: string | undefined) {
     // auparavant fetché seul, en séquentiel, avant tout le reste, sans raison : ça ajoutait un
     // aller-retour réseau complet à chaque ouverture d'un dossier.
     const [
-      { data: etudiant, error: etudiantError },
+      profilsTous,
       { data: affectations },
       { data: enrollments },
       { data: packages },
       { data: resume },
       { data: inscriptionCohorte },
-      { data: duoPartenaire },
+      { data: tousTarifs },
     ] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', studentId as string).single(),
+      /* Les profils d'un bloc (optimisation du 2026-10-13) : l'élève, son partenaire DUO, ses
+         professeurs et le professeur de sa classe étaient quatre requêtes `profiles` réparties sur
+         quatre vagues successives — voir lib/profilsEtablissement.ts. */
+      chargerProfilsEtablissement(),
       // Tri secondaire sur created_at : `date_debut` est une date, deux affectations du même
       // jour y sont à égalité et l'ordre serait alors arbitraire.
       supabase
@@ -100,30 +104,33 @@ export function useDossierEtudiant(studentId: string | undefined) {
       supabase.from('packages').select('*').eq('student_id', studentId as string).order('created_at', { ascending: false }),
       supabase.from('student_hours_summary').select('*').eq('student_id', studentId as string).maybeSingle(),
       supabase.from('cohort_enrollments').select('cohort_id, cohort_class_id').eq('student_id', studentId as string).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      // Un partenaire DUO supprimé ne doit plus apparaître comme second membre du binôme
-      // (demande client du 2026-09-23) — sans ce filtre, un compte supprimé continuait à
-      // s'afficher dans l'en-tête et les informations personnelles du dossier partagé.
-      supabase.from('profiles').select('*').eq('duo_partenaire_id', studentId as string).neq('status', 'suspended').maybeSingle(),
+      /* Table de référence, quelques lignes : la charger ici évite l'aller-retour séparé que
+         demandait le tarif choisi du prospect d'origine, qui ne pouvait partir qu'après lui. */
+      supabase.from('tarifs').select('*'),
     ])
     // Un accès direct par URL (l'élève n'apparaît plus dans aucune liste depuis sa suppression,
     // mais son identifiant reste valide) ne doit pas exposer son dossier — demande client du
     // 2026-09-23 : « son espace personnel » fait partie de ce qui doit disparaître.
-    if (etudiantError || !etudiant || etudiant.status === 'suspended') {
-      throw new Error(etudiantError?.message ?? 'Étudiant introuvable.')
-    }
+    const etudiant = profilsTous.find((p) => p.id === studentId)
+    if (!etudiant || etudiant.status === 'suspended') throw new Error('Étudiant introuvable.')
+
+    // Un partenaire DUO supprimé ne doit plus apparaître comme second membre du binôme
+    // (demande client du 2026-09-23) — sans ce filtre, un compte supprimé continuait à
+    // s'afficher dans l'en-tête et les informations personnelles du dossier partagé.
+    const duoPartenaire = profilsTous.find((p) => p.duo_partenaire_id === studentId && p.status !== 'suspended') ?? null
 
     const sessionIds = [...new Set((enrollments ?? []).map((e) => e.session_id))]
-    const teacherIds = [...new Set((affectations ?? []).map((a) => a.teacher_id))]
 
-    // Vague 2 : chacune de ces 5 requêtes dépend d'un résultat de la vague 1 (inscriptionCohorte,
-    // sessionIds, teacherIds ou etudiant.prospect_id), mais JAMAIS du résultat d'une autre requête
-    // de cette même vague — elles peuvent donc toutes partir ensemble plutôt qu'en cascade.
+    /* Vague 2, la DERNIÈRE depuis le 2026-10-13 : chacune de ces requêtes dépend d'un résultat de
+       la vague 1 (inscriptionCohorte, sessionIds ou etudiant.prospect_id), mais jamais du résultat
+       d'une autre requête de cette même vague. Les deux vagues qui suivaient — le tarif choisi du
+       prospect, puis le professeur de la classe de niveau — se résolvent désormais en mémoire sur
+       les tarifs et les profils chargés en vague 1. */
     const [
       { data: cohorte },
       { data: cohortClasse },
       { data: sessions },
       { data: videos },
-      { data: professeurs },
       { data: diagnostic },
       { data: diagnosticPartenaire },
       { data: prospectTarifRef },
@@ -137,18 +144,6 @@ export function useDossierEtudiant(studentId: string | undefined) {
         : Promise.resolve({ data: null as CohortClass | null }),
       sessionIds.length > 0 ? supabase.from('sessions').select('*').in('id', sessionIds) : Promise.resolve({ data: [] as Session[] }),
       sessionIds.length > 0 ? supabase.from('video_sessions').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as VideoSession[] }),
-      /* Revirement du 2026-10-10 sur une règle posée le 2026-09-23 : le professeur disparaissait
-         alors AVEC son nom du parcours pédagogique de l'élève. Demande client explicite et
-         inverse — « il faut garder la traçabilité des noms des professeurs dans le suivi
-         pédagogique des étudiants [...] sans garder les fonctionnalités du professeur
-         supprimé, ce sera juste à titre d'information [...] UNIQUEMENT dans le suivi
-         pédagogique des étudiants ». Le filtre `.neq('status', 'suspended')` est donc retiré ICI
-         SEULEMENT : `profiles.nom`/`prenom` ne sont jamais effacés par la suppression (seul
-         `email` l'est, voir supprimer-utilisateur.ts), les redemander suffit. Ce choix ne doit
-         pas se propager à un autre hook — un professeur supprimé doit rester invisible de
-         partout où sa fiche pourrait sembler encore active (useProfesseurs, sélecteurs
-         d'affectation…), seule cette vue purement historique fait exception. */
-      teacherIds.length > 0 ? supabase.from('profiles').select('*').in('id', teacherIds) : Promise.resolve({ data: [] as Profile[] }),
       etudiant.prospect_id
         ? supabase.from('diagnostic_calls').select('*').eq('prospect_id', etudiant.prospect_id).order('created_at', { ascending: false }).limit(1).maybeSingle()
         : Promise.resolve({ data: null as DiagnosticCall | null }),
@@ -160,21 +155,29 @@ export function useDossierEtudiant(studentId: string | undefined) {
         : Promise.resolve({ data: null as { tarif_choisi_id: string | null } | null }),
       sessionIds.length > 0 ? supabase.from('session_satisfaction').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as SessionSatisfaction[] }),
     ])
-    // Second aller-retour, seulement si le prospect d'origine avait choisi un tarif (0054) —
-    // `profiles.prospect_id` n'a pas de contrainte FK (0002), donc pas d'embed PostgREST
-    // profiles -> prospects -> tarifs possible en un seul select comme ailleurs dans ce hook.
-    const { data: tarifChoisi } = prospectTarifRef?.tarif_choisi_id
-      ? await supabase.from('tarifs').select('*').eq('id', prospectTarifRef.tarif_choisi_id).maybeSingle()
-      : { data: null as Tarif | null }
-    // Professeur de la classe de niveau (0074) : pas dans `professeurs` ci-dessus, qui ne couvre
-    // que les affectations individuelles (`teacher_assignments`) — un professeur de classe n'en
-    // a pas forcément.
-    const { data: professeurClasse } = cohortClasse?.teacher_id
-      ? await supabase.from('profiles').select('*').eq('id', cohortClasse.teacher_id).maybeSingle()
-      : { data: null as Profile | null }
+    /* Résolu dans la table de référence déjà chargée (2026-10-13) : c'était un aller-retour de
+       plus, qui ne pouvait partir qu'une fois le prospect d'origine connu. `profiles.prospect_id`
+       n'a pas de contrainte FK (0002), donc pas d'embed PostgREST profiles -> prospects -> tarifs
+       possible en un seul select comme ailleurs dans ce hook. */
+    const tarifChoisi = prospectTarifRef?.tarif_choisi_id
+      ? ((tousTarifs ?? []).find((t) => t.id === prospectTarifRef.tarif_choisi_id) ?? null)
+      : (null as Tarif | null)
     const sessionParId = new Map((sessions ?? []).map((s) => [s.id, s]))
     const videoParSession = new Map((videos ?? []).map((v) => [v.session_id, v]))
-    const professeurParId = new Map((professeurs ?? []).map((p) => [p.id, p]))
+    /* Revirement du 2026-10-10 sur une règle posée le 2026-09-23 : le professeur disparaissait
+       alors AVEC son nom du parcours pédagogique de l'élève. Demande client explicite et
+       inverse — « il faut garder la traçabilité des noms des professeurs dans le suivi
+       pédagogique des étudiants [...] sans garder les fonctionnalités du professeur
+       supprimé, ce sera juste à titre d'information [...] UNIQUEMENT dans le suivi
+       pédagogique des étudiants ». Les professeurs supprimés sont donc gardés ICI SEULEMENT :
+       `profiles.nom`/`prenom` ne sont jamais effacés par la suppression (seul `email` l'est, voir
+       supprimer-utilisateur.ts). Ce choix ne doit pas se propager à un autre hook — un professeur
+       supprimé doit rester invisible de partout où sa fiche pourrait sembler encore active
+       (useProfesseurs, sélecteurs d'affectation…), seule cette vue historique fait exception. */
+    const professeurParId = new Map(profilsTous.map((p) => [p.id, p]))
+    // Professeur de la classe de niveau (0074) : il n'a pas forcément d'affectation individuelle
+    // (`teacher_assignments`), c'était donc un aller-retour supplémentaire à lui seul.
+    const professeurClasse = cohortClasse?.teacher_id ? (professeurParId.get(cohortClasse.teacher_id) ?? null) : null
     const satisfactionsParSession = new Map<string, SessionSatisfaction[]>()
     for (const satisfaction of satisfactions ?? []) {
       satisfactionsParSession.set(satisfaction.session_id, [...(satisfactionsParSession.get(satisfaction.session_id) ?? []), satisfaction])
