@@ -18,12 +18,23 @@ function styleStatut(statut: string) {
   return LIBELLE_STATUT[statut as keyof typeof LIBELLE_STATUT] ?? LIBELLE_STATUT.brouillon
 }
 
-/* Contenu partagé entre l'espace étudiant et professeur : useContrats() interroge `contracts`
-   sans filtre explicite, mais la policy contracts_destinataire_select (0021) ne renvoie de
-   toute façon que les contrats du profil connecté — pas besoin d'une requête dédiée. */
+/* Contenu partagé entre l'espace étudiant et professeur : « Mes contrats » ne doit montrer QUE
+   les contrats du profil connecté. useContrats() interroge `contracts` sans filtre et ne peut
+   plus servir de garde-fou à lui seul : la policy contracts_destinataire_select (0021) ne
+   renvoyait alors que les contrats du profil connecté, mais contracts_teacher_select (0063,
+   badge de statut de contrat dans « Mes étudiants ») ouvre désormais la même table à un
+   professeur pour le contrat de CHACUN de ses élèves — un bug réel l'a confirmé le 2026-10-13 :
+   un professeur voyait ici, en entier et imprimable, le contrat d'inscription de son élève.
+   useContrats() reste volontairement sans filtre (il sert aussi ContratsAdmin.tsx, qui a
+   besoin de tous les contrats de l'établissement) : le filtre doit donc rester ICI. */
 export function MesContrats() {
   const { session } = useProfileContext()
-  const { contrats, loading, erreur, recharger } = useContrats()
+  const { contrats: tousLesContrats, loading, erreur, recharger } = useContrats()
+  const contrats = tousLesContrats.filter(
+    (item) =>
+      item.contrat.destinataire_profile_id === session?.user.id ||
+      item.contrat.destinataire_secondaire_profile_id === session?.user.id,
+  )
   const [enCours, setEnCours] = useState<string | null>(null)
   const [erreurSignature, setErreurSignature] = useState<string | null>(null)
   const [contratAImprimer, setContratAImprimer] = useState<(typeof contrats)[number] | null>(null)
