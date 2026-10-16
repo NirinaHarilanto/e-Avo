@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classePrevue, construireSuiviCollectif, libelleClasse, rangEtapeCollectif, rangFrais } from '../suiviCollectif'
+import { classePrevue, construireSuiviCollectif, idsProspectsEtudiantsActifs, libelleClasse, rangEtapeCollectif, rangFrais } from '../suiviCollectif'
 
 /* Suivi du parcours collectif (demande client du 2026-10-11). Ce qui compte ici : qu'une
    personne apparaisse avec les bonnes informations à CHAQUE étape de son parcours — simple
@@ -231,6 +231,32 @@ describe('construireSuiviCollectif', () => {
       expect(ligne.frais).toBe('aucun')
       expect(ligne.montantFrais).toBe(0)
     })
+  })
+})
+
+describe('idsProspectsEtudiantsActifs', () => {
+  /* Garde-fou partagé (2026-10-16) : une capture client a montré un candidat converti puis
+     supprimé encore marqué « Converti ✓ » dans l'onglet Session orale, qui relisait
+     `prospect.statut` directement au lieu de passer par cette fonction — exactement le bug que
+     `construireSuiviCollectif` évite déjà plus haut pour l'onglet Suivi des candidats. */
+  it('retient un prospect converti avec un profil actif', () => {
+    const ids = idsProspectsEtudiantsActifs([prospect('p1', 'etudiant')], [profilActif('profil-1', 'p1')])
+    expect(ids.has('p1')).toBe(true)
+  })
+
+  it('exclut un prospect converti dont le compte a été supprimé', () => {
+    const ids = idsProspectsEtudiantsActifs([prospect('p1', 'etudiant')], [profilActif('profil-1', 'p1', { status: 'suspended' })])
+    expect(ids.has('p1')).toBe(false)
+  })
+
+  it('exclut un prospect jamais converti, même avec un profil qui le cite par erreur', () => {
+    const ids = idsProspectsEtudiantsActifs([prospect('p1', 'diagnostic_fait')], [profilActif('profil-1', 'p1')])
+    expect(ids.has('p1')).toBe(false)
+  })
+
+  it('exclut un prospect converti sans aucun profil en face', () => {
+    const ids = idsProspectsEtudiantsActifs([prospect('p1', 'etudiant')], [])
+    expect(ids.has('p1')).toBe(false)
   })
 })
 

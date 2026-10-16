@@ -121,6 +121,27 @@ function nomComplet(prenom: string | null, nom: string | null): string {
   return `${prenom ?? ''} ${nom ?? ''}`.trim() || 'Sans nom'
 }
 
+/* `prospects.statut` ne revient jamais en arrière à la suppression d'un compte étudiant — voir
+ * supprimer-utilisateur.ts, qui le documente explicitement : la ligne `prospects` sert aussi de
+ * clé stable pour l'historique, donc `statut === 'etudiant'` reste vrai pour toujours, même une
+ * fois le compte supprimé. Lire ce champ seul pour décider si quelqu'un est ENCORE étudiant est
+ * donc toujours faux dans ce cas précis — capture client du 2026-10-11 pour ce même écran
+ * (construireSuiviCollectif plus bas), puis à nouveau le 2026-10-16 pour l'onglet « Session orale »
+ * (SessionsOraleAdmin.tsx), qui relisait `statut` directement sans passer par ici.
+ *
+ * Point UNIQUE pour cette distinction, à réutiliser par tout écran qui affiche « converti » /
+ * « étudiant » à partir de `prospects.statut` — jamais la refaire au cas par cas, jamais l'oublier
+ * non plus. */
+export function idsProspectsEtudiantsActifs(
+  prospects: { id: string; statut: ProspectStatut }[],
+  profils: { prospect_id: string | null; status: string }[],
+): Set<string> {
+  const prospectIdsAvecProfilActif = new Set(
+    profils.filter((p) => p.prospect_id && p.status !== 'suspended').map((p) => p.prospect_id as string),
+  )
+  return new Set(prospects.filter((p) => p.statut === 'etudiant' && prospectIdsAvecProfilActif.has(p.id)).map((p) => p.id))
+}
+
 /* Libellé d'une classe : son nom propre quand elle en a un (« CLASSE 1 »), préfixé de son niveau
    pour rester lisible hors contexte — « Beginner — CLASSE 1 ». */
 export function libelleClasse(classe: ClasseSuivi | undefined): string | null {
@@ -163,16 +184,17 @@ export function construireSuiviCollectif(donnees: {
     }
   }
 
+  const idsActifs = idsProspectsEtudiantsActifs(donnees.prospects, donnees.profils)
+
   return donnees.prospects
     .filter((p) => p.type_programme === 'collectif')
-    /* Un candidat converti puis supprimé (`prospects.statut` reste 'etudiant' pour toujours : la
-       suppression d'un compte ne retouche jamais cette table, voir supprimer-utilisateur.ts) n'a
-       plus de profil actif en face. Capture client du 2026-10-11 : « ils devraient être
-       également supprimés [...] des autres sections de toute l'application » — exactement ce que
-       fait ce filtre, par cohérence avec `useEtudiants()` ailleurs dans l'app. Un prospect qui
-       n'a jamais été converti n'a jamais eu de profil non plus : ce filtre ne le concerne pas,
-       seul `statut === 'etudiant'` sans profil actif déclenche l'exclusion. */
-    .filter((p) => p.statut !== 'etudiant' || profilParProspect.has(p.id))
+    /* Un candidat converti puis supprimé n'a plus de profil actif en face. Capture client du
+       2026-10-11 : « ils devraient être également supprimés [...] des autres sections de toute
+       l'application » — exactement ce que fait ce filtre, par cohérence avec `useEtudiants()`
+       ailleurs dans l'app. Un prospect qui n'a jamais été converti n'a jamais eu de profil non
+       plus : ce filtre ne le concerne pas, seul `statut === 'etudiant'` sans profil actif
+       déclenche l'exclusion (voir `idsProspectsEtudiantsActifs` ci-dessus pour le détail). */
+    .filter((p) => p.statut !== 'etudiant' || idsActifs.has(p.id))
     .map((prospect) => {
       const inscription = inscriptionParProspect.get(prospect.id)
       const creneau = inscription ? creneauParId.get(inscription.creneau_id) : undefined

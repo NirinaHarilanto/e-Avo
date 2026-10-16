@@ -33,6 +33,16 @@ export const config = { runtime: 'edge' }
  * Chaque étape ne touche QUE les lignes propres à la personne supprimée : une séance ou une
  * écriture d'heures partagée (binôme DUO, classe de cours collectif) n'est jamais retirée pour
  * les autres participants, seule la part de la personne supprimée l'est.
+ *
+ * Complété le 2026-10-16, à la demande du client (« il faut que cet étudiant n'apparaisse plus
+ * dans l'application, que ce soit en DUO, individuel ou collectif ») après qu'une élève supprimée
+ * restait visible dans Séances & visio : quatre traces qu'aucune étape ci-dessus ne couvrait,
+ * purgées désormais pour les deux rôles identiquement, APRÈS la purge propre au rôle —
+ * `purgerDossiersDocuments`, `purgerPartagesDocuments`, `purgerMessages`, `rompreLienDuo`
+ * (voir chacune pour le détail). Toute colonne de PROFILES(id) ajoutée à l'avenir sur une table
+ * visible par d'autres personnes doit rejoindre cette liste au même endroit — c'est la seule façon
+ * d'empêcher une personne supprimée de ressurgir ailleurs sans qu'un développeur ait à s'en
+ * souvenir page par page.
  */
 async function purgerDocuments(
   serviceClient: Awaited<ReturnType<typeof requireAdmin>>['serviceClient'],
@@ -52,6 +62,89 @@ async function purgerUnDocument(
   if (!document) return
   await serviceClient.storage.from('documents').remove([document.storage_path])
   await serviceClient.from('documents').delete().eq('id', documentId)
+}
+
+/* Arborescence de dossiers (0058) appartenant à la personne — jamais purgée jusqu'ici, alors que
+ * `purgerDocuments` juste au-dessus ne vide que les FICHIERS. `document_dossiers.parent_id` est en
+ * `on delete restrict` (volontaire, voir cette migration) : un dossier contenant encore un
+ * sous-dossier refuse de disparaître. `purgerDocuments` a déjà vidé tous les fichiers qui
+ * pointaient vers ces dossiers (`documents.dossier_id`, également `on delete restrict`), donc
+ * seules les feuilles de l'arborescence bloquent encore — on les retire couche par couche jusqu'à
+ * ce qu'il n'en reste plus. Bornée à 20 passes : la profondeur réelle d'une arborescence saisie à
+ * la main ne dépasse jamais ça, et une boucle sans fin signalerait un bug ailleurs plutôt que d'y
+ * rester suspendue indéfiniment.
+ */
+async function purgerDossiersDocuments(
+  serviceClient: Awaited<ReturnType<typeof requireAdmin>>['serviceClient'],
+  profileId: string,
+): Promise<void> {
+  for (let passe = 0; passe < 20; passe++) {
+    const { data: dossiers } = await serviceClient.from('document_dossiers').select('id').eq('proprietaire_profile_id', profileId)
+    if (!dossiers || dossiers.length === 0) return
+    const ids = dossiers.map((d) => d.id)
+    const { data: enfants } = await serviceClient.from('document_dossiers').select('parent_id').in('parent_id', ids)
+    const idsAvecEnfant = new Set((enfants ?? []).map((e) => e.parent_id).filter((id): id is string => id !== null))
+    const feuilles = ids.filter((id) => !idsAvecEnfant.has(id))
+    if (feuilles.length === 0) return
+    await serviceClient.from('document_dossiers').delete().in('id', feuilles)
+  }
+}
+
+/* Partages ponctuels d'un document (0059 — « un utilisateur ordinaire ouvre la vue d'un de SES
+ * fichiers à quelqu'un », distinct de `document_permissions` ci-dessus). Un document qu'ELLE
+ * possédait est déjà réglé : `purgerDocuments` l'a supprimé, et `document_partages.document_id`
+ * cascade dessus. Restent deux cas qu'aucune cascade ne couvre, parce que le DOCUMENT appartient à
+ * quelqu'un d'autre : un fichier qu'on lui avait partagé (elle figure comme destinataire) et un
+ * fichier qu'elle avait elle-même partagé à un tiers (elle figure comme émetteur). Sans ce geste,
+ * son nom restait affiché « partagé avec » dans la fiche du document chez son propriétaire — vu le
+ * 2026-10-16 sur la liste des accès d'un document resté partagé avec un compte déjà supprimé.
+ */
+async function purgerPartagesDocuments(
+  serviceClient: Awaited<ReturnType<typeof requireAdmin>>['serviceClient'],
+  profileId: string,
+): Promise<void> {
+  await serviceClient.from('document_partages').delete().eq('destinataire_profile_id', profileId)
+  await serviceClient.from('document_partages').delete().eq('partage_par_profile_id', profileId)
+}
+
+/* Messagerie (0090, « chaque personne peut envoyer un message à toute personne enregistrée »).
+ * Jamais purgée jusqu'ici : un message qu'elle avait envoyé ou reçu restait entier dans la boîte
+ * de l'AUTRE participant, qui continuait donc à voir son nom. Conforme à la règle posée en tête de
+ * ce fichier — « toutes les informations du supprimé devraient TOUTES être supprimées » — les
+ * messages n'étant pas un historique de paiement, rien ne justifie de les épargner.
+ */
+async function purgerMessages(
+  serviceClient: Awaited<ReturnType<typeof requireAdmin>>['serviceClient'],
+  profileId: string,
+): Promise<void> {
+  await serviceClient.from('messages').delete().eq('expediteur_profile_id', profileId)
+  await serviceClient.from('messages').delete().eq('destinataire_profile_id', profileId)
+}
+
+/* Lien DUO (0054) : SEUL le SECONDAIRE porte `duo_partenaire_id`, pointant vers le PRINCIPAL (voir
+ * lib/duo.ts). Supprimer un des deux ne touchait jusqu'ici que les données DE la personne
+ * supprimée — jamais la référence que l'AUTRE garde vers elle :
+ *   - si la personne supprimée était le PRINCIPAL, le secondaire continue de pointer vers un
+ *     compte mort. Deux dégâts concrets constatés le 2026-10-16 : il reste affiché « en duo »
+ *     partout où la liste des élèves se construit sans tenir compte du statut du partenaire (la
+ *     fiche Étudiants s'en sort par coïncidence — elle masque tout profil porteur d'un
+ *     `duo_partenaire_id`, même orphelin — mais Séances & visio, qui liste chaque élève
+ *     individuellement, non) ; et SA PROPRE page « Mon espace » cesse de fonctionner, puisque
+ *     `idEtudiantEffectif` (ProfileContext.tsx) le redirige vers le dossier de son principal,
+ *     qui n'existe plus — `useDossierEtudiant` refuse alors tout court (« Étudiant introuvable »).
+ *   - si la personne supprimée était elle-même SECONDAIRE, nettoyer sa propre ligne est sans
+ *     effet pratique (son compte est suspendu), mais garde la base cohérente.
+ * Les deux sens sont donc rompus ici : toute AUTRE ligne qui pointait vers elle, et sa propre
+ * ligne si c'est elle qui pointait vers quelqu'un. Le secondaire orphelin retombe en élève
+ * individuel — un état déjà pleinement géré par le reste de l'application (c'est l'état par
+ * défaut de tout élève hors DUO), pas un cas spécial à inventer.
+ */
+async function rompreLienDuo(
+  serviceClient: Awaited<ReturnType<typeof requireAdmin>>['serviceClient'],
+  profileId: string,
+): Promise<void> {
+  await serviceClient.from('profiles').update({ duo_partenaire_id: null, duo_nom_groupe: null }).eq('duo_partenaire_id', profileId)
+  await serviceClient.from('profiles').update({ duo_partenaire_id: null, duo_nom_groupe: null }).eq('id', profileId)
 }
 
 /* Retire la personne des rendez-vous « autre » (evenements_admin) où elle figurait comme
@@ -320,6 +413,16 @@ export default async function handler(request: Request): Promise<Response> {
     } else {
       await purgerDonneesProfesseur(serviceClient, body.profileId, etablissementId, profileId)
     }
+
+    /* Dossiers, partages ponctuels, messages et lien DUO : identiques pour un étudiant ou un
+       professeur (un professeur a lui aussi des dossiers, des partages, des messages — seul le
+       lien DUO ne le concerne jamais en pratique, mais le nettoyer reste un no-op inoffensif pour
+       lui). Volontairement APRÈS la purge propre au rôle : `purgerDossiersDocuments` dépend de
+       `purgerDocuments`, déjà appelée plus haut, qui a vidé les dossiers de leurs fichiers. */
+    await purgerDossiersDocuments(serviceClient, body.profileId)
+    await purgerPartagesDocuments(serviceClient, body.profileId)
+    await purgerMessages(serviceClient, body.profileId)
+    await rompreLienDuo(serviceClient, body.profileId)
 
     /* `email` remis à null en même temps que le statut — pas seulement l'e-mail Auth (anonymisé
        plus bas par `deleteUser(..., true)`, ce qui libère bien l'adresse pour un nouveau compte

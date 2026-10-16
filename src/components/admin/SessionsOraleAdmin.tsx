@@ -11,6 +11,7 @@ import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecond
 import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
+import { idsProspectsEtudiantsActifs } from '../../lib/suiviCollectif'
 import { ConvertirCandidatCollectif } from '../prospects/ConvertirCandidatCollectif'
 import { Modale } from '../ui/Modale'
 import { Icone } from '../ui/Icones'
@@ -52,6 +53,12 @@ export function SessionsOraleAdmin() {
   const { cohortes, loading: chargementCohortes } = useCohortes()
   const [creneaux, setCreneaux] = useState<CreneauTest[] | null>(null)
   const [candidatsParCreneau, setCandidatsParCreneau] = useState<Map<string, CandidatInscrit[]>>(new Map())
+  /* IDs des prospects réellement convertis en étudiant ACTIF aujourd'hui — pas seulement
+     `prospect.statut === 'etudiant'`, qui reste vrai pour toujours même après suppression du
+     compte (voir idsProspectsEtudiantsActifs). Sans ce garde-fou, un candidat converti puis
+     supprimé s'affichait « Converti ✓ » indéfiniment, sans aucun moyen de le reconvertir —
+     signalé par le client le 2026-10-16. */
+  const [idsConvertisActifs, setIdsConvertisActifs] = useState<Set<string>>(new Set())
   const [filtreVague, setFiltreVague] = useState('')
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [creneauEnEdition, setCreneauEnEdition] = useState<CreneauTest | null>(null)
@@ -85,10 +92,14 @@ export function SessionsOraleAdmin() {
     }
     const { data: inscriptions } = await supabase.from('test_positionnement_inscriptions').select('*').in('creneau_id', ids)
     const prospectIds = [...new Set((inscriptions ?? []).map((i) => i.prospect_id))]
-    const { data: prospects } = prospectIds.length
-      ? await supabase.from('prospects').select('*').in('id', prospectIds)
-      : { data: [] as Prospect[] }
+    const [{ data: prospects }, { data: profils }] = prospectIds.length
+      ? await Promise.all([
+          supabase.from('prospects').select('*').in('id', prospectIds),
+          supabase.from('profiles').select('id, prospect_id, status').in('prospect_id', prospectIds),
+        ])
+      : [{ data: [] as Prospect[] }, { data: [] as { id: string; prospect_id: string | null; status: string }[] }]
     const prospectParId = new Map((prospects ?? []).map((p) => [p.id, p]))
+    setIdsConvertisActifs(idsProspectsEtudiantsActifs(prospects ?? [], profils ?? []))
 
     const parCreneau = new Map<string, CandidatInscrit[]>()
     for (const inscription of inscriptions ?? []) {
@@ -337,7 +348,7 @@ export function SessionsOraleAdmin() {
               <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0 }}>Aucun candidat inscrit pour le moment.</p>
             ) : (
               (candidatsParCreneau.get(inscritsOuvertPour.id) ?? []).map((candidat) => {
-                const dejaConverti = candidat.prospect?.statut === 'etudiant'
+                const dejaConverti = !!candidat.prospect && idsConvertisActifs.has(candidat.prospect.id)
                 return (
                   <div key={candidat.inscription.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: 'var(--voile-doux, rgba(255,255,255,.03))', flexWrap: 'wrap' }}>
                     <button
