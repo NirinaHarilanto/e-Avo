@@ -90,7 +90,7 @@ export function PipelineCRM() {
          est la même que dans Cours collectifs › Session orale — sans ce détour, un candidat
          collectif saisi directement ici, sans passer par une session orale, serait devenu
          inconvertible. La conversion reprend dans `convertirCollectif` une fois le montant validé. */
-      if (prospect.type_programme === 'collectif') {
+      if (fraisCollectifASaisir(prospect)) {
         setFraisPour(prospect)
         return false
       }
@@ -702,6 +702,23 @@ function prospectATraiter(prospect: ProspectAvecDiagnostic) {
   )
 }
 
+/* Faut-il ouvrir la fenêtre des frais d'inscription avant de convertir ce candidat ?
+
+   Au collectif, l'élève ne règle qu'UNE somme : le tarif de son niveau. Qu'elle soit encaissée
+   depuis cette fiche (bloc « Frais d'inscription », qui propose ce même tarif) ou depuis la
+   fenêtre de conversion, c'est le même et unique encaissement — demande client du 2026-10-16 :
+   « le paiement du forfait devrait être le même que le paiement des frais d'inscription [...]
+   c'est soit l'un soit l'autre ». Redemander un montant alors qu'une ligne existe déjà en
+   créerait une seconde, que le Suivi des cours collectifs ADDITIONNE à la première
+   (`suiviCollectif.ts` retient toutes les lignes du prospect, sans regarder ni leurs notes ni
+   leur `package_id`) : le candidat y serait passé à 300 000 Ar pour 150 000 encaissés.
+
+   Même règle que celle déjà posée côté serveur (api/admin/convert-prospect.ts) : une ligne de
+   paiement existante vaut acquittement, la conversion peut partir sans montant. */
+export function fraisCollectifASaisir(prospect: Pick<ProspectAvecDiagnostic, 'type_programme' | 'paiement'>): boolean {
+  return prospect.type_programme === 'collectif' && !prospect.paiement
+}
+
 /* Regroupe les binômes DUO présents dans une même colonne en un seul bloc visuel (0058, demande
    client du 2026-09-22 : « traités par groupe mais pas individuellement », un seul bloc pour
    Sandra/Bensas plutôt que deux cartes séparées). Un binôme dont les deux membres n'ont pas
@@ -1311,6 +1328,7 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
                   paiement={prospect.paiement}
                   tarifAEncaisser={tarifAEncaisser}
                   essai={essai}
+                  collectif={estPositionnement}
                   onOuvrir={() => setPaiementOuvert(true)}
                 />
                 <button onClick={enregistrerDiagnostic} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
@@ -1330,14 +1348,19 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
                     de support évité. */}
                 {!paiementEnregistre && (
                   <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)', margin: 0, padding: '8px 10px', borderRadius: 8, border: '1px dashed var(--border)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}>
-                    Enregistrez d’abord le paiement du forfait ci-dessus : la conversion en étudiant se
-                    débloquera aussitôt. Le paiement suivra automatiquement dans le dossier de l’étudiant.
+                    Enregistrez d’abord {estPositionnement ? 'les frais d’inscription' : 'le paiement du forfait'} ci-dessus :
+                    la conversion en étudiant se débloquera aussitôt. Le paiement suivra automatiquement dans le dossier de
+                    l’étudiant.
                   </p>
                 )}
                 <button
                   onClick={convertirEnEtudiant}
                   disabled={enCours || !paiementEnregistre}
-                  title={paiementEnregistre ? undefined : 'Enregistrez le paiement du forfait pour débloquer la conversion.'}
+                  title={
+                    paiementEnregistre
+                      ? undefined
+                      : `Enregistrez ${estPositionnement ? 'les frais d’inscription' : 'le paiement du forfait'} pour débloquer la conversion.`
+                  }
                   className={paiementEnregistre ? 'btn-shine' : undefined}
                   style={{
                     width: '100%',
@@ -1932,11 +1955,17 @@ function BlocPaiementForfait({
   paiement,
   tarifAEncaisser,
   essai,
+  /* Au collectif, ce règlement EST celui des frais d'inscription — un seul encaissement pour les
+     deux (voir `fraisCollectifASaisir`). Le dire ici, dans le libellé même du bloc, évite à
+     l'admin de croire qu'une seconde somme reste due à la conversion : c'est exactement la
+     confusion signalée par le client le 2026-10-16. */
+  collectif = false,
   onOuvrir,
 }: {
   paiement: ProspectAvecDiagnostic['paiement']
   tarifAEncaisser: { titre: string; prix: number } | null
   essai: boolean
+  collectif?: boolean
   onOuvrir: () => void
 }) {
   const ligne = paiement
@@ -1947,14 +1976,22 @@ function BlocPaiementForfait({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 10 }}>
       <span style={{ ...etiquetteStyle, fontSize: 11 }}>
-        {essai ? 'Paiement de la séance d’essai' : 'Paiement du forfait choisi'}
+        {collectif ? 'Frais d’inscription' : essai ? 'Paiement de la séance d’essai' : 'Paiement du forfait choisi'}
       </span>
+
+      {collectif && (
+        <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)', margin: 0 }}>
+          Au collectif, ce règlement tient lieu de frais d’inscription : il ne sera pas redemandé à la conversion.
+        </p>
+      )}
 
       {!tarifAEncaisser && !paiement && (
         <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)', margin: 0 }}>
           {essai
             ? 'Aucun tarif d’une heure n’est disponible : impossible de chiffrer l’essai.'
-            : 'Choisissez d’abord un forfait ci-dessus : son montant servira de base au paiement.'}
+            : collectif
+              ? 'Choisissez d’abord le niveau ci-dessus : son tarif sert de base aux frais d’inscription.'
+              : 'Choisissez d’abord un forfait ci-dessus : son montant servira de base au paiement.'}
         </p>
       )}
 
@@ -1984,7 +2021,11 @@ function BlocPaiementForfait({
               : { background: 'var(--surface-alt)', color: 'var(--muted-2)', border: '1px solid var(--border)', borderRadius: 999, cursor: 'not-allowed' }),
           }}
         >
-          {essai ? 'Enregistrer le paiement de l’essai' : 'Enregistrer le paiement du forfait'}
+          {collectif
+            ? 'Enregistrer les frais d’inscription'
+            : essai
+              ? 'Enregistrer le paiement de l’essai'
+              : 'Enregistrer le paiement du forfait'}
         </button>
       )}
     </div>

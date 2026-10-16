@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, NIVEAUX_CECRL } from '../../lib/classesCollectif'
@@ -41,14 +41,41 @@ export function ConvertirCandidatCollectif({
   onFermer: () => void
   /* `frais` est repassé tel quel : l'appelant sait déjà tout ce qu'il a lui-même saisi dans la
      fenêtre précédente, mais ne l'a pas gardé en mémoire — le lui repasser évite de dupliquer cet
-     état côté appelant juste pour composer un message de confirmation. */
-  onConverti: (resultat: { niveauDetecte?: NiveauClasse | null; classeAssignee?: string | null; frais: FraisInscription }) => void
+     état côté appelant juste pour composer un message de confirmation. `null` quand ils étaient
+     déjà encaissés et n'ont donc pas été ressaisis. */
+  onConverti: (resultat: { niveauDetecte?: NiveauClasse | null; classeAssignee?: string | null; frais: FraisInscription | null }) => void
 }) {
   const { session, profile } = useProfileContext()
   const [etape, setEtape] = useState<'resultats' | 'frais'>('resultats')
   const [resultats, setResultats] = useState<{ niveau: string; profilDetaille: string; objectifs: string } | null>(null)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+
+  /* Frais déjà encaissés pour ce candidat — typiquement depuis la fiche du pipeline, qui propose
+     le même tarif de niveau. Au collectif il n'existe qu'UN règlement (demande client du
+     2026-10-16 : « il ne faut pas demander à l'étudiant de payer deux fois ») : le redemander ici
+     créerait une seconde ligne, additionnée à la première par le Suivi des cours collectifs.
+     `undefined` tant que la réponse n'est pas là — l'étape des résultats attend, elle ne peut pas
+     décider sans. Le serveur applique déjà la même règle (api/admin/convert-prospect.ts). */
+  const [fraisDejaRegles, setFraisDejaRegles] = useState<{ montant: number; regle: boolean } | null | undefined>(undefined)
+  useEffect(() => {
+    let actif = true
+    supabase
+      .from('student_payments')
+      .select('montant, montant_regle')
+      .eq('prospect_id', prospect.id)
+      .is('supprime_le', null)
+      .then(({ data }) => {
+        if (!actif) return
+        const lignes = data ?? []
+        const montant = lignes.reduce((total, l) => total + Number(l.montant), 0)
+        const regle = lignes.reduce((total, l) => total + Number(l.montant_regle), 0)
+        setFraisDejaRegles(lignes.length === 0 ? null : { montant, regle: regle >= montant && montant > 0 })
+      })
+    return () => {
+      actif = false
+    }
+  }, [prospect.id])
 
   async function appelServeur(url: string, corps: object) {
     if (!session) return { error: 'Session expirée.' }
@@ -62,7 +89,12 @@ export function ConvertirCandidatCollectif({
     return { data: resultat }
   }
 
-  async function validerResultatsEtConvertir(resultatsOral: { niveau: string; profilDetaille: string; objectifs: string }, frais: FraisInscription) {
+  /* `frais` à `null` : les frais existaient déjà, la conversion part sans montant et le serveur
+     reprend la ligne en place (elle reçoit son `student_id` au passage). */
+  async function validerResultatsEtConvertir(
+    resultatsOral: { niveau: string; profilDetaille: string; objectifs: string },
+    frais: FraisInscription | null,
+  ) {
     if (!session || !profile) return
     setEnCours(true)
     setErreur(null)
@@ -84,11 +116,15 @@ export function ConvertirCandidatCollectif({
     const { data, error } = await appelServeur('/api/admin/convert-prospect', {
       prospectId: prospect.id,
       niveauFinal: resultatsOral.niveau.trim() || undefined,
-      montantFrais: frais.montant,
-      fraisRegles: frais.regle,
-      moyenPaiement: frais.moyenPaiement || undefined,
-      referencePaiement: frais.reference || undefined,
-      notesPaiement: frais.notes || undefined,
+      ...(frais
+        ? {
+            montantFrais: frais.montant,
+            fraisRegles: frais.regle,
+            moyenPaiement: frais.moyenPaiement || undefined,
+            referencePaiement: frais.reference || undefined,
+            notesPaiement: frais.notes || undefined,
+          }
+        : {}),
     })
     setEnCours(false)
     if (error) {
@@ -106,6 +142,7 @@ export function ConvertirCandidatCollectif({
         niveauEstimeParDefaut={niveauEstimeParDefaut}
         scoreQuiz={scoreQuiz}
         valeursInitiales={resultats ?? undefined}
+        fraisDejaRegles={fraisDejaRegles}
         enCours={enCours}
         erreur={erreur}
         onFermer={() => {
@@ -114,6 +151,11 @@ export function ConvertirCandidatCollectif({
         }}
         onValider={(saisie) => {
           setResultats(saisie)
+          // Frais déjà encaissés : plus rien à saisir, la conversion part directement.
+          if (fraisDejaRegles) {
+            validerResultatsEtConvertir(saisie, null)
+            return
+          }
           setEtape('frais')
         }}
       />
@@ -155,6 +197,7 @@ function ModaleResultatsTestOral({
   niveauEstimeParDefaut,
   scoreQuiz,
   valeursInitiales,
+  fraisDejaRegles,
   enCours,
   erreur,
   onFermer,
@@ -166,6 +209,10 @@ function ModaleResultatsTestOral({
   /* Ce que l'admin avait déjà saisi, quand il revient ici depuis la fenêtre des frais : sans ça,
      revenir en arrière pour corriger un niveau lui ferait reperdre son compte rendu d'oral. */
   valeursInitiales?: { niveau: string; profilDetaille: string; objectifs: string }
+  /* Frais déjà encaissés (pas de seconde étape), aucun (étape des frais à suivre), ou pas encore
+     connus — `undefined` le temps de la requête : valider avant de savoir ferait redemander un
+     montant déjà payé. */
+  fraisDejaRegles?: { montant: number; regle: boolean } | null
   enCours: boolean
   erreur: string | null
   onFermer: () => void
@@ -185,9 +232,11 @@ function ModaleResultatsTestOral({
     <Modale titre={`Résultats du test oral · ${nom}`} onFermer={onFermer} largeurMax={520}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: 0, lineHeight: 1.55 }}>
-          Ces résultats sont enregistrés dans le dossier de l'élève (comme un appel diagnostic). L'étape suivante
-          enregistre ses frais d'inscription, puis {nom} devient étudiant·e et rejoint automatiquement sa vague, dans
-          la classe de son niveau.
+          Ces résultats sont enregistrés dans le dossier de l'élève (comme un appel diagnostic).{' '}
+          {fraisDejaRegles
+            ? `Ses frais d'inscription sont déjà enregistrés (${fraisDejaRegles.montant.toLocaleString('fr-FR')} Ar${fraisDejaRegles.regle ? '' : ', en attente de règlement'}) : ils ne sont pas redemandés. `
+            : "L'étape suivante enregistre ses frais d'inscription, puis "}
+          {nom} devient étudiant·e et rejoint automatiquement sa vague, dans la classe de son niveau.
         </p>
         {/* Liste déroulante et non plus saisie libre — demande client du 2026-10-11 : « mets le
             niveau d'anglais en liste déroulante pour faciliter la sélection et la compréhension ».
@@ -227,11 +276,17 @@ function ModaleResultatsTestOral({
           </button>
           <button
             onClick={() => onValider({ niveau, profilDetaille, objectifs })}
-            disabled={enCours}
+            disabled={enCours || fraisDejaRegles === undefined}
             className="btn-shine"
-            style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: enCours ? 0.6 : 1 }}
+            style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: enCours || fraisDejaRegles === undefined ? 0.6 : 1 }}
           >
-            {enCours ? 'Enregistrement…' : 'Continuer vers les frais d’inscription'}
+            {enCours
+              ? 'Enregistrement…'
+              : fraisDejaRegles === undefined
+                ? 'Chargement…'
+                : fraisDejaRegles
+                  ? 'Convertir en étudiant·e'
+                  : 'Continuer vers les frais d’inscription'}
           </button>
         </div>
       </div>

@@ -399,9 +399,11 @@ export function SessionsOraleAdmin() {
           scoreQuiz={{ score: convertirPour.inscription.score, total: convertirPour.inscription.total }}
           onFermer={() => setConvertirPour(null)}
           onConverti={(resultat) => {
-            const fraisDit = resultat.frais.regle
-              ? `Frais d’inscription encaissés : ${resultat.frais.montant.toLocaleString('fr-FR')} Ar.`
-              : `Frais d’inscription à encaisser : ${resultat.frais.montant.toLocaleString('fr-FR')} Ar (en attente).`
+            const fraisDit = !resultat.frais
+              ? 'Frais d’inscription déjà enregistrés : rien de plus à encaisser.'
+              : resultat.frais.regle
+                ? `Frais d’inscription encaissés : ${resultat.frais.montant.toLocaleString('fr-FR')} Ar.`
+                : `Frais d’inscription à encaisser : ${resultat.frais.montant.toLocaleString('fr-FR')} Ar (en attente).`
             setMessageConversion(
               resultat.niveauDetecte
                 ? resultat.classeAssignee
