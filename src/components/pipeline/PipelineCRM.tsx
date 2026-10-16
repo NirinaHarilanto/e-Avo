@@ -1558,21 +1558,38 @@ function CarteDuo({
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {paire.map((p, rang) => (
-            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <AvatarProspect prospect={p} index={indice + rang} taille={32} />
-              <span
-                className="police-titre-italique"
-                style={{
-                  fontWeight: 600,
-                  fontSize: 15,
-                  color: 'var(--ink)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {p.prenom} {p.nom}
-              </span>
+            <div key={p.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <AvatarProspect prospect={p} index={indice + rang} taille={32} />
+                <span
+                  className="police-titre-italique"
+                  style={{
+                    fontWeight: 600,
+                    fontSize: 15,
+                    color: 'var(--ink)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {p.prenom} {p.nom}
+                </span>
+              </div>
+              {/* Chaque membre du binôme a son propre diagnostic (voir `autre.diagnostic` dans la
+                  fenêtre de détail juste en dessous) : un même « B1 » affiché une seule fois pour
+                  le duo masquerait que l'autre membre peut être à un niveau différent. Même
+                  format que le niveau d'un prospect individuel (ligne ~1141) — la maquette du
+                  2026-10-16 demande explicitement de le retrouver « respectant le format et la
+                  couleur » déjà en place. Indenté sous le nom (32 + 12 = largeur de l'avatar et
+                  de son espacement) pour qu'il reste sans ambiguïté attaché à SA personne. */}
+              {porteur.statut === 'diagnostic_fait' && p.diagnostic?.niveau_evalue && (
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, paddingLeft: 44 }}>
+                  <span className="police-titre" style={{ fontWeight: 700, fontSize: 26, color: 'var(--ink)' }}>
+                    {p.diagnostic.niveau_evalue}
+                  </span>
+                  <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>niveau estimé</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
