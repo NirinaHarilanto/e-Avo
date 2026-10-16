@@ -1,6 +1,7 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { annulerVisio } from '../_lib/synchroniserVisio.js'
 import { formaterDateSeance, notifierParticipantsSeance } from '../_lib/notifications.js'
+import { integrationHoteReunion, supprimerEvenement } from '../_lib/google.js'
 
 export const config = { runtime: 'edge' }
 
@@ -148,24 +149,52 @@ async function rompreLienDuo(
 }
 
 /* Retire la personne des rendez-vous « autre » (evenements_admin) où elle figurait comme
-   participant obligatoire ou optionnel — l'événement lui-même reste, pour les autres invités. */
+ * participant obligatoire ou optionnel — l'événement lui-même reste, pour les autres invités.
+ *
+ * Corrigé le 2026-10-16 : `evenements_admin_participants` (0045) interdit en base un événement
+ * sans AUCUN participant, obligatoire ou optionnel — ce qui arrive dès que la personne retirée en
+ * était la dernière. L'ancien code ne vérifiait jamais le résultat de l'UPDATE : Postgres refusait
+ * silencieusement la ligne (erreur 23514), avalée sans un mot par le client JS faute d'avoir lu
+ * `{error}` — l'événement restait donc intact, citant pour toujours quelqu'un déjà supprimé.
+ * Trouvé en rejouant cette même purge sur d'anciens comptes suspendus avant qu'elle n'existe.
+ * Quand plus personne n'est invité, l'événement n'a plus de raison d'exister : même geste que
+ * supprimer-evenement.ts (best-effort sur l'éventuel événement Google, puis vrai DELETE).
+ */
 async function retirerDesEvenements(
   serviceClient: Awaited<ReturnType<typeof requireAdmin>>['serviceClient'],
   profileId: string,
+  etablissementId: string,
 ): Promise<void> {
   const [{ data: obligatoires }, { data: optionnels }] = await Promise.all([
-    serviceClient.from('evenements_admin').select('id, participants_obligatoires, participants_optionnels').contains('participants_obligatoires', [profileId]),
-    serviceClient.from('evenements_admin').select('id, participants_obligatoires, participants_optionnels').contains('participants_optionnels', [profileId]),
+    serviceClient
+      .from('evenements_admin')
+      .select('id, participants_obligatoires, participants_optionnels, google_event_id, cree_par')
+      .contains('participants_obligatoires', [profileId]),
+    serviceClient
+      .from('evenements_admin')
+      .select('id, participants_obligatoires, participants_optionnels, google_event_id, cree_par')
+      .contains('participants_optionnels', [profileId]),
   ])
-  const evenementParId = new Map<string, { id: string; participants_obligatoires: string[]; participants_optionnels: string[] }>()
+  type EvenementAdmin = { id: string; participants_obligatoires: string[]; participants_optionnels: string[]; google_event_id: string | null; cree_par: string | null }
+  const evenementParId = new Map<string, EvenementAdmin>()
   for (const e of [...(obligatoires ?? []), ...(optionnels ?? [])]) evenementParId.set(e.id, e)
+
   for (const evenement of evenementParId.values()) {
+    const nouveauxObligatoires = evenement.participants_obligatoires.filter((id) => id !== profileId)
+    const nouveauxOptionnels = evenement.participants_optionnels.filter((id) => id !== profileId)
+
+    if (nouveauxObligatoires.length === 0 && nouveauxOptionnels.length === 0) {
+      if (evenement.google_event_id) {
+        const hote = await integrationHoteReunion(serviceClient, { organisateurId: evenement.cree_par, etablissementId }).catch(() => null)
+        if (hote) await supprimerEvenement(hote, evenement.google_event_id).catch(() => {})
+      }
+      await serviceClient.from('evenements_admin').delete().eq('id', evenement.id)
+      continue
+    }
+
     await serviceClient
       .from('evenements_admin')
-      .update({
-        participants_obligatoires: evenement.participants_obligatoires.filter((id) => id !== profileId),
-        participants_optionnels: evenement.participants_optionnels.filter((id) => id !== profileId),
-      })
+      .update({ participants_obligatoires: nouveauxObligatoires, participants_optionnels: nouveauxOptionnels })
       .eq('id', evenement.id)
   }
 }
@@ -264,7 +293,7 @@ async function purgerDonneesEtudiant(
     await serviceClient.from('packages').delete().in('id', packageIds)
   }
 
-  await retirerDesEvenements(serviceClient, studentId)
+  await retirerDesEvenements(serviceClient, studentId, etablissementId)
 }
 
 async function purgerDonneesProfesseur(
@@ -346,7 +375,7 @@ async function purgerDonneesProfesseur(
   await serviceClient.from('cohorts').update({ teacher_id: null }).eq('teacher_id', teacherId)
   await serviceClient.from('cohort_classes').update({ teacher_id: null }).eq('teacher_id', teacherId)
 
-  await retirerDesEvenements(serviceClient, teacherId)
+  await retirerDesEvenements(serviceClient, teacherId, etablissementId)
 
   // teacher_payments et invoices (ses rémunérations) : préservés intégralement, même règle que
   // student_payments côté étudiant — demande client du 2026-09-24.
