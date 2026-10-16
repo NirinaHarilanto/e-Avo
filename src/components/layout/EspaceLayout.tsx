@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
 import type { Database } from '../../types/database.types'
-import { Logo } from '../shared/Logo'
 import { Icone, type NomIcone } from '../ui/Icones'
 
 type Role = Database['public']['Tables']['profiles']['Row']['role']
@@ -159,13 +158,35 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
               était jusque-là 6 px plus à gauche que les libellés. */}
           <div className="entete-barre" style={{ display: 'flex', flexDirection: 'column', gap: 11, padding: '0 12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <Logo taille={42} />
+              {/* Logo écrit, et non l'image `/logo-hoc-blanc.png` : c'est ainsi que les maquettes
+                  du 2026-10-16 dessinent la marque en tête de barre, « HARI » en Playfair sur une
+                  ligne et « Online Club » en Fraunces italique sous lui. Les deux lignes sont
+                  regroupées sous un seul rôle d'image accessible, pour être annoncées comme un
+                  nom de marque et non comme deux fragments de texte sans lien. Les tailles vivent
+                  dans `.logo-ecrit-*` (index.css) : comme tout le reste de la barre, elles suivent
+                  la hauteur de la fenêtre. */}
+              <span role="img" aria-label="Hari Online Club" style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                <span
+                  aria-hidden
+                  className="logo-ecrit-nom"
+                  style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, lineHeight: 1, color: '#fefffa', letterSpacing: '0.02em' }}
+                >
+                  HARI
+                </span>
+                <span
+                  aria-hidden
+                  className="logo-ecrit-suite"
+                  style={{ fontFamily: 'Fraunces, Georgia, serif', fontStyle: 'italic', lineHeight: 1.1, color: 'var(--hoc-barre-texte)' }}
+                >
+                  Online Club
+                </span>
+              </span>
               <button
                 type="button"
                 onClick={() => setTiroirOuvert(false)}
                 aria-label="Fermer le menu"
                 className="bouton-tiroir"
-                style={{ alignItems: 'center', background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', padding: 4 }}
+                style={{ alignItems: 'center', background: 'transparent', border: 'none', color: 'var(--hoc-barre-texte)', cursor: 'pointer', padding: 4 }}
               >
                 <Icone nom="fermer" taille={18} />
               </button>

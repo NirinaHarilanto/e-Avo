@@ -805,10 +805,8 @@ select option {
 .barre-laterale .entete-barre {
   gap: clamp(2px, 1.33vh, 11px) !important;
 }
-.barre-laterale .entete-barre img {
-  height: clamp(24px, calc(5.07vh * min(1.5, 19 / var(--nb-entrees, 19))), 42px) !important;
-  width: auto;
-}
+/* La règle qui dimensionnait l'image du logo ici a été retirée le 2026-10-16 : l'en-tête de barre
+   porte désormais le logo ÉCRIT des maquettes, dont les tailles vivent dans `.logo-ecrit-*`. */
 /* Le nom et le rôle de la personne connectée : même traitement, sinon ce bloc garderait sa taille
    d'origine et reprendrait à lui seul la place gagnée sur les dix-neuf entrées au-dessus. */
 .pied-barre {
@@ -1302,10 +1300,15 @@ body.espace-clair .bouton-deconnexion-barre:hover {
 body.espace-clair .pastille-espace {
   font-size: clamp(8.5px, calc(1.33vh * min(1.5, 19 / var(--nb-entrees, 19))), 11px);
 }
-/* Le logo porte un halo violet en style inline, pensé pour le fond presque noir du thème sombre
-   (voir Logo.tsx) ; sur l'aplat violet de la barre il devient une auréole floue. */
-body.espace-clair .barre-laterale .entete-barre img {
-  filter: none !important;
+/* Logo écrit en tête de barre (voir EspaceLayout.tsx), comme sur les maquettes. Mêmes
+   coefficients `vh` que le reste de la barre, calés pour redonner les tailles de la maquette
+   (26 px et 15 px) sur un écran de 828 px de haut : à hauteur confortable le logo est à sa
+   taille dessinée, et il ne se resserre qu'en dessous, avec les pilules de navigation. */
+body.espace-clair .logo-ecrit-nom {
+  font-size: clamp(17px, calc(3.14vh * min(1.5, 19 / var(--nb-entrees, 19))), 26px);
+}
+body.espace-clair .logo-ecrit-suite {
+  font-size: clamp(10px, calc(1.81vh * min(1.5, 19 / var(--nb-entrees, 19))), 15px);
 }
 /* Entrée de navigation non encore disponible : c'est un `<span>`, pas un `<a>`. */
 body.espace-clair .barre-laterale span.nav-item {
