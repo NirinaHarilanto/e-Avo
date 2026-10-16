@@ -2,7 +2,6 @@ import { AdminLayout } from '../layout/AdminLayout'
 import { useHeuresAdmin, type LigneHeures } from '../../hooks/useHeuresAdmin'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
@@ -22,27 +21,6 @@ export function HeuresAdmin() {
       <EnTetePage
         compact
         titre="Heures & forfaits"
-        description="Vue d’ensemble des heures de cours de l’établissement : ce que chaque étudiant a consommé, et ce que chaque professeur a enseigné."
-      />
-
-      <GuidePage
-        id="admin-heures"
-        compact
-        etapes={[
-          <>
-            Les compteurs ne se saisissent pas : ils se remplissent automatiquement quand une séance passe au statut{' '}
-            <strong>terminée</strong> depuis l’agenda du professeur.
-          </>,
-          <>
-            La colonne <strong>Étudiants</strong> sert au suivi des forfaits. La colonne <strong>Professeurs</strong>{' '}
-            sert de base au calcul des rémunérations dans la page Paiements.
-          </>,
-          <>
-            Un écart entre les deux totaux est normal : une séance collective consomme une heure pour chaque élève
-            inscrit, mais n’en compte qu’une seule pour le professeur. Un cours en <strong>duo</strong>, lui, ne
-            décompte qu’une fois les heures du binôme, qui partage un seul forfait.
-          </>,
-        ]}
       />
 
       {loading ? (
@@ -75,7 +53,6 @@ export function HeuresAdmin() {
             <TableauHeures
               compact
               titre="Étudiants"
-              description="Heures consommées sur leur forfait ou leur vague, du plus avancé au moins avancé."
               lignes={etudiants}
               etiquette="suivies"
               messageVide="Aucun étudiant n’a encore de séance clôturée. Les compteurs démarreront dès la première séance terminée."
@@ -83,7 +60,6 @@ export function HeuresAdmin() {
             <TableauHeures
               compact
               titre="Professeurs"
-              description="Heures effectivement enseignées, base de calcul des rémunérations."
               lignes={professeurs}
               etiquette="enseignées"
               messageVide="Aucun professeur n’a encore de séance clôturée."
@@ -97,14 +73,12 @@ export function HeuresAdmin() {
 
 function TableauHeures({
   titre,
-  description,
   lignes,
   etiquette,
   messageVide,
   compact,
 }: {
   titre: string
-  description: string
   lignes: LigneHeures[]
   etiquette: string
   messageVide: string
@@ -114,14 +88,14 @@ function TableauHeures({
   const maximum = triees[0]?.heures ?? 0
 
   return (
-    <Section compact={compact} titre={titre} description={description} compteur={triees.length}>
+    <Section compact={compact} titre={titre} compteur={triees.length}>
       {triees.length === 0 ? (
         <EtatVide compact icone="heures" titre="Aucune heure enregistrée" description={messageVide} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {triees.map(({ profile, heures }) => (
             <div key={profile.id} className="row-hl" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 6px', borderBottom: '1px solid var(--border-soft)' }}>
-              <span style={{ width: 27, height: 27, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
+              <span style={{ width: 27, height: 27, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
                 {initiales(profile)}
               </span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexGrow: 1, minWidth: 0 }}>
@@ -131,13 +105,13 @@ function TableauHeures({
                 {/* Barre de proportion relative au plus gros compteur : elle rend la
                     répartition lisible d'un coup d'œil, là où une colonne de nombres oblige à
                     comparer ligne à ligne. */}
-                <span style={{ display: 'block', height: 4, borderRadius: 999, background: 'rgba(0,0,0,.3)', overflow: 'hidden' }}>
+                <span style={{ display: 'block', height: 4, borderRadius: 999, background: 'var(--fond-champ, rgba(0,0,0,.22))', overflow: 'hidden' }}>
                   <span
                     style={{
                       display: 'block',
                       height: '100%',
                       width: maximum > 0 ? `${(heures / maximum) * 100}%` : '0%',
-                      background: 'linear-gradient(90deg,#a98cff,#e9cf94)',
+                      background: 'var(--accent-blue)',
                       borderRadius: 999,
                     }}
                   />

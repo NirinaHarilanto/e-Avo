@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 
 /* « Séances & visio », case « Admin » — demande client du 2026-10-10 : « quand la box admin est
    coché, [l'agenda] devrait être synchronisé exactement avec l'agenda de l'admin dans la section
@@ -20,13 +21,22 @@ vi.mock('../../../hooks/useRendezVous', () => ({
 vi.mock('../../../hooks/useEvenementsAdmin', () => ({
   useEvenementsAdmin: () => ({ evenements: [], loading: false, recharger: vi.fn() }),
 }))
+/* `notifications` et compagnie servent à la cloche, que l'en-tête de page rend depuis la refonte
+   du 2026-10-16 (voir EnTetePage.tsx). */
 vi.mock('../../../context/ProfileContext', () => ({
-  useProfileContext: () => ({ profile: { id: 'admin-1', role: 'admin_etablissement' }, session: { access_token: 'jeton-test' } }),
+  useProfileContext: () => ({
+    profile: { id: 'admin-1', role: 'admin_etablissement' },
+    session: { access_token: 'jeton-test' },
+    notifications: [],
+    notificationsNonLues: 0,
+    marquerNotificationLue: vi.fn(),
+  }),
 }))
 
-/* Le chrome de layout (barre latérale, navigation — EspaceLayout) exige un <Router> et n'a aucun
-   rapport avec ce qu'on teste ici ; un passe-plat l'isole, comme les autres dépendances lourdes
-   mockées plus haut. */
+/* Le chrome de layout (barre latérale, navigation — EspaceLayout) n'a aucun rapport avec ce qu'on
+   teste ici ; un passe-plat l'isole, comme les autres dépendances lourdes mockées plus haut. Le
+   <Router> reste nécessaire malgré ce passe-plat : l'en-tête de page porte la cloche de
+   notifications, qui navigue au clic sur une notification (refonte du 2026-10-16). */
 vi.mock('../../layout/AdminLayout', () => ({
   AdminLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
@@ -76,18 +86,30 @@ const { SeancesAdmin } = await import('../SeancesAdmin')
 
 describe('SeancesAdmin — superposition Google quand « Admin » est coché', () => {
   it('ne montre pas l’événement Google tant que « Admin » n’est pas coché', () => {
-    render(<SeancesAdmin />)
+    render(
+      <MemoryRouter>
+        <SeancesAdmin />
+      </MemoryRouter>,
+    )
     expect(screen.queryByText('Réunion équipe')).toBeNull()
   })
 
   it('affiche l’événement Google une fois « Admin » coché', () => {
-    render(<SeancesAdmin />)
+    render(
+      <MemoryRouter>
+        <SeancesAdmin />
+      </MemoryRouter>,
+    )
     fireEvent.click(screen.getByLabelText(/Admin/))
     expect(screen.getByText('Réunion équipe')).toBeTruthy()
   })
 
   it('ouvre la fiche Google au clic, pas la pop-up des rendez-vous admin', () => {
-    render(<SeancesAdmin />)
+    render(
+      <MemoryRouter>
+        <SeancesAdmin />
+      </MemoryRouter>,
+    )
     fireEvent.click(screen.getByLabelText(/Admin/))
     fireEvent.click(screen.getByText('Réunion équipe'))
 

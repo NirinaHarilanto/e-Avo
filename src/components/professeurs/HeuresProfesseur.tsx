@@ -3,7 +3,6 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
@@ -40,31 +39,6 @@ export function HeuresProfesseur() {
     <ProfesseurLayout actif="Mes heures">
       <EnTetePage
         titre="Mes heures"
-        description="Le décompte de vos heures enseignées, et votre TimeSheet : les heures à faire valider par l’établissement pour votre rémunération."
-      />
-
-      <GuidePage
-        id="professeur-heures"
-        etapes={[
-          <>
-            Une séance ne compte dans ce total qu’une fois <strong>clôturée</strong> depuis votre agenda. L’encadré{' '}
-            <strong>Séances passées à clôturer</strong> vous dit ce qu’il reste à faire pour être à jour.
-          </>,
-          <>
-            Une séance collective compte <strong>une heure pour vous</strong>, même si plusieurs élèves y participent.
-            La répartition par élève indique donc le temps passé avec chacun, pas la somme de votre total.
-          </>,
-          <>
-            <strong>TimeSheet</strong> : choisissez une période, vérifiez les heures retenues — seules y figurent les
-            heures clôturées, non payées et pas encore déclarées — ajoutez un commentaire si besoin, puis{' '}
-            <strong>Envoyer pour validation</strong>.
-          </>,
-          <>
-            <strong>Mes TimeSheets envoyés</strong> suit chaque envoi : <strong>Soumis</strong>,{' '}
-            <strong>Validé</strong> ou <strong>Refusé</strong> avec son motif. Une fois validé, le TimeSheet devient
-            votre facture de rémunération, dans <strong>Mes factures</strong>.
-          </>,
-        ]}
       />
 
       {loading ? (
@@ -89,7 +63,6 @@ export function HeuresProfesseur() {
 
           <Section
             titre="Répartition par élève"
-            description="Basée uniquement sur les séances clôturées, de l’élève le plus suivi au moins suivi."
             compteur={repartition.length}
           >
             {repartition.length === 0 ? (
@@ -102,20 +75,20 @@ export function HeuresProfesseur() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {repartition.map(([studentId, ligne]) => (
                   <div key={studentId} className="row-hl" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 6px', borderBottom: '1px solid var(--border-soft)' }}>
-                    <span style={{ width: 32, height: 32, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
+                    <span style={{ width: 32, height: 32, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
                       {initiales({ prenom: ligne.prenom, nom: ligne.nom })}
                     </span>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexGrow: 1, minWidth: 0 }}>
                       <span style={{ fontSize: 13, color: 'var(--ink)' }}>
                         {ligne.prenom} {ligne.nom}
                       </span>
-                      <span style={{ display: 'block', height: 4, borderRadius: 999, background: 'rgba(0,0,0,.3)', overflow: 'hidden' }}>
+                      <span style={{ display: 'block', height: 4, borderRadius: 999, background: 'var(--fond-champ, rgba(0,0,0,.22))', overflow: 'hidden' }}>
                         <span
                           style={{
                             display: 'block',
                             height: '100%',
                             width: maximum > 0 ? `${(ligne.heures / maximum) * 100}%` : '0%',
-                            background: 'linear-gradient(90deg,#a98cff,#e9cf94)',
+                            background: 'var(--accent-blue)',
                             borderRadius: 999,
                           }}
                         />

@@ -54,7 +54,6 @@ export function JournalErreursAdmin() {
   return (
     <Section
       titre="Journal des erreurs"
-      description="Les incidents rencontrés par vos utilisateurs, enregistrés automatiquement. Vide, c’est bon signe."
       compteur={groupes.length || undefined}
     >
       {loading && !lignes ? (
@@ -93,7 +92,7 @@ export function JournalErreursAdmin() {
                     <LigneDetail label="Écran" valeur={derniere.chemin ?? '—'} />
                     <LigneDetail label="Navigateur" valeur={derniere.navigateur ?? '—'} />
                     {derniere.pile && (
-                      <pre style={{ margin: 0, fontSize: 10.5, lineHeight: 1.5, color: 'var(--muted)', background: 'rgba(0,0,0,.24)', borderRadius: 8, padding: '8px 10px', overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
+                      <pre style={{ margin: 0, fontSize: 10.5, lineHeight: 1.5, color: 'var(--muted)', background: 'var(--fond-champ, rgba(0,0,0,.22))', borderRadius: 8, padding: '8px 10px', overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
                         {derniere.pile}
                       </pre>
                     )}

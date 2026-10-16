@@ -62,7 +62,7 @@ export function TagAncienEleve({ transfereLe }: { transfereLe?: string | null })
         fontSize: 10,
         fontWeight: 700,
         color: 'var(--muted)',
-        background: 'rgba(255,255,255,.05)',
+        background: 'var(--voile, rgba(255,255,255,.06))',
         border: '1px solid var(--border)',
         borderRadius: 999,
         padding: '2px 8px',

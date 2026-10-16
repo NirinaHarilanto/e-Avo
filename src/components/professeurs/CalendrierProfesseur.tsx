@@ -16,7 +16,6 @@ import { useRepriseAutomatiqueReunions } from '../../hooks/useRepriseReunionsGoo
 import { type NatureRendezVous } from '../../lib/natureRendezVous'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { GroupeSection } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
@@ -185,7 +184,6 @@ export function CalendrierProfesseur() {
     <ProfesseurLayout actif="Agenda">
       <EnTetePage
         titre="Mon agenda"
-        description="Votre semaine de cours, heure par heure. C’est ici que vous planifiez une séance, que vous notez les présences et que vous clôturez un cours une fois donné."
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <Onglets
@@ -204,45 +202,6 @@ export function CalendrierProfesseur() {
             </button>
           </div>
         }
-      />
-
-      <GuidePage
-        id="professeur-calendrier"
-        etapes={[
-          <>
-            Trois vues de la même semaine : <strong>Agenda</strong>, <strong>Liste</strong> et{' '}
-            <strong>Planning prévisionnel</strong>. L’encadré <strong>À clôturer</strong> compte vos séances déjà
-            passées restées au statut « planifiée » : c’est votre liste de travail.
-          </>,
-          <>
-            <strong>Créer un rendez-vous</strong>, ou un clic sur un <strong>créneau libre</strong> : choisissez sa
-            nature — <strong>séance de cours</strong> (décompte les heures) ou <strong>autre</strong> (entretien,
-            séance d’information… sans effet sur les heures) — puis les élèves, la date et la durée. Plusieurs élèves
-            sur une séance de cours en font une séance collective ; aucun participant bloque simplement le créneau pour
-            vous seul.
-          </>,
-          <>
-            Après le cours, ouvrez la séance : notez la <strong>présence</strong> de chaque élève, clôturez, puis{' '}
-            <strong>Rédiger un compte rendu</strong> (objectif, ce qui a été vu, points à améliorer, progrès,
-            remarques, supports joints). Il est visible par l’élève et par l’administration.
-          </>,
-          <>
-            La clôture est le geste décisif : elle décompte le forfait de l’élève, crédite vos heures enseignées et met
-            à jour son assiduité. Une séance passée non clôturée ne compte nulle part.
-          </>,
-          <>
-            Déplacer une séance exige un <strong>justificatif</strong> et s’applique aussitôt — sans validation
-            préalable : l’élève et l’administration en sont notifiés. Le <strong>Planning prévisionnel</strong> crée
-            d’un coup toutes les séances d’un forfait (tous les mardis à 18 h jusqu’à son terme).
-          </>,
-          <>
-            <strong>Votre agenda Google</strong>, connecté depuis « Mon profil », ne fait plus qu’un avec celui-ci :
-            vos événements Google apparaissent dans la grille et s’y modifient (séries récurrentes comprises), chaque
-            changement partant aussitôt des deux côtés. C’est de <strong>votre</strong> adresse que partent les
-            invitations de vos cours ; l’administration n’y est pas conviée d’office, ajoutez-la aux participants si
-            vous la souhaitez présente.
-          </>,
-        ]}
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -310,7 +269,7 @@ export function CalendrierProfesseur() {
           <PlanningPrevisionnelProfesseur seances={seances} etudiantsActifs={etudiantsActifs} vagues={vagues} onChange={recharger} />
         ) : (
           <>
-            <GroupeSection titre="À venir" description="Vos prochaines séances, de la plus proche à la plus lointaine.">
+            <GroupeSection titre="À venir">
               {aVenir.length === 0 ? (
                 <EtatVide
                   icone="seances"
@@ -335,7 +294,7 @@ export function CalendrierProfesseur() {
               )}
             </GroupeSection>
 
-            <GroupeSection titre="Passées" description="Séances terminées ou annulées. C’est ici que vous rédigez vos comptes rendus.">
+            <GroupeSection titre="Passées">
               {passees.length === 0 ? (
                 <EtatVide compact icone="seances" titre="Aucune séance passée" description="Votre historique se remplira au fil de vos cours." />
               ) : (

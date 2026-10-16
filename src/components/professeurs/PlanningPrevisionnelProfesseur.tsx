@@ -81,7 +81,6 @@ export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, vague
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <GroupeSection
         titre="Qui concerne ce planning"
-        description="Un élève pour un planning individuel, une vague pour planifier tout un groupe de cours collectif d’un seul coup."
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           <button type="button" onClick={() => choisirEleve(null)} style={pastilleStyle(eleveId === null && vagueId === null)}>
@@ -102,7 +101,6 @@ export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, vague
 
       <GroupeSection
         titre="Séances prévues"
-        description="Chaque ligne est une séance déjà planifiée. Cliquez-la pour proposer un nouvel horaire : l’administration valide le changement."
         actions={
           eleveId || vagueChoisie ? (
             <button type="button" onClick={() => setGenerateurOuvert((v) => !v)} style={boutonSecondaireStyle}>
@@ -157,7 +155,7 @@ export function PlanningPrevisionnelProfesseur({ seances, etudiantsActifs, vague
                   padding: '10px 13px',
                   borderRadius: 10,
                   border: '1px solid var(--border-soft)',
-                  background: 'rgba(255,255,255,.03)',
+                  background: 'var(--voile-doux, rgba(255,255,255,.03))',
                   cursor: 'pointer',
                   color: 'inherit',
                 }}

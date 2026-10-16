@@ -76,13 +76,19 @@ const JOURS_COURTS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
    dégradé est conservé — il donne du relief sans lequel une grille chargée se lit comme un
    aplat — mais il porte désormais, lui aussi, une couleur assez dense pour que le texte blanc
    ressorte à coup sûr. */
+/* Aplats pleins depuis la refonte claire du 2026-10-16. Avant, chaque ton était un dégradé
+   translucide à moins de 65 % d'opacité, posé sur le fond presque noir du thème : c'est ce fond
+   qui faisait la couleur, et les libellés étaient donc en teintes très claires (#f0eaff, #fff6e2).
+   Sur le fond lavande pâle des maquettes, les mêmes blocs devenaient des voiles délavés portant un
+   texte quasi blanc, illisible. Chaque ton est donc opaque, et porte le texte qui contraste avec
+   lui — clair sur les teintes foncées, violet sur les claires. */
 const TONS: Record<string, { fond: string; bordure: string; texte: string; ombre: string }> = {
-  bleu: { fond: 'linear-gradient(135deg, rgba(169,140,255,.64), rgba(85,54,201,.54))', bordure: 'var(--accent-blue)', texte: '#f0eaff', ombre: 'rgba(85,54,201,.45)' },
-  or: { fond: 'linear-gradient(135deg, rgba(233,207,148,.62), rgba(199,156,79,.52))', bordure: 'var(--accent-gold)', texte: '#fff6e2', ombre: 'rgba(199,156,79,.42)' },
-  teal: { fond: 'linear-gradient(135deg, rgba(111,227,192,.62), rgba(45,166,134,.52))', bordure: 'var(--accent-teal)', texte: '#e6fff7', ombre: 'rgba(45,166,134,.42)' },
-  violet: { fond: 'linear-gradient(135deg, rgba(199,156,255,.64), rgba(141,96,243,.54))', bordure: 'var(--accent-violet)', texte: '#f5edff', ombre: 'rgba(141,96,243,.45)' },
-  danger: { fond: 'linear-gradient(135deg, rgba(255,138,112,.62), rgba(214,80,55,.52))', bordure: 'var(--danger)', texte: '#ffeee9', ombre: 'rgba(214,80,55,.42)' },
-  neutre: { fond: 'linear-gradient(135deg, rgba(255,255,255,.26), rgba(255,255,255,.16))', bordure: 'var(--muted)', texte: 'var(--ink)', ombre: 'rgba(0,0,0,.35)' },
+  bleu: { fond: '#4e356f', bordure: '#3c2758', texte: '#fefffa', ombre: 'rgba(73,48,106,.28)' },
+  or: { fond: '#f2b84b', bordure: '#d9a83b', texte: '#49306a', ombre: 'rgba(185,132,20,.28)' },
+  teal: { fond: '#17916c', bordure: '#0f6b50', texte: '#fefffa', ombre: 'rgba(15,107,80,.26)' },
+  violet: { fond: '#7657e6', bordure: '#5536c9', texte: '#fefffa', ombre: 'rgba(85,54,201,.28)' },
+  danger: { fond: '#c4383a', bordure: '#9f2b2d', texte: '#fefffa', ombre: 'rgba(159,43,45,.26)' },
+  neutre: { fond: '#ede5fb', bordure: '#d9caf7', texte: '#49306a', ombre: 'rgba(73,48,106,.16)' },
 }
 
 interface AgendaHebdoProps {
@@ -153,8 +159,8 @@ export function AgendaHebdo({
     }
     recalculer()
     window.addEventListener('resize', recalculer)
-    // Rattrape un habillage qui change de hauteur sans que la fenêtre soit redimensionnée — le
-    // dépliage du guide de page (GuidePage.tsx) au-dessus de cette grille, par exemple.
+    // Rattrape un habillage qui change de hauteur sans que la fenêtre soit redimensionnée — un
+    // bandeau d'alerte qui apparaît au-dessus de cette grille, par exemple.
     // `ResizeObserver` n'existe pas dans l'environnement de test (jsdom) : le composant reste
     // fonctionnel sans lui, juste moins réactif à ce cas précis hors navigateur réel.
     const observateur = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(recalculer) : null
@@ -294,13 +300,34 @@ export function AgendaHebdo({
                   padding: '9px 6px',
                   textAlign: 'center',
                   borderLeft: '1px solid var(--border-soft)',
-                  background: estAujourdhui ? 'rgba(169,140,255,.07)' : 'transparent',
+                  background: estAujourdhui ? 'var(--voile-doux, rgba(169,140,255,.07))' : 'transparent',
                 }}
               >
                 <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: estAujourdhui ? 'var(--accent-blue)' : 'var(--muted)' }}>
                   {jour.toLocaleDateString('fr-FR', { weekday: 'short' })}
                 </div>
-                <div className="brand-font" style={{ fontSize: 15, color: estAujourdhui ? 'var(--accent-cyan)' : 'var(--ink)' }}>
+                {/* Le jour courant porte son numéro dans une goutte pleine, comme sur la maquette
+                    « Mon agenda » : une simple nuance de couleur ne se repérait pas d'un coup
+                    d'œil sur sept colonnes. */}
+                <div
+                  className={estAujourdhui ? 'brand-font petale' : 'brand-font'}
+                  style={
+                    estAujourdhui
+                      ? {
+                          width: 30,
+                          height: 30,
+                          margin: '2px auto 0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 15,
+                          fontWeight: 700,
+                          background: 'var(--accent-blue)',
+                          color: '#fefffa',
+                        }
+                      : { fontSize: 15, color: 'var(--ink)' }
+                  }
+                >
                   {jour.getDate()}
                 </div>
               </div>
@@ -348,7 +375,7 @@ export function AgendaHebdo({
                     position: 'relative',
                     height: hauteurGrille,
                     borderLeft: '1px solid var(--border-soft)',
-                    background: estAujourdhui ? 'rgba(169,140,255,.05)' : 'transparent',
+                    background: estAujourdhui ? 'var(--voile-doux, rgba(169,140,255,.05))' : 'transparent',
                     cursor: onCreneauLibre ? 'copy' : 'default',
                     // Les lignes d'heures sont peintes en fond plutôt qu'en éléments : une div
                     // par heure et par jour ferait des centaines de nœuds inutiles.
@@ -366,11 +393,14 @@ export function AgendaHebdo({
                       ? {
                           fond: place.couleurFond,
                           bordure: place.couleurFond,
-                          texte: estCouleurClaire(place.couleurFond) ? '#1b1510' : '#ffffff',
-                          ombre: 'rgba(0,0,0,.45)',
+                          texte: estCouleurClaire(place.couleurFond) ? '#49306a' : '#fefffa',
+                          ombre: 'rgba(73,48,106,.22)',
                         }
                       : tonBase
-                    const couleurTitre = place.couleurFond ? ton.texte : '#ffffff'
+                    /* Le titre suit la couleur de texte du ton, y compris pour les tons du socle :
+                       il était forcé en blanc, ce qui le rendait invisible sur les tons clairs
+                       depuis que ceux-ci sont des aplats (refonte du 2026-10-16). */
+                    const couleurTitre = ton.texte
                     const largeur = 100 / place.colonnes
                     const hauteur = Math.max(
                       HAUTEUR_MIN_EVENEMENT_PX,
@@ -441,8 +471,10 @@ export function AgendaHebdo({
                   })}
 
                   {estAujourdhui && traitVisible && (
-                    <div aria-hidden style={{ position: 'absolute', top: traitMaintenant, left: 0, right: 0, height: 2, background: 'var(--danger)', boxShadow: '0 0 8px rgba(255,138,112,.7)', zIndex: 2 }}>
-                      <span style={{ position: 'absolute', left: -4, top: -3, width: 8, height: 8, borderRadius: 999, background: 'var(--danger)' }} />
+                    /* Doré et sans halo depuis la refonte du 2026-10-16 : la maquette réserve le
+                       rouge aux erreurs, et ce trait n'en est pas une — il situe l'heure. */
+                    <div aria-hidden style={{ position: 'absolute', top: traitMaintenant, left: 0, right: 0, height: 2, background: 'var(--hoc-repere-or, #d9a83b)', zIndex: 2 }}>
+                      <span style={{ position: 'absolute', left: -5, top: -4, width: 10, height: 10, borderRadius: 999, background: 'var(--hoc-repere-or, #d9a83b)' }} />
                     </div>
                   )}
                 </div>

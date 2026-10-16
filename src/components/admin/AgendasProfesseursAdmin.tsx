@@ -74,7 +74,6 @@ export function AgendasProfesseursAdmin() {
   return (
     <Section
       titre="Agendas Google des professeurs"
-      description="Chaque professeur connecte son propre compte Gmail depuis « Mon profil ». C'est depuis ce compte que partent les réunions de ses cours et les invitations à ses élèves."
       compteur={lignes.length}
       style={{ maxWidth: 680 }}
     >

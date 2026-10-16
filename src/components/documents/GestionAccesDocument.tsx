@@ -75,7 +75,7 @@ export function GestionAccesDocument({ documentId }: { documentId: string }) {
               const personne = personneParId.get(perm.profile_id)
               return (
                 <div key={perm.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5 }}>
-                  <span style={{ width: 26, height: 26, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
+                  <span style={{ width: 26, height: 26, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
                     {personne ? initiales(personne) : '?'}
                   </span>
                   <span style={{ flexGrow: 1, color: 'var(--ink)' }}>{personne ? `${personne.prenom} ${personne.nom}` : 'Personne inconnue'}</span>
@@ -95,7 +95,7 @@ export function GestionAccesDocument({ documentId }: { documentId: string }) {
             <select
               value={profileId}
               onChange={(e) => setProfileId(e.target.value)}
-              style={{ flexGrow: 1, fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '7px 9px', color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+              style={{ flexGrow: 1, fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '7px 9px', color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
             >
               <option value="">Ajouter une personne…</option>
               {disponibles.map((p) => (
@@ -107,7 +107,7 @@ export function GestionAccesDocument({ documentId }: { documentId: string }) {
             <select
               value={niveau}
               onChange={(e) => setNiveau(e.target.value as DocumentPermission['niveau'])}
-              style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '7px 9px', color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+              style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '7px 9px', color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
             >
               <option value="lecture">Lecture</option>
               <option value="ecriture">Écriture</option>

@@ -102,7 +102,7 @@ export function AttribuerProfesseur({ studentId, affectationActuelle, estCollect
             padding: 10,
             borderRadius: 999,
             border: '1px solid var(--border)',
-            background: 'rgba(255,255,255,.04)',
+            background: 'var(--voile-doux, rgba(255,255,255,.03))',
             color: 'var(--muted-2)',
             cursor: 'not-allowed',
           }}
@@ -143,7 +143,7 @@ export function AttribuerProfesseur({ studentId, affectationActuelle, estCollect
       <select
         value={teacherId}
         onChange={(e) => setTeacherId(e.target.value)}
-        style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+        style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
       >
         <option value="">{chargementProfs ? 'Chargement…' : 'Choisir un professeur'}</option>
         {professeurs.map((p) => (
@@ -157,7 +157,7 @@ export function AttribuerProfesseur({ studentId, affectationActuelle, estCollect
           placeholder="Motif du changement"
           value={motif}
           onChange={(e) => setMotif(e.target.value)}
-          style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+          style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
         />
       )}
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{erreur}</p>}

@@ -5,24 +5,28 @@ import type { CSSProperties, ReactNode } from 'react'
    `FormulaireInvitation`) dont les valeurs avaient divergé — radius 8 ou 10, paddings et
    tailles de police différents — ce qui se voyait dès que deux formulaires étaient affichés
    côte à côte. */
+/* Le fond passe par une variable à valeur de repli : le noir translucide d'origine creusait le
+   champ sur le fond presque noir du thème sombre, mais sur le fond clair des maquettes du
+   2026-10-16 il donnerait un rectangle gris foncé. Les espaces le redéfinissent en blanc cassé
+   (voir `--fond-champ` dans index.css) ; la vitrine et la connexion gardent le repli. */
 export const champStyle: CSSProperties = {
   border: '1px solid var(--border)',
-  borderRadius: 10,
-  padding: '10px 13px',
-  fontSize: 13.5,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.24)',
+  borderRadius: 12,
+  padding: '11px 14px',
+  fontSize: 14,
+  color: 'var(--ink-2)',
+  background: 'var(--fond-champ, rgba(0,0,0,.24))',
 }
 
 /* Variante dense, pour les tableaux de saisie ou chaque ligne compte (editeur de lignes de
    devis et de facture) : le style standard y rendrait le tableau deux fois plus haut. */
 export const champStyleCompact: CSSProperties = {
   border: '1px solid var(--border)',
-  borderRadius: 7,
-  padding: '7px 9px',
-  fontSize: 12.5,
-  color: 'var(--ink)',
-  background: 'rgba(0,0,0,.24)',
+  borderRadius: 10,
+  padding: '8px 10px',
+  fontSize: 13,
+  color: 'var(--ink-2)',
+  background: 'var(--fond-champ, rgba(0,0,0,.24))',
 }
 
 /* `--muted` (couleur d'origine, jusqu'au 2026-09-30) se fondait dans les autres informations

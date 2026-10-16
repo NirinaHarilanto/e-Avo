@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Logo } from './Logo'
 import { Icone, type NomIcone } from '../ui/Icones'
@@ -19,10 +20,18 @@ const CONTENU_CARTE: { icone: NomIcone; titre: string; description: string }[] =
 export function ChoixEspace({ onChoisirEtudiant }: ChoixEspaceProps) {
   const [eleve, professeur, admin] = CONTENU_CARTE
 
+  /* Cet écran précède l'entrée dans un espace : il ne passe donc pas par EspaceLayout, qui pose
+     d'ordinaire le thème clair (2026-10-16). Sans cette ligne, l'administrateur plateforme verrait
+     un écran encore sombre juste avant trois espaces clairs. */
+  useEffect(() => {
+    document.body.classList.add('espace-clair')
+    return () => document.body.classList.remove('espace-clair')
+  }, [])
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ maxWidth: 760, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 28, textAlign: 'center' }}>
-        <Logo />
+        <Logo fond="clair" />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <h1 className="brand-font" style={{ fontSize: 26, color: 'var(--ink)', margin: 0 }}>
             Quel espace souhaitez-vous ouvrir ?
@@ -71,8 +80,7 @@ function CorpsCarte({ icone, titre, description }: { icone: NomIcone; titre: str
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'rgba(169,140,255,.10)',
-          border: '1px solid rgba(169,140,255,.22)',
+          background: 'var(--hoc-pastille, rgba(169,140,255,.10))',
           color: 'var(--accent-blue)',
         }}
       >

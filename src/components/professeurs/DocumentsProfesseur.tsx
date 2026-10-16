@@ -5,7 +5,6 @@ import { useSessionReports } from '../../hooks/useSessionReports'
 import { ExplorateurDocuments } from '../documents/ExplorateurDocuments'
 import { ListeComptesRendus } from '../shared/ListeComptesRendus'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GroupeSection } from '../ui/Section'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 
@@ -27,33 +26,10 @@ export function DocumentsProfesseur() {
     <ProfesseurLayout actif="Documents">
       <EnTetePage
         titre="Mes documents"
-        description="Vos pièces personnelles et vos comptes rendus de cours. Pour transmettre un support à un élève, ouvrez le document et partagez-le : il apparaîtra dans son espace, avec votre nom."
-      />
-
-      <GuidePage
-        id="professeur-documents"
-        etapes={[
-          <>
-            Déposez vos pièces avec le formulaire — PDF, image ou .docx, 20 Mo maximum — et rangez-les dans des{' '}
-            <strong>dossiers</strong> que vous créez et renommez librement.
-          </>,
-          <>
-            Cliquez un document pour l’ouvrir : vous y trouvez le téléchargement, la suppression, et l’option{' '}
-            <strong>Partager</strong>.
-          </>,
-          <>
-            Un document partagé reste chez vous — la personne à qui vous l’avez donné accès le voit dans son
-            espace, section <strong>Mes fichiers partagés</strong>, avec votre nom et le mot que vous avez joint.
-          </>,
-          <>
-            <strong>Mes comptes rendus</strong>, plus bas, reprend tous ceux que vous avez rédigés depuis votre agenda
-            après avoir clôturé une séance, avec les supports de cours que vous y avez joints.
-          </>,
-        ]}
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-        <GroupeSection titre="Mes pièces" description="Vos documents personnels, organisés comme vous le souhaitez.">
+        <GroupeSection titre="Mes pièces">
           {erreur && <MessageErreur>{erreur}</MessageErreur>}
           {loading || !profile ? (
             <EtatChargement lignes={3} hauteur={52} />
@@ -68,7 +44,7 @@ export function DocumentsProfesseur() {
           )}
         </GroupeSection>
 
-        <GroupeSection titre="Mes comptes rendus" description="Rédigés depuis votre agenda après avoir clôturé une séance, avec les supports de cours que vous y avez joints.">
+        <GroupeSection titre="Mes comptes rendus">
           <ListeComptesRendus
             comptesRendus={comptesRendus}
             loading={chargementComptesRendus}

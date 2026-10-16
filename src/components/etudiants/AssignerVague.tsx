@@ -127,7 +127,7 @@ export function AssignerVague({ studentId, etablissementId, vagueActuelle, ouver
       <select
         value={cohortId}
         onChange={(e) => choisirCohort(e.target.value)}
-        style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+        style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
       >
         <option value="">{chargementCohortes ? 'Chargement…' : 'Choisir une promotion'}</option>
         {cohortes.map((c) => (
@@ -141,7 +141,7 @@ export function AssignerVague({ studentId, etablissementId, vagueActuelle, ouver
         <select
           value={cohortClassId}
           onChange={(e) => setCohortClassId(e.target.value)}
-          style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+          style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
         >
           <option value="">
             {chargementClasses ? 'Chargement des classes…' : classes.length === 0 ? 'Aucune classe créée pour l’instant' : 'Aucune classe (à régulariser plus tard)'}

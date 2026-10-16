@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, expect, it, beforeEach } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import { EnTetePage } from '../EnTetePage'
-import { GuidePage } from '../GuidePage'
 import { Section } from '../Section'
 import { EtatVide } from '../EtatVide'
 import { EtatChargement, MessageErreur } from '../Etats'
@@ -9,52 +9,28 @@ import { GrilleStats, Stat } from '../Stat'
 import { Onglets } from '../Onglets'
 import { ChampRecherche } from '../BarreOutils'
 
-/* Le socle ui/ est monté par les quatre espaces : une régression ici casse toutes les pages à
-   la fois. Ces tests couvrent le rendu et les deux comportements qui portent de l'état — le
-   repli mémorisé du guide et la sélection d'onglet. */
+/* Le socle ui/ est monté par les trois espaces connectés : une régression ici casse toutes les
+   pages à la fois. Ces tests couvrent le rendu et le seul comportement qui porte de l'état, la
+   sélection d'onglet.
 
-beforeEach(() => {
-  localStorage.clear()
-})
+   `EnTetePage` rend la cloche de notifications depuis la refonte du 2026-10-16 (la barre
+   supérieure qui la portait a disparu), ce qui le fait dépendre du contexte de profil et du
+   routeur : d'où le mock ci-dessous et le `MemoryRouter` autour de son rendu. */
+vi.mock('../../../context/ProfileContext', () => ({
+  useProfileContext: () => ({ notifications: [], notificationsNonLues: 0, marquerNotificationLue: () => {} }),
+}))
 
 describe('EnTetePage', () => {
-  it('affiche le titre, la description et les actions', () => {
-    render(<EnTetePage titre="Étudiants" description="Suivez chaque dossier." actions={<button>Ajouter</button>} />)
+  it('affiche le titre, les actions de la page et les boutons communs', () => {
+    render(
+      <MemoryRouter>
+        <EnTetePage titre="Étudiants" actions={<button>Ajouter</button>} />
+      </MemoryRouter>,
+    )
     expect(screen.getByRole('heading', { name: 'Étudiants' })).toBeInTheDocument()
-    expect(screen.getByText('Suivez chaque dossier.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ajouter' })).toBeInTheDocument()
-  })
-})
-
-describe('GuidePage', () => {
-  it('est replié par défaut et se déplie manuellement', () => {
-    render(<GuidePage id="test-guide" etapes={['Première étape', 'Seconde étape']} />)
-    expect(screen.queryByText('Première étape')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Afficher' })).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Afficher' }))
-    expect(screen.getByText('Première étape')).toBeInTheDocument()
-    expect(screen.getByText('Seconde étape')).toBeInTheDocument()
-  })
-
-  it('mémorise le dépli manuel pour le prochain accès à la même page', () => {
-    const { unmount } = render(<GuidePage id="test-guide" etapes={['Première étape']} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Afficher' }))
-    expect(screen.getByText('Première étape')).toBeInTheDocument()
-    unmount()
-
-    render(<GuidePage id="test-guide" etapes={['Première étape']} />)
-    expect(screen.getByText('Première étape')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Masquer' })).toBeInTheDocument()
-  })
-
-  it("garde un dépli propre à chaque page plutôt qu'un réglage global", () => {
-    const { unmount } = render(<GuidePage id="guide-a" etapes={['Étape A']} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Afficher' }))
-    unmount()
-
-    render(<GuidePage id="guide-b" etapes={['Étape B']} />)
-    expect(screen.queryByText('Étape B')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Actualiser la page' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument()
   })
 })
 

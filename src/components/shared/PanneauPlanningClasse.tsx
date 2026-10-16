@@ -89,7 +89,7 @@ export function PanneauPlanningClasse({
                 (une date, un libellé, une durée, un statut) — même choix que le tableau d'origine. */}
             <div
               aria-hidden
-              style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '7px 18px', background: 'rgba(0,0,0,.18)', borderBottom: '1px solid var(--border-soft)' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '7px 18px', background: 'var(--fond-champ, rgba(0,0,0,.22))', borderBottom: '1px solid var(--border-soft)' }}
             >
               <span style={{ ...enTeteColonne, width: 118, flexShrink: 0 }}>Date</span>
               <span style={{ ...enTeteColonne, flexGrow: 1 }}>Séance</span>

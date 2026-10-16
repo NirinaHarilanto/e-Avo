@@ -217,7 +217,7 @@ export function TemplatesEmails() {
       {succes && <MessageSucces>{succes}</MessageSucces>}
 
       {brouillons.length > 0 && (
-        <Section titre="Brouillons" description="Mails préparés et mis de côté, à reprendre et envoyer." compteur={brouillons.length}>
+        <Section titre="Brouillons" compteur={brouillons.length}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {brouillons.map((b) => (
               <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '11px 13px', borderRadius: 11, border: '1px solid rgba(233,207,148,.3)', background: 'rgba(233,207,148,.06)' }}>
@@ -277,12 +277,11 @@ export function TemplatesEmails() {
       {historique.length > 0 && (
         <Section
           titre="Derniers messages"
-          description="Ce qui a été préparé ou envoyé, à quelle adresse."
           compteur={historique.length}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {historique.slice(0, 15).map((e) => (
-              <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 11px', borderRadius: 9, background: 'rgba(255,255,255,.03)' }}>
+              <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 11px', borderRadius: 9, background: 'var(--voile-doux, rgba(255,255,255,.03))' }}>
                 {/* Chaque statut dit un fait différent, d'où quatre libellés. « Préparé » (0117)
                     ne vaut ni réussite ni échec : le message a été ouvert dans Gmail,
                     l'application ne sait pas si l'admin l'a envoyé. « Envoyé dans l'app » (0119) :

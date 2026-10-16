@@ -170,7 +170,6 @@ export function IntegrationGoogleMeet() {
   return (
     <Section
       titre="Agenda Google de l’établissement"
-      description="Ce compte porte les rendez-vous de l'administration : appels diagnostic, créneaux de test de positionnement et événements d'agenda. Les cours, eux, partent du compte Google du professeur qui les donne (voir la section suivante). Google Meet pour l'individuel et le duo, Jitsi pour le collectif, qui n'exige aucun compte."
       style={{ maxWidth: 680 }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

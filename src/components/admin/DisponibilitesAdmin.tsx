@@ -104,7 +104,6 @@ export function DisponibilitesAdmin() {
   return (
     <Section
       titre="Disponibilités pour les appels diagnostic"
-      description="Les créneaux proposés aux visiteurs sur la page d’accueil sont calculés à partir de ces plages, moins les rendez-vous déjà pris, les cours planifiés et les événements de l’agenda Google connecté."
     >
       {erreur && <MessageErreur>{erreur}</MessageErreur>}
       {echec && <MessageErreur>{echec}</MessageErreur>}

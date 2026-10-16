@@ -10,7 +10,6 @@ import { ContratImprimable } from '../contrats/ContratImprimable'
 import { UploaderDocument } from '../documents/UploaderDocument'
 import type { Database, StatutContrat } from '../../types/database.types'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { Onglets } from '../ui/Onglets'
 import { EtatVide } from '../ui/EtatVide'
@@ -52,7 +51,6 @@ export function ContratsAdmin() {
     <AdminLayout actif="Contrats">
       <EnTetePage
         titre="Contrats"
-        description="Vos modèles de contrat et les approbations lancées. Un contrat se génère à partir d'un modèle et de la fiche de la personne concernée ; la signature se fait directement dans l'application, sans prestataire externe."
         actions={
           <button
             onClick={() => {
@@ -66,40 +64,6 @@ export function ContratsAdmin() {
             {formulaireOuvert ? 'Fermer' : onglet === 'modeles' ? 'Nouveau modèle' : "Lancer une approbation"}
           </button>
         }
-      />
-
-      <GuidePage
-        id="admin-contrats"
-        etapes={[
-          <>
-            Créez d'abord un <strong>modèle</strong> dans le premier onglet. Insérez-y des variables entre doubles
-            accolades, comme <code>{'{{prenom_etudiant}}'}</code> : celles qui correspondent à un champ de fiche se
-            remplissent seules, l'éditeur de modèle liste lesquelles.
-          </>,
-          <>
-            <strong>Modifier</strong> un modèle existant change son texte pour les prochains contrats générés à partir
-            de lui. Les contrats déjà émis gardent leur texte d'origine, figé au moment de leur émission.
-          </>,
-          <>
-            Passez ensuite à <strong>Contrats</strong> et lancez une approbation : type de contrat, personne concernée,
-            modèle. Nom, coordonnées, adresse, taux horaire et établissement sont repris des fiches existantes, sans
-            ressaisie.
-          </>,
-          <>
-            Pour un cours collectif, choisissez directement une <strong>classe</strong> dans cette même liste : chaque
-            élève reçoit alors <em>son</em> contrat, à signer individuellement — jamais un contrat commun.
-          </>,
-          <>
-            Le contrat part aussitôt en <strong>attente de signature</strong> : il apparaît dans l'espace du
-            destinataire, qui est notifié. Signez de votre côté depuis la ligne du contrat — la mention « Lu et
-            approuvé » et le tampon de l'établissement accompagnent votre signature — et le statut bascule seul sur
-            « Signé » une fois toutes les signatures posées.
-          </>,
-          <>
-            Si vous préférez une signature papier, utilisez <strong>Joindre le scan signé</strong> sur la ligne du
-            contrat pour archiver le document numérisé.
-          </>,
-        ]}
       />
 
       <div style={{ marginBottom: 18 }}>
@@ -193,7 +157,7 @@ export function ContratsAdmin() {
                     fontSize: 11,
                     fontWeight: 700,
                     color: m.actif ? 'var(--accent-teal)' : 'var(--muted)',
-                    background: m.actif ? 'rgba(111,227,192,.14)' : 'rgba(255,255,255,.05)',
+                    background: m.actif ? 'var(--fond-bandeau-succes, rgba(111,227,192,.14))' : 'var(--voile, rgba(255,255,255,.05))',
                     border: `1px solid ${m.actif ? 'rgba(111,227,192,.3)' : 'var(--border)'}`,
                     borderRadius: 999,
                     padding: '4px 10px',
@@ -372,7 +336,7 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
             value={contrat.statut}
             disabled={enCours}
             onChange={(e) => changerStatut(e.target.value as StatutContrat)}
-            style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+            style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
           >
             {STATUTS_MODIFIABLES.map((s) => (
               <option key={s} value={s}>

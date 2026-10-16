@@ -5,7 +5,6 @@ import { DemandeForfaitEtudiant } from './DemandeForfaitEtudiant'
 import { PlanningVagueEtudiant } from './PlanningVagueEtudiant'
 import { EtudiantLayout } from '../layout/EtudiantLayout'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
 
@@ -20,36 +19,6 @@ export function MonEspaceEtudiant() {
     <EtudiantLayout actif="Mon dossier">
       <EnTetePage
         titre={profile ? `Bonjour ${profile.prenom}` : 'Mon dossier'}
-        description="Bienvenue dans votre espace. Vous retrouvez ici votre professeur, votre programme, vos séances et votre compteur d’heures, mis à jour automatiquement après chaque cours."
-      />
-
-      <GuidePage
-        id="etudiant-dossier"
-        etapes={[
-          <>
-            Les quatre encadrés du haut résument votre situation : heures suivies sur votre forfait, assiduité,
-            prochaine séance et niveau évalué. Le lien <strong>Rejoindre la visio</strong> y apparaît dès qu’un cours
-            est planifié.
-          </>,
-          <>
-            L’onglet <strong>Parcours pédagogique</strong> liste vos séances et votre présence à chacune. Après une
-            séance terminée, <strong>Donner votre avis</strong> ouvre une courte enquête : note du cours, pédagogie et
-            commentaire.
-          </>,
-          <>
-            L’onglet <strong>Forfait</strong> indique vos heures restantes et son échéance.{' '}
-            <strong>Demander un forfait supplémentaire</strong> envoie votre demande à l’administration, qui la valide
-            après paiement.
-          </>,
-          <>
-            En cours collectif, l’encadré <strong>Ma classe</strong> en haut de page donne votre professeur, vos
-            camarades et le planning de votre classe ; l’onglet <strong>Programme</strong> y remplace le forfait.
-          </>,
-          <>
-            Rien ne se saisit ici : tout est renseigné par votre professeur et par l’administration. Une information
-            vous semble inexacte ? Signalez-la depuis <strong>Messages</strong>.
-          </>,
-        ]}
       />
 
       {estSecondaireDuo && dossier && (

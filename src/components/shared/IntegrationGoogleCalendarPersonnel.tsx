@@ -143,11 +143,6 @@ export function IntegrationGoogleCalendarPersonnel() {
   return (
     <Section
       titre="Mon agenda Google"
-      description={
-        estAdmin
-          ? "Connectez votre propre compte Gmail : son agenda et celui de Hari Online Club n’en font plus qu’un, en lecture comme en écriture."
-          : "Connectez votre compte Gmail : son agenda et celui de Hari Online Club n’en font plus qu’un. Vous y créez, modifiez et supprimez vos événements indifféremment d’un côté ou de l’autre, et c’est depuis ce compte que partent les réunions de vos cours et les invitations à vos élèves."
-      }
       style={{ maxWidth: 680 }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>

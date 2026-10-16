@@ -238,16 +238,10 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
   ],
 }
 
-const INTRO: Record<EspaceGuide, string> = {
-  etudiant: 'Tout ce qu’il faut savoir pour suivre vos cours, vos heures, vos documents et vos paiements avec Hari Online Club.',
-  professeur: 'Comment planifier vos cours, les clôturer, rédiger vos comptes rendus et faire valider vos heures.',
-  admin: 'Le fonctionnement de chaque section de l’espace d’administration.',
-}
-
 export function GuideUtilisateur({ espace }: { espace: EspaceGuide }) {
   const contenu = (
     <>
-      <EnTetePage titre="Guide d’utilisation" description={INTRO[espace]} />
+      <EnTetePage titre="Guide d’utilisation" />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {RUBRIQUES[espace].map((rubrique, index) => (
           <details key={rubrique.titre} open={index === 0} className="card" style={{ padding: '14px 18px' }}>

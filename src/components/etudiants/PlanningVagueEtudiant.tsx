@@ -28,11 +28,6 @@ export function PlanningVagueEtudiant({ studentId }: { studentId: string }) {
   return (
     <Section
       titre={vague.classe ? `Ma classe · ${LABEL_NIVEAU_CLASSE[vague.classe.niveau]}` : `Ma vague · ${vague.cohorte.nom}`}
-      description={
-        vague.professeur
-          ? `Animée par ${vague.professeur.prenom} ${vague.professeur.nom}. Le planning ci-dessous est celui de ${nomGroupe}.`
-          : `Le planning ci-dessous est celui de ${nomGroupe}.`
-      }
       compteur={vague.seances.length}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

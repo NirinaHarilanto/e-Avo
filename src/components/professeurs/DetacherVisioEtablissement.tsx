@@ -76,7 +76,6 @@ export function DetacherVisioEtablissement({
   return (
     <Section
       titre="Agenda Google de l’administration"
-      description="Tant que ce professeur n'a pas connecté son propre compte Google, ses cours sont organisés depuis celui de l'établissement : vous en recevez les invitations dans votre vraie boîte Gmail, alors qu'elles ne vous sont pas obligatoires."
       padding={22}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

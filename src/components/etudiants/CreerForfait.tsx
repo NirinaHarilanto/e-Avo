@@ -136,7 +136,7 @@ export function CreerForfait({ studentId, etablissementId, forfaitExistant, type
           min={1}
           value={totalHeures}
           onChange={(e) => changerTotalHeures(Number(e.target.value))}
-          style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+          style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
         />
         {tarifCorrespondant && (
           <span style={{ fontSize: 11, color: 'var(--accent-teal)' }}>
@@ -157,7 +157,7 @@ export function CreerForfait({ studentId, etablissementId, forfaitExistant, type
               setMontantManuel(true)
             }}
             placeholder="Ex. 1 200 000"
-            style={{ flexGrow: 1, border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+            style={{ flexGrow: 1, border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
           />
           {tarifCorrespondant && montantManuel && String(tarifCorrespondant.prix) !== montant && (
             <button
@@ -186,7 +186,7 @@ export function CreerForfait({ studentId, etablissementId, forfaitExistant, type
           type="date"
           value={echeance}
           onChange={(e) => setEcheance(e.target.value)}
-          style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+          style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
         />
       </div>
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{erreur}</p>}

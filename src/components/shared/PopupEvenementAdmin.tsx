@@ -645,7 +645,7 @@ export function CarteEvenementAdmin({
             </span>
           )}
           {evenement.notes && (
-            <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
+            <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'var(--fond-champ, rgba(0,0,0,.22))', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
               {evenement.notes}
             </p>
           )}

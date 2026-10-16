@@ -13,7 +13,6 @@ import type { Database, StatutCohorte, NiveauClasse, CreneauClasse } from '../..
 import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, CAPACITE_MIN_CLASSE, CAPACITE_MAX_CLASSE } from '../../lib/classesCollectif'
 import { niveauDefinitif } from '../../lib/niveauEtudiant'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
@@ -58,7 +57,6 @@ export function CohortesAdmin() {
       <EnTetePage
         compact
         titre="Cours collectifs"
-        description="Une vague est un groupe d’élèves qui suivent le même programme sur une même période. C’est l’alternative au forfait individuel ou en duo."
         actions={
           onglet === 'vagues' && (
             <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
@@ -92,80 +90,10 @@ export function CohortesAdmin() {
         <SessionsOraleAdmin />
       ) : onglet === 'quiz' ? (
         <>
-          <GuidePage
-            id="admin-quiz-positionnement"
-            compact
-            etapes={[
-              <>
-                Ce questionnaire est posé aux candidats qui réservent une <strong>session de test oral</strong> depuis la
-                page publique. Y répondre est ce qui valide définitivement leur place.
-              </>,
-              <>
-                La note situe automatiquement un <strong>niveau estimé</strong> (A1 à C1) et produit un bilan rattaché au
-                dossier du candidat, que vous retrouvez dans la vague concernée et dans sa fiche prospect.
-              </>,
-              <>
-                Modifiez les questions, leurs propositions et la bonne réponse à votre guise. Une question{' '}
-                <strong>désactivée</strong> n’est plus posée et ne compte plus dans la note, sans fausser les tests déjà
-                passés.
-              </>,
-            ]}
-          />
           <QuizPositionnementAdmin />
         </>
       ) : (
         <>
-      <GuidePage
-        id="admin-vagues"
-        compact
-        etapes={[
-          <>
-            Créez une vague (« promotion ») : nom, langue, dates de début et de fin, <strong>capacité maximale</strong>.
-            Son <strong>statut</strong> se change ensuite dans sa ligne, et <strong>Modifier</strong> corrige ces
-            champs sans toucher aux élèves inscrits. Passez-la en « Terminée » à la fin : elle reste consultable.
-          </>,
-          <>
-            Scindez-la en <strong>classes de niveau</strong> — Beginner, Intermediate, Advanced — chacune avec son
-            créneau (matin, midi, soir, réglés dans <strong>Paramètres</strong>). Sur la ligne d'une classe,{' '}
-            <strong>Attribuer un professeur</strong> est le <em>seul</em> endroit où se décide le professeur d'un cours
-            collectif ; l'information est reprise aussitôt partout, y compris chez les élèves concernés.
-          </>,
-          <>
-            Une classe compte <strong>3 à 7 élèves</strong>. En dessous de 3, ne démarrez pas ses cours. À 7, les
-            inscriptions supplémentaires sont refusées : créez une seconde classe du même niveau pour les accueillir.
-          </>,
-          <>
-            Pour inscrire un élève : depuis son dossier (page <strong>Étudiants</strong>, programme « collectif »), ou
-            directement avec <strong>+ Élèves</strong> sur la ligne d'une classe. Son niveau est déterminé
-            automatiquement à partir de son quiz écrit, corrigé au test oral si besoin.
-          </>,
-          <>
-            <strong>Voir les inscrits</strong> déplie la liste et donne accès aux <strong>sessions de test oral</strong>{' '}
-            ouvertes pour cette vague — ce que les candidats réservent depuis la page publique ; leur lien de
-            visioconférence se génère seul. Cliquez une session pour voir ses candidats et leur note, puis{' '}
-            <strong>Convertir en étudiant</strong> : le compte est créé et rattaché à la vague et à la bonne classe.
-          </>,
-          <>
-            <strong>Fin de parcours</strong> : une fois toutes les heures de sa vague consommées, chaque élève est
-            réévalué depuis l'onglet <strong>Suivi des candidats</strong> — ouvrez sa fiche, le bouton{' '}
-            <strong>Évaluer l'étudiant</strong> y apparaît. Vous lui attribuez une nouvelle vague, une nouvelle classe
-            et, si besoin, un nouveau niveau. La validation est toujours précédée de l'enregistrement des{' '}
-            <strong>frais d'inscription</strong> correspondant à ce nouveau niveau.
-          </>,
-          <>
-            <strong>Rythme officiel d'une vague</strong> : 32 séances réparties sur{' '}
-            <strong>lundi, mardi, jeudi et vendredi</strong> — jamais mercredi, samedi ni dimanche. Un jour férié qui
-            tombe sur un jour de cours ne compte pas comme l'une des 32. Respectez ce rythme quand vous planifiez les
-            séances d'une classe depuis son <strong>Planning prévisionnel</strong>.
-          </>,
-          <>
-            Entre deux vagues, prévoyez <strong>3 semaines de pause</strong>. Aucun cours collectif n'a lieu en{' '}
-            <strong>juillet et août</strong>, ni pendant les <strong>vacances HOC</strong> (22 décembre → 3 janvier) :
-            ne créez ni vague ni séance sur ces périodes.
-          </>,
-        ]}
-      />
-
       {formulaireOuvert && profile && (
         <CreerVague
           etablissementId={profile.etablissement_id}
@@ -482,7 +410,7 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
           value={cohorte.statut}
           disabled={enCours}
           onChange={(e) => changerStatut(e.target.value as StatutCohorte)}
-          style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+          style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
         >
           {(Object.keys(LABELS_STATUT) as StatutCohorte[]).map((s) => (
             <option key={s} value={s}>
@@ -516,7 +444,7 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
           ) : (
             inscrits.map((etudiant) => (
               <div key={etudiant.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ width: 26, height: 26, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
+                <span style={{ width: 26, height: 26, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
                   {initiales(etudiant)}
                 </span>
                 <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>
@@ -991,7 +919,7 @@ function AjouterEtudiantsClasse({
 
 function LigneEtudiantAAjouter({ etudiant, enCours, onAjouter }: { etudiant: Profile; enCours: boolean; onAjouter: () => void }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,.03)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 8, background: 'var(--voile-doux, rgba(255,255,255,.03))' }}>
       <span style={{ fontSize: 12.5, color: 'var(--ink)', flexGrow: 1 }}>
         {etudiant.prenom} {etudiant.nom}
       </span>

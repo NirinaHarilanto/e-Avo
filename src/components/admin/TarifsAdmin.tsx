@@ -3,7 +3,6 @@ import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useTarifs } from '../../hooks/useTarifs'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GroupeSection } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement } from '../ui/Etats'
@@ -54,43 +53,6 @@ export function TarifsAdmin() {
     <AdminLayout actif="Tarifs">
       <EnTetePage
         titre="Tarifs"
-        description="La grille affichée dans la section « Tarifs » de votre page vitrine publique, regroupée par type de programme. Seuls ces chiffres et ces textes s'y reflètent : la mise en page de la vitrine ne change pas."
-      />
-
-      <GuidePage
-        id="admin-tarifs"
-        etapes={[
-          <>
-            Les tarifs sont regroupés par <strong>type de programme</strong> — Individuel, Collectif, Duo — pour
-            correspondre aux trois formules proposées sur votre vitrine. Le bouton « Ajouter un tarif » de chaque
-            groupe crée directement une ligne du bon type.
-          </>,
-          <>
-            Chaque ligne s'édite en place. Pensez à cliquer sur <strong>Enregistrer</strong> sur la ligne concernée :
-            une modification non enregistrée n'est pas publiée sur la vitrine.
-          </>,
-          <>
-            Le champ <strong>Ordre</strong> détermine la position d'affichage à l'intérieur de son groupe, du plus
-            petit au plus grand. Le champ <strong>Unité</strong> accepte n'importe quelle mention (Ar, « / mois »,
-            etc.).
-          </>,
-          <>
-            Le champ <strong>Heures</strong> (formules Individuel/Duo) relie un tarif à un volume d'heures précis : dès
-            qu'un admin crée un forfait de ce volume pour un étudiant, le prix correspondant se propose tout seul.
-            Laissez-le vide pour un tarif Collectif, ou pour toute ligne qui n'est pas un forfait fixe.
-          </>,
-          <>
-            Deux montants sont lus ailleurs dans l'application à partir de cette grille : la{' '}
-            <strong>séance d'essai</strong> d'un prospect, facturée au tarif d'<strong>1 h</strong> de son programme, et
-            les <strong>frais d'inscription</strong> d'un cours collectif, repris du tarif Collectif dont le{' '}
-            <strong>titre</strong> porte le nom du niveau (Beginner, Intermediate, Advanced). Renommer ces lignes rompt
-            le rapprochement.
-          </>,
-          <>
-            Ces tarifs alimentent le montant proposé lors de la création d'un forfait étudiant (et donc les contrats
-            générés), mais restent modifiables au cas par cas — remises, ancienneté, accords particuliers.
-          </>,
-        ]}
       />
 
       {loading ? (
@@ -112,7 +74,7 @@ export function TarifsAdmin() {
                         fontSize: 11,
                         fontWeight: 800,
                         color: 'var(--ink-2)',
-                        background: 'rgba(255,255,255,.07)',
+                        background: 'var(--voile, rgba(255,255,255,.06))',
                         border: '1px solid var(--border-soft)',
                         borderRadius: 999,
                         padding: '2px 9px',

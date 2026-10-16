@@ -324,7 +324,7 @@ export function FicheCandidatCollectifModale({
                         gap: 10,
                         padding: '8px 11px',
                         borderRadius: 9,
-                        background: 'rgba(255,255,255,.03)',
+                        background: 'var(--voile-doux, rgba(255,255,255,.03))',
                         border: '1px solid var(--border-soft)',
                         cursor: 'pointer',
                         textAlign: 'left',

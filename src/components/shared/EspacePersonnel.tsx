@@ -36,7 +36,7 @@ export function EspacePersonnel() {
      doit pas vider la page une fois le profil connu. */
   if (!profile || platformAdminLoading) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+      <div style={{ minHeight: '100vh', background: '#f7f4ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6f6386' }}>
         Chargement…
       </div>
     )

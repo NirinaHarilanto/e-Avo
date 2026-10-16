@@ -836,10 +836,35 @@ select option {
   display: none;
 }
 
+/* Bouton d'ouverture du menu, flottant depuis le retrait de la barre supérieure (2026-10-16).
+   Mobile seulement : il hérite de `.bouton-tiroir`, masquée au-delà de 900 px. */
+.bouton-tiroir-flottant {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 35;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--accent-blue);
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+}
+
 @media (max-width: 900px) {
-  /* En tiroir, la barre ne réserve plus de place : le contenu reprend toute la largeur. */
+  /* En tiroir, la barre ne réserve plus de place : le contenu reprend toute la largeur. Le
+     retrait en haut dégage la place du bouton de menu flottant, qui sans lui recouvrirait le
+     titre de la page. */
   .zone-contenu {
     margin-left: 0;
+  }
+  .coquille .zone-contenu > main {
+    padding-top: 62px;
   }
   .barre-laterale {
     position: fixed;
@@ -992,6 +1017,422 @@ input[type='search']::-webkit-search-cancel-button {
   .barre-actions-impression {
     display: none !important;
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Thème clair des TROIS ESPACES CONNECTÉS (admin, professeur, étudiant) — maquettes client du
+   2026-10-16 (dossier « HOC esthétique » : Prospects, fiche Étudiants, Mon dossier, Mon agenda,
+   Mes documents). Les espaces passent du violet profond sur fond quasi noir à un fond lavande
+   très pâle, cartes blanc cassé, barre latérale en violet plein.
+
+   Porté par `body.espace-clair` (posée par EspaceLayout.tsx, comme `echelle-connectee` juste
+   au-dessus) et NON par un conteneur local, pour la raison déjà documentée pour le zoom : les
+   pop-up sont montées par portail dans `document.body` (voir Modale.tsx) et ne descendent donc
+   d'aucun conteneur de page — une classe locale les laisserait sur l'ancien thème sombre.
+
+   Même principe que `.page-claire` plus bas : on redéfinit les MÊMES variables, jamais une
+   surcharge composant par composant. Les ~1340 `var(--…)` que lisent les styles inline des
+   composants basculent ainsi d'un bloc. Les noms restent des RÔLES, pas des couleurs : `--ink`
+   est « le texte le plus appuyé », pas « du blanc » — c'est ce qui permet au même composant de
+   servir les deux thèmes. La vitrine publique, la page de connexion et la plateforme ne portent
+   pas cette classe et gardent leur thème.
+
+   Correspondances relevées sur les maquettes :
+     fond de page #F7F4FF · cartes #FEFFFA · bordures #E5DAF8 · barre latérale #49306A
+     titres #49306A · texte #5B5170 · secondaire #776A8F · accent #4E356F
+     lavandes #EDE5FB / #D9CAF7 / #B9A6E0 · or #F2B84B (fond) #D9A83B (repère) #FBEFD2 (bandeau)
+   ───────────────────────────────────────────────────────────────────────────── */
+body.espace-clair {
+  color-scheme: light;
+  --bg-page: #f7f4ff;
+  --surface: #fefffa;
+  --surface-alt: #f7f4ff;
+  --border: #e5daf8;
+  --border-soft: #ede5fb;
+  --ink: #49306a;
+  --ink-2: #5b5170;
+  /* Les deux gris secondaires sont calés pour rester lisibles AUSSI sur la pastille lavande
+     (#EDE5FB), pas seulement sur le blanc des cartes : ils y perdent un demi-point de contraste,
+     et beaucoup d'étiquettes vivent justement sur cette pastille. Le #9a8fb5 du thème sombre
+     tombait à 3,0:1 sur fond clair — les textes d'aide sous les champs devenaient difficiles à
+     lire. Leur hiérarchie se joue désormais sur la taille plutôt que sur la couleur, comme dans
+     les maquettes, qui n'emploient qu'un seul gris secondaire. Mesuré sur les 35 écrans des
+     trois espaces. */
+  --muted: #6f6386;
+  --muted-2: #756986;
+  /* `--accent-gold` ne sert QUE de couleur de texte (55 `color:`, aucun `background:`) : son rôle
+     est « accent qui met en avant », et sur fond clair le doré de la charte tombe à 2,3:1 de
+     contraste. Il prend donc le violet d'accent des maquettes, où tout texte mis en avant est
+     violet. Même choix que la vitrine, qui pose déjà `--accent-gold: #6d3bd1`. */
+  --accent-gold: #4e356f;
+  /* `--accent-gradient` ne sert qu'en `background` (30 fois) : c'est le fond des boutons
+     principaux, l'or plein #F2B84B des maquettes. Déclaré en dégradé plat et non en couleur nue
+     pour rester substituable partout où une règle attend une image de fond. */
+  --accent-gradient: linear-gradient(135deg, #f2b84b, #eaab33);
+  --accent-blue: #4e356f;
+  --accent-blue-deep: #49306a;
+  --accent-cyan: #2e1d45;
+  --accent-blue-gradient: linear-gradient(140deg, #5b3e80, #49306a);
+  --accent-violet: #4e356f;
+  /* Rôle « validé / positif », 29 fois en texte : un vert lisible sur blanc plutôt que le
+     turquoise clair du thème sombre, qui tombe à 1,6:1. Assombri une seconde fois après mesure
+     (le #17916c de la vitrine ne tenait que 3,5:1 aux petites tailles où ce rôle sert le plus :
+     pastilles d'état, coches, mentions « Validé »). */
+  --accent-teal: #0f7355;
+  --accent-orange: #8a5e12;
+  --accent-yellow: #8a5e12;
+  --success: #0f7355;
+  --warning: #8a5e12;
+  --danger: #c4383a;
+  --shadow-card: 0 2px 10px rgba(73, 48, 106, 0.06);
+  /* Repères de la maquette qui n'ont pas d'équivalent parmi les rôles existants : la lavande des
+     pastilles, l'or des bandeaux d'attention, et la famille de titres. */
+  --hoc-pastille: #ede5fb;
+  --hoc-lavande-forte: #d9caf7;
+  --hoc-bandeau-or: #fbefd2;
+  --hoc-repere-or: #d9a83b;
+  --hoc-barre: #49306a;
+  --hoc-barre-texte: #d9caf7;
+  --hoc-barre-titre: #b9a6e0;
+  --police-titre: Fraunces, Georgia, serif;
+  /* Bandeaux d'information (Etats.tsx). Les maquettes les dessinent en aplat pastel plein, sans
+     bordure, avec un texte foncé lisible — et non en voile translucide teinté de la couleur du
+     message, qui ne tient que sur fond sombre. Le violet du bandeau d'attention vient du
+     « À compléter » de la fiche étudiant. */
+  --fond-bandeau-erreur: #fbeaea;
+  --texte-bandeau-erreur: #96302f;
+  --bord-bandeau-erreur: transparent;
+  --fond-bandeau-succes: #e4f4ee;
+  --texte-bandeau-succes: #0f6b50;
+  --bord-bandeau-succes: transparent;
+  --fond-bandeau-info: #ede5fb;
+  --texte-bandeau-info: #49306a;
+  --bord-bandeau-info: transparent;
+  --fond-bandeau-avertissement: #fbefd2;
+  --texte-bandeau-avertissement: #49306a;
+  --bord-bandeau-avertissement: transparent;
+  /* Les tuiles de statistiques des maquettes sont des aplats nets : le halo radial du thème
+     sombre est neutralisé ici plutôt que ton par ton dans Stat.tsx. */
+  --halo-stat: transparent;
+  /* Champs de saisie (Champ.tsx) : blanc cassé bordé, comme le champ de recherche des maquettes. */
+  --fond-champ: #fefffa;
+  /* Voiles de fond. Les styles inline des composants posaient des blancs translucides
+     (`rgba(255,255,255,.03)` à `.08`) pour détacher un bloc du fond presque noir du thème sombre :
+     sur fond clair, un blanc sur du blanc ne se voit pas. Ces trois rôles les remplacent — une
+     teinte violette très diluée pour les fonds de ligne, et la pastille lavande des maquettes
+     pour les vignettes d'initiales et les compteurs. `--surface-2` existait déjà comme valeur de
+     repli dans AvisAdmin sans avoir jamais été déclarée. */
+  --surface-2: #f7f4ff;
+  --voile-doux: rgba(73, 48, 106, 0.035);
+  --voile: #ede5fb;
+  --voile-fort: rgba(73, 48, 106, 0.09);
+  --voile-modale: rgba(73, 48, 106, 0.42);
+}
+
+/* La police de titre des maquettes est Fraunces, pas Playfair Display — qui n'y sert plus qu'au
+   mot « HARI » du logo (voir Logo.tsx). `.brand-font` porte les deux rôles dans l'application
+   (titres de cartes ET chiffres des tuiles de statistiques) : elle suit donc Fraunces ici. */
+body.espace-clair h1,
+body.espace-clair h2,
+body.espace-clair h3,
+body.espace-clair h4,
+body.espace-clair .brand-font {
+  font-family: var(--police-titre);
+  letter-spacing: -0.015em;
+}
+body.espace-clair * {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+/* Déclaré APRÈS la règle `*` ci-dessus : à spécificité égale, c'est l'ordre du fichier qui
+   tranche, et `body.espace-clair *` atteint aussi les titres. Sans cette reprise, le sélecteur
+   universel écraserait Fraunces sur chaque `h1`. */
+body.espace-clair h1,
+body.espace-clair h2,
+body.espace-clair h3,
+body.espace-clair h4,
+body.espace-clair .brand-font,
+body.espace-clair .police-titre {
+  font-family: var(--police-titre);
+}
+body.espace-clair .police-titre-italique {
+  font-family: var(--police-titre);
+  font-style: italic;
+}
+
+/* Forme signature des maquettes : une goutte, et son miroir. Les deux alternent sur les avatars,
+   les pastilles numérotées et les vignettes de date. Utilitaires plutôt qu'un `borderRadius`
+   recopié : la valeur revient sur des dizaines d'éléments. */
+.petale {
+  border-radius: 50% 50% 50% 0;
+}
+.petale-miroir {
+  border-radius: 50% 50% 0 50%;
+}
+
+/* `:not([class*='btn-'])` : plusieurs actions sont des `<a>` déguisés en boutons (« Rejoindre via
+   Google Meet », retour à l'accueil…). Un sélecteur `body.espace-clair a` est plus spécifique que
+   la classe `.btn-secondary` qui leur donne leur couleur de texte : sans cette exclusion, il la
+   remplaçait par le violet des liens, et le libellé devenait violet foncé sur un bouton violet
+   foncé — constaté sur « Rejoindre via… » dans le dossier étudiant. */
+body.espace-clair a:not([class*='btn-']) {
+  color: var(--accent-blue);
+}
+body.espace-clair a:not([class*='btn-']):hover {
+  color: var(--accent-cyan);
+}
+/* Le texte des boutons pleins ne dépend plus de la cascade des liens : il est posé ici, avec une
+   spécificité supérieure, pour les deux familles. */
+body.espace-clair .btn-secondary,
+body.espace-clair a.btn-secondary {
+  color: #fefffa;
+}
+body.espace-clair ::selection {
+  background: var(--hoc-lavande-forte);
+  color: var(--ink);
+}
+
+/* Boutons. Le texte posé sur l'or passe du presque-noir au violet des maquettes, et les halos
+   dorés très larges du thème sombre laissent place à une ombre courte : sur fond clair, un halo
+   diffus se lit comme une tache. */
+body.espace-clair .btn-primary {
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(185, 132, 20, 0.28);
+}
+body.espace-clair .btn-primary:hover {
+  box-shadow: 0 4px 14px rgba(185, 132, 20, 0.38);
+}
+body.espace-clair .btn-secondary {
+  box-shadow: 0 2px 8px rgba(73, 48, 106, 0.22);
+}
+body.espace-clair .btn-secondary:hover {
+  box-shadow: 0 4px 14px rgba(73, 48, 106, 0.3);
+}
+body.espace-clair .btn-ghost {
+  background: var(--surface);
+  color: var(--accent-blue);
+  border: 1px solid var(--border);
+}
+body.espace-clair .btn-brillant {
+  box-shadow: 0 0 0 1px rgba(185, 132, 20, 0.35) inset, 0 3px 14px rgba(185, 132, 20, 0.34);
+}
+body.espace-clair .btn-brillant:hover {
+  box-shadow: 0 0 0 1px rgba(185, 132, 20, 0.45) inset, 0 5px 18px rgba(185, 132, 20, 0.44);
+}
+/* Le balayage blanc de `.btn-shine` était calibré sur des fonds sombres ; sur l'or clair des
+   maquettes il délave le bouton. Réduit, pas supprimé : le bouton garde sa réaction au survol. */
+body.espace-clair .btn-shine::after {
+  background: linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.4) 50%, transparent 80%);
+}
+/* Le bouton principal des maquettes est un rectangle très arrondi (20 px), pas une pilule. */
+body.espace-clair .btn-shine {
+  border-radius: 20px;
+}
+body.espace-clair .btn-enfonce {
+  box-shadow: inset 0 3px 8px rgba(73, 48, 106, 0.3) !important;
+}
+
+/* Cartes : radius 20 px des maquettes (18 px dans le thème sombre) et ombre portée douce. Les
+   maquettes distinguent deux rayons — 20 px pour une carte de contenu (tuile de statistique,
+   carte de prospect, ligne de liste) et 28 px pour un bloc de section titré. */
+body.espace-clair .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-card);
+}
+body.espace-clair .card-section {
+  border-radius: 28px;
+}
+
+/* L'anneau doré tournant au survol (conic-gradient + navGlowSpin) appartient à l'ambiance sombre
+   héritée des maquettes Axone : sur fond clair il devient un liseré jaune vif autour de chaque
+   carte survolée, absent des maquettes. Remplacé par un simple soulèvement avec bordure accentuée. */
+body.espace-clair .card-lift::before,
+body.espace-clair .nav-item::before,
+body.espace-clair .nav-link-glow::before {
+  display: none;
+}
+body.espace-clair .card-lift:hover {
+  border-color: var(--hoc-lavande-forte);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(73, 48, 106, 0.12);
+}
+
+/* Barre latérale : aplat violet plein, bord franc, sans voile ni flou — le contenu de la page
+   ne passe plus dessous puisque le fond est opaque. */
+body.espace-clair .barre-laterale {
+  background: var(--hoc-barre);
+  backdrop-filter: none;
+  border-right: none;
+}
+/* La carte du compte a son propre fond : plus de filet de séparation au-dessus, et un retrait
+   symétrique. Le `!important` neutralise celui de la règle `.pied-barre` du socle, qui ne pilotait
+   que le retrait HAUT et déséquilibrait la carte. */
+body.espace-clair .pied-barre.carte-compte {
+  border-top: none;
+  padding-top: clamp(7px, 1.25vh, 10px) !important;
+  padding-bottom: clamp(7px, 1.25vh, 10px);
+}
+/* Avatar et bouton de déconnexion suivent la hauteur de fenêtre comme tout le reste de la barre
+   (voir `.barre-laterale` plus haut) : à 19 entrées sur un écran court, un avatar figé à 40 px
+   reprendrait à lui seul la place gagnée sur les pilules. */
+body.espace-clair .avatar-compte {
+  width: clamp(26px, calc(4.83vh * min(1.5, 19 / var(--nb-entrees, 19))), 40px);
+  height: clamp(26px, calc(4.83vh * min(1.5, 19 / var(--nb-entrees, 19))), 40px);
+  font-size: clamp(10px, calc(1.69vh * min(1.5, 19 / var(--nb-entrees, 19))), 14px);
+}
+body.espace-clair .bouton-deconnexion-barre {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: clamp(26px, calc(4.35vh * min(1.5, 19 / var(--nb-entrees, 19))), 36px);
+  height: clamp(26px, calc(4.35vh * min(1.5, 19 / var(--nb-entrees, 19))), 36px);
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--hoc-barre-texte);
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+body.espace-clair .bouton-deconnexion-barre:hover {
+  background: rgba(217, 202, 247, 0.18);
+  color: #fefffa;
+}
+body.espace-clair .pastille-espace {
+  font-size: clamp(8.5px, calc(1.33vh * min(1.5, 19 / var(--nb-entrees, 19))), 11px);
+}
+/* Le logo porte un halo violet en style inline, pensé pour le fond presque noir du thème sombre
+   (voir Logo.tsx) ; sur l'aplat violet de la barre il devient une auréole floue. */
+body.espace-clair .barre-laterale .entete-barre img {
+  filter: none !important;
+}
+/* Entrée de navigation non encore disponible : c'est un `<span>`, pas un `<a>`. */
+body.espace-clair .barre-laterale span.nav-item {
+  color: rgba(217, 202, 247, 0.65);
+}
+body.espace-clair .titre-groupe-barre {
+  /* Le dégradé or avec halo (ajouté le 2026-10-10 parce qu'un gris se perdait sur violet sombre)
+     n'a plus lieu d'être : sur l'aplat violet des maquettes, le titre de pôle est une simple
+     lavande claire. Les trois propriétés du dégradé de texte doivent être annulées ensemble,
+     sans quoi `color: transparent` resterait et le titre serait invisible. */
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  color: var(--hoc-barre-titre) !important;
+  filter: none !important;
+}
+/* Pilules de navigation. `!important` pour les mêmes raisons que la règle sombre qu'elles
+   remplacent : chaque pilule pose son fond et sa couleur en style inline. */
+body.espace-clair .barre-laterale .nav-item {
+  color: var(--hoc-barre-texte);
+  border-radius: 12px;
+}
+body.espace-clair .barre-laterale .nav-item:hover {
+  background: rgba(217, 202, 247, 0.14) !important;
+  color: #fefffa !important;
+  box-shadow: none;
+}
+body.espace-clair .barre-laterale .nav-item.nav-item-active {
+  background: rgba(217, 202, 247, 0.18);
+  color: #fefffa;
+  box-shadow: none;
+}
+/* Onglets de page (Onglets.tsx). Ils empruntaient `.nav-item` à la barre latérale, dont ils
+   héritaient un fond plein et un halo ; ce sont désormais des libellés soulignés, et seul le
+   survol vit ici — la couleur et le soulignement sont posés par le composant, qui connaît l'état
+   sélectionné. */
+.onglet-page {
+  transition: color 0.16s ease;
+}
+body.espace-clair .onglet-page:hover {
+  color: var(--ink);
+}
+
+/* Tableau de suivi : ses cellules figées doivent rester OPAQUES (voir la règle sombre), d'où des
+   couleurs posées en dur ici aussi, claires cette fois. */
+body.espace-clair .tableau-suivi-conteneur {
+  background: var(--surface);
+  border-color: var(--border);
+}
+body.espace-clair .tableau-suivi thead th,
+body.espace-clair .tableau-suivi thead th.col-personne {
+  background: #f3edfd;
+  box-shadow: none;
+  border-bottom: 1px solid var(--border);
+}
+body.espace-clair .tableau-suivi thead th.col-personne {
+  box-shadow: 8px 0 12px -8px rgba(73, 48, 106, 0.18);
+}
+body.espace-clair .tableau-suivi tbody td {
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--ink-2);
+}
+body.espace-clair .tableau-suivi tbody tr:nth-child(even) td {
+  background: rgba(73, 48, 106, 0.02);
+}
+body.espace-clair .tableau-suivi tbody tr:hover td {
+  background: var(--hoc-pastille);
+}
+body.espace-clair .tableau-suivi tbody td.col-personne {
+  background: var(--surface);
+  box-shadow: 8px 0 12px -8px rgba(73, 48, 106, 0.18);
+}
+body.espace-clair .tableau-suivi tbody tr:nth-child(even) td.col-personne {
+  background: #faf7ff;
+}
+body.espace-clair .tableau-suivi tbody tr:hover td.col-personne {
+  background: var(--hoc-pastille);
+}
+
+/* Lignes de liste et squelettes de chargement : le dégradé sombre du survol et la bande blanche
+   du balayage sont tous deux invisibles ou salissants sur fond clair. */
+body.espace-clair .carte-ligne:hover {
+  border-color: var(--hoc-lavande-forte) !important;
+  background: var(--hoc-pastille) !important;
+}
+body.espace-clair .row-hl:hover {
+  background: var(--hoc-pastille);
+}
+body.espace-clair .squelette {
+  background:
+    linear-gradient(90deg, transparent 12%, rgba(73, 48, 106, 0.07) 38%, transparent 64%),
+    var(--hoc-pastille);
+  background-size: 240% 100%;
+  border: 1px solid var(--border-soft);
+}
+
+/* Halo doré « respirant » qui signale un élément en attente d'action : resserré et violet, un
+   halo doré large se lisant comme une tache sur fond clair. */
+@keyframes haloBreathClair {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(217, 168, 59, 0.6) inset, 0 0 10px rgba(217, 168, 59, 0.22); }
+  50% { box-shadow: 0 0 0 2px rgba(217, 168, 59, 0.9) inset, 0 0 18px rgba(217, 168, 59, 0.4); }
+}
+body.espace-clair .halo-gold {
+  animation: haloBreathClair 2.6s ease-in-out infinite;
+}
+
+body.espace-clair input::placeholder,
+body.espace-clair textarea::placeholder {
+  color: var(--muted-2);
+}
+/* L'inversion servait à rendre visible la croix noire du champ de recherche sur fond sombre ;
+   sur fond clair elle la rendrait blanche, donc invisible. */
+body.espace-clair input[type='search']::-webkit-search-cancel-button {
+  filter: none;
+}
+body.espace-clair a:focus-visible,
+body.espace-clair button:focus-visible,
+body.espace-clair input:focus-visible,
+body.espace-clair select:focus-visible,
+body.espace-clair textarea:focus-visible,
+body.espace-clair [tabindex]:focus-visible {
+  outline: 2px solid var(--accent-blue);
+}
+/* `--scheme-formulaire` pilote le thème des listes déroulantes natives (voir le bloc `select`
+   plus haut) : les espaces passent en clair comme la vitrine. */
+body.espace-clair {
+  --scheme-formulaire: light;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

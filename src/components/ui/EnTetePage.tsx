@@ -1,37 +1,45 @@
 import type { ReactNode } from 'react'
+import { NotificationsBell } from '../shared/NotificationsBell'
+import { BoutonRafraichir } from '../shared/BoutonRafraichir'
 
 interface EnTetePageProps {
   titre: ReactNode
-  description?: ReactNode
   actions?: ReactNode
   media?: ReactNode
   avant?: ReactNode
   /* Variante resserrée pour le pôle Pédagogie de l'espace admin, dont les pages doivent tenir
-     dans une seule vue — la description reste affichée, seule sa mise en avant est réduite. */
+     dans une seule vue. */
   compact?: boolean
 }
 
-/* En-tête unique des pages des quatre espaces. Il en existait trois variantes divergentes
-   (flex/center + marge 18, flex/flex-end + marge 22, `<h1>` nu) et neuf pages sur vingt-cinq
-   n'avaient aucune phrase d'explication : `description` est volontairement mise en avant dans
-   la signature pour qu'on ne puisse plus l'oublier en passant. */
-export function EnTetePage({ titre, description, actions, media, avant, compact }: EnTetePageProps) {
+/* En-tête unique des pages des trois espaces connectés. Il en existait trois variantes
+   divergentes (flex/center + marge 18, flex/flex-end + marge 22, `<h1>` nu).
+
+   Refonte du 2026-10-16 (maquettes client) :
+   — `description` retirée. Ces phrases étaient des instructions d'usage (« Cliquez sur un cours
+     pour voir son professeur… », « faites glisser une carte vers la colonne suivante… ») et le
+     client a demandé de les enlever en début de chaque section. Aucune maquette n'en montre.
+   — « Actualiser » et la cloche de notifications sont rendus ici, à droite du titre, parce que la
+     barre supérieure qui les portait a disparu (voir EspaceLayout.tsx). Ils sont posés par ce
+     composant et non par chaque page : les quarante écrans des trois espaces passent tous par
+     cet en-tête, donc aucun ne peut les perdre en route. Ils précèdent `actions`, comme sur les
+     maquettes, où le bouton principal de la page est le plus à droite. */
+export function EnTetePage({ titre, actions, media, avant, compact }: EnTetePageProps) {
   return (
-    <header style={{ marginBottom: compact ? 12 : 20 }}>
+    <header style={{ marginBottom: compact ? 14 : 24 }}>
       {avant && <div style={{ marginBottom: compact ? 8 : 12 }}>{avant}</div>}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: compact ? 12 : 18, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 10 : 15, minWidth: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: compact ? 12 : 18, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: compact ? 10 : 14, minWidth: 0 }}>
           {media}
-          <div style={{ minWidth: 0 }}>
-            <h1 style={{ fontSize: compact ? 20 : 26, color: '#fff', margin: 0, lineHeight: 1.2 }}>{titre}</h1>
-            {description && (
-              <p style={{ margin: compact ? '4px 0 0' : '7px 0 0', fontSize: compact ? 12 : 13, color: 'var(--muted)', lineHeight: 1.5, maxWidth: 640 }}>
-                {description}
-              </p>
-            )}
-          </div>
+          <h1 style={{ fontSize: compact ? 22 : 28, fontWeight: 700, color: 'var(--ink)', margin: 0, lineHeight: 1.2, minWidth: 0 }}>
+            {titre}
+          </h1>
         </div>
-        {actions && <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>{actions}</div>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <BoutonRafraichir />
+          <NotificationsBell />
+          {actions}
+        </div>
       </div>
     </header>
   )

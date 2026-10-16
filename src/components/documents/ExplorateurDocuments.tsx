@@ -190,7 +190,11 @@ export function ExplorateurDocuments({
           visibles, pour changer de catégorie en un clic sans repasser par « Mes documents ».
           Labels complets, jamais tronqués — c'était le reproche fait à l'ancien affichage en
           grille de cartes étroites. */}
-      <div role="tablist" aria-label="Catégories de documents" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', borderBottom: '1px solid var(--border-soft)', paddingBottom: 2 }}>
+      {/* Pastilles arrondies depuis la refonte du 2026-10-16 : c'est le dessin que la maquette
+          « Mes documents » donne à ces catégories. Les libellés soulignés y sont réservés aux
+          barres qui changent de section (voir la variante par défaut d'Onglets.tsx) ; ici on
+          filtre une liste sans quitter la page. */}
+      <div role="tablist" aria-label="Catégories de documents" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {onglets.map((o) => {
           const actif = dossierCourantId === o.id
           return (
@@ -200,12 +204,12 @@ export function ExplorateurDocuments({
               aria-selected={actif}
               onClick={() => setDossierCourantId(o.id)}
               style={{
-                padding: '9px 16px',
-                borderRadius: '10px 10px 0 0',
-                border: 'none',
-                borderBottom: actif ? '2px solid var(--accent-gold, #e9cf94)' : '2px solid transparent',
-                background: actif ? 'var(--surface-alt)' : 'transparent',
-                color: actif ? 'var(--ink)' : 'var(--muted)',
+                height: 34,
+                padding: '0 14px',
+                borderRadius: 999,
+                border: actif ? 'none' : '1px solid var(--border)',
+                background: actif ? 'var(--accent-blue)' : 'var(--surface)',
+                color: actif ? '#fefffa' : 'var(--accent-blue)',
                 fontSize: 13,
                 fontWeight: actif ? 700 : 600,
                 cursor: 'pointer',
@@ -214,7 +218,9 @@ export function ExplorateurDocuments({
               }}
             >
               {o.nom}
-              {o.compteur > 0 && <span style={{ marginLeft: 7, fontSize: 11, color: 'var(--muted-2)' }}>{o.compteur}</span>}
+              {o.compteur > 0 && (
+                <span style={{ marginLeft: 7, fontSize: 11, opacity: actif ? 0.85 : 0.7 }}>{o.compteur}</span>
+              )}
             </button>
           )
         })}

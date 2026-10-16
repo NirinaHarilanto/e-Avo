@@ -119,7 +119,6 @@ export function MonAvis({ profile }: { profile: Profile }) {
          avis. Les deux n'ont ni la même portée ni la même destination — celui-ci est public, une
          fois validé — et doivent se distinguer au premier coup d'œil. */
       titre="Mon avis sur mon parcours"
-      description="Votre expérience d’ensemble, relue par l’équipe avant d’éventuellement rejoindre les témoignages du site."
       style={{ marginTop: 20 }}
     >
       {edition ? (

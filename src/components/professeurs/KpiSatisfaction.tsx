@@ -34,7 +34,7 @@ function Disque({ segments, total }: { segments: { valeur: number; couleur: stri
 
   return (
     <svg width={140} height={140} viewBox="0 0 140 140" role="img" aria-label={`Répartition de ${total} avis`}>
-      <circle cx={70} cy={70} r={RAYON} fill="none" stroke="rgba(255,255,255,.07)" strokeWidth={EPAISSEUR} />
+      <circle cx={70} cy={70} r={RAYON} fill="none" stroke="var(--voile, rgba(255,255,255,.07))" strokeWidth={EPAISSEUR} />
       {segments.map((segment, index) => {
         if (segment.valeur === 0) return null
         const longueur = longueurs[index]
@@ -73,7 +73,6 @@ export function KpiSatisfaction({ teacherId, compact }: { teacherId: string | un
     <Section
       compact={compact}
       titre="Satisfaction des élèves"
-      description="Moyenne des enquêtes remplies par les élèves à la fin de chaque séance. Mise à jour automatique."
       compteur={satisfaction.total}
     >
       {loading ? (

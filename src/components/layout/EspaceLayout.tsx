@@ -4,8 +4,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
 import type { Database } from '../../types/database.types'
 import { Logo } from '../shared/Logo'
-import { NotificationsBell } from '../shared/NotificationsBell'
-import { BoutonRafraichir } from '../shared/BoutonRafraichir'
 import { Icone, type NomIcone } from '../ui/Icones'
 
 type Role = Database['public']['Tables']['profiles']['Row']['role']
@@ -95,10 +93,14 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
      `echelle-admin` (demande client du 2026-09-29, cette fois réservée au SEUL espace admin) s'y
      ajoute quand `roleAttendu` est l'admin d'établissement — professeur et étudiant restent au
      palier `echelle-connectee` seul. */
+  /* `espace-clair` porte tout le thème clair des maquettes du 2026-10-16 (voir `body.espace-clair`
+     dans index.css). Posée sur `document.body` pour la même raison que l'échelle : les pop-up sont
+     montées par portail dans `body` et ne descendent d'aucun conteneur de page, donc une classe
+     locale les laisserait sur l'ancien thème sombre. */
   useEffect(() => {
-    document.body.classList.add('echelle-connectee')
+    document.body.classList.add('echelle-connectee', 'espace-clair')
     if (roleAttendu === 'admin_etablissement') document.body.classList.add('echelle-admin')
-    return () => document.body.classList.remove('echelle-connectee', 'echelle-admin')
+    return () => document.body.classList.remove('echelle-connectee', 'echelle-admin', 'espace-clair')
   }, [roleAttendu])
 
   /* Volontairement sans `loading` : tant que session et profil sont déjà connus, un
@@ -108,15 +110,14 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
      premier chargement, session et profil sont encore nuls : l'écran d'attente s'affiche bien. */
   if (!session || !profile || !accesAutorise) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+      <div style={{ minHeight: '100vh', background: '#f7f4ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6f6386' }}>
         Chargement…
       </div>
     )
   }
 
   const totalEntreesNav = navGroups.reduce((total, groupe) => total + groupe.items.length, 0)
-  const groupeActif = navGroups.find((groupe) => groupe.items.some((item) => item.label === actif))
-  const itemActif = groupeActif?.items.find((item) => item.label === actif)
+  const initiales = `${profile.prenom?.[0] ?? ''}${profile.nom?.[0] ?? ''}`.toUpperCase()
 
   return (
     <div style={{ background: 'var(--bg-page)', minHeight: '100vh' }}>
@@ -129,6 +130,19 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
           onClick={() => setTiroirOuvert(false)}
           style={{ border: 'none', padding: 0 }}
         />
+
+        {/* Ouverture du menu sur mobile. La barre supérieure qui le portait a disparu avec la
+            refonte du 2026-10-16 (les maquettes n'en ont pas) : ce bouton flotte donc au-dessus du
+            contenu, et seulement sous 900 px — `.bouton-tiroir` est masquée au-delà. La zone de
+            contenu lui réserve sa place par un retrait en haut (voir .zone-contenu en mobile). */}
+        <button
+          type="button"
+          onClick={() => setTiroirOuvert(true)}
+          aria-label="Ouvrir le menu de navigation"
+          className="bouton-tiroir bouton-tiroir-flottant"
+        >
+          <Icone nom="menu" taille={18} />
+        </button>
 
         <nav
           className={`barre-laterale${tiroirOuvert ? ' tiroir-ouvert' : ''}`}
@@ -157,8 +171,21 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
               </button>
             </div>
             {/* Le nom de l'établissement est porté par le logo juste au-dessus : seul l'espace
-                courant reste à nommer ici. */}
-            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--muted)' }}>
+                courant reste à nommer ici. Pastille lavande pleine depuis la refonte du
+                2026-10-16, où il devient un repère et non plus une mention grise. */}
+            <span
+              className="pastille-espace"
+              style={{
+                alignSelf: 'flex-start',
+                fontWeight: 700,
+                letterSpacing: 1.3,
+                textTransform: 'uppercase',
+                color: 'var(--hoc-barre)',
+                background: 'var(--hoc-lavande-forte)',
+                padding: '4px 10px',
+                borderRadius: 99,
+              }}
+            >
               {LIBELLE_ESPACE[roleAttendu]}
             </span>
           </div>
@@ -227,106 +254,81 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
             ))}
           </div>
 
-          <div className="pied-barre" style={{ padding: '0 12px', borderTop: '1px solid var(--border-soft)' }}>
-            <span className="pied-barre-mention" style={{ display: 'block', color: 'var(--muted)', lineHeight: 1.3 }}>
-              Connecté en tant que
-            </span>
-            <span className="brand-font pied-barre-nom" style={{ display: 'block', color: 'var(--accent-gold, #e9cf94)' }}>
-              {profile.prenom} {profile.nom}
-            </span>
-            <span className="pied-barre-mention" style={{ display: 'block', color: 'var(--muted)' }}>{roleLabel}</span>
-          </div>
-        </nav>
-
-        <div className="zone-contenu">
-          <header
+          {/* Carte du compte connecté, reprise des maquettes du 2026-10-16 : avatar en goutte,
+              nom, rôle, et la déconnexion ramenée ici — elle vivait dans la barre supérieure, que
+              ces maquettes suppriment. La mention « Connecté en tant que » disparaît : l'avatar et
+              la place en pied de barre disent déjà de quel compte il s'agit. */}
+          <div
+            className="pied-barre carte-compte"
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 14,
-              padding: '13px 26px',
-              borderBottom: '1px solid var(--border-soft)',
-              position: 'sticky',
-              top: 0,
-              zIndex: 20,
-              background: 'rgba(11,6,24,.82)',
-              backdropFilter: 'blur(10px)',
+              gap: 10,
+              padding: '10px 12px',
+              borderRadius: 18,
+              background: 'rgba(254, 255, 250, 0.08)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-              <button
-                type="button"
-                onClick={() => setTiroirOuvert(true)}
-                aria-label="Ouvrir le menu de navigation"
-                className="bouton-tiroir"
-                style={{ alignItems: 'center', background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)', borderRadius: 10, color: 'var(--ink-2)', cursor: 'pointer', padding: 7 }}
+            <span
+              aria-hidden
+              className="petale avatar-compte"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                fontWeight: 700,
+                color: 'var(--hoc-barre)',
+                background: 'var(--hoc-lavande-forte)',
+              }}
+            >
+              {initiales}
+            </span>
+            <span style={{ flexGrow: 1, minWidth: 0 }}>
+              <span
+                className="pied-barre-nom police-titre-italique"
+                style={{ display: 'block', fontWeight: 600, color: '#fefffa', overflow: 'hidden', textOverflow: 'ellipsis' }}
               >
-                <Icone nom="menu" taille={17} />
-              </button>
-              <FilAriane
-                racine={LIBELLE_ESPACE[roleAttendu]}
-                groupe={groupeActif?.titre}
-                page={itemActif?.label ?? actif}
-              />
-            </div>
+                {profile.prenom} {profile.nom}
+              </span>
+              <span className="pied-barre-mention" style={{ display: 'block', color: 'var(--hoc-barre-texte)' }}>
+                {roleLabel}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={async () => {
+                // Navigue AVANT d'attendre seDeconnecter() — et non après (bug signalé par le client
+                // le 2026-09-16, « à chaque déconnexion il faut le renvoyer à la page Hero, cette
+                // partie n'est toujours pas prise en compte ») : `seDeconnecter()` déclenche de façon
+                // asynchrone `onAuthStateChange`, qui vide `session` PENDANT que ce composant est
+                // encore monté. Son effet de garde (plus haut) voit alors passer session à `null`
+                // avant que ce gestionnaire n'ait fini d'attendre, et navigue lui-même vers
+                // `/connexion` — cette seconde navigation, plus tardive, écrasait alors le retour au
+                // Hero. Naviguer d'abord démonte ce composant immédiatement : son effet de garde ne
+                // peut plus se déclencher, quel que soit le moment où `session` se vide réellement.
+                navigate('/', { replace: true })
+                await seDeconnecter()
+              }}
+              aria-label="Se déconnecter"
+              title="Se déconnecter"
+              className="bouton-deconnexion-barre"
+            >
+              <Icone nom="deconnexion" taille={17} />
+            </button>
+          </div>
+        </nav>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-              <BoutonRafraichir />
-              <NotificationsBell />
-              <button
-                onClick={async () => {
-                  // Navigue AVANT d'attendre seDeconnecter() — et non après (bug signalé par le client
-                  // le 2026-09-16, « à chaque déconnexion il faut le renvoyer à la page Hero, cette
-                  // partie n'est toujours pas prise en compte ») : `seDeconnecter()` déclenche de façon
-                  // asynchrone `onAuthStateChange`, qui vide `session` PENDANT que ce composant est
-                  // encore monté. Son effet de garde (plus haut) voit alors passer session à `null`
-                  // avant que ce gestionnaire n'ait fini d'attendre, et navigue lui-même vers
-                  // `/connexion` — cette seconde navigation, plus tardive, écrasait alors le retour au
-                  // Hero. Naviguer d'abord démonte ce composant immédiatement : son effet de garde ne
-                  // peut plus se déclencher, quel que soit le moment où `session` se vide réellement.
-                  navigate('/', { replace: true })
-                  await seDeconnecter()
-                }}
-                style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink-2)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '8px 15px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >
-                Déconnexion
-              </button>
-            </div>
-          </header>
-
-          <main style={{ padding: '26px 26px 48px', minWidth: 0 }}>{children}</main>
+        {/* Plus de barre supérieure depuis la refonte du 2026-10-16 : les maquettes n'en ont
+            aucune. Le fil d'Ariane disparaît (il n'était pas cliquable), « Actualiser » et la
+            cloche de notifications remontent dans l'en-tête de chaque page (voir EnTetePage.tsx,
+            par lequel passent toutes les pages des trois espaces) et la déconnexion rejoint la
+            carte du compte en pied de barre latérale. */}
+        <div className="zone-contenu">
+          <main style={{ padding: '28px 36px 48px', minWidth: 0 }}>{children}</main>
         </div>
       </div>
     </div>
-  )
-}
-
-function FilAriane({ racine, groupe, page }: { racine: string; groupe?: string; page: string }) {
-  const segments = [racine, ...(groupe ? [groupe] : []), page]
-  return (
-    <nav aria-label="Fil d’Ariane" style={{ minWidth: 0 }}>
-      <ol style={{ display: 'flex', alignItems: 'center', gap: 7, margin: 0, padding: 0, listStyle: 'none', flexWrap: 'wrap' }}>
-        {segments.map((segment, index) => {
-          const dernier = index === segments.length - 1
-          return (
-            <li key={segment} style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-              {index > 0 && (
-                <span aria-hidden style={{ color: 'var(--muted-2)', display: 'inline-flex' }}>
-                  <Icone nom="chevron" taille={12} />
-                </span>
-              )}
-              <span
-                aria-current={dernier ? 'page' : undefined}
-                style={{ fontSize: 12.5, fontWeight: dernier ? 700 : 500, color: dernier ? 'var(--ink)' : 'var(--muted)' }}
-              >
-                {segment}
-              </span>
-            </li>
-          )
-        })}
-      </ol>
-    </nav>
   )
 }
 
@@ -339,13 +341,16 @@ function LienNav({ item, actif }: { item: NavItem; actif: boolean }) {
      l'emporterait sur la feuille de style quelle qu'en soit la spécificité — c'est précisément ce
      qui empêchait la barre de se resserrer sur un écran court (2026-10-13). Seule la gouttière
      horizontale reste ici : elle ne dépend pas de la hauteur. */
+  /* Ni `color` ni `background` ici depuis la refonte du 2026-10-16 : les deux vivent dans
+     `.barre-laterale .nav-item` et `.nav-item-active` (index.css), où le thème clair les redéfinit.
+     Un style inline l'emporterait sur la feuille de style quelle qu'en soit la spécificité — la
+     pilule active serait restée sur l'or du thème sombre. L'entrée indisponible est un `<span>` et
+     non un `<a>` : c'est à ce sélecteur que la feuille s'accroche pour l'estomper. */
   const style: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
-    borderRadius: 11,
-    fontWeight: actif ? 800 : 600,
-    color: actif ? '#1b1510' : item.disponible ? 'var(--ink-2)' : 'var(--muted-2)',
-    background: actif ? 'var(--accent-gradient)' : undefined,
+    borderRadius: 12,
+    fontWeight: actif ? 700 : 600,
     opacity: item.disponible ? 1 : 0.55,
   }
 

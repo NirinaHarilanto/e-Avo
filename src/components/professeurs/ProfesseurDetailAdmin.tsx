@@ -47,7 +47,6 @@ export function ProfesseurDetailAdmin() {
               </span>
             }
             titre={`${detail.professeur.prenom} ${detail.professeur.nom}`}
-            description={detail.professeur.email}
             actions={
               <SupprimerCompte personne={detail.professeur} onSupprime={() => navigate('/admin/professeurs')} />
             }
@@ -87,7 +86,6 @@ export function ProfesseurDetailAdmin() {
           <div className="grille-dossier">
             <Section
               titre="Élèves attribués"
-              description="Les élèves actuellement suivis par ce professeur, avec le détail de leurs forfaits."
               compteur={detail.eleves.length}
               padding={22}
             >
@@ -119,7 +117,6 @@ export function ProfesseurDetailAdmin() {
 
               <Section
                 titre="TimeSheets"
-                description="Les relevés d'heures envoyés par ce professeur, à valider ou déjà traités."
                 compteur={timesheetsProfesseur.length}
                 padding={22}
               >
@@ -138,7 +135,7 @@ function LigneEleve({ eleveDuProfesseur }: { eleveDuProfesseur: EleveDuProfesseu
   return (
     <div className="card card-lift" style={{ padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        <span style={{ width: 38, height: 38, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
+        <span style={{ width: 38, height: 38, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
           {initiales(eleve)}
         </span>
         <div style={{ flexGrow: 1, minWidth: 160 }}>

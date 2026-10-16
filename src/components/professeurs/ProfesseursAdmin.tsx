@@ -5,7 +5,6 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { supabase } from '../../lib/supabaseClient'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement } from '../ui/Etats'
@@ -87,42 +86,12 @@ export function ProfesseursAdmin() {
       <EnTetePage
         compact
         titre="Professeurs"
-        description="L’équipe enseignante de l’établissement et sa charge actuelle. Cliquez sur une carte pour ouvrir la fiche détaillée du professeur."
         actions={
           <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
             <Icone nom="plus" taille={15} />
             {formulaireOuvert ? 'Fermer' : 'Inviter un professeur'}
           </button>
         }
-      />
-
-      <GuidePage
-        id="admin-professeurs"
-        compact
-        etapes={[
-          <>
-            <strong>Invitez</strong> un professeur par e-mail : il définira son mot de passe et accèdera à son espace,
-            où il planifiera lui-même ses séances.
-          </>,
-          <>
-            Ouvrez sa fiche pour voir ses élèves, ses heures enseignées par élève, et renseigner son{' '}
-            <strong>taux horaire</strong> — c’est lui qui alimente le calcul des rémunérations.
-          </>,
-          <>
-            L’attribution ne se fait pas ici : pour un élève en individuel ou en duo, elle part de son dossier, page{' '}
-            <strong>Étudiants</strong> (chaque changement y est tracé avec son motif) ; pour un cours collectif, elle
-            se décide par classe dans <strong>Cours collectifs › Vagues</strong>.
-          </>,
-          <>
-            Utilisez la <strong>recherche</strong> ou le filtre par <strong>charge</strong> pour retrouver un
-            professeur, ou repérer ceux qui n’ont pas encore d’élève attribué.
-          </>,
-          <>
-            Le badge <strong>Contrat signé / en attente / aucun contrat</strong> sur chaque carte indique s’il reste à
-            faire signer un contrat avant que ce professeur ne commence à enseigner — la génération se fait page{' '}
-            <strong>Contrats</strong>.
-          </>,
-        ]}
       />
 
       {formulaireOuvert && (

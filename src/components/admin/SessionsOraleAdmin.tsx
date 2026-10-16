@@ -15,7 +15,6 @@ import { ConvertirCandidatCollectif } from '../prospects/ConvertirCandidatCollec
 import { Modale } from '../ui/Modale'
 import { Icone } from '../ui/Icones'
 import { ChampDate } from '../ui/ChampDate'
-import { GuidePage } from '../ui/GuidePage'
 
 type CreneauTest = Database['public']['Tables']['creneaux_test_positionnement']['Row']
 type Inscription = Database['public']['Tables']['test_positionnement_inscriptions']['Row']
@@ -189,28 +188,6 @@ export function SessionsOraleAdmin() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <GuidePage
-        id="admin-sessions-orale"
-        compact
-        etapes={[
-          <>
-            Toutes les sessions de test oral, <strong>quelle que soit leur vague</strong>, sont réunies ici — la liste
-            déroulante filtre sur une vague en particulier. Le rattachement à une vague se choisit à la création et se
-            corrige à tout moment avec <strong>Modifier</strong> ; le lien de visioconférence se génère seul.
-          </>,
-          <>
-            Une session ouverte ici devient un créneau réservable par les candidats depuis la page publique. C’est en y
-            répondant au <strong>quiz de positionnement</strong> qu’ils valident définitivement leur place.
-          </>,
-          <>
-            <strong>Voir les inscrits</strong> ouvre la liste des candidats d’une session, avec leur score au quiz
-            écrit. Une fois le test oral passé, arrêtez leur <strong>niveau</strong> puis convertissez-les en
-            étudiant — la conversion exige d’abord l’enregistrement des <strong>frais d’inscription</strong> du niveau
-            retenu.
-          </>,
-        ]}
-      />
-
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ ...etiquetteStyle, fontSize: 11 }}>
           {creneaux.length} session{creneaux.length > 1 ? 's' : ''}
@@ -362,7 +339,7 @@ export function SessionsOraleAdmin() {
               (candidatsParCreneau.get(inscritsOuvertPour.id) ?? []).map((candidat) => {
                 const dejaConverti = candidat.prospect?.statut === 'etudiant'
                 return (
-                  <div key={candidat.inscription.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,.03)', flexWrap: 'wrap' }}>
+                  <div key={candidat.inscription.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: 'var(--voile-doux, rgba(255,255,255,.03))', flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       onClick={() => setBilanOuvert(candidat)}

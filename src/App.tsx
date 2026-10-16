@@ -57,9 +57,13 @@ const MonProfil = lazy(() => import('./components/shared/MonProfil').then((m) =>
 /* Repère bref pendant le téléchargement d'un espace — chaque écran affiche déjà lui-même
    « Chargement… » le temps de connaître la session (voir EspaceLayout.tsx) ; celui-ci ne couvre
    que l'instant, plus bref, du téléchargement du code de l'écran demandé. */
+/* Couleurs posées en dur, et non `var(--bg-page)`/`var(--muted)` : cet écran s'affiche AVANT que
+   l'espace demandé soit monté, donc avant que `body.espace-clair` ne pose le thème (voir
+   EspaceLayout.tsx). Les variables y valent encore celles du thème sombre, et l'attente se
+   traduisait par un flash noir entre deux écrans clairs. */
 function ChargementEspace() {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-page)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+    <div style={{ minHeight: '100vh', background: '#f7f4ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6f6386' }}>
       Chargement…
     </div>
   )

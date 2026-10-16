@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { Onglets } from '../ui/Onglets'
 import { Messagerie } from './Messagerie'
 import { TemplatesEmails } from './TemplatesEmails'
@@ -17,38 +16,6 @@ export function MessagesAdmin() {
     <AdminLayout actif="Messages">
       <EnTetePage
         titre="Messages"
-        description="La messagerie interne de Hari Online Club, et les modèles d’e-mails du parcours apprenant à envoyer en deux clics."
-      />
-
-      <GuidePage
-        id="admin-messages"
-        compact
-        etapes={[
-          <>
-            <strong>Messages</strong> : la messagerie interne. Vous écrivez à n’importe quelle personne inscrite — élève,
-            professeur ou collègue — et chacun reçoit une notification dans sa cloche.
-          </>,
-          <>
-            <strong>Template e-mails</strong> : les 22 modèles du parcours apprenant (prospection, inscription,
-            démarrage, suivi, satisfaction, réclamations). « Utiliser » prépare le mail, le pré-remplit, et vous le
-            relisez avant l’envoi.
-          </>,
-          <>
-            Deux canaux, au choix, une fois le texte relu : <strong>Envoyer</strong> dépose le message dans
-            l’application — les destinataires le lisent dans leur section Messages — tandis que{' '}
-            <strong>Envoyer via gmail</strong> l’ouvre dans votre boîte Gmail, où vous l’envoyez vous-même et en gardez
-            la trace dans vos messages envoyés. Une pièce jointe attendue se joint de ce côté-là seulement.
-          </>,
-          <>
-            Renseignez une fois <strong>« Liens et numéros réutilisés »</strong> (lien de réservation, Orange Money,
-            Mvola, dates de test oral) : ils se glisseront seuls dans tous les modèles qui les mentionnent.
-          </>,
-          <>
-            « Enregistrer » met le mail de côté en <strong>brouillon</strong> sans toucher au modèle ; vous le reprenez
-            plus tard depuis le haut de cette page. <strong>Derniers messages</strong> garde la trace de chaque envoi
-            avec son canal et son état.
-          </>,
-        ]}
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>

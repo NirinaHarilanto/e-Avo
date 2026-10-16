@@ -13,7 +13,6 @@ import { GestionAccesDocument } from '../documents/GestionAccesDocument'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import type { Database } from '../../types/database.types'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GroupeSection } from '../ui/Section'
 import { Onglets } from '../ui/Onglets'
 import { ListeComptesRendus } from '../shared/ListeComptesRendus'
@@ -56,7 +55,6 @@ export function DocumentsAdmin() {
     <AdminLayout actif="Documents">
       <EnTetePage
         titre="Documents"
-        description="Tous les fichiers de l’établissement, rangés par destinataire et par niveau de confidentialité. Chaque onglet correspond à une règle de visibilité différente."
         actions={
           <Onglets
             etiquette="Catégories de documents"
@@ -68,35 +66,6 @@ export function DocumentsAdmin() {
             onglets={ONGLETS}
           />
         }
-      />
-
-      <GuidePage
-        id="admin-documents"
-        etapes={[
-          <>
-            <strong>Étudiants</strong> et <strong>Professeurs</strong> : choisissez une personne à gauche pour voir et
-            compléter son dossier de pièces. Elle seule, ses professeurs et l’administration y ont accès.
-          </>,
-          <>
-            <strong>Partageables</strong> : des documents visibles par tout l’établissement, à utiliser pour les
-            supports de cours et les règlements communs.
-          </>,
-          <>
-            <strong>Comptes rendus</strong> : rédigés par les professeurs après leurs séances. Ils sont en lecture seule
-            ici, et visibles par l’élève concerné.
-          </>,
-          <>
-            <strong>Confidentiels</strong> : visibles uniquement par les personnes que vous ajoutez explicitement à la
-            liste d’accès du document. Même les autres administrateurs n’y accèdent pas sans y être inscrits.
-          </>,
-          <>
-            <strong>Partager un document.</strong> Cliquez n’importe quel fichier de ces onglets, puis{' '}
-            <strong>Partager</strong> : choisissez une personne et elle le retrouvera dans son espace, section{' '}
-            <strong>Documents → Mes fichiers partagés</strong>, avec votre nom et votre mot d’accompagnement. Le fichier
-            ne bouge pas de l’endroit où il est rangé, et la personne ne peut que le consulter et le télécharger. Vous
-            retirez le partage quand vous voulez, depuis la même fenêtre.
-          </>,
-        ]}
       />
 
       {(onglet === 'etudiants' || onglet === 'professeurs') && (
@@ -139,7 +108,7 @@ export function DocumentsAdmin() {
                   color: 'inherit',
                 }}
               >
-                <span style={{ width: 38, height: 38, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
+                <span style={{ width: 38, height: 38, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
                   {initiales(personne)}
                 </span>
                 <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>
@@ -176,7 +145,6 @@ function PanneauDocuments({ personne, etablissementId }: { personne: Profile; et
   return (
     <GroupeSection
       titre={`Documents de ${personne.prenom} ${personne.nom}`}
-      description="Visibles par cette personne, par ses professeurs le cas échéant, et par l’administration."
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {erreur && <MessageErreur>{erreur}</MessageErreur>}
@@ -222,7 +190,6 @@ function PanneauPartageables({ etablissementId, adminId }: { etablissementId: st
   return (
     <GroupeSection
       titre="Documents partageables"
-      description="Supports de présentation, communications et règlements internes — visibles par tout le monde dans l’établissement, élèves comme professeurs."
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <MessageInfo>
@@ -296,7 +263,6 @@ function PanneauComptesRendus({ accessToken }: { accessToken: string | undefined
   return (
     <GroupeSection
       titre="Comptes rendus de séances"
-      description="Rédigés par les professeurs après chaque cours, en lecture seule ici. L’élève concerné les retrouve dans son espace."
     >
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -404,7 +370,6 @@ function PanneauConfidentiels({ etablissementId, adminId }: { etablissementId: s
   return (
     <GroupeSection
       titre="Documents confidentiels"
-      description="Visibles uniquement par vous et par les personnes que vous ajoutez nommément à la liste d’accès de chaque document."
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <MessageInfo>

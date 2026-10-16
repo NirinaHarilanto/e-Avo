@@ -14,7 +14,6 @@ import { CarteListeEtudiant, TagAncienEleve, TagDossierIncomplet } from '../etud
 import { PanneauInformationsDuo, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
 import { SyntheseComptesRendus } from '../shared/SyntheseComptesRendus'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { ChampRecherche } from '../ui/BarreOutils'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
@@ -77,35 +76,6 @@ export function EtudiantsProfesseur() {
     <ProfesseurLayout actif="Mes étudiants">
       <EnTetePage
         titre="Mes étudiants"
-        description="Les élèves qui vous sont actuellement attribués. Sélectionnez un nom pour consulter son parcours, ses séances et son assiduité."
-      />
-
-      <GuidePage
-        id="professeur-etudiants"
-        etapes={[
-          <>
-            Dans la liste de gauche, chaque nom porte son programme — <strong>Collectif</strong>,{' '}
-            <strong>INDIV</strong> ou <strong>DUO</strong> — et l’état de son contrat : ✓ signé, ⏳ en attente, triangle
-            rouge s’il n’en a pas encore. Cliquez un nom pour ouvrir son dossier.
-          </>,
-          <>
-            Le <strong>parcours pédagogique</strong> liste toutes ses séances avec vous et sa présence à chacune, utile
-            pour préparer votre prochain cours. Ses informations personnelles sont en lecture seule.
-          </>,
-          <>
-            L’onglet <strong>Planning</strong> du forfait vous permet de générer, modifier ou annuler le planning
-            prévisionnel d’un élève actuellement attribué — exactement comme dans l’espace admin.
-          </>,
-          <>
-            Un élève qui change de professeur passe dans la section <strong>« Anciens élèves »</strong> avec la date du
-            transfert : son historique avec vous reste consultable, mais son planning n’est plus modifiable.
-          </>,
-          <>
-            Le bouton <strong>« Résumer les comptes rendus »</strong>, en haut du dossier, condense d’un clic tous vos
-            comptes rendus de séance avec cet élève : compétences travaillées, progression, points à améliorer et fil des
-            séances.
-          </>,
-        ]}
       />
 
       <div className="grille-maitre-detail">

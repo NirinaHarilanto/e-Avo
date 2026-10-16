@@ -21,7 +21,6 @@ import { SyntheseComptesRendus } from '../shared/SyntheseComptesRendus'
 import { heuresRestantes as calculerHeuresRestantes, totalHeuresCumulees } from '../../lib/heures'
 import { MettreEnPauseCompte } from './MettreEnPauseCompte'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { ChampRecherche } from '../ui/BarreOutils'
 import { EtatVide } from '../ui/EtatVide'
@@ -76,56 +75,12 @@ export function EtudiantsAdmin() {
       <EnTetePage
         compact
         titre="Étudiants"
-        description="Le dossier de chaque étudiant réunit son professeur, son programme, ses séances et son compteur d’heures. Sélectionnez un nom à gauche pour l’ouvrir."
         actions={
           <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
             <Icone nom="plus" taille={15} />
             {formulaireOuvert ? 'Fermer' : 'Ajouter un étudiant'}
           </button>
         }
-      />
-
-      <GuidePage
-        id="admin-etudiants"
-        compact
-        etapes={[
-          <>
-            Cliquez sur <strong>Ajouter un étudiant</strong> pour lui envoyer une invitation par e-mail. Il choisira
-            lui-même son mot de passe.
-          </>,
-          <>
-            Dans la liste de gauche, chaque nom porte son programme — <strong>Collectif</strong>,{' '}
-            <strong>INDIV</strong> ou <strong>DUO</strong> — et l’état de son contrat : ✓ signé, ⏳ en attente, triangle
-            rouge s’il n’y en a aucun. La génération d’un contrat se fait page <strong>Contrats</strong>.
-          </>,
-          <>
-            Ouvrez un dossier, puis attribuez-lui un <strong>professeur</strong> depuis l’onglet du même nom. En{' '}
-            <strong>cours collectif</strong>, ce bouton reste grisé : le professeur s’y décide par classe, dans{' '}
-            <strong>Cours collectifs › Vagues</strong>.
-          </>,
-          <>
-            Choisissez ensuite son <strong>programme</strong> : individuel ou duo (forfait d’heures), ou collectif
-            (inscription à une vague).
-          </>,
-          <>
-            L’en-tête du dossier signale un <strong>Dossier incomplet</strong> tant que le téléphone, l’adresse ou la
-            ville manquent — à compléter avant de générer un contrat ou une facture.
-          </>,
-          <>
-            Le compteur d’heures et le taux d’assiduité se mettent à jour automatiquement à la clôture de chaque séance,
-            il n’y a rien à saisir à la main.
-          </>,
-          <>
-            Le bouton doré <strong>« Résumer les comptes rendus »</strong>, en haut du dossier, condense d’un clic tous
-            les comptes rendus de séance de l’élève : compétences travaillées, progression, points à améliorer, mots
-            récurrents et fil des séances. La synthèse se copie en un clic pour un e-mail.
-          </>,
-          <>
-            Un étudiant en collectif peut <strong>changer de promotion</strong> tant qu'il n'a suivi aucune séance
-            décomptée de son forfait dans sa promotion actuelle. Dès la première séance clôturée, le changement est
-            bloqué automatiquement.
-          </>,
-        ]}
       />
 
       {formulaireOuvert && (
@@ -396,7 +351,7 @@ function PanneauAjoutForfait({
                 value={motifRefus}
                 onChange={(e) => setMotifRefus(e.target.value)}
                 placeholder="Motif du refus (facultatif)"
-                style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '7px 9px', fontSize: 12, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+                style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '7px 9px', fontSize: 12, color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
               />
               <span style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => setRefusEnCours(null)} style={boutonNeutreStyle}>

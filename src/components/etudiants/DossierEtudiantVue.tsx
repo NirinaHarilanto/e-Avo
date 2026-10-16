@@ -48,7 +48,7 @@ const boutonPanneauStyle: React.CSSProperties = {
    pédagogique, plutôt que la même information répétée à deux endroits du dossier. */
 function BlocDiagnostic({ diagnostic, tarifChoisi }: { diagnostic: NonNullable<DossierEtudiant['diagnostic']>; tarifChoisi?: DossierEtudiant['tarifChoisi'] }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 14, border: '1px solid rgba(255,255,255,.08)', background: 'rgba(255,255,255,.03)', padding: '15px 18px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--voile-doux, rgba(255,255,255,.03))', padding: '15px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink-2)', flexGrow: 1 }}>
           Appel diagnostic réalisé{diagnostic.niveau_evalue ? ` · niveau initial ${diagnostic.niveau_evalue}` : ''}
@@ -66,7 +66,7 @@ function BlocDiagnostic({ diagnostic, tarifChoisi }: { diagnostic: NonNullable<D
         </span>
       )}
       {diagnostic.notes && (
-        <div style={{ background: 'rgba(0,0,0,.24)', borderRadius: 12, padding: '11px 13px' }}>
+        <div style={{ background: 'var(--fond-champ, rgba(0,0,0,.22))', borderRadius: 12, padding: '11px 13px' }}>
           <TexteRepliable
             texte={`« ${diagnostic.notes} »`}
             style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--muted)', whiteSpace: 'pre-wrap' }}
@@ -77,7 +77,7 @@ function BlocDiagnostic({ diagnostic, tarifChoisi }: { diagnostic: NonNullable<D
           dossier d'élève, ce qui est précisément ce que la demande client appelle « enregistrer
           les résultats dans les informations des étudiants ». */}
       {estRempli(diagnostic.reponses ?? {}) && (
-        <div style={{ background: 'rgba(0,0,0,.24)', borderRadius: 12, padding: '13px 15px' }}>
+        <div style={{ background: 'var(--fond-champ, rgba(0,0,0,.22))', borderRadius: 12, padding: '13px 15px' }}>
           <RecapitulatifDiagnostic reponses={diagnostic.reponses} />
         </div>
       )}
@@ -280,7 +280,7 @@ function BadgeProfesseurSupprime() {
         fontSize: 10,
         fontWeight: 700,
         color: 'var(--muted)',
-        background: 'rgba(255,255,255,.06)',
+        background: 'var(--voile, rgba(255,255,255,.06))',
         border: '1px solid var(--border-soft)',
         borderRadius: 999,
         padding: '2px 8px',
@@ -323,7 +323,7 @@ function BlocPeriode({
       style={{
         borderRadius: 16,
         border: estActuelle ? '1px solid rgba(169,140,255,.3)' : '1px solid var(--border)',
-        background: estActuelle ? 'linear-gradient(160deg, rgba(42,26,82,.6), rgba(28,17,57,.7))' : 'var(--surface)',
+        background: estActuelle ? 'var(--hoc-pastille, rgba(42,26,82,.6))' : 'var(--surface)',
         overflow: 'hidden',
       }}
     >
@@ -333,7 +333,7 @@ function BlocPeriode({
             width: 44,
             height: 44,
             borderRadius: 14,
-            background: estActuelle ? 'var(--accent-blue-gradient)' : 'rgba(255,255,255,.06)',
+            background: estActuelle ? 'var(--accent-blue-gradient)' : 'var(--voile, rgba(255,255,255,.06))',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -388,7 +388,7 @@ function BlocPeriode({
               tableau n'apporterait rien et imposerait un balisage de cellules complet. */}
           <div
             aria-hidden
-            style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '7px 18px', background: 'rgba(0,0,0,.18)', borderBottom: '1px solid var(--border-soft)' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '7px 18px', background: 'var(--fond-champ, rgba(0,0,0,.22))', borderBottom: '1px solid var(--border-soft)' }}
           >
             <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 90, flexShrink: 0 }}>
               Date
@@ -600,7 +600,7 @@ export function DossierEtudiantVue({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <span style={{ width: 54, height: 54, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 18, fontWeight: 800, flexShrink: 0 }}>
+          <span style={{ width: 54, height: 54, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 18, fontWeight: 800, flexShrink: 0 }}>
             {initiales(etudiant)}
           </span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}>
@@ -609,11 +609,11 @@ export function DossierEtudiantVue({
                 n'existe que côté principal — c'est bien lui qui porte le dossier partagé, voir
                 useDossierEtudiant. */}
             {duoPartenaire ? (
-              <h2 style={{ fontSize: 22, color: '#fff', margin: 0 }}>
+              <h2 style={{ fontSize: 22, color: 'var(--ink)', margin: 0 }}>
                 {etudiant.prenom} {etudiant.nom} & {duoPartenaire.prenom} {duoPartenaire.nom}
               </h2>
             ) : (
-              <h2 style={{ fontSize: 22, color: '#fff', margin: 0 }}>
+              <h2 style={{ fontSize: 22, color: 'var(--ink)', margin: 0 }}>
                 {etudiant.prenom} {etudiant.nom}
               </h2>
             )}
@@ -865,12 +865,12 @@ export function DossierEtudiantVue({
                     aria-valuemin={0}
                     aria-valuemax={totalHeuresCumulees}
                     aria-label="Heures consommées sur l’ensemble des forfaits"
-                    style={{ height: 10, borderRadius: 999, background: 'rgba(0,0,0,.3)', overflow: 'hidden', display: 'flex' }}
+                    style={{ height: 10, borderRadius: 999, background: 'var(--fond-champ, rgba(0,0,0,.22))', overflow: 'hidden', display: 'flex' }}
                   >
                     <span
                       style={{
                         width: `${Math.min(100, (heuresConsommees / totalHeuresCumulees) * 100)}%`,
-                        background: 'linear-gradient(90deg,#a98cff,#e9cf94)',
+                        background: 'var(--accent-blue)',
                         borderRadius: 999,
                       }}
                     />

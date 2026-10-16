@@ -5,7 +5,6 @@ import { useTousLesTemoignages, urlPhotoTemoignage, type Temoignage } from '../.
 import { supabase } from '../../lib/supabaseClient'
 import type { StatutTemoignage } from '../../types/database.types'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { Section } from '../ui/Section'
 import { Onglets, type Onglet } from '../ui/Onglets'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -227,37 +226,11 @@ export function AvisAdmin() {
     <AdminLayout actif="Gestion des avis">
       <EnTetePage
         titre="Gestion des avis"
-        description="Les avis d’ensemble déposés par vos élèves en fin de parcours, et les témoignages affichés sur votre site. À ne pas confondre avec les enquêtes de satisfaction remplies après chaque séance, visibles sur la fiche de chaque professeur."
         actions={
           <button type="button" style={boutonPrimaireStyle} onClick={() => setCreation(true)}>
             + Ajouter un témoignage
           </button>
         }
-      />
-
-      <GuidePage
-        id="avis"
-        etapes={[
-          <>
-            Un élève qui a consommé <strong>toutes les heures de son forfait</strong> (individuel, duo
-            ou collectif) reçoit une notification l’invitant à raconter son parcours depuis son espace
-            personnel. Son avis arrive ici, dans <strong>À valider</strong>.
-          </>,
-          <>
-            <strong>Publier</strong> fait apparaître l’avis sur la page Témoignages du site, avec la
-            photo de profil de l’élève s’il en a déposé une. <strong>Écarter</strong> ne le publie pas :
-            l’élève voit le motif que vous indiquez et peut en proposer un autre.
-          </>,
-          <>
-            L’onglet <strong>En ligne</strong> regroupe tous les témoignages visibles, y compris ceux
-            d’avant cette fonctionnalité. Vous pouvez les modifier, les réordonner (ce sont les
-            premiers que voient vos visiteurs) ou les retirer.
-          </>,
-          <>
-            <strong>Ajouter un témoignage</strong> sert aux avis reçus hors de l’application (message,
-            e-mail, oral) : vous saisissez vous-même le nom, l’année et le texte.
-          </>,
-        ]}
       />
 
       <GrilleStats>
@@ -278,7 +251,6 @@ export function AvisAdmin() {
 
       <Section
         titre={<span style={{ color: etat.couleur }}>{etat.titre}</span>}
-        description={etat.aide}
         compteur={liste.length}
         style={{ marginTop: 14 }}
       >
@@ -569,7 +541,7 @@ function FormulaireTemoignage({ temoignage, etablissementId, dossierAssets, onFe
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,.55)',
+        background: 'rgba(73,48,106,.45)',
         display: 'grid',
         placeItems: 'center',
         padding: 16,

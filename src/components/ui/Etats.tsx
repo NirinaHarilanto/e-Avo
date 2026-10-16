@@ -33,14 +33,34 @@ function Bandeau({
   icone: 'alerte' | 'valide' | 'info'
   children: ReactNode
 }) {
+  /* Les fonds et bordures passent par des variables à valeur de repli : le thème clair des espaces
+     les redéfinit en aplats pastel pleins et sans bordure, comme le bandeau « À compléter » des
+     maquettes du 2026-10-16 ; le repli garde les voiles translucides du thème sombre, que portent
+     encore la vitrine et la page de connexion. */
   const couleurs = {
-    erreur: { texte: 'var(--danger)', fond: 'rgba(255,138,112,.10)', bord: 'rgba(255,138,112,.34)' },
-    succes: { texte: 'var(--success)', fond: 'rgba(111,227,192,.10)', bord: 'rgba(111,227,192,.34)' },
-    info: { texte: 'var(--accent-cyan)', fond: 'rgba(169,140,255,.10)', bord: 'rgba(169,140,255,.30)' },
+    erreur: {
+      texte: 'var(--texte-bandeau-erreur, var(--danger))',
+      fond: 'var(--fond-bandeau-erreur, rgba(255,138,112,.10))',
+      bord: 'var(--bord-bandeau-erreur, rgba(255,138,112,.34))',
+    },
+    succes: {
+      texte: 'var(--texte-bandeau-succes, var(--success))',
+      fond: 'var(--fond-bandeau-succes, rgba(111,227,192,.10))',
+      bord: 'var(--bord-bandeau-succes, rgba(111,227,192,.34))',
+    },
+    info: {
+      texte: 'var(--texte-bandeau-info, var(--accent-cyan))',
+      fond: 'var(--fond-bandeau-info, rgba(169,140,255,.10))',
+      bord: 'var(--bord-bandeau-info, rgba(169,140,255,.30))',
+    },
     // Distinct de « erreur » (rouge, bloquant) : un avertissement signale, sans empêcher d'agir —
     // demande client du 2026-10-10, « mets l'information [...] sous forme de warning » pour une
     // information jusqu'ici en simple texte gris, qui se perdait à côté du reste.
-    avertissement: { texte: 'var(--warning)', fond: 'rgba(233,207,148,.12)', bord: 'rgba(233,207,148,.34)' },
+    avertissement: {
+      texte: 'var(--texte-bandeau-avertissement, var(--warning))',
+      fond: 'var(--fond-bandeau-avertissement, rgba(233,207,148,.12))',
+      bord: 'var(--bord-bandeau-avertissement, rgba(233,207,148,.34))',
+    },
   }[ton]
 
   return (
@@ -48,14 +68,14 @@ function Bandeau({
       role={ton === 'erreur' ? 'alert' : 'status'}
       style={{
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         gap: 10,
-        padding: '11px 14px',
-        borderRadius: 12,
+        padding: '12px 16px',
+        borderRadius: 16,
         border: `1px solid ${couleurs.bord}`,
         background: couleurs.fond,
         color: couleurs.texte,
-        fontSize: 13,
+        fontSize: 14,
         lineHeight: 1.5,
       }}
     >

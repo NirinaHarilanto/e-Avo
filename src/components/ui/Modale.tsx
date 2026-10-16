@@ -27,9 +27,11 @@ interface ModaleProps {
    l'arbre React (que les portails conservent), rétablit l'ordre attendu. */
 const ProfondeurModale = createContext(0)
 
-/* Fenêtre pop-up générique, sombre, dans le même thème que le reste de l'application.
-   Utilisée en premier lieu pour le détail d'un prospect (carte de pipeline repliée par
-   défaut), réutilisable partout où une action ponctuelle ne justifie pas une page dédiée. */
+/* Fenêtre pop-up générique, dans le même thème que le reste de l'application — clair dans les
+   trois espaces depuis le 2026-10-16, le portail restant un descendant de `body`, qui porte la
+   classe de thème. Utilisée en premier lieu pour le détail d'un prospect (carte de pipeline
+   repliée par défaut), réutilisable partout où une action ponctuelle ne justifie pas une page
+   dédiée. */
 export function Modale({ titre, onFermer, children, largeurMax = 480, fermetureExterieureDesactivee = false }: ModaleProps) {
   const voile = useRef<HTMLDivElement>(null)
   const profondeur = useContext(ProfondeurModale)
@@ -71,7 +73,9 @@ export function Modale({ titre, onFermer, children, largeurMax = 480, fermetureE
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(8,4,18,.68)',
+        /* Voile violet à 42 % plutôt que le noir à 68 % du thème sombre : sur une page claire,
+           un voile aussi dense éteint complètement l'écran derrière la fenêtre. */
+        background: 'var(--voile-modale, rgba(8,4,18,.68))',
         zIndex: 300 + profondeur * 10,
         display: 'flex',
         alignItems: 'flex-start',

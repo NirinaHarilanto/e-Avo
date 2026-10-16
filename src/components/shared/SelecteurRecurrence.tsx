@@ -78,7 +78,7 @@ export function SelecteurRecurrence({
             gap: 12,
             borderRadius: 12,
             border: '1px solid var(--border-soft, var(--border))',
-            background: 'rgba(255,255,255,.03)',
+            background: 'var(--voile-doux, rgba(255,255,255,.03))',
             padding: '12px 14px',
           }}
         >

@@ -4,17 +4,19 @@ import type { CSSProperties, ReactNode } from 'react'
    quinzaine d'endroits, avec des paddings et des tailles légèrement différents à chaque fois.
    Le bouton principal, lui, reste la paire de classes `btn-shine btn-primary` d'index.css. */
 
+/* Gabarit des maquettes du 2026-10-16 : carré arrondi à 12 px et fond plein, là où le thème
+   sombre posait une pilule à 999 px sur fond transparent. */
 const base: CSSProperties = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
   gap: 7,
-  fontSize: 12,
-  fontWeight: 700,
-  background: 'transparent',
+  fontSize: 13,
+  fontWeight: 600,
+  background: 'var(--surface)',
   border: '1px solid var(--border)',
-  borderRadius: 999,
-  padding: '7px 14px',
+  borderRadius: 12,
+  padding: '8px 14px',
   cursor: 'pointer',
   whiteSpace: 'nowrap',
 }
@@ -24,9 +26,12 @@ export const boutonNeutreStyle: CSSProperties = { ...base, color: 'var(--ink-2)'
 export const boutonDangerStyle: CSSProperties = { ...base, color: 'var(--danger)' }
 export const boutonAvertissementStyle: CSSProperties = { ...base, color: 'var(--warning)' }
 
+/* L'or des maquettes porte du texte violet, pas le presque-noir du thème sombre. Le rayon et le
+   remplissage viennent de `.btn-shine`/`.btn-primary` (index.css), avec lesquelles ce style est
+   toujours combiné. */
 export const boutonPrimaireStyle: CSSProperties = {
   background: 'var(--accent-gradient)',
-  color: '#1b1510',
+  color: 'var(--ink)',
 }
 
 /* Un clic qui déclenche un appel réseau doit TOUJOURS se voir — demande client du 2026-10-12,

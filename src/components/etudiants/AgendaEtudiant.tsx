@@ -6,7 +6,6 @@ import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
 import { LIBELLE_ADMIN, seanceSansEffet } from '../../lib/agendaEvenements'
 import { EtudiantLayout } from '../layout/EtudiantLayout'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
 import { Modale } from '../ui/Modale'
 import { LigneInfo } from '../ui/Champ'
@@ -158,32 +157,6 @@ export function AgendaEtudiant() {
     <EtudiantLayout actif="Mon agenda">
       <EnTetePage
         titre="Mon agenda"
-        description="Vos cours de la semaine, heure par heure. Cliquez sur un cours pour voir son professeur, sa durée et son lien de visioconférence."
-      />
-
-      <GuidePage
-        id="etudiant-agenda"
-        etapes={[
-          <>
-            Les flèches changent de semaine, <strong>Aujourd’hui</strong> ramène à la semaine en cours.
-          </>,
-          <>
-            Vous y voyez vos cours — <strong>bleu</strong> à venir, <strong>vert</strong> déjà donné — ainsi que vos
-            rendez-vous et les invitations de l’administration. Une séance annulée ou reportée disparaît de l’agenda.
-          </>,
-          <>
-            Cliquez sur un cours à venir pour l’ouvrir : professeur, type, durée, et le bouton{' '}
-            <strong>Rejoindre le cours</strong> à utiliser quelques minutes avant le début.
-          </>,
-          <>
-            Sur un cours déjà donné, la même fiche montre votre présence, le <strong>compte rendu</strong> rédigé par
-            votre professeur et l’avis que vous avez laissé.
-          </>,
-          <>
-            Cet agenda est alimenté par votre professeur et par l’administration : un horaire faux se signale depuis{' '}
-            <strong>Messages</strong>, il ne se corrige pas ici.
-          </>,
-        ]}
       />
 
       {loading && <EtatChargement lignes={3} hauteur={110} />}
@@ -226,7 +199,7 @@ export function AgendaEtudiant() {
               <LigneInfo label="Participants (optionnel)" valeur={evenementOuvert.optionnels.map((p) => `${p.prenom} ${p.nom}`).join(', ')} />
             )}
             {evenementOuvert.notes && (
-              <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
+              <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'var(--fond-champ, rgba(0,0,0,.22))', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
                 {evenementOuvert.notes}
               </p>
             )}
@@ -251,7 +224,7 @@ export function AgendaEtudiant() {
             <LigneInfo label="Durée" valeur={`${rdvOuvert.duree_minutes} minutes`} />
             {rdvOuvert.avecAdmin && <LigneInfo label="Avec" valeur={LIBELLE_ADMIN} />}
             {rdvOuvert.message && (
-              <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0, fontStyle: 'italic' }}>
+              <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'var(--fond-champ, rgba(0,0,0,.22))', borderRadius: 10, padding: '10px 12px', margin: 0, fontStyle: 'italic' }}>
                 « {rdvOuvert.message} »
               </p>
             )}

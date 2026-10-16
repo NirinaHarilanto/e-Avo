@@ -3,7 +3,6 @@ import { AdminLayout } from '../layout/AdminLayout'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { EtudiantLayout } from '../layout/EtudiantLayout'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { EtatChargement } from '../ui/Etats'
 import { InformationsPersonnelles } from './InformationsPersonnelles'
 import { PanneauSignature } from './PanneauSignature'
@@ -28,7 +27,7 @@ export function MonProfil() {
 
   if (loading || !profile) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg-page)', padding: 24 }}>
+      <div style={{ minHeight: '100vh', background: '#f7f4ff', padding: 24 }}>
         <EtatChargement lignes={3} hauteur={80} />
       </div>
     )
@@ -46,44 +45,6 @@ export function MonProfil() {
     <>
       <EnTetePage
         titre={estAdmin ? 'Profils admin' : 'Mon profil'}
-        description={
-          estAdmin
-            ? 'Vos coordonnées personnelles. Votre signature se dépose désormais dans Profil HOC.'
-            : 'Vos coordonnées et votre signature, utilisées notamment lors de la signature de vos contrats.'
-        }
-      />
-
-      <GuidePage
-        id={estAdmin ? 'admin-mon-profil' : profile.role === 'professeur' ? 'professeur-mon-profil' : 'etudiant-mon-profil'}
-        etapes={[
-          <>
-            <strong>Modifier</strong> ouvre vos coordonnées à la saisie. Téléphone, adresse et ville sont repris tels
-            quels sur vos contrats et vos factures : tant qu’il en manque un, votre dossier est signalé comme
-            incomplet.
-          </>,
-          estAdmin ? (
-            <>
-              Votre <strong>signature</strong> ne se dépose plus ici mais dans <strong>Profil HOC</strong>, avec le
-              tampon et l’identité de l’établissement.
-            </>
-          ) : (
-            <>
-              Déposez une <strong>image de signature</strong> : elle s’apposera d’elle-même sur vos contrats au moment
-              où vous cliquez « Je signe », sous la mention « Lu et approuvé ». Sans elle, seuls cette mention et votre
-              nom figurent — le contrat reste valable.
-            </>
-          ),
-          ...(peutConnecterAgendaPersonnel
-            ? [
-                <>
-                  <strong>Mon agenda Google</strong> relie votre compte Gmail à votre agenda HOC, dans les deux sens.
-                  Sur l’écran d’autorisation Google, cochez bien la permission de{' '}
-                  <strong>modification des événements</strong> : sans elle, la connexion s’installe mais reste en
-                  lecture seule.
-                </>,
-              ]
-            : []),
-        ]}
       />
 
       <InformationsPersonnelles

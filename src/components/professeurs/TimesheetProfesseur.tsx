@@ -104,7 +104,6 @@ export function TimesheetProfesseur() {
     <>
       <Section
         titre="TimeSheet"
-        description="Rassemblez vos heures clôturées et non encore payées sur une période, puis envoyez-les à l’administration. Une fois validé, votre TimeSheet devient votre facture de rémunération."
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

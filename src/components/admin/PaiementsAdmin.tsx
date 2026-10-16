@@ -13,7 +13,6 @@ import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
 import { formaterMontant, resteAPayer, statutReglement, LABELS_REGLEMENT, LABEL_TYPE_PROGRAMME, type LignePayable, type StatutReglement } from '../../lib/paiements'
 import { nomAvecDuo } from '../../lib/duo'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { Onglets } from '../ui/Onglets'
 import { ChampRecherche } from '../ui/BarreOutils'
@@ -99,7 +98,6 @@ export function PaiementsAdmin() {
     <AdminLayout actif="Paiements">
       <EnTetePage
         titre="Paiements"
-        description="Le suivi financier de l’établissement dans les deux sens : ce que les étudiants règlent, et ce que vous versez aux professeurs. La saisie est manuelle, aucun prélèvement n’est automatisé."
         actions={
           onglet !== 'timesheets' ? (
             <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
@@ -108,38 +106,6 @@ export function PaiementsAdmin() {
             </button>
           ) : undefined
         }
-      />
-
-      <GuidePage
-        id="admin-paiements"
-        etapes={[
-          <>
-            Choisissez l’onglet <strong>Étudiants</strong> pour suivre les encaissements, ou <strong>Professeurs</strong>{' '}
-            pour les rémunérations à verser.
-          </>,
-          <>
-            Tout élève ayant un <strong>forfait et un professeur</strong> apparaît automatiquement dans la liste, avec le
-            tag « À payer », même si aucune ligne de paiement n’a encore été créée.
-          </>,
-          <>
-            <strong>Cliquez sur une ligne</strong> pour ouvrir son détail : montant dû, acomptes déjà encaissés, reste à
-            payer. Vous y enregistrez un acompte (le solde restant est pré-rempli) et le statut suit tout seul : à payer,
-            payé partiellement, puis payé.
-          </>,
-          <>
-            Depuis ce même détail, <strong>générez la facture ou un reçu</strong>, voyez-les, imprimez-les ou
-            téléchargez-les en PDF, ou supprimez la ligne en indiquant un motif — la trace de la suppression est conservée.
-          </>,
-          <>
-            Le paiement en plusieurs fois (acomptes, échéancier) n’est possible que pour les <strong>forfaits de 40 heures et
-            plus</strong> ; en dessous, le forfait se règle en une seule fois.
-          </>,
-          <>
-            L’onglet <strong>TimeSheets</strong> reçoit les relevés d’heures envoyés par les professeurs. Ouvrez-en un pour
-            le voir sous forme de facture, puis validez-le (la rémunération et la facture sont créées) ou refusez-le avec un
-            motif.
-          </>,
-        ]}
       />
 
       <div style={{ marginBottom: 18 }}>

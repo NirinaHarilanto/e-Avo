@@ -18,7 +18,6 @@ import { etudiantsSelectionnables, vaguesSelectionnables, classesSelectionnables
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import { PopupEvenementAdmin, CarteRendezVous } from '../shared/PopupEvenementAdmin'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
@@ -90,7 +89,6 @@ export function RendezVousAdmin() {
       <EnTetePage
         compact
         titre="Agenda"
-        description="Les demandes d’appel diagnostic prises depuis la page d’accueil arrivent ici pour validation, et vous pouvez aussi y créer vous-même un rendez-vous avec un ou plusieurs étudiants et professeurs — cliquez un créneau libre de l’agenda, ou le bouton ci-contre."
         actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <Onglets
@@ -108,40 +106,6 @@ export function RendezVousAdmin() {
             </button>
           </div>
         }
-      />
-
-      <GuidePage
-        id="admin-rendez-vous"
-        compact
-        etapes={[
-          <>
-            Un visiteur choisit un créneau sur la page d’accueil : sa demande apparaît dans{' '}
-            <strong>À valider</strong> et vous recevez une notification (cloche en haut à droite).
-          </>,
-          <>
-            <strong>Confirmer</strong> crée l’événement dans l’agenda Google de l’établissement avec un lien de visioconférence, et
-            envoie l’invitation au prospect. <strong>Refuser</strong> libère le créneau pour quelqu’un d’autre.
-          </>,
-          <>
-            Vous pouvez aussi <strong>créer vous-même un rendez-vous</strong> avec un ou plusieurs étudiants et
-            professeurs déjà inscrits : cliquez un créneau libre de l’agenda, ou le bouton{' '}
-            <strong>Créer un rendez-vous</strong>.
-          </>,
-          <>
-            Dans l’<strong>agenda</strong>, la couleur indique qui est concerné : <strong>jaune</strong> un prospect,{' '}
-            <strong>bleu</strong> des étudiants, <strong>vert</strong> des professeurs, <strong>violet</strong> les
-            deux à la fois. Cliquez un événement pour l’ouvrir.
-          </>,
-          <>
-            Les <strong>cours</strong> entre un professeur et ses élèves n’apparaissent pas ici : ils ne figurent que
-            dans leurs agendas respectifs et dans <strong>Séances &amp; visio</strong>, qui porte le planning de
-            l’établissement. Un rendez-vous auquel vous êtes convié, lui, s’affiche bien dans cette grille.
-          </>,
-          <>
-            Les créneaux proposés au public se règlent dans <strong>Paramètres → Disponibilités</strong> : jours,
-            horaires, durée de l’appel et délai minimum avant réservation.
-          </>,
-        ]}
       />
 
       <GrilleStats>

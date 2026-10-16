@@ -40,7 +40,7 @@ export function EnqueteSatisfactionAffichage({
         </span>
       )}
       {satisfactions.map((avis) => (
-        <div key={avis.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 10px', borderRadius: 10, background: 'rgba(255,255,255,.03)' }}>
+        <div key={avis.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 10px', borderRadius: 10, background: 'var(--voile-doux, rgba(255,255,255,.03))' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: 'var(--ink)' }}>{resoudreNom ? resoudreNom(avis.student_id) : 'Votre avis'}</span>
             <Etoiles valeur={avis.note_globale} taille={13} />

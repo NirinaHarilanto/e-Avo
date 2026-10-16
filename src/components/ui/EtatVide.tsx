@@ -11,7 +11,12 @@ interface EtatVideProps {
 
 /* Un état vide qui dit seulement « Aucun document. » laisse l'utilisateur sans issue : il ne
    sait ni pourquoi c'est vide, ni comment le remplir. Chaque état vide de l'application porte
-   donc un titre, une explication, et quand c'est possible l'action qui en sort. */
+   donc un titre, une explication, et quand c'est possible l'action qui en sort. Sa `description`
+   est conservée par la refonte du 2026-10-16, contrairement à celles des titres de page et de
+   section : elle ne dit pas quoi faire de l'écran, elle dit pourquoi il est vide — et les
+   maquettes en montrent une sur chacun de leurs états vides.
+
+   Cadre en tirets, icône en goutte sur pastille lavande, sans fond : le dessin des maquettes. */
 export function EtatVide({ icone = 'vide', titre, description, action, compact }: EtatVideProps) {
   return (
     <div
@@ -20,33 +25,31 @@ export function EtatVide({ icone = 'vide', titre, description, action, compact }
         flexDirection: 'column',
         alignItems: 'center',
         textAlign: 'center',
-        gap: 9,
-        padding: compact ? '22px 18px' : '38px 24px',
-        borderRadius: 16,
-        border: '1px dashed var(--border)',
-        background: 'rgba(255,255,255,.02)',
+        gap: 12,
+        padding: compact ? '24px 18px' : '36px 20px',
+        borderRadius: 20,
+        border: '1.5px dashed var(--border)',
+        background: 'transparent',
       }}
     >
       <span
+        className="petale"
         style={{
-          width: compact ? 38 : 46,
-          height: compact ? 38 : 46,
-          borderRadius: 14,
+          width: compact ? 44 : 56,
+          height: compact ? 44 : 56,
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'rgba(169,140,255,.10)',
-          border: '1px solid rgba(169,140,255,.22)',
+          background: 'var(--hoc-pastille, rgba(169,140,255,.10))',
           color: 'var(--accent-blue)',
+          flexShrink: 0,
         }}
       >
-        <Icone nom={icone} taille={compact ? 19 : 23} />
+        <Icone nom={icone} taille={compact ? 20 : 24} />
       </span>
-      <span className="brand-font" style={{ fontSize: compact ? 14 : 16, color: 'var(--ink)' }}>
-        {titre}
-      </span>
+      <span style={{ fontSize: compact ? 14 : 15, fontWeight: 700, color: 'var(--ink)' }}>{titre}</span>
       {description && (
-        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)', maxWidth: 420, lineHeight: 1.6 }}>{description}</p>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--muted)', maxWidth: 420, lineHeight: 1.6 }}>{description}</p>
       )}
       {action && <div style={{ marginTop: 4 }}>{action}</div>}
     </div>

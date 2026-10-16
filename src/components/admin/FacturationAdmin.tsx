@@ -13,7 +13,6 @@ import type { ActionImpression } from '../facturation/OverlayImpression'
 import { FactureImprimable, estRecu } from '../facturation/FactureImprimable'
 import type { StatutDevis, StatutFacture } from '../../types/database.types'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { Onglets } from '../ui/Onglets'
 import { EtatVide } from '../ui/EtatVide'
@@ -70,7 +69,6 @@ export function FacturationAdmin() {
     <AdminLayout actif="Facturation">
       <EnTetePage
         titre="Facturation"
-        description="Les devis proposés aux étudiants et les factures émises. Un devis accepté se transforme en facture en un clic, sans ressaisir les lignes."
         actions={
           // Un reçu s'ajoute tout seul au solde complet d'un paiement (trigger 0030/0080) —
           // rien à créer à la main pour cet onglet, contrairement aux devis et aux factures.
@@ -81,33 +79,6 @@ export function FacturationAdmin() {
             </button>
           ) : undefined
         }
-      />
-
-      <GuidePage
-        id="admin-facturation"
-        etapes={[
-          <>
-            Créez un <strong>devis</strong> avec ses lignes détaillées, puis passez-le à « Envoyé ». Le bouton
-            « Imprimer » ouvre une version propre à remettre ou à enregistrer en PDF depuis votre navigateur.
-          </>,
-          <>
-            Quand le devis est <strong>accepté</strong>, allez dans l’onglet Factures et créez la facture : les devis
-            acceptés y sont proposés pour reprendre leur contenu automatiquement.
-          </>,
-          <>
-            Rattachez ensuite un <strong>paiement</strong> à la facture depuis sa ligne : c’est ce lien qui fait la
-            correspondance entre le document émis et l’encaissement suivi dans la page Paiements.
-          </>,
-          <>
-            Les factures de vos professeurs apparaissent aussi dans cet onglet : elles sont générées automatiquement
-            quand vous <strong>validez leur TimeSheet</strong>, page Paiements — rien à créer ici pour eux.
-          </>,
-          <>
-            Le <strong>numéro</strong> affiché sur un devis, une facture ou un reçu se modifie en cliquant dessus.
-            Un numéro déjà utilisé dans l’établissement est refusé avant l’enregistrement — changez-en un pour
-            valider.
-          </>,
-        ]}
       />
 
       <div style={{ marginBottom: 18 }}>
@@ -386,7 +357,7 @@ export function LigneDevis({
                 fontSize: 14,
                 fontWeight: 700,
                 color: 'var(--ink)',
-                background: 'rgba(0,0,0,.28)',
+                background: 'var(--fond-champ, rgba(0,0,0,.22))',
                 border: '1px solid var(--accent-blue)',
                 borderRadius: 6,
                 padding: '2px 6px',
@@ -419,7 +390,7 @@ export function LigneDevis({
         value={devis.statut}
         disabled={enCours}
         onChange={(e) => changerStatut(e.target.value as StatutDevis)}
-        style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+        style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
       >
         {(Object.keys(LABELS_DEVIS) as StatutDevis[]).map((s) => (
           <option key={s} value={s}>
@@ -591,7 +562,7 @@ function LigneFacture({
                 fontSize: 14,
                 fontWeight: 700,
                 color: 'var(--ink)',
-                background: 'rgba(0,0,0,.28)',
+                background: 'var(--fond-champ, rgba(0,0,0,.22))',
                 border: '1px solid var(--accent-blue)',
                 borderRadius: 6,
                 padding: '2px 6px',
@@ -620,7 +591,7 @@ function LigneFacture({
         value={facture.statut}
         disabled={enCours}
         onChange={(e) => changerStatut(e.target.value as StatutFacture)}
-        style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+        style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
       >
         {(Object.keys(LABELS_FACTURE) as StatutFacture[]).map((s) => (
           <option key={s} value={s}>
@@ -633,7 +604,7 @@ function LigneFacture({
           value={facture.payment_id ?? ''}
           disabled={enCours}
           onChange={(e) => rattacherPaiement(e.target.value)}
-          style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+          style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px', color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
         >
           <option value="">Aucun paiement rattaché</option>
           {paiementsEtudiant.map(({ paiement }) => (

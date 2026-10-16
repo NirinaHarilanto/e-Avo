@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { Champ, champStyle } from '../ui/Champ'
 import { EtatChargement, MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonPrimaireStyle } from '../ui/Boutons'
@@ -76,34 +75,6 @@ export function ParametresAdmin() {
     <AdminLayout actif="Paramètres">
       <EnTetePage
         titre="Paramètres"
-        description="Les réglages propres à votre établissement. Ils s'appliquent à votre page vitrine publique et au parcours de vos visiteurs."
-      />
-
-      <GuidePage
-        id="admin-parametres"
-        etapes={[
-          <>
-            Le <strong>forfait d'heures par élève en cours collectif</strong> s'applique à chaque inscrit d'une vague —
-            sa dernière heure est consacrée à son évaluation. Une vague peut fixer sa propre valeur depuis sa fiche,
-            qui prime alors sur celle-ci.
-          </>,
-          <>
-            Les <strong>3 créneaux horaires</strong> (matin, midi, soir) sont ceux proposés aux{' '}
-            <strong>classes de niveau</strong> des cours collectifs. Les changer ici les change pour toutes les
-            promotions.
-          </>,
-          <>
-            <strong>Relances de paiement</strong> : le nombre de jours choisi déclenche une notification à l'élève à
-            l'approche de chaque échéance de son échéancier, puis le jour du dépassement. 0 ne prévient que le jour
-            même.
-          </>,
-          <>
-            Plus bas, l'<strong>agenda Google de l'établissement</strong> porte les rendez-vous de l'administration
-            (appels diagnostic, créneaux de test). Les <strong>cours</strong>, eux, partent du compte Google de chaque
-            professeur : la section <strong>Agendas Google des professeurs</strong> montre qui a connecté le sien et
-            qui reste à relancer.
-          </>,
-        ]}
       />
 
       {loading ? (

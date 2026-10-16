@@ -189,7 +189,7 @@ export function CreerRemunerationProfesseur({ etablissementId, onCree, onAnnuler
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 220, overflowY: 'auto' }}>
               {heuresNonPayees.map((l) => (
-                <label key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--ink)', cursor: 'pointer', padding: '6px 8px', borderRadius: 8, background: 'rgba(255,255,255,.03)' }}>
+                <label key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, color: 'var(--ink)', cursor: 'pointer', padding: '6px 8px', borderRadius: 8, background: 'var(--voile-doux, rgba(255,255,255,.03))' }}>
                   <input type="checkbox" checked={lignesSelectionnees.has(l.id)} onChange={() => basculerLigne(l.id)} />
                   <span style={{ flexGrow: 1 }}>{l.sessionDebut ? new Date(l.sessionDebut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Date inconnue'}</span>
                   <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>

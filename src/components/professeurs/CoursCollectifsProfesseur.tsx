@@ -7,7 +7,6 @@ import { initiales } from '../etudiants/DossierEtudiantVue'
 import { PanneauPlanningClasse } from '../shared/PanneauPlanningClasse'
 import type { Database } from '../../types/database.types'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement } from '../ui/Etats'
 import { boutonSecondaireStyle } from '../ui/Boutons'
@@ -59,32 +58,6 @@ export function CoursCollectifsProfesseur() {
     <ProfesseurLayout actif="Cours collectifs">
       <EnTetePage
         titre="Cours collectifs"
-        description="Les classes de niveau que l'administration vous a attribuées, et les élèves qui s'y trouvent."
-      />
-
-      <GuidePage
-        id="professeur-cours-collectifs"
-        etapes={[
-          <>
-            Chaque carte est une <strong>classe</strong> : un niveau (Beginner, Intermediate, Advanced) au sein d'une
-            promotion, avec son créneau horaire et la liste de ses élèves.
-          </>,
-          <>
-            <strong>Planning de la classe</strong> déplie le planning déjà posé pour le groupe, cliquable pour
-            reprogrammer ou annuler une séance encore planifiée, et permet d'en générer d'un coup de nouvelles —
-            exactement comme pour un élève individuel. Toute modification rejoint aussitôt votre agenda et celui de
-            chaque élève de la classe.
-          </>,
-          <>
-            Vous clôturez ces séances depuis votre <strong>agenda</strong>, comme un cours individuel : une séance
-            collective compte une heure pour vous, quel que soit le nombre d'élèves présents.
-          </>,
-          <>
-            La composition de la classe (élèves, créneau) et sa professeure ou son professeur sont décidés par
-            l'administration, depuis sa page <strong>Cours collectifs › Vagues</strong>. Une classe absente d'ici ne
-            vous est pas encore attribuée.
-          </>,
-        ]}
       />
 
       {loading ? (
@@ -129,7 +102,7 @@ export function CoursCollectifsProfesseur() {
                             width: 24,
                             height: 24,
                             borderRadius: 999,
-                            background: 'rgba(255,255,255,.06)',
+                            background: 'var(--voile, rgba(255,255,255,.06))',
                             display: 'inline-flex',
                             alignItems: 'center',
                             justifyContent: 'center',

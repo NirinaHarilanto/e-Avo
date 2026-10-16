@@ -104,7 +104,7 @@ export function SelecteurPersonnes({ etiquette, placeholder, candidats, selectio
           border: '1px solid var(--border)',
           borderRadius: 10,
           padding: '7px 9px',
-          background: 'rgba(0,0,0,.22)',
+          background: 'var(--fond-champ, rgba(0,0,0,.22))',
           cursor: 'text',
         }}
       >
@@ -234,7 +234,7 @@ export function SelecteurPersonnes({ etiquette, placeholder, candidats, selectio
             background: '#1c1139',
             border: '1px solid var(--border)',
             borderRadius: 10,
-            boxShadow: '0 12px 28px rgba(0,0,0,.5)',
+            boxShadow: '0 12px 28px rgba(73,48,106,.16)',
             overflow: 'hidden',
           }}
         >

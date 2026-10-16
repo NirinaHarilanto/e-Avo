@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
+import { Icone } from '../ui/Icones'
 
 /* Notifications en temps réel (0083, demande client du 2026-09-29) : le seul abonnement Supabase
    Realtime de l'application vit dans ProfileContext (useNotificationsTempsReel.ts), pas ici — la
@@ -12,42 +13,49 @@ export function NotificationsBell() {
 
   return (
     <div style={{ position: 'relative' }}>
+      {/* Carré arrondi de 44 px, bordé, comme les deux boutons d'en-tête des maquettes du
+          2026-10-16 — et non plus un rond de 36 px. Le compteur y est violet et cerné de la
+          couleur du fond de page, ce qui le détache du bouton sans ajouter d'ombre. */}
       <button
         onClick={() => setOuvert((v) => !v)}
         style={{
           position: 'relative',
-          width: 36,
-          height: 36,
-          borderRadius: 999,
+          width: 44,
+          height: 44,
+          borderRadius: 12,
           border: '1px solid var(--border)',
-          background: 'transparent',
-          color: 'var(--ink-2)',
+          background: 'var(--surface)',
+          color: 'var(--accent-blue)',
           cursor: 'pointer',
-          fontSize: 15,
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
-        aria-label="Notifications"
+        aria-label={nonLues > 0 ? `Notifications, ${nonLues} non lues` : 'Notifications'}
       >
-        🔔
+        <Icone nom="cloche" taille={18} />
         {nonLues > 0 && (
           <span
             style={{
               position: 'absolute',
-              top: -2,
-              right: -2,
-              minWidth: 16,
-              height: 16,
+              top: -6,
+              right: -6,
+              minWidth: 20,
+              height: 20,
+              boxSizing: 'border-box',
               borderRadius: 999,
-              background: 'var(--danger)',
-              color: '#fff',
-              fontSize: 9.5,
-              fontWeight: 800,
+              background: 'var(--accent-blue)',
+              color: '#fefffa',
+              fontSize: 11,
+              fontWeight: 700,
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: '0 3px',
+              padding: '0 5px',
+              /* `--surface-alt` et non `--bg-page` : le fond de page est une image en thème
+                 sombre (dégradé), et une bordure n'accepte qu'une couleur. Les deux valent la
+                 même teinte en thème clair. */
+              border: '2px solid var(--surface-alt)',
             }}
           >
             {nonLues > 9 ? '9+' : nonLues}
@@ -67,10 +75,10 @@ export function NotificationsBell() {
               maxHeight: 400,
               overflowY: 'auto',
               zIndex: 31,
-              borderRadius: 14,
+              borderRadius: 18,
               border: '1px solid var(--border)',
               background: 'var(--surface)',
-              boxShadow: '0 12px 30px rgba(0,0,0,.4)',
+              boxShadow: '0 12px 30px rgba(73,48,106,.16)',
               display: 'flex',
               flexDirection: 'column',
             }}
@@ -93,7 +101,7 @@ export function NotificationsBell() {
                     textAlign: 'left',
                     padding: '12px 16px',
                     borderBottom: '1px solid var(--border-soft)',
-                    background: n.lu ? 'transparent' : 'rgba(169,140,255,.08)',
+                    background: n.lu ? 'transparent' : 'var(--hoc-pastille, rgba(169,140,255,.08))',
                     border: 'none',
                     cursor: 'pointer',
                     display: 'flex',

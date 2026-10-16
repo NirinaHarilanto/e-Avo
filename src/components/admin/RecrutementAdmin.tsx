@@ -4,7 +4,6 @@ import { useCandidatures, type Candidature } from '../../hooks/useCandidatures'
 import { DIPLOMES_DECLARES, libelleStatut, type StatutCandidature } from '../../lib/recrutement'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { Onglets } from '../ui/Onglets'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { EtatVide } from '../ui/EtatVide'
@@ -47,35 +46,6 @@ export function RecrutementAdmin() {
     <AdminLayout actif="Recrutement">
       <EnTetePage
         titre="Recrutement"
-        description="Les candidatures formateurs reçues depuis le bouton « Rejoignez-nous ! » de la vitrine, de la réception du dossier jusqu’à l’intégration dans l’équipe."
-      />
-
-      <GuidePage
-        id="admin-recrutement"
-        etapes={[
-          <>
-            Les onglets suivent les quatre phases du recrutement, et les encadrés comptent les dossiers de chacune.
-            Ouvrez une candidature pour dérouler sa checklist : c’est elle qui fait avancer le dossier d’une phase à la
-            suivante.
-          </>,
-          <>
-            <strong>Réception</strong> : ouvrez le dossier, consultez CV et diplômes, et cochez « documents obligatoires vérifiés »
-            (licence en études anglophones OU certification TEFL reconnue).
-          </>,
-          <>
-            <strong>Sélection</strong> : remplissez la checklist de l’appel de pré-sélection, puis les tests Reading, Listening,
-            Grammar &amp; Vocabulary — le candidat doit obtenir <strong>C1 au minimum</strong> — et enfin le compte rendu de la
-            simulation de cours sur Google Meet.
-          </>,
-          <>
-            <strong>Intégration</strong> : avec un avis favorable, « Passer en intégration » crée automatiquement son espace
-            professeur à partir de son dossier. Il apparaît dans Professeurs avec le statut « En phase d’intégration ».
-          </>,
-          <>
-            Lancez son contrat depuis <strong>Contrats</strong>, suivez la checklist d’onboarding, puis validez son intégration une
-            fois le contrat signé et toutes les étapes cochées.
-          </>,
-        ]}
       />
 
       {!loading && candidatures.length > 0 && (

@@ -18,7 +18,6 @@ import type { ProspectStatut } from '../../types/database.types'
 import { champStyle } from '../ui/Champ'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
-import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { Icone } from '../ui/Icones'
 
@@ -26,17 +25,20 @@ import { Icone } from '../ui/Icones'
    colonnes du pipeline (PipelineCRM.tsx), pour que l'admin retrouve ses repères. Fond et bordure
    posés explicitement (plutôt que dérivés de la teinte par concaténation de chaîne) : `couleur`
    sert aussi bien à un hex qu'à un `var(--xxx)`, ce que la concaténation ne permet pas. */
+/* Teintes reprises des colonnes du pipeline après la refonte claire du 2026-10-16 : les
+   précédentes (#e9cf94, #a98cff, #6fe3c0) venaient du thème sombre et tombaient à 1,4:1 de
+   contraste sur le fond lavande — l'étape « Étudiant » y était illisible. */
 const STYLE_ETAPE: Record<ProspectStatut, { couleur: string; fond: string; bordure: string }> = {
-  prospect: { couleur: '#8b96b8', fond: 'rgba(139,150,184,.14)', bordure: 'rgba(139,150,184,.4)' },
-  diagnostic_planifie: { couleur: '#e9cf94', fond: 'rgba(233,207,148,.14)', bordure: 'rgba(233,207,148,.4)' },
-  diagnostic_fait: { couleur: '#a98cff', fond: 'rgba(169,140,255,.14)', bordure: 'rgba(169,140,255,.4)' },
-  etudiant: { couleur: '#6fe3c0', fond: 'rgba(111,227,192,.14)', bordure: 'rgba(111,227,192,.4)' },
+  prospect: { couleur: 'var(--muted)', fond: 'var(--voile-doux, rgba(139,150,184,.14))', bordure: 'var(--border)' },
+  diagnostic_planifie: { couleur: 'var(--warning)', fond: 'var(--fond-bandeau-avertissement, rgba(233,207,148,.14))', bordure: 'transparent' },
+  diagnostic_fait: { couleur: 'var(--accent-blue)', fond: 'var(--hoc-pastille, rgba(169,140,255,.14))', bordure: 'transparent' },
+  etudiant: { couleur: 'var(--accent-teal)', fond: 'var(--fond-bandeau-succes, rgba(111,227,192,.14))', bordure: 'transparent' },
 }
 
 const STYLE_FRAIS: Record<LigneSuiviCollectif['frais'], { couleur: string; fond: string; bordure: string }> = {
-  aucun: { couleur: 'var(--danger)', fond: 'rgba(255,138,112,.14)', bordure: 'rgba(255,138,112,.4)' },
-  attendu: { couleur: 'var(--accent-gold, #e9cf94)', fond: 'rgba(233,207,148,.14)', bordure: 'rgba(233,207,148,.4)' },
-  regle: { couleur: 'var(--accent-teal)', fond: 'rgba(111,227,192,.14)', bordure: 'rgba(111,227,192,.4)' },
+  aucun: { couleur: 'var(--danger)', fond: 'var(--fond-bandeau-erreur, rgba(255,138,112,.14))', bordure: 'transparent' },
+  attendu: { couleur: 'var(--warning)', fond: 'var(--fond-bandeau-avertissement, rgba(233,207,148,.14))', bordure: 'transparent' },
+  regle: { couleur: 'var(--accent-teal)', fond: 'var(--fond-bandeau-succes, rgba(111,227,192,.14))', bordure: 'transparent' },
 }
 
 const LIBELLE_FRAIS: Record<LigneSuiviCollectif['frais'], string> = {
@@ -199,37 +201,6 @@ export function SuiviCollectifAdmin() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <GuidePage
-        id="admin-suivi-collectif"
-        compact
-        etapes={[
-          <>
-            Chaque ligne suit <strong>une personne</strong> le long du parcours collectif : sa candidature, la session
-            de test oral qu’elle a choisie, sa vague, puis sa classe une fois devenue étudiante.
-          </>,
-          <>
-            Les deux niveaux sont affichés côte à côte : celui <strong>estimé par le quiz écrit</strong>, indicatif, et
-            celui que <strong>vous arrêtez au test oral</strong>, qui fait foi pour la classe et pour les frais.
-          </>,
-          <>
-            Les encadrés du haut comptent ce qu’il reste à régulariser : <strong>sans frais enregistrés</strong> et{' '}
-            <strong>sans classe</strong>. Cliquez l’en-tête d’une colonne pour <strong>trier</strong> le tableau
-            dessus — un second clic inverse le sens — et servez-vous de la recherche pour retrouver un nom.
-          </>,
-          <>
-            <strong>Cliquez une ligne</strong> pour ouvrir la fiche complète de la personne : toutes ses informations y
-            sont modifiables (identité, vague, classe, paiements), et un candidat pas encore converti s’y convertit en
-            étudiant·e — toujours précédé de l’enregistrement de ses frais d’inscription.
-          </>,
-          <>
-            Une fois toutes les heures de sa vague consommées, le bouton <strong>« Évaluer l’étudiant »</strong>{' '}
-            apparaît dans sa fiche : il attribue une nouvelle vague, une nouvelle classe et permet de corriger son
-            niveau, toujours précédé de l’enregistrement des frais d’inscription du nouveau niveau — comme pour une
-            première conversion.
-          </>,
-        ]}
-      />
-
       {erreur && <MessageErreur>{erreur}</MessageErreur>}
 
       <GrilleStats min={150} compact>

@@ -40,8 +40,24 @@ export type NomIcone =
   | 'timesheet'
   | 'communication'
   | 'rafraichir'
+  | 'deconnexion'
+  | 'cloche'
 
 const CHEMINS: Record<NomIcone, ReactNode> = {
+  /* Porte avec flèche sortante — déconnexion. Ramenée dans la carte du compte en pied de barre
+     latérale le 2026-10-16, où elle n'est plus qu'une icône : la barre supérieure qui portait le
+     bouton « Déconnexion » en texte a disparu avec la refonte claire. */
+  deconnexion: <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l4-4-4-4M14 12H4" />,
+  /* Cloche de notifications. Remplace le glyphe 🔔 que portait NotificationsBell : un emoji
+     Unicode est rendu par la police emoji couleur du système et IGNORE `color`, il restait donc
+     jaune au milieu d'une barre d'icônes violettes en contour. Tracé ici pour suivre
+     `currentColor` comme les autres. */
+  cloche: (
+    <>
+      <path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z" />
+      <path d="M10 21h4" />
+    </>
+  ),
   /* Deux arcs opposés avec leur flèche, comme l'icône d'actualisation standard — bouton de
      rafraîchissement manuel ajouté le 2026-10-09 à côté de la cloche de notification. */
   rafraichir: (

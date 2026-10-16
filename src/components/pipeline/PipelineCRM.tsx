@@ -24,7 +24,6 @@ import type { ProspectStatut, TypeProgrammeProspect } from '../../types/database
 import { COLONNES_PIPELINE, useProspectsPipeline, type ProspectAvecDiagnostic } from '../../hooks/useProspectsPipeline'
 import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { Modale } from '../ui/Modale'
@@ -32,11 +31,16 @@ import { boutonPrimaireStyle } from '../ui/Boutons'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { Icone } from '../ui/Icones'
 
-const COULEUR_COLONNE: Record<string, string> = {
-  prospect: '#8b96b8',
-  diagnostic_planifie: '#e9cf94',
-  diagnostic_fait: '#a98cff',
-  etudiant: '#6fe3c0',
+/* Pastilles d'étape, relevées sur la maquette « Prospects » du 2026-10-16 : la couleur se
+   fonce à mesure que le dossier avance, du blanc cerné de la première étape au violet plein de
+   la dernière, et la goutte s'inverse d'une colonne à l'autre. Les teintes d'origine
+   (#e9cf94, #a98cff, #6fe3c0) étaient calibrées pour le fond presque noir du thème sombre et
+   passaient en pâle sur le fond lavande. */
+const COULEUR_COLONNE: Record<string, { fond: string; texte: string; bordure: string; miroir: boolean }> = {
+  prospect: { fond: '#fefffa', texte: '#4e356f', bordure: '#e5daf8', miroir: false },
+  diagnostic_planifie: { fond: '#fbefd2', texte: '#49306a', bordure: 'transparent', miroir: true },
+  diagnostic_fait: { fond: '#d9caf7', texte: '#49306a', bordure: 'transparent', miroir: false },
+  etudiant: { fond: '#4e356f', texte: '#fefffa', bordure: 'transparent', miroir: true },
 }
 
 export function PipelineCRM() {
@@ -204,50 +208,16 @@ export function PipelineCRM() {
       <EnTetePage
         compact
         titre="Prospects"
-        description="Le parcours d’un candidat, de sa demande initiale jusqu’à sa conversion en étudiant. Chaque colonne est une étape : faites glisser une carte vers la colonne suivante pour faire avancer le dossier."
+        /* Le bouton « Actualiser » propre à cette page a été retiré le 2026-10-16 : l'en-tête
+           porte désormais le bouton d'actualisation commun aux trois espaces (EnTetePage.tsx),
+           juste à côté, et deux boutons voisins portant le même mot se lisaient comme un défaut.
+           Rien n'est perdu — le bouton commun recharge la page entière, donc aussi ces données. */
         actions={
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button onClick={() => setFormulaireOuvert(true)} className="btn-shine" style={boutonPrimaireStyle}>
-              <Icone nom="plus" taille={15} />
-              Ajouter un prospect
-            </button>
-            <button onClick={() => recharger()} className="btn-shine" style={{ background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)', color: 'var(--ink-2)' }}>
-              Actualiser
-            </button>
-          </div>
+          <button onClick={() => setFormulaireOuvert(true)} className="btn-shine" style={boutonPrimaireStyle}>
+            <Icone nom="plus" taille={15} />
+            Ajouter un prospect
+          </button>
         }
-      />
-
-      <GuidePage
-        id="admin-prospects"
-        compact
-        etapes={[
-          <>
-            Les nouveaux dossiers arrivent seuls dans la première colonne : ils viennent du formulaire de contact de
-            votre page vitrine publique, ou de <strong>Ajouter un prospect</strong> si vous les saisissez vous-même
-            (un candidat pas encore passé par un appel diagnostic ou de positionnement).
-          </>,
-          <>
-            <strong>Glissez une carte</strong> d’une colonne à l’autre pour changer son statut, ou utilisez les boutons
-            de la carte. Une pastille signale celles qui attendent une décision de votre part : appel à planifier,
-            rendez-vous réservé en ligne à valider, paiement manquant.
-          </>,
-          <>
-            Dépliez une carte pour planifier l’appel diagnostic, puis y noter le <strong>niveau évalué</strong> et le
-            rythme convenu : ces informations suivront l’élève dans son dossier. Un rendez-vous réservé en ligne par
-            le prospect lui-même affiche sa date, son lien de visioconférence et son statut de validation.
-          </>,
-          <>
-            Choisissez ensuite son <strong>forfait</strong>, ou une <strong>séance d’essai</strong> (1 à 3 h, facturée
-            au tarif horaire de son programme). Un <strong>paiement</strong> doit être enregistré avant toute
-            conversion — un acompte suffit ; pour un cours collectif, ce sont les <strong>frais d’inscription</strong>{' '}
-            qui vous sont demandés.
-          </>,
-          <>
-            En déposant une carte dans <strong>Étudiant</strong>, une invitation par e-mail est envoyée automatiquement
-            et le dossier bascule vers la page Étudiants. Cette action vous est confirmée avant d’être exécutée.
-          </>,
-        ]}
       />
 
       {erreur && (
@@ -307,21 +277,37 @@ export function PipelineCRM() {
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 8,
-                  borderRadius: 14,
-                  padding: 5,
-                  border: survolee ? `1px dashed ${COULEUR_COLONNE[colonne.statut]}` : '1px dashed transparent',
-                  background: survolee ? 'rgba(255,255,255,.03)' : 'transparent',
+                  gap: 10,
+                  borderRadius: 24,
+                  padding: 14,
+                  border: survolee ? `1.5px dashed ${COULEUR_COLONNE[colonne.statut].texte}` : '1.5px dashed transparent',
+                  background: survolee ? 'var(--hoc-lavande-forte, rgba(255,255,255,.06))' : 'var(--voile, rgba(255,255,255,.03))',
                   transition: 'background .15s, border-color .15s',
                   minWidth: 0,
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '0 4px' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 999, flexShrink: 0, background: COULEUR_COLONNE[colonne.statut] }} />
-                  <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--ink-2)', minWidth: 0 }}>{colonne.titre}</span>
-                  <span style={{ fontSize: 10.5, fontWeight: 800, color: 'var(--ink-2)', background: 'rgba(255,255,255,.06)', borderRadius: 999, padding: '1px 8px', flexShrink: 0 }}>
+                {/* Le compte de dossiers vit DANS la pastille d'étape, comme sur la maquette : une
+                    seule pastille au lieu d'une puce de couleur plus un compteur séparé. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 2px 6px' }}>
+                  <span
+                    className={COULEUR_COLONNE[colonne.statut].miroir ? 'petale-miroir' : 'petale'}
+                    style={{
+                      width: 30,
+                      height: 30,
+                      flexShrink: 0,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      background: COULEUR_COLONNE[colonne.statut].fond,
+                      color: COULEUR_COLONNE[colonne.statut].texte,
+                      border: `1px solid ${COULEUR_COLONNE[colonne.statut].bordure}`,
+                    }}
+                  >
                     {items.length}
                   </span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', minWidth: 0 }}>{colonne.titre}</span>
                 </div>
                 {items.length === 0 && (
                   <span
@@ -329,8 +315,11 @@ export function PipelineCRM() {
                       textAlign: 'center',
                       fontSize: 11,
                       lineHeight: 1.4,
-                      color: 'var(--muted-2)',
-                      border: '1px dashed rgba(255,255,255,.14)',
+                      /* `--muted` et non `--muted-2` : cet état vide est posé sur la colonne
+                         lavande, pas sur le blanc d'une carte, et le gris tertiaire y descend
+                         sous le seuil de lisibilité. */
+                      color: 'var(--muted)',
+                      border: '1.5px dashed var(--hoc-lavande-forte, rgba(255,255,255,.14))',
                       borderRadius: 12,
                       padding: '11px 10px',
                     }}
@@ -882,7 +871,7 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
           </span>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span style={{ width: 30, height: 30, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11.5, fontWeight: 800, flexShrink: 0 }}>
+          <span style={{ width: 30, height: 30, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11.5, fontWeight: 800, flexShrink: 0 }}>
             {(prospect.prenom[0] ?? '').toUpperCase()}
             {(prospect.nom[0] ?? '').toUpperCase()}
           </span>
@@ -943,7 +932,7 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
             {prospect.objectif && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ ...etiquetteStyle, fontSize: 11 }}>Objectif indiqué à la réservation</span>
-                <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
+                <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink-2)', background: 'var(--fond-champ, rgba(0,0,0,.22))', borderRadius: 10, padding: '10px 12px', margin: 0 }}>
                   « {prospect.objectif} »
                 </p>
               </div>
@@ -1104,7 +1093,7 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
                     dans une infobulle : un bouton grisé sans explication est le premier réflexe
                     de support évité. */}
                 {!paiementEnregistre && (
-                  <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)', margin: 0, padding: '8px 10px', borderRadius: 8, border: '1px dashed var(--border)', background: 'rgba(0,0,0,.18)' }}>
+                  <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)', margin: 0, padding: '8px 10px', borderRadius: 8, border: '1px dashed var(--border)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}>
                     Enregistrez d’abord le paiement du forfait ci-dessus : la conversion en étudiant se
                     débloquera aussitôt. Le paiement suivra automatiquement dans le dossier de l’étudiant.
                   </p>
@@ -1335,7 +1324,7 @@ function CarteDuo({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {paire.map((p) => (
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 24, height: 24, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
+              <span style={{ width: 24, height: 24, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
                 {(p.prenom[0] ?? '').toUpperCase()}
                 {(p.nom[0] ?? '').toUpperCase()}
               </span>
@@ -1368,7 +1357,7 @@ function CarteDuo({
                     personne — demande client du 2026-09-23, jamais mélangé ni réduit à celui
                     du porteur. */}
                 {p.objectif && (
-                  <p style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--ink-2)', background: 'rgba(0,0,0,.24)', borderRadius: 8, padding: '7px 10px', margin: '2px 0 0' }}>
+                  <p style={{ fontSize: 12, lineHeight: 1.5, color: 'var(--ink-2)', background: 'var(--fond-champ, rgba(0,0,0,.22))', borderRadius: 8, padding: '7px 10px', margin: '2px 0 0' }}>
                     « {p.objectif} »
                   </p>
                 )}
@@ -1513,7 +1502,7 @@ function CarteDuo({
                   {a.relanceEnvoyee ? 'Relance envoyée ✓' : a.relanceEnCours ? 'Envoi…' : 'Relancer le prospect'}
                 </button>
                 {!a.paiementEnregistre && (
-                  <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)', margin: 0, padding: '8px 10px', borderRadius: 8, border: '1px dashed var(--border)', background: 'rgba(0,0,0,.18)' }}>
+                  <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)', margin: 0, padding: '8px 10px', borderRadius: 8, border: '1px dashed var(--border)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}>
                     Enregistrez d’abord le paiement du forfait ci-dessus, partagé par le binôme : la conversion des
                     deux en étudiants se débloquera aussitôt.
                   </p>
@@ -1787,7 +1776,7 @@ function SelecteurTarifChoisi({
       <select
         value={valeur ?? ''}
         onChange={(e) => onChoisir(e.target.value)}
-        style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'rgba(0,0,0,.22)' }}
+        style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
       >
         <option value="">Non renseigné</option>
         {tarifs.map((t) => (
@@ -1940,7 +1929,7 @@ function PostItRendezVous({
         padding: '12px 14px',
         background: valide ? '#dff5e8' : '#faf0c2',
         border: `1px solid ${valide ? '#8fd6ac' : '#e3cf6d'}`,
-        boxShadow: '0 4px 14px rgba(0,0,0,.18)',
+        boxShadow: '0 4px 14px rgba(73,48,106,.14)',
       }}
     >
       <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: valide ? '#1c6b41' : '#8a6d0a' }}>
@@ -1969,8 +1958,8 @@ function PostItRendezVous({
             alignSelf: 'flex-start',
             fontSize: 12,
             fontWeight: 700,
-            color: '#1b1510',
-            background: 'linear-gradient(150deg, #f0d472, #d9b93f)',
+            color: 'var(--ink)',
+            background: 'var(--accent-gradient)',
             border: 'none',
             borderRadius: 999,
             padding: '7px 16px',

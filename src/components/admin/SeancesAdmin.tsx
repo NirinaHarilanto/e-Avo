@@ -15,7 +15,6 @@ import { FicheEvenementGoogle } from '../shared/FicheEvenementGoogle'
 import { DetailSeanceModale } from '../shared/DetailSeanceModale'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { boutonSecondaireStyle } from '../ui/Boutons'
 import { GroupeSection } from '../ui/Section'
@@ -165,7 +164,6 @@ export function SeancesAdmin() {
       <EnTetePage
         compact
         titre="Séances & visio"
-        description="Le planning de tous les cours de l’établissement. Les séances sont créées par les professeurs depuis leur propre espace, ou en lot depuis un forfait étudiant : cette page sert à les consulter et à les suivre."
         actions={
           <Onglets
             etiquette="Mode d’affichage du planning"
@@ -177,37 +175,6 @@ export function SeancesAdmin() {
             ]}
           />
         }
-      />
-
-      <GuidePage
-        id="admin-seances"
-        compact
-        etapes={[
-          <>
-            C’est ici — et non dans <strong>Agenda</strong>, réservé aux rendez-vous — que se consulte le planning des
-            cours de toute l’équipe. La <strong>vue par semaine</strong> l’affiche jour par jour et filtre par
-            professeur : la vue à utiliser pour repérer les chevauchements et les trous d’un planning.
-          </>,
-          <>
-            La <strong>vue globale</strong> liste toutes les séances à venir puis toutes les séances passées, sans
-            limite de période : pratique pour retrouver une séance ancienne.
-          </>,
-          <>
-            Une séance passe de « Planifiée » à « Terminée » quand le professeur la clôture depuis son espace. C’est ce
-            geste qui alimente les compteurs d’heures et le taux d’assiduité.
-          </>,
-          <>
-            Le <strong>lien de visioconférence</strong> de chaque séance à venir apparaît sur sa ligne. S’il manque — séance
-            créée avant la connexion du compte Google — le bouton <strong>Générer le lien visio</strong> le crée et
-            prévient les participants.
-          </>,
-          <>
-            <strong>Cliquez sur n’importe quel créneau de l’agenda</strong> pour ouvrir sa fiche : professeur, élèves
-            inscrits, et — pour une séance terminée — le <strong>compte rendu</strong> rédigé par le professeur ainsi
-            que les <strong>avis de satisfaction</strong> déposés par les élèves. Une séance encore planifiée s’y
-            modifie ou s’y annule.
-          </>,
-        ]}
       />
 
       {erreur && (
@@ -444,7 +411,7 @@ function LigneFiltrePersonne({
     >
       <input id={`filtre-personne-${id}`} type="checkbox" checked={coche} onChange={onBasculer} style={{ flexShrink: 0 }} />
       {initialesPersonne && (
-        <span style={{ width: 26, height: 26, borderRadius: 999, background: 'rgba(255,255,255,.06)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
+        <span style={{ width: 26, height: 26, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
           {initialesPersonne}
         </span>
       )}

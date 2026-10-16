@@ -6,7 +6,6 @@ import { useEtablissement } from '../../hooks/useEtablissement'
 import { supabase } from '../../lib/supabaseClient'
 import { declencherSynchroLocale } from '../../lib/synchro'
 import { EnTetePage } from '../ui/EnTetePage'
-import { GuidePage } from '../ui/GuidePage'
 import { Section } from '../ui/Section'
 import { Champ, champStyle, etiquetteStyle } from '../ui/Champ'
 import { EtatChargement, MessageErreur, MessageSucces } from '../ui/Etats'
@@ -27,33 +26,6 @@ export function ProfilHOC() {
     <AdminLayout actif="Profil HOC">
       <EnTetePage
         titre="Profil HOC"
-        description="L'identité administrative de l'établissement — reprise sur vos factures, devis, reçus et contrats — et l'équipe qui gère cet espace admin."
-      />
-
-      <GuidePage
-        id="admin-profil-hoc"
-        etapes={[
-          <>
-            Ces informations sont <strong>publiques</strong> (visibles sur votre page vitrine, comme votre nom
-            d'établissement l'est déjà) — à l'exception du <strong>CIN de la directrice</strong>, qui reste
-            strictement réservé à cet écran et n'apparaît jamais sur un document.
-          </>,
-          <>
-            Une fois enregistrées, elles sont disponibles comme <strong>variables</strong> dans vos modèles de
-            contrat (page Contrats), et affichées automatiquement sous l'en-tête de chaque facture, devis et reçu.
-          </>,
-          <>
-            Le <strong>tampon de l'établissement</strong> et <strong>votre signature</strong> se déposent ici, et
-            s'enregistrent dès le dépôt, sans bouton à presser. Tous deux sont repris sur vos factures, reçus, devis et
-            contrats ; sur un contrat, ils accompagnent la mention « Lu et approuvé », du côté établissement
-            uniquement.
-          </>,
-          <>
-            Tous les administrateurs listés plus bas ont <strong>exactement les mêmes droits</strong> sur ce même
-            espace admin — même agenda, mêmes accès. Il n'y a pas de rôle « principal » parmi eux. Vos coordonnées
-            personnelles, elles, se modifient dans <strong>Profils admin</strong>.
-          </>,
-        ]}
       />
 
       <IdentiteEtablissement />
@@ -75,7 +47,7 @@ function TamponHOC() {
   if (!etablissement) return null
 
   return (
-    <Section titre="Tampon de l'établissement" description="Utilisé sur vos factures, reçus, devis et contrats.">
+    <Section titre="Tampon de l'établissement">
       <PanneauTampon etablissement={etablissement} onChange={declencherSynchroLocale} />
     </Section>
   )
@@ -90,7 +62,7 @@ function MaSignature() {
   if (!profile) return null
 
   return (
-    <Section titre="Ma signature" description="Utilisée automatiquement quand vous signez un contrat, à la place de votre nom tapé.">
+    <Section titre="Ma signature">
       <PanneauSignature profile={profile} onChange={rafraichirProfil} avecEntete={false} />
     </Section>
   )
@@ -212,7 +184,7 @@ function IdentiteEtablissement() {
   if (!etablissement || chargementCin) return <EtatChargement lignes={2} hauteur={200} />
 
   return (
-    <Section titre="Identité de l'établissement" description="Utilisée sur vos factures, devis, reçus et contrats, et disponible comme variable dans vos modèles.">
+    <Section titre="Identité de l'établissement">
       <form onSubmit={enregistrer} style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 640 }}>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <Champ label="Nom de l'établissement" obligatoire style={{ flexGrow: 1, minWidth: 220 }}>
@@ -307,7 +279,6 @@ function EquipeAdmins() {
   return (
     <Section
       titre="Administrateurs"
-      description="Toute personne listée ici a exactement les mêmes droits sur cet espace admin : même agenda, mêmes accès, aucune hiérarchie entre administrateurs."
       actions={
         <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
           <Icone nom="plus" taille={14} />
@@ -335,7 +306,7 @@ function EquipeAdmins() {
           {admins.map((admin) => (
             <div
               key={admin.id}
-              style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-soft)', background: 'rgba(255,255,255,.03)' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '11px 14px', borderRadius: 11, border: '1px solid var(--border-soft)', background: 'var(--voile-doux, rgba(255,255,255,.03))' }}
             >
               <span style={{ width: 34, height: 34, borderRadius: 11, background: 'var(--accent-blue-gradient)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
                 {(admin.prenom?.[0] ?? '').toUpperCase()}

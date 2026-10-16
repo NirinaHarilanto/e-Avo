@@ -111,7 +111,7 @@ export function ChampRechercheChoix({
             background: 'var(--surface, #1c1139)',
             border: '1px solid var(--border)',
             borderRadius: 10,
-            boxShadow: '0 12px 30px rgba(0,0,0,.4)',
+            boxShadow: '0 12px 30px rgba(73,48,106,.16)',
             maxHeight: 280,
             overflowY: 'auto',
           }}

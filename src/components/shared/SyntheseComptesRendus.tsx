@@ -142,9 +142,9 @@ function CorpsSynthese({ synthese, portee }: { synthese: Synthese; portee: Porte
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-label={`${c.libelle} : ${c.part} % des séances`}
-                  style={{ flexGrow: 1, height: 8, borderRadius: 999, background: 'rgba(0,0,0,.28)', overflow: 'hidden', display: 'flex' }}
+                  style={{ flexGrow: 1, height: 8, borderRadius: 999, background: 'var(--fond-champ, rgba(0,0,0,.22))', overflow: 'hidden', display: 'flex' }}
                 >
-                  <span style={{ width: `${c.part}%`, background: 'linear-gradient(90deg,#a98cff,#e9cf94)', borderRadius: 999 }} />
+                  <span style={{ width: `${c.part}%`, background: 'var(--accent-blue)', borderRadius: 999 }} />
                 </span>
                 <span style={{ fontSize: 11, color: 'var(--muted)', width: 78, flexShrink: 0, textAlign: 'right' }}>
                   {c.nb} séance{c.nb > 1 ? 's' : ''} · {c.part} %
@@ -159,7 +159,7 @@ function CorpsSynthese({ synthese, portee }: { synthese: Synthese; portee: Porte
         <Bloc titre="Notes de progrès">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {synthese.progres.map((p) => (
-              <span key={p.libelle} style={{ fontSize: 11.5, color: 'var(--ink-2)', background: 'rgba(255,255,255,.05)', border: '1px solid var(--border)', borderRadius: 999, padding: '3px 11px' }}>
+              <span key={p.libelle} style={{ fontSize: 11.5, color: 'var(--ink-2)', background: 'var(--voile, rgba(255,255,255,.06))', border: '1px solid var(--border)', borderRadius: 999, padding: '3px 11px' }}>
                 {p.libelle} · {p.nb}
               </span>
             ))}

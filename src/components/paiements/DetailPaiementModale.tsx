@@ -446,7 +446,7 @@ function BlocDocuments({
 }) {
   const petit = { ...boutonSecondaireStyle, fontSize: 11.5, padding: '5px 11px' }
   const ligneDocument = (doc: Invoice) => (
-    <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,.03)' }}>
+    <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '7px 10px', borderRadius: 8, background: 'var(--voile-doux, rgba(255,255,255,.03))' }}>
       <span style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 700, flexGrow: 1, minWidth: 0 }}>
         {estRecu(doc) ? 'Reçu' : 'Facture'} {doc.numero}
         <span style={{ fontWeight: 400, color: 'var(--muted)' }}> · {formaterMontant(doc.montant_ttc)}</span>
@@ -558,7 +558,7 @@ function BlocHeures({ heures }: { heures: HeureEnseignee[] }) {
       <span style={etiquetteStyle}>Heures enseignées couvertes</span>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, maxHeight: 180, overflowY: 'auto' }}>
         {heures.map((h) => (
-          <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12.5, color: 'var(--ink-2)', padding: '5px 8px', borderRadius: 7, background: 'rgba(255,255,255,.03)' }}>
+          <div key={h.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12.5, color: 'var(--ink-2)', padding: '5px 8px', borderRadius: 7, background: 'var(--voile-doux, rgba(255,255,255,.03))' }}>
             <span>{h.debut ? new Date(h.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : 'Date inconnue'}</span>
             <span style={{ color: 'var(--muted)' }}>{formaterHeures(h.heures)}</span>
           </div>
@@ -592,7 +592,7 @@ function BlocVersements({
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {versements.map((v) => (
-            <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,.03)' }}>
+            <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 10px', borderRadius: 8, background: 'var(--voile-doux, rgba(255,255,255,.03))' }}>
               <span style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 700, minWidth: 90 }}>
                 {formaterMontant(v.montant, devise)}
               </span>
