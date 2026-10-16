@@ -1,5 +1,6 @@
 import { useEtablissement } from '../../hooks/useEtablissement'
 import type { Database } from '../../types/database.types'
+import { nomAvecDuo } from '../../lib/duo'
 import { MentionsEtablissement } from '../shared/MentionsEtablissement'
 import { TamponEtablissement } from '../shared/TamponEtablissement'
 import { OverlayImpression, type ActionImpression } from './OverlayImpression'
@@ -11,6 +12,11 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 interface FactureImprimableProps {
   facture: Invoice
   destinataire: Profile | null
+  /* Partenaire DUO du destinataire (0054) — demande client du 2026-10-16 : le document imprimé
+     portait encore un seul nom alors que la fenêtre d'où il s'ouvre en affiche déjà deux
+     (`nomPersonne` dans DetailPaiementModale.tsx), la même incohérence que celle corrigée côté
+     page Facturation (useFactures.ts). `undefined` comme `null` affichent un seul nom. */
+  destinatairePartenaire?: Profile | null
   onFermer: () => void
   action?: ActionImpression
 }
@@ -21,7 +27,7 @@ export function estRecu(facture: Pick<Invoice, 'numero'>): boolean {
   return facture.numero.startsWith('REC-')
 }
 
-export function FactureImprimable({ facture, destinataire, onFermer, action }: FactureImprimableProps) {
+export function FactureImprimable({ facture, destinataire, destinatairePartenaire, onFermer, action }: FactureImprimableProps) {
   const etablissement = useEtablissement(facture.etablissement_id)
   const intitule = estRecu(facture) ? 'Reçu' : 'Facture'
 
@@ -40,7 +46,7 @@ export function FactureImprimable({ facture, destinataire, onFermer, action }: F
       </div>
 
       <div style={{ marginTop: 24, fontSize: 13 }}>
-        <strong>Destinataire :</strong> {destinataire?.prenom} {destinataire?.nom}
+        <strong>Destinataire :</strong> {destinataire ? nomAvecDuo(destinataire, destinatairePartenaire) : ''}
         {destinataire?.email && <span> — {destinataire.email}</span>}
       </div>
 

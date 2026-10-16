@@ -4,6 +4,7 @@ import { useEtudiants } from '../../hooks/useEtudiants'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { supabase } from '../../lib/supabaseClient'
 import type { DevisAvecEtudiant } from '../../hooks/useDevis'
+import { nomAvecDuo } from '../../lib/duo'
 import type { LigneFacturation } from '../../types/database.types'
 import { EditeurLignes, calculerTotaux } from './EditeurLignes'
 import { numeroDejaUtilise, messageNumeroDejaUtilise } from '../../lib/facturation'
@@ -123,9 +124,9 @@ export function CreerFacture({ etablissementId, devisAcceptes, onCree, onAnnuler
           <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Depuis un devis accepté (optionnel)</label>
           <select value={quoteId} onChange={(e) => choisirDevis(e.target.value)} style={champStyle}>
             <option value="">Aucun — facture à zéro</option>
-            {devisAcceptes.map(({ devis, etudiant }) => (
+            {devisAcceptes.map(({ devis, etudiant, duoPartenaire }) => (
               <option key={devis.id} value={devis.id}>
-                {devis.numero} — {etudiant?.prenom} {etudiant?.nom}
+                {devis.numero} — {etudiant ? nomAvecDuo(etudiant, duoPartenaire) : ''}
               </option>
             ))}
           </select>

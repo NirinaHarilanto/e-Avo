@@ -33,13 +33,25 @@ type Onglet = 'factures' | 'recus'
 function useMesFactures(colonne: 'student_id' | 'teacher_id', idCible: string | undefined) {
   const { profile } = useProfileContext()
   const { valeur, loading } = useCacheRequete(idCible ? `mes-factures-${colonne}-${idCible}` : null, async () => {
-    const [{ data }, { data: profilData }] = await Promise.all([
+    const [{ data }, { data: profilData }, { data: partenaireData }] = await Promise.all([
       supabase.from('invoices').select('*').eq(colonne, idCible as string).order('date_emission', { ascending: false }),
       idCible === profile?.id ? Promise.resolve({ data: profile }) : supabase.from('profiles').select('*').eq('id', idCible as string).maybeSingle(),
+      /* `idEtudiantEffectif` (voir son appelant) vaut toujours l'id du PRINCIPAL du binôme — le
+         partenaire, s'il existe, est donc forcément le « secondaire » qui pointe vers lui,
+         jamais l'inverse (lien asymétrique, 0054). Inutile côté professeur : aucun n'a de
+         duo_partenaire_id. Demande client du 2026-10-16 : la facture/le reçu imprimés depuis
+         son propre espace doivent eux aussi porter les deux noms du binôme. */
+      colonne === 'student_id'
+        ? supabase.from('profiles').select('*').eq('duo_partenaire_id', idCible as string).maybeSingle()
+        : Promise.resolve({ data: null }),
     ])
-    return { factures: (data ?? []) as Invoice[], profilCible: (profilData ?? null) as Profile | null }
+    return {
+      factures: (data ?? []) as Invoice[],
+      profilCible: (profilData ?? null) as Profile | null,
+      duoPartenaire: (partenaireData ?? null) as Profile | null,
+    }
   })
-  return { factures: valeur?.factures ?? [], profilCible: valeur?.profilCible ?? null, loading }
+  return { factures: valeur?.factures ?? [], profilCible: valeur?.profilCible ?? null, duoPartenaire: valeur?.duoPartenaire ?? null, loading }
 }
 
 /* Une transaction réglée porte à la fois une facture et un reçu (le reçu est ajouté
@@ -52,7 +64,7 @@ export function ListeFactures({ colonne, titreVide, descriptionVide }: ListeFact
   // DUO (0054) : côté élève, la facturation vit sous le principal du binôme — `teacher_id`
   // n'est jamais concerné, aucun professeur n'a de duo_partenaire_id.
   const idCible = colonne === 'student_id' ? (idEtudiantEffectif ?? undefined) : profile?.id
-  const { factures, profilCible, loading } = useMesFactures(colonne, idCible)
+  const { factures, profilCible, duoPartenaire, loading } = useMesFactures(colonne, idCible)
   const [onglet, setOnglet] = useState<Onglet>('factures')
   const [factureAImprimer, setFactureAImprimer] = useState<Invoice | null>(null)
   const [action, setAction] = useState<ActionImpression>('voir')
@@ -135,7 +147,15 @@ export function ListeFactures({ colonne, titreVide, descriptionVide }: ListeFact
         </div>
       )}
 
-      {factureAImprimer && <FactureImprimable facture={factureAImprimer} destinataire={profilCible} action={action} onFermer={() => setFactureAImprimer(null)} />}
+      {factureAImprimer && (
+        <FactureImprimable
+          facture={factureAImprimer}
+          destinataire={profilCible}
+          destinatairePartenaire={duoPartenaire}
+          action={action}
+          onFermer={() => setFactureAImprimer(null)}
+        />
+      )}
     </div>
   )
 }

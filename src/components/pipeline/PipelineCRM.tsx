@@ -1700,6 +1700,10 @@ function CarteDuo({
                     ? { titre: a.tarifAEncaisser.titre, prix: a.tarifAEncaisser.prix, heures: a.tarifAEncaisser.heures }
                     : null,
                   paiement: porteur.paiement,
+                  // Demande client du 2026-10-16 : le forfait est partagé par les deux membres du
+                  // binôme, la fenêtre de paiement doit donc nommer les deux, pas seulement le
+                  // porteur qui en porte techniquement la ligne.
+                  duoPartenaire: { id: autre.id, etablissement_id: autre.etablissement_id, prenom: autre.prenom, nom: autre.nom },
                 }}
                 onFermer={() => a.setPaiementOuvert(false)}
                 onChange={onChange}

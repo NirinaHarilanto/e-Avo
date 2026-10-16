@@ -46,7 +46,17 @@ export type CiblePaiement =
   /* Forfait réglé AVANT la conversion en étudiant (0056) : la ligne est rattachée au prospect,
      `student_id` reste nul jusqu'à la conversion qui la reprend telle quelle. Rien d'autre ne
      change — acomptes, reste dû, reçu et facture sont ceux de n'importe quel paiement. */
-  | { type: 'prospect'; prospect: ProspectAPayer; tarif: TarifChoisi | null; paiement: StudentPayment | null }
+  | {
+      type: 'prospect'
+      prospect: ProspectAPayer
+      tarif: TarifChoisi | null
+      paiement: StudentPayment | null
+      /* Partenaire DUO du prospect (0058/0059) — manquait ici alors qu'il existe déjà pour
+         'etudiant'/'forfait' : un binôme pas encore converti ouvrait cette fenêtre sous le seul
+         nom du porteur (demande client du 2026-10-16, « il faut toujours mettre les noms des
+         deux personnes formant le DUO »). */
+      duoPartenaire?: ProspectAPayer | null
+    }
 
 export interface ProspectAPayer {
   id: string
@@ -106,9 +116,14 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
   // financièrement qu'un seul des deux (forfait partagé porté par un seul, ou heure d'essai
   // individuelle) — demande client du 2026-09-23.
   const duoPartenaire = cible.type === 'etudiant' || cible.type === 'forfait' ? (cible.duoPartenaire ?? null) : null
+  /* Pour le titre uniquement : un prospect (pas encore un `Profile`) a son propre partenaire,
+     de forme différente mais compatible avec `nomAvecDuo` (prénom/nom). La facture/le reçu
+     imprimés, eux, n'existent jamais tant que `cible.type === 'prospect'` (aucune facture n'est
+     émise avant conversion, voir generer-facture.ts) : `duoPartenaire` ci-dessus reste donc du
+     bon type (`Profile | null`) pour `FactureImprimable`. */
   const nomPersonne =
     cible.type === 'prospect'
-      ? `${cible.prospect.prenom} ${cible.prospect.nom}`
+      ? nomAvecDuo(cible.prospect, cible.duoPartenaire ?? null)
       : cible.personne
         ? nomAvecDuo(cible.personne, duoPartenaire)
         : 'Personne inconnue'
@@ -414,6 +429,7 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
         <FactureImprimable
           facture={documentOuvert.facture}
           destinataire={cible.type === 'prospect' ? null : cible.personne}
+          destinatairePartenaire={duoPartenaire}
           action={documentOuvert.action}
           onFermer={() => setDocumentOuvert(null)}
         />

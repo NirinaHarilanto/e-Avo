@@ -6,6 +6,7 @@ import { useFactures, type FactureAvecDestinataire } from '../../hooks/useFactur
 import { usePaiementsEtudiants } from '../../hooks/usePaiementsEtudiants'
 import { supabase } from '../../lib/supabaseClient'
 import { numeroDejaUtilise, messageNumeroDejaUtilise } from '../../lib/facturation'
+import { nomAvecDuo } from '../../lib/duo'
 import { CreerDevis } from '../facturation/CreerDevis'
 import { CreerFacture } from '../facturation/CreerFacture'
 import { DevisImprimable } from '../facturation/DevisImprimable'
@@ -230,8 +231,24 @@ export function FacturationAdmin() {
         </div>
       )}
 
-      {devisAImprimer && <DevisImprimable devis={devisAImprimer.devis} etudiant={devisAImprimer.etudiant} action={actionImpression} onFermer={() => setDevisAImprimer(null)} />}
-      {factureAImprimer && <FactureImprimable facture={factureAImprimer.facture} destinataire={factureAImprimer.destinataire} action={actionImpression} onFermer={() => setFactureAImprimer(null)} />}
+      {devisAImprimer && (
+        <DevisImprimable
+          devis={devisAImprimer.devis}
+          etudiant={devisAImprimer.etudiant}
+          etudiantPartenaire={devisAImprimer.duoPartenaire}
+          action={actionImpression}
+          onFermer={() => setDevisAImprimer(null)}
+        />
+      )}
+      {factureAImprimer && (
+        <FactureImprimable
+          facture={factureAImprimer.facture}
+          destinataire={factureAImprimer.destinataire}
+          destinatairePartenaire={factureAImprimer.duoPartenaire}
+          action={actionImpression}
+          onFermer={() => setFactureAImprimer(null)}
+        />
+      )}
     </AdminLayout>
   )
 }
@@ -268,7 +285,7 @@ export function LigneDevis({
   onChange: () => void
   accessToken: string | undefined
 }) {
-  const { devis, etudiant } = item
+  const { devis, etudiant, duoPartenaire } = item
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   // Numéro modifiable (demande client du 2026-10-10, même geste que pour les factures depuis le
@@ -374,7 +391,7 @@ export function LigneDevis({
               {devis.numero}
             </button>
           )}
-          {' '}— {etudiant ? `${etudiant.prenom} ${etudiant.nom}` : 'Étudiant inconnu'}
+          {' '}— {etudiant ? nomAvecDuo(etudiant, duoPartenaire) : 'Étudiant inconnu'}
         </span>
       </ZoneDevis>
       <ZoneDevis intitule="Objet" grandit>
@@ -431,7 +448,7 @@ function LigneFacture({
   onChange: () => void
   accessToken: string | undefined
 }) {
-  const { facture, destinataire } = item
+  const { facture, destinataire, duoPartenaire } = item
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [envoyee, setEnvoyee] = useState(false)
@@ -579,7 +596,7 @@ function LigneFacture({
               {facture.numero}
             </button>
           )}
-          {' '}— {destinataire ? `${destinataire.prenom} ${destinataire.nom}` : 'Destinataire inconnu'}
+          {' '}— {destinataire ? nomAvecDuo(destinataire, duoPartenaire) : 'Destinataire inconnu'}
           {facture.teacher_id && <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent-blue)', marginLeft: 8 }}>PROFESSEUR</span>}
         </span>
         <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{facture.objet}</div>

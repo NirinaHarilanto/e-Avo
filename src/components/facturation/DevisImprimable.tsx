@@ -1,5 +1,6 @@
 import { useEtablissement } from '../../hooks/useEtablissement'
 import type { Database } from '../../types/database.types'
+import { nomAvecDuo } from '../../lib/duo'
 import { MentionsEtablissement } from '../shared/MentionsEtablissement'
 import { TamponEtablissement } from '../shared/TamponEtablissement'
 import { OverlayImpression, type ActionImpression } from './OverlayImpression'
@@ -11,11 +12,14 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 interface DevisImprimableProps {
   devis: Quote
   etudiant: Profile | null
+  /* Partenaire DUO de l'étudiant (0054) — même correctif que FactureImprimable.tsx (demande
+     client du 2026-10-16). */
+  etudiantPartenaire?: Profile | null
   onFermer: () => void
   action?: ActionImpression
 }
 
-export function DevisImprimable({ devis, etudiant, onFermer, action }: DevisImprimableProps) {
+export function DevisImprimable({ devis, etudiant, etudiantPartenaire, onFermer, action }: DevisImprimableProps) {
   const etablissement = useEtablissement(devis.etablissement_id)
 
   return (
@@ -33,7 +37,7 @@ export function DevisImprimable({ devis, etudiant, onFermer, action }: DevisImpr
       </div>
 
       <div style={{ marginTop: 24, fontSize: 13 }}>
-        <strong>Destinataire :</strong> {etudiant?.prenom} {etudiant?.nom}
+        <strong>Destinataire :</strong> {etudiant ? nomAvecDuo(etudiant, etudiantPartenaire) : ''}
         {etudiant?.email && <span> — {etudiant.email}</span>}
       </div>
 

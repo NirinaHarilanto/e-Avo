@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
-import { chargerProfilsEtablissement } from '../lib/profilsEtablissement'
+import { chargerProfilsEtablissement, indexPartenairesDuo } from '../lib/profilsEtablissement'
 import { useCacheRequete } from './useCacheRequete'
 
 type Quote = Database['public']['Tables']['quotes']['Row']
@@ -9,6 +9,10 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 export interface DevisAvecEtudiant {
   devis: Quote
   etudiant: Profile | null
+  /* Partenaire DUO de l'étudiant (0054) — même lacune que sur `useFactures.ts`, corrigée le
+     2026-10-16 : la page Facturation n'affichait le devis que sous le nom d'un seul des deux
+     membres du binôme. */
+  duoPartenaire: Profile | null
 }
 
 export function useDevis() {
@@ -25,10 +29,15 @@ export function useDevis() {
     // Un devis rattaché à un compte supprimé disparaît de la liste (demande client du
     // 2026-09-23) — la ligne reste en base, réversible si la personne se réinscrit.
     const etudiantParId = new Map(profilsTous.filter((p) => p.status !== 'suspended').map((e) => [e.id, e]))
+    const partenaireDe = indexPartenairesDuo(profilsTous)
 
     return (data ?? [])
       .filter((d) => etudiantParId.has(d.student_id))
-      .map((d): DevisAvecEtudiant => ({ devis: d, etudiant: etudiantParId.get(d.student_id) ?? null }))
+      .map((d): DevisAvecEtudiant => ({
+        devis: d,
+        etudiant: etudiantParId.get(d.student_id) ?? null,
+        duoPartenaire: partenaireDe(d.student_id),
+      }))
   })
 
   return { devis: valeur ?? [], loading, erreur, recharger }
