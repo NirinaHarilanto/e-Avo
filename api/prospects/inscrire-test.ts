@@ -155,6 +155,17 @@ export default async function handler(request: Request): Promise<Response> {
       timeStyle: 'short',
     }).format(new Date(creneau.debut))
 
+    /* `creneauxTestOuverts` (ci-dessus) ne renvoie jamais ce champ : c'est la liste PUBLIQUE des
+       créneaux encore ouverts, consultée par n'importe quel visiteur anonyme avant de s'inscrire,
+       et le lien de visioconférence ne doit atteindre que quelqu'un qui vient réellement de
+       réserver sa place — jamais un simple curieux de la page vitrine. Relu ici séparément,
+       une fois l'inscription déjà actée. */
+    const { data: creneauAvecLien } = await serviceClient
+      .from('creneaux_test_positionnement')
+      .select('lien_visio')
+      .eq('id', creneau.id)
+      .maybeSingle()
+
     await Promise.all(
       admins.map((destinataire) =>
         creerNotification(serviceClient, {
@@ -179,6 +190,7 @@ export default async function handler(request: Request): Promise<Response> {
         score: resultat.score,
         total: resultat.total,
         niveau: resultat.niveau,
+        lienVisio: creneauAvecLien?.lien_visio ?? null,
       }),
     })
 

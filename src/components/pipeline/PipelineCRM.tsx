@@ -30,6 +30,7 @@ import { Modale } from '../ui/Modale'
 import { boutonPrimaireStyle } from '../ui/Boutons'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { Icone } from '../ui/Icones'
+import { BoutonRejoindreVisio } from '../shared/BoutonRejoindreVisio'
 
 /* Pastilles d'étape, relevées sur la maquette « Prospects » du 2026-10-16 : la couleur se
    fonce à mesure que le dossier avance, du blanc cerné de la première étape au violet plein de
@@ -946,7 +947,9 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
               />
             )}
 
-            {prospect.testPositionnement && <BilanTestPositionnement test={prospect.testPositionnement} />}
+            {prospect.testPositionnement && (
+              <BilanTestPositionnement test={prospect.testPositionnement} lienVisio={prospect.creneauTestLienVisio} />
+            )}
 
             {prospect.statut === 'diagnostic_fait' && prospect.diagnostic?.niveau_evalue && (
               <span style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(169,140,255,.14)', border: '1px solid rgba(169,140,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
@@ -1709,8 +1712,12 @@ function BlocPaiementForfait({
    suivre dans le dossier de l'élève une fois le prospect converti. */
 function BilanTestPositionnement({
   test,
+  lienVisio,
 }: {
   test: NonNullable<ProspectAvecDiagnostic['testPositionnement']>
+  /* Lien Google Meet du créneau de test oral — demande client du 2026-10-16 : avant, seul
+     l'onglet Session orale le montrait, pas la fiche du prospect ouverte depuis le pipeline. */
+  lienVisio: string | null
 }) {
   const [ouvert, setOuvert] = useState(false)
   return (
@@ -1724,6 +1731,10 @@ function BilanTestPositionnement({
         </span>
         <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)' }}>{test.niveau_estime ?? 'Non évalué'}</span>
       </div>
+      {/* Toujours Jitsi : creer-creneau-test.ts n'appelle jamais creerEvenementVisio avec
+          `fournisseur: 'google_meet'`, le créneau de test oral garde donc systématiquement son
+          lien Jitsi d'origine (voir nouveauLienVisio dans api/_lib/google.ts). */}
+      {lienVisio && <BoutonRejoindreVisio lien={lienVisio} fournisseur="jitsi" />}
       {test.bilan && (
         <>
           <button

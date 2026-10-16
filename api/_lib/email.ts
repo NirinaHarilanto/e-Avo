@@ -198,7 +198,21 @@ export function modeleTestPositionnementInscrit(params: {
   score: number
   total: number
   niveau: string
+  /* Généré automatiquement à l'ouverture du créneau par l'admin (creer-creneau-test.ts), en
+     tâche de fond : `null` tant que la génération n'a pas abouti (établissement sans Google
+     connecté, ou inscription arrivée avant la fin de cette tâche de fond) — repli identique à
+     `modeleRendezVousConfirme`, jamais une erreur bloquante pour autant. Avant le 2026-10-16, ce
+     lien n'était JAMAIS envoyé au candidat : il ne vivait que dans l'écran admin (Cours
+     collectifs › Session orale), malgré la promesse « vous transmet le lien de visioconférence
+     avant la séance » que ce modèle affichait déjà — demande client explicite pour tenir cette
+     promesse. */
+  lienVisio: string | null
 }): string {
+  const blocLien = params.lienVisio
+    ? `<p style="margin:0 0 18px"><a href="${echapper(params.lienVisio)}" style="display:inline-block;background:#4A306D;color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:999px">Rejoindre la visioconférence</a></p>
+       <p style="font-size:12.5px;color:#6b6580;margin:0 0 14px">Lien : ${echapper(params.lienVisio)}</p>`
+    : `<p style="font-size:14px;line-height:1.65;margin:0 0 14px">${echapper(params.etablissement)} vous transmet le lien de visioconférence avant la séance.</p>`
+
   return coquille(`
   <h1 style="font-size:19px;margin:0 0 14px">Votre test oral est réservé</h1>
   <p style="font-size:14px;line-height:1.65;margin:0 0 14px">Bonjour ${echapper(params.prenom)},</p>
@@ -209,9 +223,9 @@ export function modeleTestPositionnementInscrit(params: {
   </p>
   <p style="font-size:14px;line-height:1.65;margin:0 0 14px">
     Votre place est retenue pour le test oral du <strong>${echapper(params.quand)}</strong>
-    (${echapper(libelleVague(params.vague))}). ${echapper(params.etablissement)} vous transmet le lien de
-    visioconférence avant la séance.
-  </p>`)
+    (${echapper(libelleVague(params.vague))}).
+  </p>
+  ${blocLien}`)
 }
 
 /* Les valeurs viennent d'un formulaire public : elles se retrouvent dans du HTML envoyé par
