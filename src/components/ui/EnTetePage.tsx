@@ -7,6 +7,10 @@ interface EnTetePageProps {
   actions?: ReactNode
   media?: ReactNode
   avant?: ReactNode
+  /* Pastille de dénombrement posée juste après le titre (« 9 en cours »), comme sur les
+     maquettes. Hors du `<h1>` à dessein : c'est un état de la page, pas une partie de son nom —
+     un lecteur d'écran qui annonce le titre ne doit pas y entendre un chiffre changeant. */
+  compteur?: ReactNode
   /* Variante resserrée pour le pôle Pédagogie de l'espace admin, dont les pages doivent tenir
      dans une seule vue. */
   compact?: boolean
@@ -24,7 +28,7 @@ interface EnTetePageProps {
      composant et non par chaque page : les quarante écrans des trois espaces passent tous par
      cet en-tête, donc aucun ne peut les perdre en route. Ils précèdent `actions`, comme sur les
      maquettes, où le bouton principal de la page est le plus à droite. */
-export function EnTetePage({ titre, actions, media, avant, compact }: EnTetePageProps) {
+export function EnTetePage({ titre, actions, media, avant, compteur, compact }: EnTetePageProps) {
   return (
     <header style={{ marginBottom: compact ? 14 : 24 }}>
       {avant && <div style={{ marginBottom: compact ? 8 : 12 }}>{avant}</div>}
@@ -34,6 +38,21 @@ export function EnTetePage({ titre, actions, media, avant, compact }: EnTetePage
           <h1 style={{ fontSize: compact ? 22 : 28, fontWeight: 700, color: 'var(--ink)', margin: 0, lineHeight: 1.2, minWidth: 0 }}>
             {titre}
           </h1>
+          {compteur && (
+            <span
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'var(--accent-blue)',
+                background: 'var(--hoc-pastille, rgba(169,140,255,.14))',
+                padding: '4px 12px',
+                borderRadius: 99,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {compteur}
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <BoutonRafraichir />

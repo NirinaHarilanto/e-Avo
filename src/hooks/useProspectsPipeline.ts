@@ -21,13 +21,16 @@ export interface ProspectAvecDiagnostic extends Prospect {
   /* Candidature au test oral d'une vague, pour les prospects venus par le parcours collectif
      (0051) : note au questionnaire écrit, niveau estimé et bilan généré automatiquement. */
   testPositionnement: TestPositionnement | null
-  /* Lien Google Meet du créneau auquel `testPositionnement` candidate — vit sur
+  /* Créneau du test ORAL auquel `testPositionnement` candidate — vit sur
      `creneaux_test_positionnement`, pas sur l'inscription elle-même, d'où la résolution à part.
-     `null` tant que la génération en tâche de fond (creer-creneau-test.ts) n'a pas abouti, ou si
-     l'établissement n'a aucun compte Google connecté. Affiché ici depuis le 2026-10-16 (demande
-     client) : avant, seul l'onglet Session orale le montrait, pas la fiche du prospect dans le
-     pipeline. */
-  creneauTestLienVisio: string | null
+     Affiché dans la fiche du prospect depuis le 2026-10-16 (demande client) : avant, seul
+     l'onglet Session orale le montrait, pas le pipeline. `lienVisio` reste `null` tant que la
+     génération en tâche de fond (creer-creneau-test.ts) n'a pas abouti, ou si l'établissement
+     n'a aucun compte Google connecté — la date, elle, est toujours connue.
+     La date et la durée ont rejoint le lien le 2026-10-16 : le test oral a désormais son propre
+     bloc dans la fiche (« quand a lieu la séance », pas seulement « par où la rejoindre »), et
+     une heure de rendez-vous sans date affichée obligeait l'admin à rouvrir Cours collectifs. */
+  creneauTest: { debut: string; dureeMinutes: number; lienVisio: string | null } | null
   /* Nom complet du partenaire DUO (0054), résolu depuis duo_partenaire_id — évite à chaque carte
      d'aller chercher elle-même le prospect lié pour un simple affichage. */
   duoPartenaireNom: string | null
@@ -101,9 +104,14 @@ export function useProspectsPipeline() {
        le Promise.all ci-dessus, qui ne connaît pas encore ces identifiants. */
     const creneauIds = [...new Set((testsData ?? []).map((t) => t.creneau_id))]
     const { data: creneauxData } = creneauIds.length
-      ? await supabase.from('creneaux_test_positionnement').select('id, lien_visio').in('id', creneauIds)
-      : { data: [] as { id: string; lien_visio: string | null }[] }
-    const lienVisioParCreneau = new Map((creneauxData ?? []).map((c) => [c.id, c.lien_visio]))
+      ? await supabase
+          .from('creneaux_test_positionnement')
+          .select('id, lien_visio, debut, duree_minutes')
+          .in('id', creneauIds)
+      : { data: [] as { id: string; lien_visio: string | null; debut: string; duree_minutes: number }[] }
+    const creneauParId = new Map(
+      (creneauxData ?? []).map((c) => [c.id, { debut: c.debut, dureeMinutes: c.duree_minutes, lienVisio: c.lien_visio }]),
+    )
 
     // Le partenaire d'un binôme DUO reste, tant qu'il n'est pas converti, dans ce même tableau
     // `prospectsData` : pas besoin d'une requête séparée pour résoudre son nom.
@@ -123,7 +131,7 @@ export function useProspectsPipeline() {
         diagnostic: diagnosticParProspect.get(prospect.id) ?? null,
         rendezVous: rendezVousParProspect.get(prospect.id) ?? null,
         testPositionnement,
-        creneauTestLienVisio: testPositionnement ? (lienVisioParCreneau.get(testPositionnement.creneau_id) ?? null) : null,
+        creneauTest: testPositionnement ? (creneauParId.get(testPositionnement.creneau_id) ?? null) : null,
         duoPartenaireNom: prospect.duo_partenaire_id ? (nomParProspect.get(prospect.duo_partenaire_id) ?? null) : null,
         paiement: paiementParProspect.get(prospect.id) ?? null,
       }

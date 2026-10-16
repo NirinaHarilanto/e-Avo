@@ -956,7 +956,9 @@ input[type='search']::-webkit-search-cancel-button {
 .grille-pipeline {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  /* 20px, l'écart des colonnes de la maquette : à 14px les quatre aplats lavande se touchaient
+     presque et se lisaient comme une seule bande. */
+  gap: 20px;
   align-items: start;
 }
 
@@ -1086,6 +1088,12 @@ body.espace-clair {
   /* Repères de la maquette qui n'ont pas d'équivalent parmi les rôles existants : la lavande des
      pastilles, l'or des bandeaux d'attention, et la famille de titres. */
   --hoc-pastille: #ede5fb;
+  /* Fond des colonnes du tableau d'étapes (pipeline prospects) : la lavande des pastilles
+     posée à 60 % sur le fond de page, exactement comme la maquette « Prospects » du
+     2026-10-16. Une teinte à part et non `--hoc-pastille` pleine : les cartes blanches et les
+     puces lavande vivent DANS cette colonne, il lui faut rester d'un cran plus pâle qu'elles
+     pour que la hiérarchie colonne → carte → puce se lise. */
+  --hoc-colonne: rgba(237, 229, 251, 0.6);
   --hoc-lavande-forte: #d9caf7;
   --hoc-bandeau-or: #fbefd2;
   --hoc-repere-or: #d9a83b;

@@ -231,7 +231,14 @@ export function SelecteurPersonnes({ etiquette, placeholder, candidats, selectio
             right: 0,
             marginTop: 4,
             zIndex: 20,
-            background: '#1c1139',
+            /* `var(--surface)` et non le violet nuit #1c1139 qui était écrit ici en dur : hérité
+               du thème sombre, il restait noir après le passage des espaces connectés en thème
+               clair, pendant que `--ink` (la couleur des noms, juste en dessous) devenait foncée.
+               Les noms se retrouvaient écrits en violet sombre sur violet sombre — invisibles,
+               alors que le rôle à droite (`--muted`, plus pâle) restait lui lisible. Signalé le
+               2026-10-16 : l'admin en concluait qu'une personne « ne figurait pas dans la
+               liste » alors qu'elle y était bel et bien proposée. */
+            background: 'var(--surface)',
             border: '1px solid var(--border)',
             borderRadius: 10,
             boxShadow: '0 12px 28px rgba(73,48,106,.16)',
@@ -260,14 +267,16 @@ export function SelecteurPersonnes({ etiquette, placeholder, candidats, selectio
                 textAlign: 'left',
                 padding: '9px 12px',
                 border: 'none',
-                background: index === surligne ? 'rgba(169,140,255,.14)' : 'transparent',
+                /* Lavande de la charte plutôt qu'un violet translucide calibré pour le fond
+                   sombre, qui se diluait presque entièrement sur le blanc de la liste. */
+                background: index === surligne ? 'var(--hoc-pastille, rgba(169,140,255,.14))' : 'transparent',
                 color: 'var(--ink)',
                 fontSize: 13,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
               }}
             >
-              <span>{nomComplet(personne)}</span>
+              <span style={{ fontWeight: 600 }}>{nomComplet(personne)}</span>
               {personne.role && <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{personne.role}</span>}
             </button>
           ))}

@@ -209,6 +209,7 @@ export function PipelineCRM() {
       <EnTetePage
         compact
         titre="Prospects"
+        compteur={!loading && prospects.length > 0 ? `${prospects.length} en cours` : undefined}
         /* Le bouton « Actualiser » propre à cette page a été retiré le 2026-10-16 : l'en-tête
            porte désormais le bouton d'actualisation commun aux trois espaces (EnTetePage.tsx),
            juste à côté, et deux boutons voisins portant le même mot se lisaient comme un défaut.
@@ -278,18 +279,20 @@ export function PipelineCRM() {
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: 10,
-                  borderRadius: 24,
-                  padding: 14,
+                  gap: 12,
+                  borderRadius: 28,
+                  padding: 16,
                   border: survolee ? `1.5px dashed ${COULEUR_COLONNE[colonne.statut].texte}` : '1.5px dashed transparent',
-                  background: survolee ? 'var(--hoc-lavande-forte, rgba(255,255,255,.06))' : 'var(--voile, rgba(255,255,255,.03))',
+                  background: survolee
+                    ? 'var(--hoc-lavande-forte, rgba(255,255,255,.06))'
+                    : 'var(--hoc-colonne, rgba(255,255,255,.03))',
                   transition: 'background .15s, border-color .15s',
                   minWidth: 0,
                 }}
               >
                 {/* Le compte de dossiers vit DANS la pastille d'étape, comme sur la maquette : une
                     seule pastille au lieu d'une puce de couleur plus un compteur séparé. */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '2px 2px 6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 6px 8px' }}>
                   <span
                     className={COULEUR_COLONNE[colonne.statut].miroir ? 'petale-miroir' : 'petale'}
                     style={{
@@ -308,34 +311,128 @@ export function PipelineCRM() {
                   >
                     {items.length}
                   </span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)', minWidth: 0 }}>{colonne.titre}</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)', minWidth: 0 }}>{colonne.titre}</span>
                 </div>
-                {items.length === 0 && (
-                  <span
+                {/* Zone d'accueil en pointillé de la maquette, qui dit ce qu'on peut faire de la
+                    colonne vide plutôt que de constater qu'elle l'est. La colonne « Étudiant »
+                    est vide en permanence et par construction : un prospect converti quitte
+                    aussitôt ce tableau pour l'espace Étudiants (voir useProspectsPipeline), elle
+                    ne sert donc QUE de cible de dépôt — d'où le libellé propre à cette étape,
+                    qui annonce la conversion au lieu de laisser croire à un dossier manquant. */}
+                {items.length === 0 &&
+                  (colonne.statut === 'prospect' ? (
+                    /* Première colonne vide : la maquette n'y met pas une zone de dépôt mais une
+                       vraie carte d'amorçage. Rien ne peut y « glisser » depuis une colonne
+                       voisine — on ne revient pas en arrière dans le tunnel —, donc la seule
+                       action utile est d'ouvrir le formulaire de saisie. */
+                    <div
+                      className="card"
+                      style={{
+                        borderRadius: 20,
+                        padding: '32px 20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        textAlign: 'center',
+                        gap: 12,
+                      }}
+                    >
+                      <span
+                        className="petale"
+                        aria-hidden="true"
+                        style={{
+                          width: 64,
+                          height: 64,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'var(--hoc-pastille, rgba(169,140,255,.14))',
+                          color: 'var(--accent-blue)',
+                        }}
+                      >
+                        <Icone nom="prospects" taille={28} />
+                      </span>
+                      <span className="police-titre" style={{ fontWeight: 700, fontSize: 19, color: 'var(--ink)' }}>
+                        Aucun prospect
+                      </span>
+                      <button
+                        onClick={() => setFormulaireOuvert(true)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 8,
+                          height: 44,
+                          padding: '0 18px',
+                          border: '1.5px solid var(--accent-blue)',
+                          borderRadius: 20,
+                          background: 'transparent',
+                          color: 'var(--accent-blue)',
+                          fontSize: 14,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          fontFamily: 'inherit',
+                        }}
+                      >
+                        <Icone nom="plus" taille={14} />
+                        Ajouter le premier
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        flexGrow: 1,
+                        minHeight: 150,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        fontSize: 13,
+                        lineHeight: 1.45,
+                        /* `--muted` et non `--muted-2` : cet état vide est posé sur la colonne
+                           lavande, pas sur le blanc d'une carte, et le gris tertiaire y descend
+                           sous le seuil de lisibilité. */
+                        color: 'var(--muted)',
+                        border: '1.5px dashed var(--hoc-lavande-forte, rgba(255,255,255,.14))',
+                        borderRadius: 20,
+                        padding: 20,
+                      }}
+                    >
+                      {colonne.statut === 'etudiant'
+                        ? 'Déposez ici un dossier prêt pour le convertir en étudiant.'
+                        : 'Faites glisser une carte ici'}
+                    </div>
+                  ))}
+                {grouperDuo(items).map((groupe, rang) =>
+                  Array.isArray(groupe) ? (
+                    <CarteDuo key={groupe[0].id} paire={groupe} onChange={recharger} onChangerStatut={changerStatut} indice={rang} />
+                  ) : (
+                    <CarteProspect key={groupe.id} prospect={groupe} onChange={recharger} onChangerStatut={changerStatut} indice={rang} />
+                  ),
+                )}
+                {/* Pied de la première colonne, comme sur la maquette : la saisie d'un dossier
+                    reste à portée sans remonter jusqu'à l'en-tête quand la colonne est longue. */}
+                {colonne.statut === 'prospect' && items.length > 0 && (
+                  <button
+                    onClick={() => setFormulaireOuvert(true)}
                     style={{
-                      textAlign: 'center',
-                      fontSize: 11,
-                      lineHeight: 1.4,
-                      /* `--muted` et non `--muted-2` : cet état vide est posé sur la colonne
-                         lavande, pas sur le blanc d'une carte, et le gris tertiaire y descend
-                         sous le seuil de lisibilité. */
-                      color: 'var(--muted)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 8,
+                      height: 44,
                       border: '1.5px dashed var(--hoc-lavande-forte, rgba(255,255,255,.14))',
-                      borderRadius: 12,
-                      padding: '11px 10px',
+                      borderRadius: 20,
+                      background: 'transparent',
+                      color: 'var(--accent-blue)',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
                     }}
                   >
-                    Aucun dossier
-                    <br />
-                    <span style={{ fontSize: 10.5, opacity: 0.8 }}>Déposez une carte ici</span>
-                  </span>
-                )}
-                {grouperDuo(items).map((groupe) =>
-                  Array.isArray(groupe) ? (
-                    <CarteDuo key={groupe[0].id} paire={groupe} onChange={recharger} onChangerStatut={changerStatut} />
-                  ) : (
-                    <CarteProspect key={groupe.id} prospect={groupe} onChange={recharger} onChangerStatut={changerStatut} />
-                  ),
+                    <Icone nom="plus" taille={14} />
+                    Ajouter ici
+                  </button>
                 )}
               </div>
             )
@@ -380,6 +477,122 @@ const LABEL_PROGRAMME: Record<string, string> = {
   individuel: 'Individuel',
   duo: 'Duo',
   collectif: 'Collectif',
+}
+
+/* « Reçu aujourd'hui », « Reçu hier », « Reçu le 13 oct. » — la façon dont la maquette date les
+   cartes. Une date absolue pour tout ce qui remonte à plus de deux jours : au-delà, « il y a
+   9 jours » oblige à un calcul mental que la date évite. Les jours se comparent dans le fuseau de
+   l'établissement comme partout ailleurs dans l'administration (demande client du 2026-09-21),
+   sinon un admin en déplacement lirait « hier » sur un dossier arrivé le jour même à Tana. */
+function dateRelativeCourte(iso: string): string {
+  const jour = (d: string | Date) => formaterDansFuseauEtablissement(d, { dateStyle: 'short' })
+  const cible = jour(iso)
+  if (cible === jour(new Date())) return "aujourd'hui"
+  if (cible === jour(new Date(Date.now() - 86_400_000))) return 'hier'
+  return `le ${formaterDansFuseauEtablissement(iso, { day: 'numeric', month: 'short' })}`
+}
+
+/* Deuxième ligne de l'en-tête d'une carte. La maquette n'y met pas la même information d'une
+   colonne à l'autre : à l'entrée dans le tableau c'est la date d'arrivée du dossier qui compte,
+   une fois le diagnostic passé c'est la date où il a eu lieu, et entre les deux l'intitulé du
+   besoin — l'encart de rendez-vous juste en dessous porte déjà la date pour cette étape-là. */
+export function sousTitreCarte(prospect: ProspectAvecDiagnostic): string {
+  if (prospect.statut === 'diagnostic_fait' && prospect.diagnostic?.date_appel) {
+    return `Diagnostic ${dateRelativeCourte(prospect.diagnostic.date_appel)}`
+  }
+  if (prospect.statut === 'diagnostic_planifie') {
+    return prospect.langue_visee || 'Langue non précisée'
+  }
+  return `Reçu ${dateRelativeCourte(prospect.created_at)}`
+}
+
+/* « Demain, 10 h 00 », « lun. 19 oct., 15 h 30 » : la date du rendez-vous telle que l'encart or
+   de la maquette l'écrit. Le prospect peut avoir réservé lui-même en ligne (`rendezVous`) ou
+   avoir été planifié par l'admin (`diagnostic.date_appel`) — les deux chemins mènent à la même
+   ligne affichée. Les jours sont comparés dans le fuseau de l'établissement, jamais dans celui
+   du navigateur : un admin en déplacement doit lire « demain » quand c'est demain à Tana. */
+export function dateRendezVousCarte(prospect: ProspectAvecDiagnostic): string | null {
+  const instant = prospect.rendezVous?.debut ?? prospect.diagnostic?.date_appel
+  if (!instant) return null
+  const jourDe = (d: string | Date) => formaterDansFuseauEtablissement(d, { dateStyle: 'short' })
+  const heure = formaterDansFuseauEtablissement(instant, { hour: '2-digit', minute: '2-digit' })
+  const demain = new Date(Date.now() + 86_400_000)
+  if (jourDe(instant) === jourDe(new Date())) return `Aujourd’hui, ${heure}`
+  if (jourDe(instant) === jourDe(demain)) return `Demain, ${heure}`
+  return `${formaterDansFuseauEtablissement(instant, { weekday: 'short', day: 'numeric', month: 'short' })}, ${heure}`
+}
+
+/* Avatar en goutte des maquettes, teinté de la couleur de l'étape : la carte garde ainsi un
+   repère de sa colonne même lorsqu'elle est glissée au-dessus d'une autre. `index` fait
+   alterner la goutte et son miroir d'une carte à l'autre, comme sur la maquette. */
+function AvatarProspect({ prospect, index = 0, taille = 40 }: { prospect: ProspectAvecDiagnostic; index?: number; taille?: number }) {
+  const couleur = COULEUR_COLONNE[prospect.statut] ?? COULEUR_COLONNE.prospect
+  return (
+    <span
+      aria-hidden="true"
+      className={index % 2 === 1 ? 'petale-miroir' : 'petale'}
+      style={{
+        width: taille,
+        height: taille,
+        flexShrink: 0,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: 13,
+        fontWeight: 700,
+        background: couleur.fond === '#fefffa' ? 'var(--hoc-pastille, #ede5fb)' : couleur.fond,
+        color: couleur.fond === '#fefffa' ? 'var(--accent-blue)' : couleur.texte,
+      }}
+    >
+      {(prospect.prenom[0] ?? '').toUpperCase()}
+      {(prospect.nom[0] ?? '').toUpperCase()}
+    </span>
+  )
+}
+
+/* Repère « ce dossier attend un geste de votre part » (voir `prospectATraiter`). */
+function PastilleATraiter() {
+  return (
+    <span
+      style={{
+        flexShrink: 0,
+        fontSize: 9.5,
+        fontWeight: 800,
+        letterSpacing: 0.4,
+        textTransform: 'uppercase',
+        color: '#fff',
+        background: 'var(--danger)',
+        borderRadius: 999,
+        padding: '3px 9px',
+      }}
+    >
+      À traiter
+    </span>
+  )
+}
+
+/* Les deux puces de la maquette : pleine pour l'information principale (le besoin exprimé),
+   cernée pour la mention secondaire (le format du programme). */
+function PuceCarte({ enfants, pleine = false, ton }: { enfants: string; pleine?: boolean; ton?: string }) {
+  return (
+    <span
+      style={{
+        fontSize: 12,
+        fontWeight: 600,
+        padding: '4px 10px',
+        borderRadius: 99,
+        background: pleine ? 'var(--hoc-pastille, #ede5fb)' : 'var(--surface-alt, transparent)',
+        color: ton ?? (pleine ? 'var(--accent-blue)' : 'var(--ink-2)'),
+        border: pleine ? '1px solid transparent' : '1px solid var(--border)',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        maxWidth: '100%',
+      }}
+    >
+      {enfants}
+    </span>
+  )
 }
 
 /* Saisie manuelle d'un prospect qui n'est jamais passé par le formulaire public — démarché
@@ -776,9 +989,12 @@ interface CarteProspectProps {
   prospect: ProspectAvecDiagnostic
   onChange: () => void
   onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut) => Promise<boolean>
+  /* Rang de la carte dans sa colonne : sert uniquement à faire alterner la goutte de l'avatar
+     et son miroir, comme sur la maquette. */
+  indice?: number
 }
 
-function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectProps) {
+function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: CarteProspectProps) {
   const estPositionnement = prospect.type_programme === 'collectif'
   const necessiteAction = prospectATraiter(prospect)
   const [enGlissement, setEnGlissement] = useState(false)
@@ -841,75 +1057,93 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
         onClick={() => setDetailOuvert(true)}
         className="card card-lift"
         style={{
-          padding: 10,
+          padding: 16,
+          borderRadius: 20,
           display: 'flex',
           flexDirection: 'column',
-          gap: 7,
+          gap: 12,
           cursor: 'grab',
           opacity: enGlissement ? 0.4 : 1,
           position: 'relative',
           borderColor: necessiteAction ? 'rgba(255,138,112,.5)' : undefined,
         }}
       >
-        {necessiteAction && (
-          <span
-            style={{
-              position: 'absolute',
-              top: -8,
-              right: 8,
-              fontSize: 9.5,
-              fontWeight: 800,
-              letterSpacing: 0.4,
-              textTransform: 'uppercase',
-              color: '#fff',
-              background: 'var(--danger)',
-              borderRadius: 999,
-              padding: '2px 8px',
-              boxShadow: '0 3px 10px rgba(255,138,112,.4)',
-            }}
-          >
-            À traiter
-          </span>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span style={{ width: 30, height: 30, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 11.5, fontWeight: 800, flexShrink: 0 }}>
-            {(prospect.prenom[0] ?? '').toUpperCase()}
-            {(prospect.nom[0] ?? '').toUpperCase()}
-          </span>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <AvatarProspect prospect={prospect} index={indice} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flexGrow: 1 }}>
+            <span
+              className="police-titre-italique"
+              style={{
+                fontWeight: 600,
+                fontSize: 17,
+                color: 'var(--ink)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
               {prospect.prenom} {prospect.nom}
             </span>
-            <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>{sousTitreCarte(prospect)}</span>
           </div>
+          {/* Posé dans le flux de l'en-tête, à la place du menu « … » de la maquette. Il
+              débordait auparavant au-dessus du bord supérieur de la carte (`top: -8`) : sur une
+              colonne où plusieurs dossiers attendent d'affilée — le cas ordinaire de la première
+              étape, où aucun appel n'est encore planifié — chaque pastille mordait la carte
+              précédente et franchissait le bord de la colonne. */}
+          {necessiteAction && <PastilleATraiter />}
         </div>
 
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {prospect.type_programme && (
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: 0.4,
-                textTransform: 'uppercase',
-                color: 'var(--muted-2)',
-                border: '1px solid var(--border)',
-                borderRadius: 999,
-                padding: '2px 9px',
-              }}
-            >
-              {LABEL_PROGRAMME[prospect.type_programme]}
-            </span>
+          {/* Besoin exprimé en puce pleine, format du programme en puce cernée : la hiérarchie
+              de la maquette, où l'on repère d'abord ce que la personne vient chercher. */}
+          {prospect.statut !== 'diagnostic_planifie' && prospect.langue_visee && (
+            <PuceCarte pleine enfants={prospect.langue_visee} />
           )}
+          {prospect.type_programme && <PuceCarte enfants={LABEL_PROGRAMME[prospect.type_programme]} />}
           {/* Binôme DUO dont les membres n'ont pas (encore) le même statut (0058) : ils ne
               peuvent pas être regroupés en un seul bloc (voir `grouperDuo`), ce repère évite
               au moins de les traiter comme deux prospects sans rapport. */}
           {prospect.duoPartenaireNom && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', border: '1px solid rgba(233,207,148,.32)', borderRadius: 999, padding: '2px 9px' }}>
-              Duo avec {prospect.duoPartenaireNom}
-            </span>
+            <PuceCarte enfants={`Duo avec ${prospect.duoPartenaireNom}`} ton="var(--accent-gold, #e9cf94)" />
           )}
         </div>
+
+        {/* Étape « appel planifié » : la date du rendez-vous dans l'encart or de la maquette.
+            C'est la seule information qu'on vient chercher sur ces cartes-là. */}
+        {prospect.statut === 'diagnostic_planifie' && dateRendezVousCarte(prospect) && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 12px',
+              borderRadius: 14,
+              background: 'var(--hoc-bandeau-or, rgba(233,207,148,.12))',
+              color: 'var(--ink)',
+            }}
+          >
+            <Icone nom="seances" taille={18} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{dateRendezVousCarte(prospect)}</span>
+              <span style={{ fontSize: 12 }}>
+                {prospect.type_programme === 'collectif' ? 'Test de positionnement' : 'Appel diagnostic'}
+                {prospect.rendezVous ? ` · ${prospect.rendezVous.duree_minutes} min` : ''}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Étape « diagnostic réalisé » : le niveau, écrit grand comme sur la maquette — c'est
+            lui qui décide du forfait proposé à l'étape suivante. */}
+        {prospect.statut === 'diagnostic_fait' && prospect.diagnostic?.niveau_evalue && (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span className="police-titre" style={{ fontWeight: 700, fontSize: 26, color: 'var(--ink)' }}>
+              {prospect.diagnostic.niveau_evalue}
+            </span>
+            <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>niveau estimé</span>
+          </div>
+        )}
       </div>
 
       {detailOuvert && (
@@ -947,9 +1181,8 @@ function CarteProspect({ prospect, onChange, onChangerStatut }: CarteProspectPro
               />
             )}
 
-            {prospect.testPositionnement && (
-              <BilanTestPositionnement test={prospect.testPositionnement} lienVisio={prospect.creneauTestLienVisio} />
-            )}
+            {prospect.testPositionnement && <BilanTestEcrit test={prospect.testPositionnement} />}
+            {prospect.creneauTest && <SeanceTestOral creneau={prospect.creneauTest} />}
 
             {prospect.statut === 'diagnostic_fait' && prospect.diagnostic?.niveau_evalue && (
               <span style={{ alignSelf: 'flex-start', fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', background: 'rgba(169,140,255,.14)', border: '1px solid rgba(169,140,255,.3)', borderRadius: 999, padding: '5px 11px' }}>
@@ -1170,10 +1403,12 @@ function CarteDuo({
   paire,
   onChange,
   onChangerStatut,
+  indice = 0,
 }: {
   paire: [ProspectAvecDiagnostic, ProspectAvecDiagnostic]
   onChange: () => void
   onChangerStatut: (prospect: ProspectAvecDiagnostic, nouveauStatut: ProspectStatut, dejaConfirme?: boolean) => Promise<boolean>
+  indice?: number
 }) {
   const [porteur, autre] = identifierPorteur(paire)
   const [enGlissement, setEnGlissement] = useState(false)
@@ -1291,52 +1526,80 @@ function CarteDuo({
         onClick={() => setDetailOuvert(true)}
         className="card card-lift"
         style={{
-          padding: 10,
+          padding: 16,
+          borderRadius: 20,
           display: 'flex',
           flexDirection: 'column',
-          gap: 8,
+          gap: 12,
           cursor: 'grab',
           opacity: enGlissement ? 0.4 : 1,
           position: 'relative',
           borderColor: necessiteAction ? 'rgba(255,138,112,.5)' : 'rgba(233,207,148,.32)',
         }}
       >
-        {necessiteAction && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span
             style={{
-              position: 'absolute',
-              top: -8,
-              right: 8,
-              fontSize: 9.5,
-              fontWeight: 800,
-              letterSpacing: 0.4,
+              flexGrow: 1,
+              minWidth: 0,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: 1.3,
               textTransform: 'uppercase',
-              color: '#fff',
-              background: 'var(--danger)',
-              borderRadius: 999,
-              padding: '2px 8px',
-              boxShadow: '0 3px 10px rgba(255,138,112,.4)',
+              color: 'var(--accent-gold, #e9cf94)',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
             }}
           >
-            À traiter
+            Duo · {nomGroupe}
           </span>
-        )}
-        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--accent-gold, #e9cf94)' }}>
-          Duo · {nomGroupe}
-        </span>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {paire.map((p) => (
-            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ width: 24, height: 24, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
-                {(p.prenom[0] ?? '').toUpperCase()}
-                {(p.nom[0] ?? '').toUpperCase()}
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)' }}>
+          {necessiteAction && <PastilleATraiter />}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {paire.map((p, rang) => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <AvatarProspect prospect={p} index={indice + rang} taille={32} />
+              <span
+                className="police-titre-italique"
+                style={{
+                  fontWeight: 600,
+                  fontSize: 15,
+                  color: 'var(--ink)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 {p.prenom} {p.nom}
               </span>
             </div>
           ))}
         </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <PuceCarte enfants={sousTitreCarte(porteur)} />
+        </div>
+        {porteur.statut === 'diagnostic_planifie' && dateRendezVousCarte(porteur) && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 12px',
+              borderRadius: 14,
+              background: 'var(--hoc-bandeau-or, rgba(233,207,148,.12))',
+              color: 'var(--ink)',
+            }}
+          >
+            <Icone nom="seances" taille={18} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>{dateRendezVousCarte(porteur)}</span>
+              <span style={{ fontSize: 12 }}>
+                Appel diagnostic{porteur.rendezVous ? ` · ${porteur.rendezVous.duree_minutes} min` : ''}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {detailOuvert && (
@@ -1707,21 +1970,18 @@ function BlocPaiementForfait({
   )
 }
 
-/* Résultat du quiz écrit passé par un candidat au collectif pour valider sa place au test oral
+/* Résultat du quiz ÉCRIT passé par un candidat au collectif pour valider sa place au test oral
    (0051). Le bilan détaillé est aussi recopié dans les notes du diagnostic, ce qui le fait
-   suivre dans le dossier de l'élève une fois le prospect converti. */
-function BilanTestPositionnement({
-  test,
-  lienVisio,
-}: {
-  test: NonNullable<ProspectAvecDiagnostic['testPositionnement']>
-  /* Lien Google Meet du créneau de test oral — demande client du 2026-10-16 : avant, seul
-     l'onglet Session orale le montrait, pas la fiche du prospect ouverte depuis le pipeline. */
-  lienVisio: string | null
-}) {
+   suivre dans le dossier de l'élève une fois le prospect converti.
+
+   Séparé du test ORAL le 2026-10-16 (demande client) : les deux étaient empilés dans un seul
+   encadré intitulé « Test de positionnement écrit », si bien que le bouton « Rejoindre via
+   Jitsi » — qui ouvre la séance ORALE — semblait appartenir au questionnaire écrit, déjà passé
+   et noté. Deux épreuves distinctes, deux blocs distincts. */
+function BilanTestEcrit({ test }: { test: NonNullable<ProspectAvecDiagnostic['testPositionnement']> }) {
   const [ouvert, setOuvert] = useState(false)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, borderRadius: 10, border: '1px solid rgba(169,140,255,.3)', background: 'rgba(169,140,255,.08)', padding: '11px 13px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--hoc-pastille, rgba(169,140,255,.08))', padding: '12px 14px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--accent-blue)', flexGrow: 1 }}>
           Test de positionnement écrit
@@ -1731,10 +1991,6 @@ function BilanTestPositionnement({
         </span>
         <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)' }}>{test.niveau_estime ?? 'Non évalué'}</span>
       </div>
-      {/* Toujours Jitsi : creer-creneau-test.ts n'appelle jamais creerEvenementVisio avec
-          `fournisseur: 'google_meet'`, le créneau de test oral garde donc systématiquement son
-          lien Jitsi d'origine (voir nouveauLienVisio dans api/_lib/google.ts). */}
-      {lienVisio && <BoutonRejoindreVisio lien={lienVisio} fournisseur="jitsi" />}
       {test.bilan && (
         <>
           <button
@@ -1750,6 +2006,43 @@ function BilanTestPositionnement({
             </pre>
           )}
         </>
+      )}
+    </div>
+  )
+}
+
+/* Séance ORALE réservée par le candidat : quand elle a lieu, et par où la rejoindre. Dessinée
+   comme l'encart de rendez-vous de la maquette (aplat or, texte violet foncé) plutôt que comme
+   le bloc écrit ci-dessus — c'est un rendez-vous à venir, pas un résultat acquis, et la
+   distinction se lit au premier coup d'œil dans une fiche qui porte les deux. */
+function SeanceTestOral({
+  creneau,
+}: {
+  creneau: NonNullable<ProspectAvecDiagnostic['creneauTest']>
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 14, background: 'var(--hoc-bandeau-or, rgba(233,207,148,.12))', padding: '12px 14px' }}>
+      <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--ink)' }}>
+        Test de positionnement oral
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Icone nom="seances" taille={18} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+            {formaterDansFuseauEtablissement(creneau.debut)}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>Séance de groupe · {creneau.dureeMinutes} min</span>
+        </div>
+      </div>
+      {/* Toujours Jitsi : creer-creneau-test.ts n'appelle jamais creerEvenementVisio avec
+          `fournisseur: 'google_meet'`, le créneau de test oral garde donc systématiquement son
+          lien Jitsi d'origine (voir nouveauLienVisio dans api/_lib/google.ts). */}
+      {creneau.lienVisio ? (
+        <BoutonRejoindreVisio lien={creneau.lienVisio} fournisseur="jitsi" />
+      ) : (
+        <span style={{ fontSize: 11.5, color: 'var(--ink-2)' }}>
+          Lien de visioconférence en cours de génération.
+        </span>
       )}
     </div>
   )
