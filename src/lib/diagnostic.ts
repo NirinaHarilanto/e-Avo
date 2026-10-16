@@ -3,6 +3,8 @@
    dossier de l'élève et la génération du texte de synthèse partent tous de cette même liste,
    ce qui évite qu'une question ajoutée ici soit oubliée à l'un des trois endroits. */
 
+import { NIVEAUX_CECRL } from './classesCollectif'
+
 export type TypeQuestion = 'texte' | 'choix' | 'choix-multiple' | 'zone'
 
 export interface QuestionDiagnostic {
@@ -131,7 +133,12 @@ export const SECTIONS_DIAGNOSTIC: SectionDiagnostic[] = [
   {
     titre: 'Notes internes',
     questions: [
-      { cle: 'niveau_estime', libelle: 'Niveau estimé', type: 'texte', placeholder: 'Ex. B1' },
+      /* Liste déroulante et non plus saisie libre — demande client du 2026-10-16, même raison
+         que le niveau retenu au test oral collectif (classesCollectif.ts) : une valeur tapée à
+         la main n'est reconnue par aucun des barèmes qui la comparent ensuite. Même échelle que
+         le reste de l'application pour un niveau d'élève (diagnostic_calls.niveau_evalue,
+         niveau_evaluations.niveau), individuel/duo comme collectif. */
+      { cle: 'niveau_estime', libelle: 'Niveau estimé', type: 'choix', options: [...NIVEAUX_CECRL] },
       { cle: 'profil_formateur', libelle: 'Profil du formateur idéal', type: 'zone', partageDuo: true },
       { cle: 'besoins_prioritaires', libelle: 'Besoins prioritaires', type: 'zone', partageDuo: true },
       { cle: 'programme_recommande', libelle: 'Type de programme recommandé', type: 'zone', partageDuo: true },

@@ -32,13 +32,19 @@ interface InformationsPersonnellesProps {
      qu'à l'admin et au titulaire lui-même, un professeur qui cliquerait "Enregistrer" essuierait
      un échec silencieux (0 ligne mise à jour). Mieux vaut ne jamais proposer l'action. */
   lectureSeule?: boolean
+  /* Masque e-mail/téléphone/WhatsApp/adresse/ville — demande client du 2026-10-16 : « le
+     professeur ne doit pas voir les coordonnées de ses étudiants ». Nom et prénom restent
+     affichés (nécessaires pour identifier l'élève) ; seules les coordonnées personnelles
+     disparaissent. Distinct de `lectureSeule`, qui ne masque que le bouton d'édition — un admin
+     en lecture seule sur un autre écran doit par exemple continuer à tout voir. */
+  masquerCoordonnees?: boolean
 }
 
 /* Panneau réutilisable admin : informations personnelles modifiables d'un étudiant ou d'un
    professeur (nom/prénom/téléphone/adresse). L'e-mail reste affiché en lecture seule : c'est
    aussi l'identifiant de connexion (auth.users), le modifier ici désynchroniserait l'affichage
    du login réel sans le changer — hors périmètre de ce panneau. */
-export function InformationsPersonnelles({ personne, onChange, extra, carte = true, lectureSeule = false }: InformationsPersonnellesProps) {
+export function InformationsPersonnelles({ personne, onChange, extra, carte = true, lectureSeule = false, masquerCoordonnees = false }: InformationsPersonnellesProps) {
   const [edition, setEdition] = useState(false)
   const [nom, setNom] = useState(personne.nom ?? '')
   const [prenom, setPrenom] = useState(personne.prenom ?? '')
@@ -136,11 +142,19 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <LigneInfo label="Nom" valeur={personne.nom ?? '—'} />
           <LigneInfo label="Prénom" valeur={personne.prenom ?? '—'} />
-          <LigneInfo label="E-mail" valeur={personne.email ?? '—'} />
-          <LigneInfo label="Téléphone" valeur={personne.telephone ?? '—'} />
-          <LigneInfo label="WhatsApp" valeur={personne.whatsapp ?? '—'} />
-          <LigneInfo label="Adresse" valeur={personne.adresse ?? '—'} />
-          <LigneInfo label="Ville" valeur={personne.ville ?? '—'} />
+          {masquerCoordonnees ? (
+            <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: '6px 0 0', lineHeight: 1.5 }}>
+              Coordonnées (e-mail, téléphone, WhatsApp, adresse) réservées à l’administration.
+            </p>
+          ) : (
+            <>
+              <LigneInfo label="E-mail" valeur={personne.email ?? '—'} />
+              <LigneInfo label="Téléphone" valeur={personne.telephone ?? '—'} />
+              <LigneInfo label="WhatsApp" valeur={personne.whatsapp ?? '—'} />
+              <LigneInfo label="Adresse" valeur={personne.adresse ?? '—'} />
+              <LigneInfo label="Ville" valeur={personne.ville ?? '—'} />
+            </>
+          )}
           {estProfesseur && (
             <>
               <LigneInfo label="Taux horaire individuel" valeur={personne.taux_horaire_individuel ? `${personne.taux_horaire_individuel} Ar/h` : '—'} />
@@ -213,14 +227,16 @@ export function PanneauInformationsDuo({
   duoPartenaire,
   onChange,
   lectureSeule = false,
+  masquerCoordonnees = false,
 }: {
   etudiant: Profile
   duoPartenaire: Profile | null
   onChange: () => void
   lectureSeule?: boolean
+  masquerCoordonnees?: boolean
 }) {
   if (!duoPartenaire) {
-    return <InformationsPersonnelles personne={etudiant} onChange={onChange} carte={false} lectureSeule={lectureSeule} />
+    return <InformationsPersonnelles personne={etudiant} onChange={onChange} carte={false} lectureSeule={lectureSeule} masquerCoordonnees={masquerCoordonnees} />
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -228,13 +244,13 @@ export function PanneauInformationsDuo({
         <span style={{ display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
           {etudiant.prenom} {etudiant.nom} (principal·e du binôme)
         </span>
-        <InformationsPersonnelles personne={etudiant} onChange={onChange} carte={false} lectureSeule={lectureSeule} />
+        <InformationsPersonnelles personne={etudiant} onChange={onChange} carte={false} lectureSeule={lectureSeule} masquerCoordonnees={masquerCoordonnees} />
       </div>
       <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 18 }}>
         <span style={{ display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 8 }}>
           {duoPartenaire.prenom} {duoPartenaire.nom} (second·e membre du duo)
         </span>
-        <InformationsPersonnelles personne={duoPartenaire} onChange={onChange} carte={false} lectureSeule={lectureSeule} />
+        <InformationsPersonnelles personne={duoPartenaire} onChange={onChange} carte={false} lectureSeule={lectureSeule} masquerCoordonnees={masquerCoordonnees} />
       </div>
     </div>
   )

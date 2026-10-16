@@ -179,8 +179,15 @@ function DossierPanel({ studentId, transfereLe }: { studentId: string; transfere
   return (
     <DossierEtudiantVue
       dossier={dossier}
+      masquerEmailEnTete
       panneauInformations={
-        <PanneauInformationsDuo etudiant={dossier.etudiant} duoPartenaire={dossier.duoPartenaire} onChange={() => {}} lectureSeule />
+        <PanneauInformationsDuo
+          etudiant={dossier.etudiant}
+          duoPartenaire={dossier.duoPartenaire}
+          onChange={() => {}}
+          lectureSeule
+          masquerCoordonnees
+        />
       }
       badgesSupplementaires={
         <>

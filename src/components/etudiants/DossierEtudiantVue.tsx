@@ -507,6 +507,11 @@ interface DossierEtudiantVueProps {
      partagé), alors que l'enquête de satisfaction est propre à CHAQUE identité de connexion —
      les deux membres ont assisté au même cours mais peuvent avoir un avis différent. */
   satisfactionEtudiantId?: string
+  /* Masque l'e-mail de l'élève dans l'en-tête — espace professeur (0061/2026-10-16) : le reste
+     du masquage des coordonnées se fait via `panneauInformations` (voir
+     InformationsPersonnelles.tsx), mais cette ligne-ci est rendue directement par ce composant,
+     hors de ce panneau, donc pas couverte par lui. */
+  masquerEmailEnTete?: boolean
 }
 
 /* Rendu du dossier étudiant, partagé entre la vue admin (avec actions) et l'espace élève/
@@ -529,6 +534,7 @@ export function DossierEtudiantVue({
   peutModifierPlanning,
   onDossierChange,
   satisfactionEtudiantId,
+  masquerEmailEnTete = false,
 }: DossierEtudiantVueProps) {
   const {
     etudiant,
@@ -632,7 +638,7 @@ export function DossierEtudiantVue({
                 </span>
               )}
               {badgesSupplementaires}
-              {etudiant.email && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{etudiant.email}</span>}
+              {!masquerEmailEnTete && etudiant.email && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{etudiant.email}</span>}
             </div>
           </div>
         </div>
