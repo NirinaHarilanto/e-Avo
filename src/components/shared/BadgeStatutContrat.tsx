@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Icone } from '../ui/Icones'
 
 export type StatutSignatureContrat = 'signe' | 'en_attente' | 'aucun'
 
@@ -14,17 +13,17 @@ const STYLES: Record<StatutSignatureContrat, { label: string; color: string; bg:
    badges tiennent sur une ligne ». Le texte complet reste lisible au survol (`title`), et
    toujours affiché en toutes lettres dans la fiche de l'élève (badgesSupplementaires,
    EtudiantsAdmin.tsx) : rien n'est perdu, seulement déplacé là où il y a la place de le lire.
-   « Aucun contrat » passé de la croix ✕ (lue à tort comme un bouton de suppression, à côté du
-   vrai bouton de suppression de la carte) au triangle d'alerte le 2026-10-11 — même icône et
-   même code couleur rouge que la statistique « Contrats non signés » de la page Étudiants.
-   Rendu en SVG (`Icone nom="alerte"`, pas le caractère Unicode ⚠) : ce caractère a une
-   présentation emoji par défaut dans la plupart des polices système (triangle orange, « ! »
-   noir), qui ignore `color` — contrairement à ✓ et ⏳ ci-dessous, sans présentation emoji par
-   défaut. L'icône SVG, elle, suit `currentColor` et reste donc bien rouge. */
+   « Aucun contrat » : croix ✕ (lue à tort comme un bouton de suppression) → triangle d'alerte
+   le 2026-10-11 → point d'exclamation le 2026-10-19 (demande client, capture à l'appui : la
+   carte étudiant portait alors DEUX triangles d'alerte quasi identiques côte à côte — celui-ci
+   et celui de `TagAucunCoursPlanifie` — l'exclamation distingue clairement les deux d'un coup
+   d'œil). Caractère Unicode « ! » ordinaire, pas « ⚠ » : seul ce dernier a une présentation
+   emoji par défaut dans la plupart des polices système, qui ignore `color` — « ! » comme ✓ et ⏳
+   juste en dessous n'a pas ce problème. */
 const GLYPHES: Record<StatutSignatureContrat, ReactNode> = {
   signe: '✓',
   en_attente: '⏳',
-  aucun: <Icone nom="alerte" taille={12} />,
+  aucun: '!',
 }
 
 /* Petit indicateur de signature de contrat, affiché dans les listes Professeurs et Étudiants

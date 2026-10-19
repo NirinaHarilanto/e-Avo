@@ -55,12 +55,17 @@ export function TagDossierIncomplet() {
    admin ». Un élève inscrit dont rien n'est programmé est une anomalie à traiter : il a souvent
    payé, et personne ne s'en aperçoit tant que l'admin ne rouvre pas son dossier.
 
+   Icône seule, sans le mot « Sans cours » à côté — demande client du 2026-10-19 (capture à
+   l'appui, même jour) : « l'icône warning est suffisant ». Le texte complet reste lisible au
+   survol (`title`), même convention que le glyphe de `BadgeStatutContrat` juste à côté.
+
    Icône SVG et non le glyphe « ⚠ » : dans Chromium sur Windows, ce caractère est rendu par la
    police d'emojis en couleur, qui ignore `color` — l'avertissement s'affichait en orange quelle
    que soit la teinte demandée. Celle-ci suit `currentColor`.
 
    Même ambre que les autres signaux non bloquants de la liste (`TagDossierIncomplet`), pas du
-   rouge : c'est à surveiller, ce n'est pas une erreur. */
+   rouge : c'est à surveiller, ce n'est pas une erreur — et c'est aussi ce qui la distingue du
+   point d'exclamation rouge de `BadgeStatutContrat` (« aucun contrat »), bloquant lui. */
 export function TagAucunCoursPlanifie() {
   return (
     <span
@@ -68,16 +73,13 @@ export function TagAucunCoursPlanifie() {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 4,
+        justifyContent: 'center',
         flexShrink: 0,
-        fontSize: 10,
-        fontWeight: 700,
         color: 'var(--warning)',
         background: 'rgba(233,207,148,.14)',
         border: '1px solid rgba(233,207,148,.34)',
         borderRadius: 999,
-        padding: '2px 8px',
-        whiteSpace: 'nowrap',
+        padding: '3px',
       }}
     >
       <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden>
@@ -85,7 +87,6 @@ export function TagAucunCoursPlanifie() {
         <path d="M12 9.6v4.8" />
         <path d="M12 17.4h.01" />
       </svg>
-      Sans cours
     </span>
   )
 }
@@ -150,8 +151,13 @@ interface CarteListeEtudiantProps {
    du tout ici, déplacé dans la fiche (TagDossierIncomplet, utilisé par EtudiantsAdmin.tsx /
    EtudiantsProfesseur.tsx via badgesSupplementaires).
 
-   Le nom se tronque en premier (`whiteSpace: nowrap` + ellipsis, `minWidth: 0` sur toute la
-   chaîne de conteneurs flex parents) si la place manque, jamais les badges (`flexShrink: 0`). */
+   Le nom occupe sa propre ligne, en entier — demande client du 2026-10-19 (capture à l'appui) :
+   « il faut que le nom de l'étudiant ou des étudiants soient visibles et lisible en entièreté ».
+   Avant, nom et badges se disputaient une seule ligne (`whiteSpace: nowrap` + ellipsis sur le
+   nom) : un binôme DUO ou un nom un peu long tronquait dès qu'un deuxième badge apparaissait
+   (contrat, sans cours...). Les badges vivent désormais sur leur propre ligne en dessous,
+   `flexWrap: wrap` au cas où ils seraient trop nombreux pour la largeur de la carte — jamais le
+   nom qui en pâtit. */
 export function CarteListeEtudiant({
   principal,
   secondaire,
@@ -193,24 +199,28 @@ export function CarteListeEtudiant({
       }}
     >
       {secondaire ? (
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0, width: '100%' }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, width: '100%' }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', minWidth: 0, overflowWrap: 'break-word' }}>
             {principal.prenom}/{secondaire.prenom}
           </span>
-          {programme && <TagProgramme programme={programme} />}
-          {statutContrat && <BadgeStatutContrat statut={statutContrat} glyphe />}
-          {etatParcours?.sansCoursPlanifie && <TagAucunCoursPlanifie />}
-        </span>
-      ) : (
-        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, width: '100%' }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
-              {principal.prenom} {principal.nom}
-            </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
             {programme && <TagProgramme programme={programme} />}
             {statutContrat && <BadgeStatutContrat statut={statutContrat} glyphe />}
             {etatParcours?.sansCoursPlanifie && <TagAucunCoursPlanifie />}
           </span>
+        </span>
+      ) : (
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, width: '100%' }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', minWidth: 0, overflowWrap: 'break-word' }}>
+            {principal.prenom} {principal.nom}
+          </span>
+          {(programme || statutContrat || etatParcours?.sansCoursPlanifie) && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+              {programme && <TagProgramme programme={programme} />}
+              {statutContrat && <BadgeStatutContrat statut={statutContrat} glyphe />}
+              {etatParcours?.sansCoursPlanifie && <TagAucunCoursPlanifie />}
+            </span>
+          )}
           {/* L'activité ne s'écrit que lorsqu'elle manquerait ailleurs : « Actif » reste muet
               (épuré le 2026-10-11 : « pas du tout utile »), mais un élève inactif, en attente ou
               en pause doit se repérer dans la liste sans ouvrir son dossier. */}
