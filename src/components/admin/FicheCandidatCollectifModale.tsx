@@ -21,6 +21,7 @@ import { AssignerVague } from '../etudiants/AssignerVague'
 import { ChangerClasseEtudiant } from '../etudiants/ChangerClasseEtudiant'
 import { Modale } from '../ui/Modale'
 import { GroupeSection } from '../ui/Section'
+import { PanneauRelances } from '../shared/Relances'
 import { LigneInfo } from '../ui/Champ'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
 import { boutonSecondaireStyle, boutonPrimaireStyle } from '../ui/Boutons'
@@ -433,6 +434,21 @@ export function FicheCandidatCollectifModale({
                       <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>{formaterMontant(p.montant, p.devise)}</span>
                     </button>
                   ))}
+                </div>
+              )}
+
+              {/* Relance du règlement, avec son historique — demande client du 2026-10-19 :
+                  « pour les cours collectifs, il faudrait également rajouter un bouton de relance
+                  de paiement [...] rattacher un historique de relance également ». Même bouton,
+                  même modèle d'e-mail (1.4) et même journal que pour l'individuel et le DUO : un
+                  candidat collectif qui n'a pas réglé est exactement dans la même situation,
+                  diagnostic passé et place en attente de confirmation.
+
+                  Proposé tant que rien n'est encore réglé — une fois les frais encaissés, le
+                  candidat n'attend plus que sa conversion, qui n'est pas une affaire de relance. */}
+              {!profilEtudiant && (paiements ?? []).every((p) => statutReglement(p) !== 'paye') && (
+                <div style={{ marginTop: 12, borderTop: '1px solid var(--border-soft)', paddingTop: 10 }}>
+                  <PanneauRelances cible={{ prospectId: prospect.id, motif: 'paiement_a_regler' }} libelle="Relancer le paiement" />
                 </div>
               )}
             </GroupeSection>

@@ -4,6 +4,7 @@ import {
   completsAReporterSurProfil,
   deduireSource,
   preparerVariables,
+  SOURCES_IDENTITE_PERSONNE,
   substituerVariablesDuo,
   type VariableResolue,
 } from '../contrats'
@@ -607,5 +608,32 @@ describe('clesCommunesAuxEleves', () => {
 
   it('ne renvoie rien sans élève', () => {
     expect(clesCommunesAuxEleves([]).size).toBe(0)
+  })
+})
+
+/* Capture client du 2026-10-19 (croix rouge sur « Adresse de l'étudiant ») : en lançant les
+   contrats d'une classe, ce champ restait proposé en saisie UNIQUE sous le bloc des champs
+   automatiques. Ce qui y aurait été tapé serait parti à l'identique dans les cinq contrats, donc
+   faux pour quatre élèves. « L'adresse est propre à chaque étudiant, donc elle doit figurer dans
+   le champ automatique ou ne pas figurer du tout. »
+
+   `SOURCES_IDENTITE_PERSONNE` est l'ensemble qui tranche, côté écran comme côté DUO : ces tests
+   verrouillent ce qu'il contient, pour qu'un champ personnel ne puisse pas y échapper. */
+describe('SOURCES_IDENTITE_PERSONNE', () => {
+  it('couvre les champs qu’une fiche d’élève porte en propre', () => {
+    for (const source of ['nom_complet', 'prenom', 'nom', 'email', 'telephone', 'whatsapp', 'adresse', 'ville', 'date_naissance', 'lieu_naissance', 'age']) {
+      expect(SOURCES_IDENTITE_PERSONNE.has(source as never)).toBe(true)
+    }
+  })
+
+  it('laisse dehors ce qui ne dépend pas de l’élève', () => {
+    // Ces champs-là se saisissent bien une fois pour toute la classe.
+    for (const source of ['etablissement_nom', 'etablissement_adresse', 'date_du_jour', 'langue_programme', 'heures_programme']) {
+      expect(SOURCES_IDENTITE_PERSONNE.has(source as never)).toBe(false)
+    }
+  })
+
+  it('laisse dehors le taux horaire, propre au professeur et jamais à un élève', () => {
+    expect(SOURCES_IDENTITE_PERSONNE.has('taux_horaire' as never)).toBe(false)
   })
 })

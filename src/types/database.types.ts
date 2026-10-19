@@ -16,7 +16,9 @@ export type StatutEvent = 'brouillon' | 'publie'
 /* Les trois motifs de relance tracés (0130) : le prospect qui n'a pas encore choisi son forfait,
    celui qui ne s'est pas présenté à son appel diagnostic, et l'étudiant à rappeler après une
    pause. */
-export type MotifRelance = 'forfait_a_choisir' | 'absence_diagnostic' | 'reprise_apres_pause'
+/* `paiement_a_regler` ajouté en 0133 : tout est tranché (diagnostic passé, formule choisie), il
+   ne manque que le règlement pour que la personne devienne étudiante. */
+export type MotifRelance = 'forfait_a_choisir' | 'absence_diagnostic' | 'reprise_apres_pause' | 'paiement_a_regler'
 /* Les deux instants du parcours où l'admin fait son suivi pédagogique et où l'élève remplit son
    enquête de satisfaction (0130) : la moitié des heures, puis 3 h avant la fin. */
 export type JalonParcours = 'mi_parcours' | 'fin_parcours'

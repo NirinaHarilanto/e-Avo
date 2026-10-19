@@ -23,6 +23,27 @@ interface ParamsEmail {
   html: string
   /* Pièce jointe unique (brochure, procédure, facture…), contenu déjà encodé en base64. */
   piecesJointes?: { nom: string; contenuBase64: string }[]
+  /* Coordonnées de l'établissement (section « Profil HOC »), ajoutées en pied de message —
+     demande client du 2026-10-19 : « dans tous les messages automatiques il faut rajouter le
+     numéro de téléphone et l'adresse mail admin se trouvant dans la section Profil HOC de
+     l'espace admin ». Posées ICI, au seul point de passage de TOUS les envois (gabarits de code
+     comme modèles de la base), plutôt que recopiées dans chaque texte : un modèle que l'admin
+     réécrit depuis son écran ne doit pas pouvoir perdre le moyen de nous joindre. */
+  contact?: { telephone?: string | null; email?: string | null }
+}
+
+/* Pied de page de contact. Rend une chaîne vide si le Profil HOC n'a ni téléphone ni e-mail :
+   mieux vaut pas de pied de page qu'un pied de page vide annonçant « Nous joindre : ». */
+export function piedDePageContact(contact: ParamsEmail['contact']): string {
+  const lignes = [
+    contact?.telephone?.trim() ? `Téléphone : ${echapper(contact.telephone.trim())}` : null,
+    contact?.email?.trim() ? `E-mail : ${echapper(contact.email.trim())}` : null,
+  ].filter((l): l is string => !!l)
+  if (lignes.length === 0) return ''
+  return `<div style="margin-top:22px;padding-top:14px;border-top:1px solid #e5daf8;font-size:12.5px;line-height:1.7;color:#6b6580">
+  <div style="font-weight:700;color:#4A306D;margin-bottom:4px">Une question ? Nous sommes joignables</div>
+  ${lignes.join('<br />')}
+</div>`
 }
 
 export async function envoyerEmail(params: ParamsEmail): Promise<{ envoye: boolean; erreur?: string }> {
@@ -55,7 +76,7 @@ export async function envoyerEmail(params: ParamsEmail): Promise<{ envoye: boole
         reply_to: adresseDeReponse,
         ...(params.copies?.length ? { cc: params.copies } : {}),
         subject: params.sujet,
-        html: params.html,
+        html: params.html + piedDePageContact(params.contact),
         ...(params.piecesJointes?.length
           ? { attachments: params.piecesJointes.map((p) => ({ filename: p.nom, content: p.contenuBase64 })) }
           : {}),

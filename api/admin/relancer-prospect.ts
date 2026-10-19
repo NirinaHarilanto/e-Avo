@@ -13,7 +13,7 @@ export const config = { runtime: 'edge' }
      par la migration 0130).
    Un seul endpoint : l'authentification, la vérification d'appartenance à l'établissement et la
    trace dans `relances` sont identiques, seul le modèle d'e-mail diffère. */
-type MotifProspect = 'forfait_a_choisir' | 'absence_diagnostic'
+type MotifProspect = 'forfait_a_choisir' | 'absence_diagnostic' | 'paiement_a_regler'
 
 interface Corps {
   prospectId?: string
@@ -23,7 +23,15 @@ interface Corps {
 const REFERENCE_MODELE: Record<MotifProspect, string> = {
   forfait_a_choisir: '1.2',
   absence_diagnostic: '1.3',
+  /* Ajouté le 2026-10-19 (migration 0133) : le prospect a passé son diagnostic ET choisi sa
+     formule, il ne manque que le règlement pour qu'il devienne étudiant. Le modèle 1.2 ne
+     convenait plus à ce stade — il explique les chemins possibles à quelqu'un qui n'a encore
+     rien tranché, alors qu'ici tout l'est. Demande client : « féliciter la personne d'être
+     arrivée à ce stade et l'inviter à payer les frais de cours pour commencer son parcours ». */
+  paiement_a_regler: '1.4',
 }
+
+const MOTIFS: MotifProspect[] = ['forfait_a_choisir', 'absence_diagnostic', 'paiement_a_regler']
 
 /**
  * Relance manuelle d'un prospect. Passe par le serveur (comme les autres envois Resend) pour
@@ -47,11 +55,11 @@ export default async function handler(request: Request): Promise<Response> {
     }
     /* Motif par défaut à la relance d'origine : l'ancien appel du pipeline n'en envoyait aucun,
        et c'est bien ce cas-là qu'il visait. */
-    const motif: MotifProspect = corps.motif === 'absence_diagnostic' ? 'absence_diagnostic' : 'forfait_a_choisir'
+    const motif: MotifProspect = MOTIFS.includes(corps.motif as MotifProspect) ? (corps.motif as MotifProspect) : 'forfait_a_choisir'
 
     const { data: prospect } = await serviceClient
       .from('prospects')
-      .select('id, etablissement_id, prenom, email, statut')
+      .select('id, etablissement_id, prenom, email, statut, type_programme, tarif_choisi_id')
       .eq('id', corps.prospectId)
       .maybeSingle()
     if (!prospect || prospect.etablissement_id !== etablissementId) {
@@ -75,6 +83,20 @@ export default async function handler(request: Request): Promise<Response> {
       .limit(1)
       .maybeSingle()
 
+    /* Formule retenue et somme attendue, pour la relance de règlement (1.4) : le message doit
+       rappeler précisément ce que la personne a choisi, sinon « réglez vos frais » ne lui dit pas
+       de quoi il s'agit. Une ligne dont la variable reste vide disparaît d'elle-même du modèle
+       (voir preparerEmail), donc un prospect sans tarif choisi reçoit le même message sans ces
+       deux lignes plutôt qu'un texte à trous. */
+    const { data: tarifChoisi } = prospect.tarif_choisi_id
+      ? await serviceClient.from('tarifs').select('titre, prix, unite, heures').eq('id', prospect.tarif_choisi_id).maybeSingle()
+      : { data: null }
+
+    const formuleChoisie = tarifChoisi
+      ? `${tarifChoisi.titre}${tarifChoisi.heures ? ` — ${tarifChoisi.heures} h` : ''}`
+      : undefined
+    const montantARegler = tarifChoisi?.prix ? `${Number(tarifChoisi.prix).toLocaleString('fr-FR')} ${tarifChoisi.unite || 'Ar'}` : undefined
+
     const reference = REFERENCE_MODELE[motif]
     const parModele = await envoyerDepuisModele(serviceClient, {
       etablissementId,
@@ -88,6 +110,8 @@ export default async function handler(request: Request): Promise<Response> {
         numero_vague: nomVagueSeul(prochaineVague?.nom) || undefined,
         date_debut_vague: dateLisible(prochaineVague?.date_debut),
         date_fin_vague: dateLisible(prochaineVague?.date_fin),
+        formule_choisie: formuleChoisie,
+        montant_a_regler: montantARegler,
       },
     })
 

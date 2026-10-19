@@ -51,6 +51,15 @@ export async function envoyerDepuisModele(
   const constantes = await chargerConstantes(serviceClient, params.etablissementId)
   const prepare = preparerEmail(modele, { ...constantes, ...params.valeurs })
 
+  /* Coordonnées du Profil HOC, ajoutées en pied de TOUS les messages (demande client du
+     2026-10-19) : un modèle que l'admin réécrit depuis son écran ne doit pas pouvoir perdre le
+     moyen de nous joindre, c'est donc l'envoi qui les pose, pas le texte. */
+  const { data: etablissement } = await serviceClient
+    .from('etablissements')
+    .select('telephone, email')
+    .eq('id', params.etablissementId)
+    .maybeSingle()
+
   return {
     ...(await envoyerEmail({
       destinataire: params.destinataires,
@@ -58,6 +67,7 @@ export async function envoyerDepuisModele(
       sujet: prepare.objet,
       html: corpsEnHtml(prepare.corps),
       piecesJointes: params.piecesJointes,
+      contact: etablissement ?? undefined,
     })),
     manquantes: prepare.manquantes,
   }

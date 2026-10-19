@@ -13,8 +13,10 @@ import {
   completsAReporterSurProfil,
   libelleTypeProgramme,
   preparerVariables,
+  SOURCES_IDENTITE_PERSONNE,
   substituerVariablesDuo,
   type ContexteProgramme,
+  type SourceVariable,
 } from '../../lib/contrats'
 import type { Database, Role } from '../../types/database.types'
 import { Champ, LigneInfo, champStyle } from '../ui/Champ'
@@ -161,7 +163,19 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
   const remplies = variables.filter((v) => !!v.valeurAuto)
   // La clause de minorité (0087) a son propre rendu — case à cocher, pas un champ de texte libre
   // parmi les autres — donc exclue d'ici malgré `valeurAuto === undefined`. Voir plus bas.
-  const aCompleter = variables.filter((v) => v.valeurAuto === undefined && !v.estClauseMineur)
+  /* Pour une CLASSE, un champ propre à la personne (adresse, date de naissance…) ne peut pas être
+     saisi une seule fois pour tout le monde : la valeur tapée partirait à l'identique dans les
+     cinq contrats, et serait fausse pour quatre d'entre eux. Demande client du 2026-10-19,
+     capture à l'appui (croix rouge sur « Adresse de l'étudiant ») : « l'adresse est propre à
+     chaque étudiant, donc elle doit figurer dans le champ automatique ou ne pas figurer du
+     tout ». Elle figure donc sous le nom de chaque élève, remplie depuis sa fiche — et rappelée
+     comme manquante quand sa fiche ne la porte pas. */
+  const aCompleter = variables.filter(
+    (v) =>
+      v.valeurAuto === undefined &&
+      !v.estClauseMineur &&
+      !(classeChoisie && v.source && SOURCES_IDENTITE_PERSONNE.has(v.source as SourceVariable)),
+  )
   const clausesMineur = variables.filter((v) => v.estClauseMineur)
 
   const valeurs: Record<string, string> = {}
@@ -248,7 +262,13 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
         etablissement,
         contextePourMembre(forfaitsApercu[membre.id]),
         null,
-      ).filter((v) => !!v.valeurAuto),
+      ).filter(
+        /* Les champs d'identité RESTENT dans la liste même sans valeur : ils ne sont plus
+           proposés en saisie commune (voir `aCompleter`), c'est donc ici, sous le nom de
+           l'élève, que leur absence doit se voir — sinon l'admin enverrait un contrat avec un
+           trou sans jamais l'avoir su. */
+        (v) => !!v.valeurAuto || (!!v.source && SOURCES_IDENTITE_PERSONNE.has(v.source as SourceVariable)),
+      ),
     }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modele, classeChoisie, membresClasse, etablissement, forfaitsApercu, contexteProgramme])
@@ -494,7 +514,21 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
                     Étudiant {index + 1} · {[membre.prenom, membre.nom].filter(Boolean).join(' ')}
                   </div>
                   {propres.length > 0 ? (
-                    propres.map((variable) => <LigneInfo key={variable.cle} label={variable.label} valeur={variable.valeurAuto} />)
+                    propres.map((variable) => (
+                      <LigneInfo
+                        key={variable.cle}
+                        label={variable.label}
+                        valeur={
+                          /* Une information que la fiche de l'élève ne porte pas : le dire ici
+                             plutôt que de la laisser vide, puisqu'elle n'est plus demandée en
+                             saisie commune — elle se complète dans sa fiche, où elle servira
+                             aussi à tous ses prochains contrats. */
+                          variable.valeurAuto ?? (
+                            <span style={{ color: 'var(--warning)' }}>à compléter dans sa fiche</span>
+                          )
+                        }
+                      />
+                    ))
                   ) : (
                     <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted-2)' }}>
                       Aucune information propre à cet élève dans ce modèle : son contrat ne portera que les champs communs ci-dessus.

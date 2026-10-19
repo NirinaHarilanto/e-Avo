@@ -20,6 +20,7 @@ const LIBELLE_MOTIF: Record<MotifRelance, string> = {
   forfait_a_choisir: 'Choix du forfait',
   absence_diagnostic: 'Absence au diagnostic',
   reprise_apres_pause: 'Reprise après pause',
+  paiement_a_regler: 'Règlement à venir',
 }
 
 type Cible = { prospectId: string; motif: Exclude<MotifRelance, 'reprise_apres_pause'> } | { studentId: string }

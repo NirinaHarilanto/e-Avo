@@ -803,6 +803,15 @@ function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => vo
      même prospect que le forfait, voir `identifierPorteur`). */
   const paiementEnregistre = !!prospect.paiement
 
+  /* Deux relances différentes derrière le même bouton — demande client du 2026-10-19 : « quand
+     la relance est lancée à partir du bouton, alors le diagnostic call est supposé être fait. Il
+     ne reste plus que le paiement du cours [...] il faut alors féliciter la personne d'être
+     arrivée à ce stade et l'inviter à payer les frais de cours ». Tant que la formule n'est pas
+     tranchée, c'est bien l'ancienne relance qu'il faut (modèle 1.2, qui explique les chemins
+     possibles) ; une fois qu'elle l'est et que rien n'est encaissé, le message doit parler du
+     seul obstacle qui reste (modèle 1.4, 0133). Vaut pour l'individuel comme pour le DUO. */
+  const motifRelance = tarifAEncaisser && !paiementEnregistre ? ('paiement_a_regler' as const) : ('forfait_a_choisir' as const)
+
   async function marquerRealise() {
     setEnCours(true)
     setErreur(null)
@@ -980,6 +989,7 @@ function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => vo
     essai,
     tarifAEncaisser,
     paiementEnregistre,
+    motifRelance,
     marquerRealise,
     enregistrerDiagnostic,
     choisirTarif,
@@ -1026,6 +1036,7 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
     essai,
     tarifAEncaisser,
     paiementEnregistre,
+    motifRelance,
     diagnosticManque,
     marquerRealise,
     enregistrerDiagnostic,
@@ -1336,7 +1347,7 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
                 {/* Le bouton ne se désarme plus après un premier envoi, et l'historique de ce qui
                     est déjà parti s'affiche juste en dessous — demande client du 2026-10-19 :
                     « on peut relancer plusieurs fois un prospect ». */}
-                <PanneauRelances cible={{ prospectId: prospect.id, motif: 'forfait_a_choisir' }} libelle="Relancer le prospect" />
+                <PanneauRelances cible={{ prospectId: prospect.id, motif: motifRelance }} libelle="Relancer le prospect" />
                 {/* Conversion verrouillée tant que le forfait n'est pas encaissé — demande
                     client du 2026-09-21. Le motif est écrit juste au-dessus du bouton plutôt que
                     dans une infobulle : un bouton grisé sans explication est le premier réflexe
@@ -1812,7 +1823,7 @@ function CarteDuo({
                 </button>
                 {/* Relance du porteur, pour le binôme : voir le commentaire du bloc d'absence
                     au rendez-vous plus haut. */}
-                <PanneauRelances cible={{ prospectId: porteur.id, motif: 'forfait_a_choisir' }} libelle="Relancer le prospect" />
+                <PanneauRelances cible={{ prospectId: porteur.id, motif: a.motifRelance }} libelle="Relancer le prospect" />
                 {!a.paiementEnregistre && (
                   <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)', margin: 0, padding: '8px 10px', borderRadius: 8, border: '1px dashed var(--border)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}>
                     Enregistrez d’abord le paiement du forfait ci-dessus, partagé par le binôme : la conversion des
