@@ -109,7 +109,11 @@ Koloina
 Hari Online Club$txt$,
  'À la date de relance notée au moment de la mise en pause de l''étudiant. Peut être renvoyé plusieurs fois : chaque envoi est tracé dans l''historique des relances de son dossier.', null::text, 47)
 
-) as t(reference, categorie, nom, objet, corps, quand, piece_jointe, ordre);
+) as t(reference, categorie, nom, objet, corps, quand, piece_jointe, ordre)
+-- Sans effet si les deux modèles sont déjà là : cette migration est appliquée à la main depuis
+-- l'éditeur SQL du dashboard, et une exécution relancée par prudence ne doit pas buter sur
+-- `email_templates_reference_unique` (0091) alors que tout est déjà en place.
+on conflict (etablissement_id, reference) where reference is not null do nothing;
 
 
 -- ──────────────────── 2. Date de relance posée à la mise en pause (demande 7) ────────────────────
