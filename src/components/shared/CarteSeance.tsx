@@ -127,7 +127,7 @@ export function CarteSeance({
           titre/détails — avec une liste de participants longue, le badge se retrouvait poussé
           sous le texte plutôt qu'aligné avec lui. */}
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <BadgeStatutSeance statut={seance.session.statut} />
+        <BadgeStatutSeance statut={seance.session.statut} seance={seance.session} />
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>

@@ -21,6 +21,7 @@ import type { Database } from '../../types/database.types'
 import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE } from '../../lib/classesCollectif'
 import { LABEL_TYPE_PROGRAMME } from '../../lib/paiements'
 import { niveauDefinitif } from '../../lib/niveauEtudiant'
+import { seancePasseeNonCloturee } from '../../lib/seances'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
@@ -219,7 +220,22 @@ function EtapeAvancement({ fait, label }: { fait: boolean; label: string }) {
   )
 }
 
-function StatutSeance({ enrollment, statutSession }: { enrollment: { present: boolean | null }; statutSession: string }) {
+function StatutSeance({
+  enrollment,
+  statutSession,
+  seance,
+}: {
+  enrollment: { present: boolean | null }
+  statutSession: string
+  /* Horaire de la séance : une séance encore « planifiée » dont l'heure est passée attend sa
+     clôture, elle n'est plus à venir. Sans cette distinction, le parcours affichait « Planifiée »
+     pour une séance d'hier pendant que l'en-tête du même dossier alertait « Aucun cours
+     planifié » — contradiction signalée par le client le 2026-10-19, capture à l'appui. */
+  seance?: { debut: string; duree_minutes: number }
+}) {
+  if (seance && seancePasseeNonCloturee({ statut: statutSession, ...seance })) {
+    return <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--warning, #e0a94d)' }}>À clôturer</span>
+  }
   if (statutSession === 'planifiee') {
     return <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-cyan)' }}>Planifiée</span>
   }
@@ -441,7 +457,7 @@ function TableauSeances({
             </span>
             <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{formaterMinutes(seance.session.duree_minutes)}</span>
             <span style={{ width: 72, textAlign: 'right' }}>
-              <StatutSeance enrollment={seance.enrollment} statutSession={seance.session.statut} />
+              <StatutSeance enrollment={seance.enrollment} statutSession={seance.session.statut} seance={seance.session} />
             </span>
           </div>
         ))}
@@ -802,7 +818,10 @@ export function DossierEtudiantVue({
                 {new Date(prochaineSeance.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
               </span>
             ) : (
-              <span style={{ fontSize: 13.5 }}>Aucune planifiée</span>
+              /* « à venir » plutôt que « planifiée » (2026-10-19) : cette case ne regarde, elle
+                 aussi, que l'avenir — le dire évite de contredire le tableau du parcours, où une
+                 séance d'hier reste au statut « planifiée » tant qu'elle n'est pas clôturée. */
+              <span style={{ fontSize: 13.5 }}>Aucune à venir</span>
             )
           }
           ton="bleu"

@@ -270,7 +270,7 @@ function FicheSeance({
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <BadgeStatutSeance statut={seance.session.statut} />
+          <BadgeStatutSeance statut={seance.session.statut} seance={seance.session} />
         </div>
         <LigneInfo label="Type" valeur={seance.session.type === 'individuel' ? 'Cours individuel' : 'Cours collectif'} />
         <LigneInfo label="Date et heure" valeur={new Date(seance.session.debut).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })} />

@@ -76,7 +76,7 @@ export function TagDossierIncomplet() {
 export function TagAucunCoursPlanifie({ texte = true }: { texte?: boolean } = {}) {
   return (
     <span
-      title="Aucune séance à venir n’est planifiée pour cet étudiant."
+      title="Aucune séance à venir pour cet étudiant. Les séances déjà passées, clôturées ou non, ne comptent pas ici."
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -98,7 +98,13 @@ export function TagAucunCoursPlanifie({ texte = true }: { texte?: boolean } = {}
         <path d="M12 9.6v4.8" />
         <path d="M12 17.4h.01" />
       </svg>
-      {texte && 'Aucun cours planifié'}
+      {/* « à venir » et non « planifié » depuis le 2026-10-19 (capture client) : une séance
+          d'hier encore au statut « planifiée » faisait lire deux affirmations contraires sur le
+          même écran — le tableau du parcours disait « Planifiée », cette étiquette « Aucun cours
+          planifié ». Ce qu'elle compte, et a toujours compté, ce sont les séances À VENIR ; elle
+          le dit maintenant. Les séances passées jamais clôturées, elles, portent désormais leur
+          propre libellé (« À clôturer », voir lib/seances.ts). */}
+      {texte && 'Aucun cours à venir'}
     </span>
   )
 }

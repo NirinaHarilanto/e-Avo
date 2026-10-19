@@ -65,7 +65,7 @@ export function DetailSeanceModale({ session, professeur, eleves, video, onFerme
             {debut.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} ·{' '}
             {debut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
           </span>
-          <BadgeStatutSeance statut={session.statut} />
+          <BadgeStatutSeance statut={session.statut} seance={session} />
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

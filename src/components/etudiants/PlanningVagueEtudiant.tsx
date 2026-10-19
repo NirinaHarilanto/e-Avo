@@ -70,7 +70,7 @@ export function PlanningVagueEtudiant({ studentId }: { studentId: string }) {
                     {debut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                   </span>
                   <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{formaterMinutes(seance.duree_minutes)}</span>
-                  <BadgeStatutSeance statut={seance.statut} />
+                  <BadgeStatutSeance statut={seance.statut} seance={seance} />
                 </div>
               )
             })}

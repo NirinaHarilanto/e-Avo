@@ -62,6 +62,26 @@ export function libelleTypeSeance(
   return type === 'individuel' ? 'Individuel' : 'Collectif'
 }
 
+/* Une séance encore « planifiée » dont l'heure est passée n'est plus planifiée : elle attend sa
+   clôture par le professeur. Signalé par le client le 2026-10-19, capture à l'appui : son dossier
+   affichait deux séances « Planifiée » (18 et 19 octobre) ET l'alerte « Aucun cours planifié » —
+   deux sens du même mot sur le même écran. Le badge comptait les séances À VENIR (exact : la
+   seconde venait de passer depuis moins d'une heure), le tableau affichait le STATUT brut.
+
+   `dureeMinutes` entre dans le calcul : une séance commencée il y a dix minutes est en cours, pas
+   en retard de clôture. On ne bascule qu'une fois l'horaire entièrement écoulé.
+
+   Ne change rien en base — `sessions.statut` reste 'planifiee' jusqu'à la clôture réelle
+   (api/professeur/cloturer-seance.ts). C'est un libellé d'affichage, pas un état. */
+export function seancePasseeNonCloturee(
+  session: { statut: string; debut: string; duree_minutes: number },
+  maintenant: Date = new Date(),
+): boolean {
+  if (session.statut !== 'planifiee') return false
+  const fin = new Date(session.debut).getTime() + session.duree_minutes * 60_000
+  return fin <= maintenant.getTime()
+}
+
 /* Séances d'un élève que AUCUNE de ses affectations individuelles ne réclame — demande client du
    2026-10-19 : « il faudrait que tous les étudiants en cours collectifs soient visibles dans la
    section Étudiants afin de bien suivre l'étudiant en cours collectif ». Le parcours d'un dossier

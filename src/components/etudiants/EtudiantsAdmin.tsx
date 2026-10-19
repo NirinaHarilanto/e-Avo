@@ -128,7 +128,7 @@ export function EtudiantsAdmin() {
             />
             <Stat
               compact
-              libelle="Sans cours planifié"
+              libelle="Sans cours à venir"
               valeur={sansCoursPlanifie}
               ton={sansCoursPlanifie > 0 ? 'alerte' : 'neutre'}
               aide="Aucune séance à venir au planning"

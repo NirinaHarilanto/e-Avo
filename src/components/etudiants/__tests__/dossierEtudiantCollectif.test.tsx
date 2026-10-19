@@ -95,6 +95,28 @@ describe('DossierEtudiantVue — élève en cours collectif', () => {
     expect(screen.getByText(/se modifient depuis Cours collectifs/)).toBeTruthy()
   })
 
+  /* Capture client du 2026-10-19 : le dossier de bernard bensas affichait deux séances
+     « Planifiée » (18 et 19 octobre, la seconde passée depuis moins d'une heure) pendant que son
+     en-tête alertait « Aucun cours planifié ». Les deux disaient vrai — statut en base d'un côté,
+     séances à venir de l'autre — mais l'écran se contredisait. */
+  it('dit « À clôturer », pas « Planifiée », pour une séance dont l’heure est passée', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-19T16:52:00Z'))
+    try {
+      const dossier = dossierCollectif([
+        seance('passee', '2026-10-18T16:00:00.000Z', 'planifiee', null),
+        seance('a-venir', '2026-10-25T16:00:00.000Z', 'planifiee', null),
+      ])
+      render(<DossierEtudiantVue dossier={dossier} peutModifierPlanning={false} />)
+
+      expect(screen.getByText('À clôturer')).toBeTruthy()
+      // Celle du 25 reste bien « Planifiée » : elle, est encore à venir.
+      expect(screen.getByText('Planifiée')).toBeTruthy()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('nomme le professeur de la classe dans l’onglet Professeur', () => {
     render(<DossierEtudiantVue dossier={dossierCollectif()} peutModifierPlanning={false} />)
 

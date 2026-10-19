@@ -466,7 +466,7 @@ function LigneSeance({ seance, onChange }: { seance: SeanceAdmin; maintenant: st
         {libelleTypeSeance(seance.session.type, seance.inscriptions)} · {seance.session.duree_minutes} min ·{' '}
         {nomsElevesInscrits(seance.inscriptions).join(', ') || 'aucun élève inscrit'}
       </span>
-      <BadgeStatutSeance statut={seance.session.statut} />
+      <BadgeStatutSeance statut={seance.session.statut} seance={seance.session} />
 
       {modifiable &&
         (lienReel && seance.video ? (

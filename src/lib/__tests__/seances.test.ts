@@ -5,6 +5,7 @@ import {
   libelleAuteurModification,
   libelleTypeSeance,
   nomEleveInscrit,
+  seancePasseeNonCloturee,
   seancesHorsAffectation,
 } from '../seances'
 
@@ -127,5 +128,37 @@ describe('seancesHorsAffectation', () => {
   it('rend toutes les séances quand l’élève n’a aucune affectation', () => {
     const seances = [seance('collective-1', null), seance('collective-2', null)]
     expect(seancesHorsAffectation(seances, [])).toHaveLength(2)
+  })
+})
+
+/* Signalé par le client le 2026-10-19, capture à l'appui : son dossier affichait deux séances
+   « Planifiée » (18 et 19 octobre) ET l'alerte « Aucun cours planifié ». Les deux étaient exactes
+   au mot près — l'une donnait le STATUT en base, l'autre comptait les séances À VENIR, et la
+   séance du 19 venait de passer — mais l'écran se contredisait. « il faut que toutes les
+   informations soient cohérentes ». */
+describe('seancePasseeNonCloturee', () => {
+  const maintenant = new Date('2026-10-19T16:52:00Z')
+  const seance = (debut: string, duree_minutes = 60, statut = 'planifiee') => ({ statut, debut, duree_minutes })
+
+  it('reconnaît une séance planifiée dont l’horaire est entièrement passé', () => {
+    expect(seancePasseeNonCloturee(seance('2026-10-18T16:00:00Z'), maintenant)).toBe(true)
+    // La séance du jour, commencée à 16 h et finie à 17 h… non : finie à 17 h, il est 16 h 52.
+    expect(seancePasseeNonCloturee(seance('2026-10-19T16:00:00Z', 52), maintenant)).toBe(true)
+  })
+
+  it('ne bascule pas une séance encore en cours', () => {
+    // Commencée il y a 52 minutes, elle dure 90 minutes : elle n'est pas en retard de clôture.
+    expect(seancePasseeNonCloturee(seance('2026-10-19T16:00:00Z', 90), maintenant)).toBe(false)
+  })
+
+  it('ne touche jamais une séance à venir', () => {
+    expect(seancePasseeNonCloturee(seance('2026-10-20T16:00:00Z'), maintenant)).toBe(false)
+  })
+
+  it('ne concerne que le statut « planifiée »', () => {
+    // Une séance passée déjà clôturée, annulée ou reportée garde son propre libellé.
+    expect(seancePasseeNonCloturee(seance('2026-10-18T16:00:00Z', 60, 'terminee'), maintenant)).toBe(false)
+    expect(seancePasseeNonCloturee(seance('2026-10-18T16:00:00Z', 60, 'annulee'), maintenant)).toBe(false)
+    expect(seancePasseeNonCloturee(seance('2026-10-18T16:00:00Z', 60, 'reportee'), maintenant)).toBe(false)
   })
 })
