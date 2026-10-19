@@ -55,9 +55,16 @@ export function TagDossierIncomplet() {
    admin ». Un élève inscrit dont rien n'est programmé est une anomalie à traiter : il a souvent
    payé, et personne ne s'en aperçoit tant que l'admin ne rouvre pas son dossier.
 
-   Icône seule, sans le mot « Sans cours » à côté — demande client du 2026-10-19 (capture à
-   l'appui, même jour) : « l'icône warning est suffisant ». Le texte complet reste lisible au
-   survol (`title`), même convention que le glyphe de `BadgeStatutContrat` juste à côté.
+   `texte` distingue deux endroits qui n'ont pas la même place disponible — demande client du
+   2026-10-19, deux captures le même jour :
+   - dans la liste compacte (CarteListeEtudiant.tsx), icône SEULE : « l'icône warning est
+     suffisant », le nom de l'élève a besoin de toute la largeur restante ;
+   - dans l'en-tête de la fiche détaillée (EtudiantsAdmin.tsx), à côté des badges « Actif »,
+     « Aucun contrat », « Dossier incomplet » qui portent TOUS leur texte en toutes lettres — une
+     icône nue y aurait semblé incomplète. `texte` vaut donc `true` par défaut (le cas le plus
+     explicite), et la liste le désactive explicitement.
+   Le texte complet reste de toute façon lisible au survol (`title`) dans les deux cas, même sans
+   `texte` — même convention que le glyphe de `BadgeStatutContrat` juste à côté.
 
    Icône SVG et non le glyphe « ⚠ » : dans Chromium sur Windows, ce caractère est rendu par la
    police d'emojis en couleur, qui ignore `color` — l'avertissement s'affichait en orange quelle
@@ -66,7 +73,7 @@ export function TagDossierIncomplet() {
    Même ambre que les autres signaux non bloquants de la liste (`TagDossierIncomplet`), pas du
    rouge : c'est à surveiller, ce n'est pas une erreur — et c'est aussi ce qui la distingue du
    point d'exclamation rouge de `BadgeStatutContrat` (« aucun contrat »), bloquant lui. */
-export function TagAucunCoursPlanifie() {
+export function TagAucunCoursPlanifie({ texte = true }: { texte?: boolean } = {}) {
   return (
     <span
       title="Aucune séance à venir n’est planifiée pour cet étudiant."
@@ -74,19 +81,24 @@ export function TagAucunCoursPlanifie() {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
+        gap: texte ? 5 : 0,
         flexShrink: 0,
+        fontSize: 11.5,
+        fontWeight: 700,
         color: 'var(--warning)',
         background: 'rgba(233,207,148,.14)',
         border: '1px solid rgba(233,207,148,.34)',
         borderRadius: 999,
-        padding: '3px',
+        padding: texte ? '4px 11px' : '3px',
+        whiteSpace: 'nowrap',
       }}
     >
-      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden>
+      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden style={{ flexShrink: 0 }}>
         <path d="M12 3.6 1.8 20.4h20.4z" />
         <path d="M12 9.6v4.8" />
         <path d="M12 17.4h.01" />
       </svg>
+      {texte && 'Aucun cours planifié'}
     </span>
   )
 }
@@ -206,7 +218,7 @@ export function CarteListeEtudiant({
           <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
             {programme && <TagProgramme programme={programme} />}
             {statutContrat && <BadgeStatutContrat statut={statutContrat} glyphe />}
-            {etatParcours?.sansCoursPlanifie && <TagAucunCoursPlanifie />}
+            {etatParcours?.sansCoursPlanifie && <TagAucunCoursPlanifie texte={false} />}
           </span>
         </span>
       ) : (
@@ -218,7 +230,7 @@ export function CarteListeEtudiant({
             <span style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
               {programme && <TagProgramme programme={programme} />}
               {statutContrat && <BadgeStatutContrat statut={statutContrat} glyphe />}
-              {etatParcours?.sansCoursPlanifie && <TagAucunCoursPlanifie />}
+              {etatParcours?.sansCoursPlanifie && <TagAucunCoursPlanifie texte={false} />}
             </span>
           )}
           {/* L'activité ne s'écrit que lorsqu'elle manquerait ailleurs : « Actif » reste muet
