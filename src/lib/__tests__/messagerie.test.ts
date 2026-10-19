@@ -119,7 +119,8 @@ describe('entetesMessage', () => {
       destinataires: [eleve, lalaina],
       libelleRole,
     })
-    expect(destinataire).toBe('2 destinataires · bernard bensas et Lalaina bensas')
+    // Juste les noms, sans « N destinataires » devant : la ligne « Destinataire » le dit déjà.
+    expect(destinataire).toBe('bernard bensas et Lalaina bensas')
     expect(expediteur).toBe('Harinjo Andriamahenina · Administration')
   })
 

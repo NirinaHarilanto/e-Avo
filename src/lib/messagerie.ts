@@ -92,11 +92,11 @@ export function entetesMessage(params: {
   const libelleMoi = nomRole(params.moi, params.libelleRole, 'Moi')
   const libelleCorrespondant = nomRole(params.correspondant, params.libelleRole, 'Personne inconnue')
 
+  /* Juste les noms, sans « N destinataires » devant (demande client du 2026-10-19, suite à la
+     capture précédente) : la ligne « Destinataire » porte déjà ce rôle, le nombre était de trop. */
   const libelleGroupe =
     params.destinataires.length > 1
-      ? `${params.destinataires.length} destinataires · ${libelleDestinataires(
-          params.destinataires.map((d) => [d.prenom, d.nom].filter(Boolean).join(' ') || 'Personne inconnue'),
-        )}`
+      ? libelleDestinataires(params.destinataires.map((d) => [d.prenom, d.nom].filter(Boolean).join(' ') || 'Personne inconnue'))
       : null
 
   return {
