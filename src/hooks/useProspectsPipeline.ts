@@ -53,7 +53,8 @@ export function useProspectsPipeline() {
       { data: diagnosticsData, error: diagnosticsError },
       { data: rendezVousData, error: rendezVousError },
       { data: testsData },
-      { count: totalConvertis },
+      { data: convertisData },
+      { data: profilsSupprimesData },
       { data: paiementsData },
     ] = await Promise.all([
       // Un prospect converti quitte définitivement ce tableau — demande client du 2026-09-21 :
@@ -65,8 +66,12 @@ export function useProspectsPipeline() {
       supabase.from('rendez_vous').select('*').order('debut', { ascending: false }),
       supabase.from('test_positionnement_inscriptions').select('*').order('created_at', { ascending: false }),
       // Comptage séparé : le taux de conversion doit rester juste même si les dossiers déjà
-      // convertis ne sont plus renvoyés par la requête ci-dessus.
-      supabase.from('prospects').select('id', { count: 'exact', head: true }).eq('statut', 'etudiant'),
+      // convertis ne sont plus renvoyés par la requête ci-dessus. Les identifiants, et non un
+      // simple `count` : il faut pouvoir en retirer les comptes supprimés depuis (voir plus bas),
+      // sinon le taux compte comme converties des personnes qui n'existent plus — 21 dossiers sur
+      // 22 dans ce cas en production le 2026-10-19.
+      supabase.from('prospects').select('id').eq('statut', 'etudiant'),
+      supabase.from('profiles').select('prospect_id').eq('status', 'suspended').not('prospect_id', 'is', null),
       // Paiements de forfait encaissés à l'étape prospect (0056). `supprime_le is null` : une
       // ligne supprimée en douceur ne doit pas continuer à débloquer la conversion.
       supabase
@@ -152,7 +157,15 @@ export function useProspectsPipeline() {
         }
       })
 
-    return { prospects, totalConvertis: totalConvertis ?? 0 }
+    /* Un dossier dont le compte étudiant a été supprimé depuis n'est plus une conversion :
+       le compter gonflerait un taux de réussite avec des personnes qui n'apparaissent plus nulle
+       part (demande client du 2026-10-19 : une suppression ne doit laisser aucune trace, ni
+       bloquante ni comptable). Le prospect lui-même part désormais avec le compte
+       (api/admin/supprimer-utilisateur.ts) ; ce filtre couvre ceux d'avant ce correctif. */
+    const prospectsFantomes = new Set((profilsSupprimesData ?? []).map((p) => p.prospect_id))
+    const totalConvertis = (convertisData ?? []).filter((p) => !prospectsFantomes.has(p.id)).length
+
+    return { prospects, totalConvertis }
     /* Filet de sécurité (couche 3 de la stratégie temps réel du 2026-09-29) : un déplacement de
        carte par glisser-déposer ne crée pas de notification métier (voir PipelineCRM.tsx,
        couche 2), donc pas de rafraîchissement automatique de CE côté-là si un autre admin
