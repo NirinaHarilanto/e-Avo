@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import type { AccentPalette } from '../../lib/accent'
 import { libelleVague } from '../../lib/cohortes'
 import { fuseauDuVisiteur, libelleFuseau } from '../../lib/creneaux'
@@ -13,6 +13,23 @@ import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
    l'envoi (voir api/prospects/test-positionnement et inscrire-test). */
 
 type Etape = 'creneau' | 'coordonnees' | 'quiz'
+
+/* Compte à rebours par question — demande client du 2026-10-19 : « mettre un chronomètre de
+   compte à rebours de 10 secondes pour chaque question, visible par l'utilisateur, pour toutes
+   les questions. Si l'utilisateur ne répond pas dans les 10 secondes, on passera automatiquement
+   à la prochaine question. »
+
+   Trois conséquences, voulues :
+   - « Précédent » disparaît. Revenir sur une question déjà chronométrée n'a plus de sens : soit
+     le temps y est épuisé, soit il faudrait le relancer, ce qui offrirait dix secondes de plus à
+     volonté. Le questionnaire avance désormais dans un seul sens.
+   - une question laissée sans réponse part avec `choix: null` et compte comme fausse — c'est déjà
+     ce que la correction côté serveur en fait (« sans réponse » dans le bilan, src/lib/quiz.ts),
+     aucun changement nécessaire de ce côté.
+   - l'envoi n'attend donc plus que TOUTES les questions soient répondues : la dernière écoulée
+     déclenche l'envoi d'elle-même. Sans cela, un candidat ayant laissé filer une seule question
+     n'aurait jamais pu valider sa réservation. */
+const SECONDES_PAR_QUESTION = 10
 
 interface QuestionPublique {
   id: string
@@ -72,13 +89,17 @@ export function TestPositionnement({
   const [choix, setChoix] = useState<Record<string, number>>({})
   /* Questionnaire parcouru une question à la fois (demande client du 2026-10-13) : 67 questions
      empilées dans une fenêtre à défilement ne laissaient voir qu'une question et demie à la fois.
-     `sens` ne sert qu'à l'animation — la carte entre par la droite quand on avance, par la gauche
-     quand on revient, ce qui rend le déplacement lisible plutôt que brutal. */
+     Il n'avance plus que dans un seul sens depuis l'ajout du chronomètre (2026-10-19) — voir
+     SECONDES_PAR_QUESTION. */
   const [indexQuestion, setIndexQuestion] = useState(0)
-  const [sens, setSens] = useState<'avant' | 'arriere'>('avant')
+  const [secondesRestantes, setSecondesRestantes] = useState(SECONDES_PAR_QUESTION)
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null)
+  /* L'envoi final peut être déclenché par le chronomètre de la dernière question comme par le
+     bouton : sans ce garde-fou, l'effet du compte à rebours et un clic simultané pourraient
+     expédier deux inscriptions. */
+  const envoiLance = useRef(false)
 
   const fuseau = useMemo(() => fuseauDuVisiteur(FUSEAU_ETABLISSEMENT), [])
 
@@ -110,17 +131,41 @@ export function TestPositionnement({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [etape])
 
-  const toutesRepondues = questions.length > 0 && questions.every((q) => choix[q.id] !== undefined)
-
   function formaterCreneau(debut: string): string {
     return new Intl.DateTimeFormat('fr-FR', { timeZone: fuseau, dateStyle: 'full', timeStyle: 'short' }).format(
       new Date(debut),
     )
   }
 
-  async function envoyer(e: FormEvent) {
-    e.preventDefault()
-    if (!creneauChoisi || !toutesRepondues) return
+  /* Un tic par seconde pendant le questionnaire. S'arrête de lui-même à zéro : c'est l'effet
+     suivant qui décide alors d'avancer ou d'envoyer. Un `setTimeout` relancé à chaque seconde
+     plutôt qu'un `setInterval` : le minuteur est ainsi suspendu dès que l'envoi commence ou que
+     la confirmation s'affiche, sans intervalle orphelin à nettoyer. */
+  useEffect(() => {
+    if (etape !== 'quiz' || envoi || confirmation || secondesRestantes <= 0) return
+    const minuteur = window.setTimeout(() => setSecondesRestantes((s) => s - 1), 1000)
+    return () => window.clearTimeout(minuteur)
+  }, [etape, envoi, confirmation, secondesRestantes])
+
+  /* Temps écoulé : on passe à la question suivante, ou on envoie si c'était la dernière. Une
+     question laissée sans réponse part avec `choix: null` et compte comme fausse. */
+  useEffect(() => {
+    if (etape !== 'quiz' || secondesRestantes > 0 || questions.length === 0) return
+    if (indexQuestion < questions.length - 1) {
+      setIndexQuestion((i) => i + 1)
+      setSecondesRestantes(SECONDES_PAR_QUESTION)
+      return
+    }
+    void envoyer()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [etape, secondesRestantes, indexQuestion, questions.length])
+
+  async function envoyer(e?: FormEvent) {
+    e?.preventDefault()
+    /* Plus de condition sur les réponses manquantes : avec le chronomètre, une question peut
+       légitimement rester vide, et l'exiger pleine empêcherait définitivement la validation. */
+    if (!creneauChoisi || envoiLance.current) return
+    envoiLance.current = true
     setEnvoi(true)
     setErreur(null)
 
@@ -143,6 +188,9 @@ export function TestPositionnement({
 
     setEnvoi(false)
     if (reponse.error) {
+      // Rouvert : l'envoi a échoué (réseau, créneau complet entre-temps), le candidat doit
+      // pouvoir réessayer depuis le bouton — ce garde-fou ne vise que le double envoi simultané.
+      envoiLance.current = false
       setErreur(reponse.error)
       return
     }
@@ -231,7 +279,8 @@ export function TestPositionnement({
           >
             <strong style={{ color: accent.accent }}>À savoir :</strong> votre demande n’est validée qu’une fois le
             questionnaire terminé. Après avoir choisi ce créneau, vous répondrez à un court quiz écrit — sans lui, la
-            place n’est pas réservée.
+            place n’est pas réservée. Chaque question est <strong>chronométrée à {SECONDES_PAR_QUESTION} secondes</strong> :
+            passé ce délai, la suivante s’affiche d’elle-même.
           </p>
           {creneaux.map((creneau) => (
             <button
@@ -314,13 +363,19 @@ export function TestPositionnement({
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} required style={{ marginTop: 2 }} />
             J’accepte d’être recontacté(e) au sujet de ma demande.
           </label>
+          {/* Dernier rappel avant que le premier compte à rebours ne démarre : il se lance dès le
+              clic ci-dessous, le candidat doit donc savoir qu'il ne s'agit plus de se préparer. */}
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--muted-2)', lineHeight: 1.6 }}>
+            Le questionnaire démarre au clic : {SECONDES_PAR_QUESTION} secondes par question, sans retour en arrière.
+            Installez-vous avant de commencer.
+          </p>
           <button
             type="submit"
             disabled={!consent}
             className="btn-shine"
             style={{ background: accent.accentGrad, color: accent.accentInk, opacity: consent ? 1 : 0.6, padding: '14px 24px', fontSize: 14.5 }}
           >
-            Passer au questionnaire
+            Commencer le questionnaire
           </button>
         </form>
       )}
@@ -330,21 +385,16 @@ export function TestPositionnement({
           question={questions[indexQuestion]}
           index={indexQuestion}
           total={questions.length}
-          sens={sens}
           accent={accent}
+          secondesRestantes={secondesRestantes}
           choisi={choix[questions[indexQuestion].id]}
           onChoisir={(indexOption) => setChoix((c) => ({ ...c, [questions[indexQuestion].id]: indexOption }))}
-          onPrecedent={() => {
-            setSens('arriere')
-            setIndexQuestion((i) => Math.max(0, i - 1))
-          }}
           onSuivant={() => {
-            setSens('avant')
             setIndexQuestion((i) => Math.min(questions.length - 1, i + 1))
+            setSecondesRestantes(SECONDES_PAR_QUESTION)
           }}
           onEnvoyer={envoyer}
           envoi={envoi}
-          toutesRepondues={toutesRepondues}
           erreur={erreur}
         />
       )}
@@ -375,29 +425,25 @@ function QuestionnaireEtape({
   question,
   index,
   total,
-  sens,
   accent,
+  secondesRestantes,
   choisi,
   onChoisir,
-  onPrecedent,
   onSuivant,
   onEnvoyer,
   envoi,
-  toutesRepondues,
   erreur,
 }: {
   question: QuestionPublique
   index: number
   total: number
-  sens: 'avant' | 'arriere'
   accent: AccentPalette
+  secondesRestantes: number
   choisi: number | undefined
   onChoisir: (indexOption: number) => void
-  onPrecedent: () => void
   onSuivant: () => void
   onEnvoyer: (e: FormEvent) => void
   envoi: boolean
-  toutesRepondues: boolean
   erreur: string | null
 }) {
   const { support, question: enonce } = decouperEnonce(question.enonce)
@@ -408,11 +454,11 @@ function QuestionnaireEtape({
   return (
     <form onSubmit={onEnvoyer} className="quiz-colonne" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: accent.accent }}>
             Question {index + 1} <span style={{ color: 'var(--muted-2)', fontWeight: 600 }}>sur {total}</span>
           </span>
-          <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>Une seule bonne réponse</span>
+          <Chronometre secondesRestantes={secondesRestantes} accent={accent} />
         </div>
         <div style={{ height: 5, borderRadius: 999, background: 'var(--surface-alt)', overflow: 'hidden' }}>
           <div
@@ -428,15 +474,13 @@ function QuestionnaireEtape({
       </div>
 
       {/* `key` sur la question : React remonte le bloc à chaque changement, ce qui rejoue
-          l'animation d'entrée — sans elle, le contenu se remplacerait d'un coup, sans transition. */}
+          l'animation d'entrée — sans elle, le contenu se remplacerait d'un coup, sans transition.
+          Toujours `quiz-carte-avant` depuis le chronomètre (2026-10-19) : le questionnaire
+          n'avance plus que dans un seul sens, l'entrée par la gauche n'a plus de cas d'usage. */}
       {/* Seule zone qui défile quand la fenêtre est courte : l'en-tête de progression ci-dessus et
           les boutons ci-dessous restent visibles en permanence. `minHeight` garantit qu'il reste
           toujours quelque chose à lire, même sur une fenêtre très basse. */}
-      <div
-        key={question.id}
-        className={sens === 'avant' ? 'quiz-carte-avant' : 'quiz-carte-arriere'}
-        style={{ flex: 1, minHeight: 120, overflowY: 'auto', overflowX: 'hidden' }}
-      >
+      <div key={question.id} className="quiz-carte-avant" style={{ flex: 1, minHeight: 120, overflowY: 'auto', overflowX: 'hidden' }}>
         <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {support && (
             /* Plafond exprimé en hauteur de FENÊTRE, pas en pourcentage : un `%` se réfère au
@@ -524,36 +568,22 @@ function QuestionnaireEtape({
 
       {erreur && <p style={{ fontSize: 13, color: 'var(--danger)', margin: 0, flexShrink: 0 }}>{erreur}</p>}
 
+      {/* Plus de bouton « Précédent » : avec dix secondes par question, revenir en arrière
+          reviendrait à s'offrir dix secondes de plus autant de fois qu'on le veut. Le seul bouton
+          restant fait gagner du temps, il ne le rend pas — il passe à la suite sans attendre la
+          fin du compte à rebours. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <button
-          type="button"
-          onClick={onPrecedent}
-          disabled={index === 0 || envoi}
-          style={{
-            padding: '11px 16px',
-            borderRadius: 999,
-            border: '1px solid var(--border)',
-            background: 'transparent',
-            color: index === 0 ? 'var(--muted-2)' : 'var(--ink-2)',
-            fontSize: 13,
-            fontFamily: 'inherit',
-            cursor: index === 0 || envoi ? 'not-allowed' : 'pointer',
-            opacity: index === 0 ? 0.5 : 1,
-          }}
-        >
-          ← Précédent
-        </button>
         {derniere ? (
           <button
             type="submit"
-            disabled={envoi || !toutesRepondues}
+            disabled={envoi}
             className="btn-shine"
             style={{
               flexGrow: 1,
               background: accent.accentGrad,
               color: accent.accentInk,
-              opacity: envoi || !toutesRepondues ? 0.6 : 1,
-              cursor: envoi || !toutesRepondues ? 'not-allowed' : 'pointer',
+              opacity: envoi ? 0.6 : 1,
+              cursor: envoi ? 'not-allowed' : 'pointer',
               padding: '13px 22px',
               fontSize: 14,
             }}
@@ -576,11 +606,56 @@ function QuestionnaireEtape({
               fontSize: 14,
             }}
           >
-            {repondu ? 'Valider' : 'Choisissez une réponse'}
+            {repondu ? 'Question suivante' : 'Choisissez une réponse'}
           </button>
         )}
       </div>
     </form>
+  )
+}
+
+/* Compte à rebours de la question en cours. Un anneau qui se vide plutôt qu'un simple nombre :
+   le temps restant doit se percevoir d'un coup d'œil sans quitter l'énoncé des yeux, et dix
+   secondes passent trop vite pour qu'on relise un chiffre à chaque seconde. L'anneau passe au
+   rouge sur les trois dernières, où le candidat doit décider immédiatement.
+
+   `aria-live="off"` : un lecteur d'écran qui annoncerait chaque seconde couvrirait l'énoncé de la
+   question. Le temps imparti se lit sur l'infobulle, une fois. */
+function Chronometre({ secondesRestantes, accent }: { secondesRestantes: number; accent: AccentPalette }) {
+  const part = Math.max(0, Math.min(1, secondesRestantes / SECONDES_PAR_QUESTION))
+  const urgent = secondesRestantes <= 3
+  const couleur = urgent ? 'var(--danger)' : accent.accent
+  const taille = 34
+  const rayon = (taille - 4) / 2
+  const circonference = 2 * Math.PI * rayon
+
+  return (
+    <span
+      aria-live="off"
+      title={`${SECONDES_PAR_QUESTION} secondes par question`}
+      style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, width: taille, height: taille }}
+    >
+      <svg width={taille} height={taille} viewBox={`0 0 ${taille} ${taille}`} aria-hidden style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={taille / 2} cy={taille / 2} r={rayon} fill="none" stroke="var(--surface-alt)" strokeWidth={3} />
+        <circle
+          cx={taille / 2}
+          cy={taille / 2}
+          r={rayon}
+          fill="none"
+          stroke={couleur}
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeDasharray={circonference}
+          strokeDashoffset={circonference * (1 - part)}
+          /* `linear` et non une courbe d'accélération : un compte à rebours doit se vider à
+             vitesse constante, sinon il paraît ralentir puis s'emballer. */
+          style={{ transition: 'stroke-dashoffset 1s linear, stroke .3s' }}
+        />
+      </svg>
+      <span style={{ position: 'absolute', fontSize: 12, fontWeight: 800, color: couleur, fontVariantNumeric: 'tabular-nums' }}>
+        {Math.max(0, secondesRestantes)}
+      </span>
+    </span>
   )
 }
 
@@ -681,11 +756,15 @@ function Champ({
   obligatoire?: boolean
   placeholder?: string
 }) {
+  /* Le champ est DANS son `<label>` : les deux étaient frères dans un `<div>`, sans `htmlFor`
+     ni `id`, donc rien ne les reliait — un lecteur d'écran annonçait un champ sans nom, et
+     cliquer l'intitulé ne donnait pas le focus. L'imbrication suffit à les lier, sans avoir à
+     inventer des identifiants uniques. */
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={labelStyle}>
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span style={labelStyle}>
         {label} {obligatoire && <span style={{ color: 'var(--danger)' }}>*</span>}
-      </label>
+      </span>
       <input
         type={type}
         required={obligatoire}
@@ -694,6 +773,6 @@ function Champ({
         onChange={(e) => onChange(e.target.value)}
         style={champStyle}
       />
-    </div>
+    </label>
   )
 }

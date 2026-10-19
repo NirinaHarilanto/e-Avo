@@ -20,6 +20,7 @@ export type NomIcoHX =
   | 'avion'
   | 'document'
   | 'diplome'
+  | 'etoile'
 
 const CHEMINS: Record<NomIcoHX, { d: string[]; cercles?: { cx: number; cy: number; r: number }[]; rect?: boolean; aplat?: boolean; epaisseur?: number }> = {
   'fleche-diagonale': { d: ['M7 17 17 7M8 7h9v9'], epaisseur: 2.4 },
@@ -35,6 +36,9 @@ const CHEMINS: Record<NomIcoHX, { d: string[]; cercles?: { cx: number; cy: numbe
   globe: { d: ['M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20'], cercles: [{ cx: 12, cy: 12, r: 10 }], epaisseur: 2.2 },
   medaille: { d: ['M8.2 13.3 7 22l5-3 5 3-1.2-8.7'], cercles: [{ cx: 12, cy: 8, r: 6 }], epaisseur: 2.2 },
   horloge: { d: ['M12 6v6l4 2'], cercles: [{ cx: 12, cy: 12, r: 10 }], epaisseur: 2.2 },
+  /* En aplat et non en trait : elle sert de visuel de remplacement sur une carte d'événement sans
+     image (PageEvents.tsx), où un contour fin se perdrait dans le dégradé du cadre. */
+  etoile: { d: ['M12 2.5l2.9 6.4 6.9.7-5.2 4.8 1.5 6.9L12 17.8l-6.1 3.5 1.5-6.9L2.2 9.6l6.9-.7z'], aplat: true },
   linkedin: {
     d: ['M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-1 1.83-2.05 3.77-2.05 4.03 0 4.78 2.65 4.78 6.1V21h-4v-5.5c0-1.3-.02-3-1.83-3-1.83 0-2.1 1.43-2.1 2.9V21H9z'],
     aplat: true,

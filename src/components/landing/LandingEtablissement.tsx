@@ -10,6 +10,7 @@ import { PageAccueil } from '../vitrine/PageAccueil'
 import { PageAPropos } from '../vitrine/PageAPropos'
 import { PageCours } from '../vitrine/PageCours'
 import { PageEquipe } from '../vitrine/PageEquipe'
+import { PageEvents } from '../vitrine/PageEvents'
 import { PageTemoignages } from '../vitrine/PageTemoignages'
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
@@ -19,7 +20,7 @@ type Etablissement = Database['public']['Tables']['etablissements']['Row']
    modules de réservation réutilisés dans la fenêtre des formules. */
 const VIOLET_MARQUE = '#6d3bd1'
 
-type Vue = 'accueil' | 'cours' | 'professeurs' | 'temoignages' | 'apropos'
+type Vue = 'accueil' | 'cours' | 'professeurs' | 'temoignages' | 'events' | 'apropos'
 
 /* Chaque vue de la maquette est une vraie page, avec sa propre adresse : c'est ce que les
    maquettes écrivent dans leur barre de navigation, et c'est la condition pour que les
@@ -32,6 +33,7 @@ const VUE_PAR_CHEMIN: Record<string, Vue> = {
   '/cours': 'cours',
   '/professeurs': 'professeurs',
   '/temoignages': 'temoignages',
+  '/events': 'events',
   '/a-propos': 'apropos',
 }
 
@@ -55,6 +57,8 @@ const FOND_PAR_VUE: Record<Vue, string> = {
   cours: '#F7F4FF',
   professeurs: '#F7F4FF',
   temoignages: '#4E356F',
+  /* Hero sombre en haut de page, comme Témoignages et À propos. */
+  events: '#4E356F',
   apropos: '#4E356F',
 }
 
@@ -181,6 +185,7 @@ export function LandingEtablissement() {
       )}
       {vue === 'professeurs' && <PageEquipe dossierAssets={dossierAssets} />}
       {vue === 'temoignages' && <PageTemoignages dossierAssets={dossierAssets} />}
+      {vue === 'events' && <PageEvents />}
       {vue === 'apropos' && <PageAPropos dossierAssets={dossierAssets} />}
     </CoquilleVitrine>
   )

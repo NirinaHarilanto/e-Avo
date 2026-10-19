@@ -69,10 +69,38 @@ export function Champ({ label, aide, obligatoire, children, style }: ChampProps)
 }
 
 /* Ligne « libellé / valeur » des panneaux de consultation. Était dupliquée à l'identique dans
-   DossierEtudiantVue et InformationsPersonnelles. */
-export function LigneInfo({ label, valeur, accent }: { label: string; valeur: ReactNode; accent?: boolean }) {
+   DossierEtudiantVue et InformationsPersonnelles.
+
+   `collee` rapproche la valeur de son intitulé au lieu de la repousser au bord droit — demande
+   client du 2026-10-19 pour les informations personnelles : « ne fais pas un alignement à droite
+   [...] mets l'intitulé suivi directement de l'information ». Une option et non le nouveau
+   comportement par défaut : ailleurs (fiches de séance, pop-up de paiement, détails de facture),
+   les valeurs alignées à droite forment une colonne qui se lit en balayant verticalement, ce que
+   des valeurs collées à des intitulés de longueurs différentes ne permettent plus. */
+export function LigneInfo({
+  label,
+  valeur,
+  accent,
+  collee = false,
+}: {
+  label: string
+  valeur: ReactNode
+  accent?: boolean
+  collee?: boolean
+}) {
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 14, padding: '5px 0' }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'baseline',
+        justifyContent: collee ? 'flex-start' : 'space-between',
+        gap: collee ? 7 : 14,
+        padding: '5px 0',
+        // Un intitulé long et une valeur longue passent à la ligne plutôt que d'élargir le
+        // panneau, qui vit souvent dans une colonne étroite.
+        flexWrap: collee ? 'wrap' : 'nowrap',
+      }}
+    >
       <span
         style={{
           fontSize: 12,
@@ -83,7 +111,15 @@ export function LigneInfo({ label, valeur, accent }: { label: string; valeur: Re
       >
         {label}
       </span>
-      <span style={{ fontSize: 12.5, color: 'var(--ink-2)', textAlign: 'right', minWidth: 0, wordBreak: 'break-word' }}>
+      <span
+        style={{
+          fontSize: 12.5,
+          color: 'var(--ink-2)',
+          textAlign: collee ? 'left' : 'right',
+          minWidth: 0,
+          wordBreak: 'break-word',
+        }}
+      >
         {valeur ?? '—'}
       </span>
     </div>

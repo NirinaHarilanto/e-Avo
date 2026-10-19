@@ -15,8 +15,10 @@ export interface ClasseAvecMembres {
    un rendez-vous — pendant de useVagues() pour les promotions entières. L'admin voit toutes les
    classes, un professeur uniquement celles qu'il encadre : c'est la RLS qui tranche
    (cohort_classes_admin_all / cohort_classes_teacher_select, 0074), pas un filtre ici. */
-export function useClassesAvecMembres() {
-  const { valeur, loading, erreur, recharger } = useCacheRequete('classes-avec-membres', async (): Promise<ClasseAvecMembres[]> => {
+/* `actif` à `false` suspend la requête — même raison que pour useVagues() : la messagerie est
+   partagée par les trois espaces et ne propose les classes qu'à un admin ou un professeur. */
+export function useClassesAvecMembres(actif = true) {
+  const { valeur, loading, erreur, recharger } = useCacheRequete(actif ? 'classes-avec-membres' : null, async (): Promise<ClasseAvecMembres[]> => {
     const { data: classes, error } = await supabase.from('cohort_classes').select('*')
     if (error) throw new Error(error.message)
     const classeIds = (classes ?? []).map((c) => c.id)

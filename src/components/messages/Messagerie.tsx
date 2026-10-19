@@ -9,6 +9,9 @@ import {
   useMessagerie,
   type MessageAvecPersonnes,
 } from '../../hooks/useMessagerie'
+import { useVagues } from '../../hooks/useVagues'
+import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
+import { classesSelectionnables, vaguesSelectionnables } from '../../lib/invitations'
 import { Modale } from '../ui/Modale'
 import { Onglets } from '../ui/Onglets'
 import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
@@ -42,6 +45,16 @@ function RedigerMessage({
 }) {
   const { session, profile } = useProfileContext()
   const { personnes, loading: chargementAnnuaire } = useAnnuaire()
+  /* Vagues et classes proposées comme destinataires — demande client du 2026-10-19 : « il faut
+     que les vagues, promotion, classes soient disponibles et visibles comme destinataire. Les
+     personnes concernées par la vague, classe, ou promotion recevront le mail groupé. » Dans
+     cette application, « vague » et « promotion » sont le même objet (`cohorts`) et « classe » la
+     classe de niveau au sein d'une vague (`cohort_classes`, 0074).
+     Réservé à l'admin et au professeur : un élève n'a aucun droit de lecture sur ces tables, et
+     la RLS ne lui rendrait rien (voir le paramètre `actif` des deux hooks). */
+  const peutGrouper = profile?.role === 'admin_etablissement' || profile?.role === 'professeur'
+  const { vagues } = useVagues(peutGrouper)
+  const { classes } = useClassesAvecMembres(peutGrouper)
   const [destinataires, setDestinataires] = useState<string[]>(destinatairesInitiaux)
   const [objet, setObjet] = useState(objetInitial)
   const [corps, setCorps] = useState('')
@@ -49,13 +62,23 @@ function RedigerMessage({
   const [erreur, setErreur] = useState<string | null>(null)
 
   /* Soi-même retiré des destinataires proposés : s'écrire une note est permis par la base, mais
-     n'a pas sa place dans une liste de correspondants. */
+     n'a pas sa place dans une liste de correspondants.
+
+     Les groupes s'ajoutent au même vivier, comme dans l'agenda admin et le calendrier professeur
+     qui le faisaient déjà : choisir une vague ou une classe développe ses inscrits en pastilles
+     individuelles (voir SelecteurPersonnes), et l'envoi part donc vers chacun d'eux — chaque
+     destinataire a son propre message, son propre état lu/non lu et sa propre notification
+     (api/messages/envoyer.ts). Un groupe dont tous les membres sont déjà choisis n'est plus
+     proposé. */
   const candidats = useMemo(
-    () =>
-      personnes
+    () => [
+      ...personnes
         .filter((p) => p.id !== profile?.id)
         .map((p) => ({ id: p.id, nom: p.nom, prenom: p.prenom, role: LIBELLE_ROLE[p.role] ?? p.role })),
-    [personnes, profile?.id],
+      ...vaguesSelectionnables(vagues),
+      ...classesSelectionnables(classes),
+    ],
+    [personnes, profile?.id, vagues, classes],
   )
 
   async function envoyer() {
@@ -84,7 +107,7 @@ function RedigerMessage({
         ) : (
           <SelecteurPersonnes
             etiquette="Destinataire(s)"
-            placeholder="Rechercher une personne…"
+            placeholder={peutGrouper ? 'Rechercher une personne, une vague, une classe…' : 'Rechercher une personne…'}
             candidats={candidats}
             selectionnes={destinataires}
             onChange={setDestinataires}

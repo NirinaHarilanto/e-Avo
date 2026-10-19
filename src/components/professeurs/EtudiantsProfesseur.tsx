@@ -11,6 +11,7 @@ import { useTypesProgrammeEtudiants } from '../../hooks/useTypesProgrammeEtudian
 import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
 import { DossierEtudiantVue } from '../etudiants/DossierEtudiantVue'
 import { CarteListeEtudiant, TagAncienEleve, TagDossierIncomplet } from '../etudiants/CarteListeEtudiant'
+import { EnquetesParcoursAffichage } from '../shared/EnquetesParcoursAffichage'
 import { PanneauInformationsDuo, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
 import { SyntheseComptesRendus } from '../shared/SyntheseComptesRendus'
 import { EnTetePage } from '../ui/EnTetePage'
@@ -181,13 +182,20 @@ function DossierPanel({ studentId, transfereLe }: { studentId: string; transfere
       dossier={dossier}
       masquerEmailEnTete
       panneauInformations={
-        <PanneauInformationsDuo
-          etudiant={dossier.etudiant}
-          duoPartenaire={dossier.duoPartenaire}
-          onChange={() => {}}
-          lectureSeule
-          masquerCoordonnees
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <PanneauInformationsDuo
+            etudiant={dossier.etudiant}
+            duoPartenaire={dossier.duoPartenaire}
+            onChange={() => {}}
+            lectureSeule
+            masquerCoordonnees
+          />
+          {/* Demande client du 2026-10-19 (point 8) : « l'admin et le professeur concerné pourront
+              voir l'enquête de satisfaction renseignée par l'étudiant ». En lecture seule — un
+              professeur ne modifie pas l'avis qu'on porte sur lui (policy
+              `jalons_parcours_teacher_select`, 0130). */}
+          <EnquetesParcoursAffichage studentId={dossier.etudiant.id} />
+        </div>
       }
       badgesSupplementaires={
         <>

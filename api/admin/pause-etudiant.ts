@@ -6,7 +6,15 @@ interface Corps {
   profileId?: string
   decision?: 'pause' | 'reactiver'
   motif?: string
+  /* Date (AAAA-MM-JJ) à laquelle rappeler l'élève — demande client du 2026-10-19 : « il faut
+     qu'il y ait la possibilité pour l'admin de mettre une date de relance ». Facultative : une
+     pause peut être posée sans savoir encore quand reprendre. */
+  relancePrevueLe?: string | null
 }
+
+/* `date` SQL, donc jamais une date ISO complète : un horodatage passerait silencieusement par la
+   conversion de Postgres et pourrait décaler d'un jour selon le fuseau. */
+const DATE_SEULE = /^\d{4}-\d{2}-\d{2}$/
 
 /**
  * Met un étudiant en pause, ou lève une pause déjà posée (0063, demande client du 2026-09-23).
@@ -34,6 +42,9 @@ export default async function handler(request: Request): Promise<Response> {
     if (corps.decision === 'pause' && !corps.motif?.trim()) {
       return Response.json({ error: 'Un motif est obligatoire pour mettre en pause.' }, { status: 400 })
     }
+    if (corps.relancePrevueLe && !DATE_SEULE.test(corps.relancePrevueLe)) {
+      return Response.json({ error: 'La date de relance est invalide.' }, { status: 400 })
+    }
 
     const { data: cible, error: erreurCible } = await serviceClient
       .from('profiles')
@@ -59,6 +70,7 @@ export default async function handler(request: Request): Promise<Response> {
           motif_pause: corps.motif!.trim(),
           pause_le: new Date().toISOString(),
           pause_par: profileId,
+          relance_prevue_le: corps.relancePrevueLe || null,
         })
         .eq('id', corps.profileId)
       if (error) return Response.json({ error: error.message }, { status: 500 })
@@ -66,8 +78,9 @@ export default async function handler(request: Request): Promise<Response> {
       if (cible.status !== 'en_pause') {
         return Response.json({ error: "Ce compte n'est pas en pause." }, { status: 400 })
       }
-      // motif_pause/pause_le/pause_par volontairement conservés : historique de la dernière
-      // pause, pas remis à null par une réactivation (voir commentaire de la colonne, 0063).
+      // motif_pause/pause_le/pause_par/relance_prevue_le volontairement conservés : historique de
+      // la dernière pause, pas remis à null par une réactivation (voir commentaire de la colonne,
+      // 0063, étendu à la date de relance en 0130).
       const { error } = await serviceClient.from('profiles').update({ status: 'approved' }).eq('id', corps.profileId)
       if (error) return Response.json({ error: error.message }, { status: 500 })
     }

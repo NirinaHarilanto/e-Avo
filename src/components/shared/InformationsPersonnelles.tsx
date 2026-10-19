@@ -55,6 +55,8 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
   const [tauxIndividuel, setTauxIndividuel] = useState(personne.taux_horaire_individuel?.toString() ?? '')
   const [tauxDuo, setTauxDuo] = useState(personne.taux_horaire_duo?.toString() ?? '')
   const [tauxCollectif, setTauxCollectif] = useState(personne.taux_horaire_collectif?.toString() ?? '')
+  const [tauxCorporate, setTauxCorporate] = useState(personne.taux_horaire_corporate?.toString() ?? '')
+  const [tauxChatChill, setTauxChatChill] = useState(personne.taux_horaire_chat_chill?.toString() ?? '')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const estProfesseur = personne.role === 'professeur'
@@ -69,6 +71,8 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
     setTauxIndividuel(personne.taux_horaire_individuel?.toString() ?? '')
     setTauxDuo(personne.taux_horaire_duo?.toString() ?? '')
     setTauxCollectif(personne.taux_horaire_collectif?.toString() ?? '')
+    setTauxCorporate(personne.taux_horaire_corporate?.toString() ?? '')
+    setTauxChatChill(personne.taux_horaire_chat_chill?.toString() ?? '')
     setErreur(null)
     setEdition(false)
   }
@@ -111,6 +115,8 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
           taux_horaire_individuel: tauxIndividuel ? Number(tauxIndividuel) : null,
           taux_horaire_duo: tauxDuo ? Number(tauxDuo) : null,
           taux_horaire_collectif: tauxCollectif ? Number(tauxCollectif) : null,
+          taux_horaire_corporate: tauxCorporate ? Number(tauxCorporate) : null,
+          taux_horaire_chat_chill: tauxChatChill ? Number(tauxChatChill) : null,
         }),
       })
       .eq('id', personne.id)
@@ -139,27 +145,33 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
       }
     >
       {!edition ? (
+        /* `collee` sur toutes les lignes : l'intitulé est suivi directement de sa valeur, tout
+           aligné à gauche — demande client du 2026-10-19. Les valeurs ne sont plus repoussées au
+           bord droit du panneau, où un « Ville » court et une « Adresse » longue se retrouvaient
+           à deux distances très différentes de leur intitulé. */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <LigneInfo label="Nom" valeur={personne.nom ?? '—'} />
-          <LigneInfo label="Prénom" valeur={personne.prenom ?? '—'} />
+          <LigneInfo collee label="Nom" valeur={personne.nom ?? '—'} />
+          <LigneInfo collee label="Prénom" valeur={personne.prenom ?? '—'} />
           {masquerCoordonnees ? (
             <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: '6px 0 0', lineHeight: 1.5 }}>
               Coordonnées (e-mail, téléphone, WhatsApp, adresse) réservées à l’administration.
             </p>
           ) : (
             <>
-              <LigneInfo label="E-mail" valeur={personne.email ?? '—'} />
-              <LigneInfo label="Téléphone" valeur={personne.telephone ?? '—'} />
-              <LigneInfo label="WhatsApp" valeur={personne.whatsapp ?? '—'} />
-              <LigneInfo label="Adresse" valeur={personne.adresse ?? '—'} />
-              <LigneInfo label="Ville" valeur={personne.ville ?? '—'} />
+              <LigneInfo collee label="E-mail" valeur={personne.email ?? '—'} />
+              <LigneInfo collee label="Téléphone" valeur={personne.telephone ?? '—'} />
+              <LigneInfo collee label="WhatsApp" valeur={personne.whatsapp ?? '—'} />
+              <LigneInfo collee label="Adresse" valeur={personne.adresse ?? '—'} />
+              <LigneInfo collee label="Ville" valeur={personne.ville ?? '—'} />
             </>
           )}
           {estProfesseur && (
             <>
-              <LigneInfo label="Taux horaire individuel" valeur={personne.taux_horaire_individuel ? `${personne.taux_horaire_individuel} Ar/h` : '—'} />
-              <LigneInfo label="Taux horaire duo" valeur={personne.taux_horaire_duo ? `${personne.taux_horaire_duo} Ar/h` : '—'} />
-              <LigneInfo label="Taux horaire collectif" valeur={personne.taux_horaire_collectif ? `${personne.taux_horaire_collectif} Ar/h` : '—'} />
+              <LigneInfo collee label="Taux horaire individuel" valeur={personne.taux_horaire_individuel ? `${personne.taux_horaire_individuel} Ar/h` : '—'} />
+              <LigneInfo collee label="Taux horaire duo" valeur={personne.taux_horaire_duo ? `${personne.taux_horaire_duo} Ar/h` : '—'} />
+              <LigneInfo collee label="Taux horaire collectif" valeur={personne.taux_horaire_collectif ? `${personne.taux_horaire_collectif} Ar/h` : '—'} />
+              <LigneInfo collee label="Taux horaire corporate" valeur={personne.taux_horaire_corporate ? `${personne.taux_horaire_corporate} Ar/h` : '—'} />
+              <LigneInfo collee label="Taux horaire chat & chill" valeur={personne.taux_horaire_chat_chill ? `${personne.taux_horaire_chat_chill} Ar/h` : '—'} />
             </>
           )}
         </div>
@@ -196,6 +208,17 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
               </Champ>
               <Champ label="Taux horaire collectif (Ar/h)" aide="Appliqué à une séance de classe collective enseignée.">
                 <input type="number" value={tauxCollectif} onChange={(e) => setTauxCollectif(e.target.value)} style={champStyle} />
+              </Champ>
+              {/* L'aide ne promet pas une application automatique, contrairement aux trois taux
+                  ci-dessus : aucun type de séance « corporate » ni « chat & chill » n'existe dans
+                  l'application, donc rien ne déclenche encore ces deux taux au calcul des heures
+                  (voir le commentaire de la migration 0130). Mieux vaut le dire que de laisser
+                  croire qu'une rémunération en découlera. */}
+              <Champ label="Taux horaire corporate (Ar/h)" aide="Taux de référence pour une prestation corporate. Pas encore appliqué automatiquement : ce type de cours n’existe pas dans l’application.">
+                <input type="number" value={tauxCorporate} onChange={(e) => setTauxCorporate(e.target.value)} style={champStyle} />
+              </Champ>
+              <Champ label="Taux horaire chat & chill (Ar/h)" aide="Taux de référence pour une séance chat & chill. Pas encore appliqué automatiquement : ce type de cours n’existe pas dans l’application.">
+                <input type="number" value={tauxChatChill} onChange={(e) => setTauxChatChill(e.target.value)} style={champStyle} />
               </Champ>
             </>
           )}

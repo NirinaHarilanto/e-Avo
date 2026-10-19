@@ -10,7 +10,6 @@ import { LigneInfo } from '../ui/Champ'
 import { EtatChargement } from '../ui/Etats'
 import { BadgeStatutSeance } from './BadgeStatutSeance'
 import { CompteRenduAffichage } from './CompteRenduAffichage'
-import { EnqueteSatisfactionAffichage } from './EnqueteSatisfactionAffichage'
 import { BoutonRejoindreVisio } from './BoutonRejoindreVisio'
 import { SectionRepliable } from './SectionRepliable'
 
@@ -57,7 +56,6 @@ export function DetailSeanceModale({ session, professeur, eleves, video, onFerme
   const debut = new Date(session.debut)
 
   const nomsEleves = eleves.map((e) => nomEleveInscrit(e))
-  const satisfactions = detail?.satisfactions ?? []
 
   return (
     <Modale titre={`Événement de l’agenda de ${profile?.prenom ?? ''}`} onFermer={onFermer} largeurMax={560}>
@@ -104,12 +102,6 @@ export function DetailSeanceModale({ session, professeur, eleves, video, onFerme
               </p>
             </Bloc>
           )
-        )}
-
-        {!loading && session.statut === 'terminee' && (
-          <Bloc titre="Enquête de satisfaction">
-            <EnqueteSatisfactionAffichage satisfactions={satisfactions} resoudreNom={(id) => nomEleveInscrit(eleves.find((e) => e?.id === id))} />
-          </Bloc>
         )}
 
         {actions && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{actions}</div>}

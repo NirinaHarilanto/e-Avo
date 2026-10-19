@@ -11,9 +11,14 @@ export interface VagueAvecMembres {
 
 /* Les vagues avec la liste de leurs inscrits, pour les convoquer d'un bloc à une réunion
    (demande client du 2026-09-23, point 11). L'admin voit toutes les vagues, un professeur
-   uniquement celles qu'il accompagne — c'est la RLS qui tranche (0069), pas un filtre ici. */
-export function useVagues() {
-  const { valeur, loading, erreur, recharger } = useCacheRequete('vagues-avec-membres', async (): Promise<VagueAvecMembres[]> => {
+   uniquement celles qu'il accompagne — c'est la RLS qui tranche (0069), pas un filtre ici.
+
+   `actif` à `false` suspend la requête, sans rien changer pour les appelants qui l'omettent : la
+   messagerie est le même composant dans les trois espaces (2026-10-19) et n'a besoin des vagues
+   que pour un admin ou un professeur. Pour un élève, la RLS ne renverrait de toute façon rien —
+   autant ne pas poser la question. */
+export function useVagues(actif = true) {
+  const { valeur, loading, erreur, recharger } = useCacheRequete(actif ? 'vagues-avec-membres' : null, async (): Promise<VagueAvecMembres[]> => {
     const { data: cohortes, error } = await supabase.from('cohorts').select('*').order('date_debut', { ascending: false })
     if (error) throw new Error(error.message)
     const ids = (cohortes ?? []).map((c) => c.id)

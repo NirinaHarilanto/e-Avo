@@ -13,7 +13,6 @@ import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { CompteRenduAffichage } from '../shared/CompteRenduAffichage'
-import { EnqueteSatisfactionAffichage } from '../shared/EnqueteSatisfactionAffichage'
 import { BoutonRejoindreVisio } from '../shared/BoutonRejoindreVisio'
 import { SectionRepliable, intituleAccentStyle } from '../shared/SectionRepliable'
 import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
@@ -298,12 +297,6 @@ function FicheSeance({
           )
         )}
 
-        {termine && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft, var(--border))', paddingTop: 12 }}>
-            <span style={intituleAccentStyle()}>Votre avis</span>
-            <EnqueteSatisfactionAffichage satisfactions={detail?.satisfactions ?? []} />
-          </div>
-        )}
       </div>
     </Modale>
   )

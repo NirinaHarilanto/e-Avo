@@ -31,6 +31,8 @@ const etudiant: Profile = {
   taux_horaire_individuel: null,
   taux_horaire_duo: null,
   taux_horaire_collectif: null,
+  taux_horaire_corporate: null,
+  taux_horaire_chat_chill: null,
   signature_path: null,
   photo_path: null,
   mot_de_passe_defini: true,
@@ -39,6 +41,7 @@ const etudiant: Profile = {
   motif_pause: null,
   pause_le: null,
   pause_par: null,
+  relance_prevue_le: null,
   statut_integration: null,
   created_at: '2026-01-01T00:00:00Z',
 }

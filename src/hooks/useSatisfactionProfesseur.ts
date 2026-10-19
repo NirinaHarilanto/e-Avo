@@ -12,25 +12,33 @@ export interface SatisfactionProfesseur {
 
 const VIDE: SatisfactionProfesseur = { repartition: [0, 0, 0, 0, 0], total: 0, moyenne: null, tauxSatisfaction: null }
 
-/* Enquêtes de satisfaction des séances d'un professeur (0068), agrégées pour le KPI en disque
-   demandé le 2026-09-23 (point 5). `session_satisfaction` n'a pas de `teacher_id` : le lien passe
-   par `sessions.teacher_id`. C'étaient donc deux requêtes enchaînées — les séances du professeur,
-   puis les avis portant leurs identifiants — soit un aller-retour d'attente en plus, le dernier à
-   partir sur la fiche professeur. Une jointure `!inner` filtrée côté serveur fait la même chose en
-   une fois (2026-10-13). La RLS laisse déjà un professeur lire les avis de ses seules séances et
-   l'admin ceux de tout l'établissement. */
+/* Satisfaction d'un professeur, agrégée pour le KPI en disque demandé le 2026-09-23 (point 5).
+   Alimentée par les ENQUÊTES DE PARCOURS (`jalons_parcours`, 0130) depuis le 2026-10-19 : la
+   demande 8 remplace l'enquête de fin de séance par deux enquêtes par parcours, l'indicateur suit
+   donc sa nouvelle source. Même disque, mêmes couleurs, mais deux avis par élève et par forfait
+   au lieu d'un par cours.
+
+   `teacher_id` est figé sur le jalon au moment où il est posé : un professeur n'hérite donc jamais
+   des avis portant sur son prédécesseur, même après un transfert d'élève. La RLS (0130) laisse un
+   professeur lire les jalons de ses élèves et l'admin ceux de tout l'établissement.
+
+   Les avis déposés avant ce changement vivent encore dans `session_satisfaction` et ne sont plus
+   comptés ici : le KPI repart donc de zéro, à signaler au client. La table est conservée, rien
+   n'est perdu. */
 export function useSatisfactionProfesseur(teacherId: string | undefined) {
   const { valeur, loading, erreur, recharger } = useCacheRequete(
     teacherId && `satisfaction-professeur-${teacherId}`,
     async (): Promise<SatisfactionProfesseur> => {
       const { data: avis, error: erreurAvis } = await supabase
-        .from('session_satisfaction')
-        .select('note_globale, sessions!inner(teacher_id)')
-        .eq('sessions.teacher_id', teacherId as string)
+        .from('jalons_parcours')
+        .select('note_globale')
+        .eq('teacher_id', teacherId as string)
+        .not('repondu_le', 'is', null)
       if (erreurAvis) throw new Error(erreurAvis.message)
 
       const repartition: [number, number, number, number, number] = [0, 0, 0, 0, 0]
       for (const a of avis ?? []) {
+        if (a.note_globale === null) continue
         const index = Math.min(5, Math.max(1, a.note_globale)) - 1
         repartition[index] += 1
       }

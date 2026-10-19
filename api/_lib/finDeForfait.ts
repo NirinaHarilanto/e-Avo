@@ -18,7 +18,7 @@ export const TYPE_NOTIFICATION_AVIS = 'avis_invitation'
    voir celle-ci déclarée terminée d'emblée. Même jointure manuelle sessions → hour_ledger que la
    fiche candidat collectif (FicheCandidatCollectifModale.tsx) — c'est la même question posée au
    même endroit, elle doit donner la même réponse. */
-async function heuresConsommeesDansVague(serviceClient: ServiceClient, studentId: string, cohortId: string): Promise<number> {
+export async function heuresConsommeesDansVague(serviceClient: ServiceClient, studentId: string, cohortId: string): Promise<number> {
   const { data: seances } = await serviceClient.from('sessions').select('id').eq('cohort_id', cohortId)
   const ids = (seances ?? []).map((s) => s.id)
   if (ids.length === 0) return 0
@@ -40,12 +40,16 @@ async function heuresConsommeesDansVague(serviceClient: ServiceClient, studentId
      qui vient de prolonger serait déclaré « terminé » à tort.
    Dans les deux cas, un forfait inconnu ou nul ne termine jamais rien : mieux vaut ne rien
    proposer qu'inviter quelqu'un à conclure un parcours qui continue. */
-async function parcoursTermine(
+/* Où en est un élève de son parcours : le forfait applicable et les heures déjà consommées
+   dessus. Extrait de `parcoursTermine` le 2026-10-19 pour servir aussi aux jalons de mi-parcours
+   et de fin de parcours (voir jalonsParcours.ts) — les deux reposent sur ce même calcul, et le
+   dupliquer les aurait laissés diverger. `forfait` à `null` signifie « inconnu », jamais zéro. */
+export async function mesurerParcours(
   serviceClient: ServiceClient,
   studentId: string,
   cohortId: string | null,
   etablissementId: string,
-): Promise<boolean> {
+): Promise<{ forfait: number | null; consommees: number }> {
   if (cohortId) {
     const { data: vague } = await serviceClient.from('cohorts').select('heures_forfait').eq('id', cohortId).maybeSingle()
     let forfait = vague?.heures_forfait ?? null
@@ -57,8 +61,8 @@ async function parcoursTermine(
         .maybeSingle()
       forfait = etab?.heures_forfait_collectif ?? null
     }
-    if (forfait == null || forfait <= 0) return false
-    return forfaitEntierementConsomme(await heuresConsommeesDansVague(serviceClient, studentId, cohortId), forfait)
+    if (forfait == null || forfait <= 0) return { forfait: null, consommees: 0 }
+    return { forfait, consommees: await heuresConsommeesDansVague(serviceClient, studentId, cohortId) }
   }
 
   const [{ data: forfaits }, { data: debits }] = await Promise.all([
@@ -67,7 +71,17 @@ async function parcoursTermine(
   ])
   const total = (forfaits ?? []).reduce((somme, f) => somme + Number(f.total_heures), 0)
   const consommees = (debits ?? []).reduce((somme, d) => somme + Number(d.heures), 0)
-  return forfaitEntierementConsomme(consommees, total)
+  return { forfait: total > 0 ? total : null, consommees }
+}
+
+async function parcoursTermine(
+  serviceClient: ServiceClient,
+  studentId: string,
+  cohortId: string | null,
+  etablissementId: string,
+): Promise<boolean> {
+  const { forfait, consommees } = await mesurerParcours(serviceClient, studentId, cohortId, etablissementId)
+  return forfaitEntierementConsomme(consommees, forfait)
 }
 
 /* Invite les élèves qui viennent de terminer leur forfait à déposer un avis. Appelé à la clôture

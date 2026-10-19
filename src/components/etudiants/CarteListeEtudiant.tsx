@@ -2,7 +2,8 @@ import type { Database } from '../../types/database.types'
 import type { ProgrammeEtudiant } from '../../hooks/useTypesProgrammeEtudiants'
 import type { StatutSignatureContrat } from '../shared/BadgeStatutContrat'
 import { BadgeStatutContrat } from '../shared/BadgeStatutContrat'
-import { libelleStatutProfil } from '../../lib/statutProfil'
+import { activiteEtudiant, libelleActiviteEtudiant, libelleStatutProfil, tonActiviteEtudiant } from '../../lib/statutProfil'
+import type { EtatParcoursEtudiant } from '../../hooks/useEtatsParcoursEtudiants'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -49,6 +50,46 @@ export function TagDossierIncomplet() {
   )
 }
 
+/* Aucune séance à venir au planning — demande client du 2026-10-19 (point 6) : « il faut qu'il y
+   ait une icône warning comme étiquette de l'étudiant dans la section étudiant de l'espace
+   admin ». Un élève inscrit dont rien n'est programmé est une anomalie à traiter : il a souvent
+   payé, et personne ne s'en aperçoit tant que l'admin ne rouvre pas son dossier.
+
+   Icône SVG et non le glyphe « ⚠ » : dans Chromium sur Windows, ce caractère est rendu par la
+   police d'emojis en couleur, qui ignore `color` — l'avertissement s'affichait en orange quelle
+   que soit la teinte demandée. Celle-ci suit `currentColor`.
+
+   Même ambre que les autres signaux non bloquants de la liste (`TagDossierIncomplet`), pas du
+   rouge : c'est à surveiller, ce n'est pas une erreur. */
+export function TagAucunCoursPlanifie() {
+  return (
+    <span
+      title="Aucune séance à venir n’est planifiée pour cet étudiant."
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        flexShrink: 0,
+        fontSize: 10,
+        fontWeight: 700,
+        color: 'var(--warning)',
+        background: 'rgba(233,207,148,.14)',
+        border: '1px solid rgba(233,207,148,.34)',
+        borderRadius: 999,
+        padding: '2px 8px',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" aria-hidden>
+        <path d="M12 3.6 1.8 20.4h20.4z" />
+        <path d="M12 9.6v4.8" />
+        <path d="M12 17.4h.01" />
+      </svg>
+      Sans cours
+    </span>
+  )
+}
+
 /* Tag « Ancien élève » — demande client du 2026-09-30 : « quand un étudiant change de professeur,
    l'étudiant aura un tag visible du côté de l'ancien professeur comme "Ancien élève" pour aider le
    professeur à l'identifier rapidement dans son espace personnel ». N'existe QUE côté professeur :
@@ -87,6 +128,12 @@ interface CarteListeEtudiantProps {
      transfert). La carte est alors estompée et porte le tag « Ancien élève » — même bloc de liste
      que les élèves en cours, plutôt qu'un rendu parallèle qui divergeait au fil des retouches. */
   ancienEleve?: { transfereLe: string } | null
+  /* État du parcours (2026-10-19) : l'avertissement « aucun cours planifié » et l'activité
+     réelle, qui ne se lit plus dans `status` seul — un forfait épuisé rend l'élève inactif alors
+     que son compte reste `approved` (voir lib/statutProfil.ts). Fourni par l'appelant, qui le
+     calcule pour toute la liste d'un coup (useEtatsParcoursEtudiants). Omis côté professeur, qui
+     n'a pas ces données : la carte retombe alors sur le statut du compte, comme avant. */
+  etatParcours?: EtatParcoursEtudiant | null
 }
 
 /* Bloc d'une ligne de liste étudiant — identité et badges du dossier. Un seul composant, partagé
@@ -105,7 +152,22 @@ interface CarteListeEtudiantProps {
 
    Le nom se tronque en premier (`whiteSpace: nowrap` + ellipsis, `minWidth: 0` sur toute la
    chaîne de conteneurs flex parents) si la place manque, jamais les badges (`flexShrink: 0`). */
-export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick, programme, statutContrat, ancienEleve }: CarteListeEtudiantProps) {
+export function CarteListeEtudiant({
+  principal,
+  secondaire,
+  selectionne,
+  onClick,
+  programme,
+  statutContrat,
+  ancienEleve,
+  etatParcours,
+}: CarteListeEtudiantProps) {
+  /* Sans `etatParcours`, on ne peut rien dire du forfait : la carte s'en tient alors au statut du
+     compte, exactement comme avant le 2026-10-19 (c'est le cas côté professeur). */
+  const activite = etatParcours
+    ? activiteEtudiant({ status: principal.status, forfaitEpuise: etatParcours.forfaitEpuise })
+    : null
+
   return (
     <button
       onClick={onClick}
@@ -137,6 +199,7 @@ export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick
           </span>
           {programme && <TagProgramme programme={programme} />}
           {statutContrat && <BadgeStatutContrat statut={statutContrat} glyphe />}
+          {etatParcours?.sansCoursPlanifie && <TagAucunCoursPlanifie />}
         </span>
       ) : (
         <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, width: '100%' }}>
@@ -146,12 +209,20 @@ export function CarteListeEtudiant({ principal, secondaire, selectionne, onClick
             </span>
             {programme && <TagProgramme programme={programme} />}
             {statutContrat && <BadgeStatutContrat statut={statutContrat} glyphe />}
+            {etatParcours?.sansCoursPlanifie && <TagAucunCoursPlanifie />}
           </span>
-          {principal.status !== 'approved' && (
-            <span style={{ fontSize: 10.5, color: principal.status === 'en_pause' ? 'var(--warning)' : 'var(--muted)' }}>
-              {libelleStatutProfil(principal.status)}
-            </span>
-          )}
+          {/* L'activité ne s'écrit que lorsqu'elle manquerait ailleurs : « Actif » reste muet
+              (épuré le 2026-10-11 : « pas du tout utile »), mais un élève inactif, en attente ou
+              en pause doit se repérer dans la liste sans ouvrir son dossier. */}
+          {activite !== null
+            ? activite !== 'actif' && (
+                <span style={{ fontSize: 10.5, color: tonActiviteEtudiant(activite).color }}>{libelleActiviteEtudiant(activite)}</span>
+              )
+            : principal.status !== 'approved' && (
+                <span style={{ fontSize: 10.5, color: principal.status === 'en_pause' ? 'var(--warning)' : 'var(--muted)' }}>
+                  {libelleStatutProfil(principal.status)}
+                </span>
+              )}
         </span>
       )}
 

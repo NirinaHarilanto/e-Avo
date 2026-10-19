@@ -3,7 +3,13 @@ import type { DossierEtudiant, PeriodeProfesseur, SeanceDuParcours } from '../..
 import { useNiveauxEtudiant } from '../../hooks/useNiveauxEtudiant'
 import { getJoinUrl } from '../../lib/visio'
 import { estRempli } from '../../lib/diagnostic'
-import { libelleStatutProfil, tonStatutProfil } from '../../lib/statutProfil'
+import {
+  libelleActiviteEtudiant,
+  libelleStatutProfil,
+  tonActiviteEtudiant,
+  tonStatutProfil,
+  type ActiviteEtudiant,
+} from '../../lib/statutProfil'
 import {
   formaterHeures,
   formaterMinutes,
@@ -24,7 +30,6 @@ import { Onglets, type Onglet } from '../ui/Onglets'
 import { ListeRepliable, TexteRepliable } from '../ui/Repliable'
 import { HistoriqueNiveauModale } from './HistoriqueNiveauModale'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
-import { BadgeSatisfaction, SatisfactionSeance } from './SatisfactionSeance'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -296,8 +301,6 @@ function BlocPeriode({
   periode,
   estActuelle,
   onModifierSeance,
-  satisfactionEtudiantId,
-  onSatisfactionEnregistree,
 }: {
   periode: PeriodeProfesseur
   estActuelle: boolean
@@ -305,9 +308,6 @@ function BlocPeriode({
      ouvre le même pop-up de reprogrammation que l'onglet Forfait & Planning — même interaction,
      deux points d'entrée. */
   onModifierSeance?: (seance: SeanceDuParcours) => void
-  /* Voir DossierEtudiantVueProps.satisfactionEtudiantId (0068). */
-  satisfactionEtudiantId?: string
-  onSatisfactionEnregistree?: () => void
 }) {
   // « enseignées » ne doit compter que les séances réellement COMPTÉES (statut « terminée ») —
   // avant ce filtre, une séance encore planifiée (future) ou reportée (0085, demande client du
@@ -420,20 +420,12 @@ function BlocPeriode({
                 <span style={{ fontSize: 12, color: 'var(--muted)', width: 90, flexShrink: 0 }}>
                   {new Date(seance.session.debut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
                 </span>
+                {/* L'enquête de satisfaction par séance a été retirée le 2026-10-19 (demande
+                    client 8) : elle n'est plus demandée à chaque cours mais deux fois par
+                    parcours, à la moitié des heures puis à trois heures de la fin — voir
+                    EnqueteParcours.tsx et EnquetesParcoursAffichage.tsx. */}
                 <span style={{ fontSize: 13, color: 'var(--ink)', flexGrow: 1, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   {seance.session.type === 'individuel' ? 'Séance individuelle' : 'Séance collective'}
-                  {/* Enquête de satisfaction (0068) : formulaire cliquable pour l'élève tant qu'il
-                      n'a pas répondu, badge en lecture seule pour l'admin/le professeur qui
-                      consultent ce même dossier. */}
-                  {seance.session.statut === 'terminee' && satisfactionEtudiantId && (
-                    <SatisfactionSeance
-                      seance={seance}
-                      studentId={satisfactionEtudiantId}
-                      professeur={periode.professeur ? `${periode.professeur.prenom} ${periode.professeur.nom}` : null}
-                      onEnregistre={() => onSatisfactionEnregistree?.()}
-                    />
-                  )}
-                  {seance.session.statut === 'terminee' && !satisfactionEtudiantId && <BadgeSatisfaction satisfactions={seance.satisfactions} />}
                 </span>
                 <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{formaterMinutes(seance.session.duree_minutes)}</span>
                 <span style={{ width: 72, textAlign: 'right' }}>
@@ -489,6 +481,10 @@ interface DossierEtudiantVueProps {
   /* Badge(s) ajouté(s) à la ligne d'identité de l'en-tête, après le statut et la langue — sert au
      tag « Ancien élève » côté professeur (demande client du 2026-09-30). */
   badgesSupplementaires?: ReactNode
+  /* Activité du parcours (2026-10-19), quand l'appelant sait si le forfait est épuisé : elle
+     remplace alors le badge de statut de compte dans l'en-tête. Omise côté professeur et côté
+     élève, qui n'ont pas ce calcul sous la main. */
+  activite?: ActiviteEtudiant | null
   /* Autorise l'ajout d'une réévaluation de niveau depuis la fenêtre d'historique — admin
      uniquement, comme les autres panneaux d'action. */
   peutModifierNiveau?: boolean
@@ -501,12 +497,6 @@ interface DossierEtudiantVueProps {
      d'une séance depuis la liste ci-dessous, par exemple) — les panneauXxx gèrent déjà leur
      propre `onCree`/`onTermine`, celui-ci couvre ce que ce composant fait lui-même. */
   onDossierChange?: () => void
-  /* Identifiant PROPRE de l'élève connecté (0068) — absent en vue admin/professeur (lecture
-     seule des enquêtes déjà soumises), fourni uniquement par MonEspaceEtudiant.tsx. Jamais
-     `dossier.etudiant.id` : pour un secondaire DUO, ce dernier est celui du principal (dossier
-     partagé), alors que l'enquête de satisfaction est propre à CHAQUE identité de connexion —
-     les deux membres ont assisté au même cours mais peuvent avoir un avis différent. */
-  satisfactionEtudiantId?: string
   /* Masque l'e-mail de l'élève dans l'en-tête — espace professeur (0061/2026-10-16) : le reste
      du masquage des coordonnées se fait via `panneauInformations` (voir
      InformationsPersonnelles.tsx), mais cette ligne-ci est rendue directement par ce composant,
@@ -530,10 +520,10 @@ export function DossierEtudiantVue({
   panneauSuppression,
   panneauSynthese,
   badgesSupplementaires,
+  activite = null,
   peutModifierNiveau,
   peutModifierPlanning,
   onDossierChange,
-  satisfactionEtudiantId,
   masquerEmailEnTete = false,
 }: DossierEtudiantVueProps) {
   const {
@@ -629,9 +619,19 @@ export function DossierEtudiantVue({
                   Duo{etudiant.duo_nom_groupe || duoPartenaire.duo_nom_groupe ? ` · ${etudiant.duo_nom_groupe || duoPartenaire.duo_nom_groupe}` : ''}
                 </span>
               )}
-              <span style={{ fontSize: 11.5, fontWeight: 700, color: tonStatutProfil(etudiant.status).color, background: tonStatutProfil(etudiant.status).bg, border: `1px solid ${tonStatutProfil(etudiant.status).border}`, borderRadius: 999, padding: '4px 11px' }}>
-                {libelleStatutProfil(etudiant.status)}
-              </span>
+              {/* Activité du PARCOURS quand l'appelant la connaît (espace admin depuis le
+                  2026-10-19 : un forfait épuisé rend l'élève inactif, alors que son compte reste
+                  approuvé), sinon le statut du compte comme avant — l'espace professeur et
+                  l'espace étudiant n'ont pas les données du forfait à ce niveau. */}
+              {activite ? (
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: tonActiviteEtudiant(activite).color, background: tonActiviteEtudiant(activite).bg, border: `1px solid ${tonActiviteEtudiant(activite).border}`, borderRadius: 999, padding: '4px 11px' }}>
+                  {libelleActiviteEtudiant(activite)}
+                </span>
+              ) : (
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: tonStatutProfil(etudiant.status).color, background: tonStatutProfil(etudiant.status).bg, border: `1px solid ${tonStatutProfil(etudiant.status).border}`, borderRadius: 999, padding: '4px 11px' }}>
+                  {libelleStatutProfil(etudiant.status)}
+                </span>
+              )}
               {(periodeActuelle ?? periodes[0])?.affectation.langue && (
                 <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-violet)', background: 'rgba(199,156,255,.12)', border: '1px solid rgba(199,156,255,.3)', borderRadius: 999, padding: '4px 11px' }}>
                   {(periodeActuelle ?? periodes[0]).affectation.langue}
@@ -776,8 +776,6 @@ export function DossierEtudiantVue({
                     periode={periode}
                     estActuelle={periode.affectation.id === periodeActuelle?.affectation.id}
                     onModifierSeance={peutModifierPlanning ? setSeanceEnEdition : undefined}
-                    satisfactionEtudiantId={satisfactionEtudiantId}
-                    onSatisfactionEnregistree={onDossierChange}
                   />
                 ))}
                 {(diagnostic || diagnosticPartenaire) && (

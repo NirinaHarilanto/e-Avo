@@ -13,17 +13,11 @@ type VideoSession = Database['public']['Tables']['video_sessions']['Row']
 type Cohort = Database['public']['Tables']['cohorts']['Row']
 type CohortClass = Database['public']['Tables']['cohort_classes']['Row']
 type Tarif = Database['public']['Tables']['tarifs']['Row']
-type SessionSatisfaction = Database['public']['Tables']['session_satisfaction']['Row']
 
 export interface SeanceDuParcours {
   enrollment: SessionEnrollment
   session: Session
   video: VideoSession | null
-  /* Enquête(s) de satisfaction de cette séance (0068) — ce que la RLS laisse voir à l'appelant :
-     sa propre ligne pour un élève, toutes pour un admin, celles de ses séances pour un
-     professeur. Jamais plus d'une par élève (contrainte unique session_id/student_id), donc au
-     plus deux pour un binôme DUO. */
-  satisfactions: SessionSatisfaction[]
 }
 
 export interface PeriodeProfesseur {
@@ -134,7 +128,6 @@ export function useDossierEtudiant(studentId: string | undefined) {
       { data: diagnostic },
       { data: diagnosticPartenaire },
       { data: prospectTarifRef },
-      { data: satisfactions },
     ] = await Promise.all([
       inscriptionCohorte
         ? supabase.from('cohorts').select('*').eq('id', inscriptionCohorte.cohort_id).maybeSingle()
@@ -153,7 +146,6 @@ export function useDossierEtudiant(studentId: string | undefined) {
       etudiant.prospect_id
         ? supabase.from('prospects').select('tarif_choisi_id').eq('id', etudiant.prospect_id).maybeSingle()
         : Promise.resolve({ data: null as { tarif_choisi_id: string | null } | null }),
-      sessionIds.length > 0 ? supabase.from('session_satisfaction').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as SessionSatisfaction[] }),
     ])
     /* Résolu dans la table de référence déjà chargée (2026-10-13) : c'était un aller-retour de
        plus, qui ne pouvait partir qu'une fois le prospect d'origine connu. `profiles.prospect_id`
@@ -178,16 +170,11 @@ export function useDossierEtudiant(studentId: string | undefined) {
     // Professeur de la classe de niveau (0074) : il n'a pas forcément d'affectation individuelle
     // (`teacher_assignments`), c'était donc un aller-retour supplémentaire à lui seul.
     const professeurClasse = cohortClasse?.teacher_id ? (professeurParId.get(cohortClasse.teacher_id) ?? null) : null
-    const satisfactionsParSession = new Map<string, SessionSatisfaction[]>()
-    for (const satisfaction of satisfactions ?? []) {
-      satisfactionsParSession.set(satisfaction.session_id, [...(satisfactionsParSession.get(satisfaction.session_id) ?? []), satisfaction])
-    }
-
     const seancesToutes: SeanceDuParcours[] = (enrollments ?? [])
       .map((enrollment) => {
         const session = sessionParId.get(enrollment.session_id)
         return session
-          ? { enrollment, session, video: videoParSession.get(enrollment.session_id) ?? null, satisfactions: satisfactionsParSession.get(enrollment.session_id) ?? [] }
+          ? { enrollment, session, video: videoParSession.get(enrollment.session_id) ?? null }
           : null
       })
       .filter((v): v is SeanceDuParcours => v !== null)

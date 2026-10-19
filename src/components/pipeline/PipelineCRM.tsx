@@ -18,6 +18,8 @@ import { PlanifierAppelDiagnosticModale } from '../admin/PlanifierAppelDiagnosti
 import { DetailPaiementModale } from '../paiements/DetailPaiementModale'
 import { FraisInscriptionCollectifModale, type FraisInscription } from '../prospects/FraisInscriptionCollectifModale'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
+import { PanneauRelances } from '../shared/Relances'
+import { diagnosticProbablementManque } from '../../lib/relances'
 import { formaterMontant, resteAPayer, statutReglement } from '../../lib/paiements'
 import { useTarifs } from '../../hooks/useTarifs'
 import type { ProspectStatut, TypeProgrammeProspect } from '../../types/database.types'
@@ -767,9 +769,16 @@ function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => vo
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [validationEnCours, setValidationEnCours] = useState(false)
-  const [relanceEnCours, setRelanceEnCours] = useState(false)
-  const [relanceEnvoyee, setRelanceEnvoyee] = useState(false)
   const [paiementOuvert, setPaiementOuvert] = useState(false)
+
+  /* Relance pour absence au rendez-vous (demande client du 2026-10-19, point 4) : déduit de
+     l'état du dossier, pas d'une case à cocher — voir src/lib/relances.ts. Calculé à chaque
+     rendu, donc juste au moment où l'admin regarde la carte ; le pipeline se rafraîchit de
+     lui-même toutes les 25 s (useProspectsPipeline), le bouton apparaît donc sans rechargement. */
+  const diagnosticManque = diagnosticProbablementManque(
+    { statut: prospect.statut, debutRendezVous: prospect.rendezVous?.debut ?? prospect.creneauTest?.debut },
+    new Date(),
+  )
 
   // Forfait choisi par le prospect (0054) : liste filtrée sur son programme, individuel/collectif
   // exclu du duo et réciproquement — pas de sens de proposer un forfait duo à un individuel.
@@ -928,25 +937,6 @@ function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => vo
     onChange()
   }
 
-  async function relancerProspect() {
-    if (!session) return
-    setRelanceEnCours(true)
-    setErreur(null)
-    const reponse = await fetch('/api/admin/relancer-prospect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ prospectId: prospect.id }),
-    })
-      .then((r) => r.json())
-      .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
-    setRelanceEnCours(false)
-    if (reponse.error) {
-      setErreur(reponse.error)
-      return
-    }
-    setRelanceEnvoyee(true)
-  }
-
   async function validerRendezVous() {
     if (!session || !prospect.rendezVous) return
     setValidationEnCours(true)
@@ -981,8 +971,7 @@ function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => vo
     setEnCours,
     erreur,
     validationEnCours,
-    relanceEnCours,
-    relanceEnvoyee,
+    diagnosticManque,
     paiementOuvert,
     setPaiementOuvert,
     tarifsDuProgramme,
@@ -997,7 +986,6 @@ function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => vo
     basculerEssai,
     essaiHeures,
     choisirHeuresEssai,
-    relancerProspect,
     validerRendezVous,
   }
 }
@@ -1038,15 +1026,13 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
     essai,
     tarifAEncaisser,
     paiementEnregistre,
-    relanceEnCours,
-    relanceEnvoyee,
+    diagnosticManque,
     marquerRealise,
     enregistrerDiagnostic,
     choisirTarif,
     basculerEssai,
     essaiHeures,
     choisirHeuresEssai,
-    relancerProspect,
     validerRendezVous,
   } = a
 
@@ -1236,6 +1222,19 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
                 Modifier ou annuler le rendez-vous
               </button>
             )}
+            {/* Rendez-vous passé sans que le diagnostic ait été marqué comme fait : le prospect ne
+                s'est pas présenté (ou la fiche n'a pas été close), et on peut le relancer autant
+                de fois qu'il le faut — demande client du 2026-10-19, point 4. Le bloc n'apparaît
+                que dans ce cas précis, pas en permanence : un bouton de relance visible avant même
+                l'heure du rendez-vous inviterait à relancer quelqu'un qui n'a encore rien manqué. */}
+            {diagnosticManque && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: '9px 11px', borderRadius: 10, border: '1px solid rgba(233,207,148,.35)', background: 'rgba(233,207,148,.08)' }}>
+                <span style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--ink-2)' }}>
+                  L’heure du rendez-vous est passée et le diagnostic n’est pas marqué comme fait.
+                </span>
+                <PanneauRelances cible={{ prospectId: prospect.id, motif: 'absence_diagnostic' }} libelle="Relancer (absence au rendez-vous)" />
+              </div>
+            )}
             {/* Exactement la fenêtre de la section Facturation (acomptes, reste dû, reçu,
                 génération de facture) — demande client du 2026-09-21 : « tout doit être lié ».
                 La ligne créée ici est rattachée au prospect, puis reprise telle quelle par la
@@ -1334,14 +1333,10 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
                 <button onClick={enregistrerDiagnostic} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
                   {enCours ? 'Enregistrement…' : 'Enregistrer'}
                 </button>
-                <button
-                  onClick={relancerProspect}
-                  disabled={relanceEnCours || relanceEnvoyee}
-                  className="btn-shine btn-secondary"
-                  style={{ fontSize: 12.5, padding: 9, opacity: relanceEnCours ? 0.7 : 1, color: relanceEnvoyee ? 'var(--accent-teal)' : undefined }}
-                >
-                  {relanceEnvoyee ? 'Relance envoyée ✓' : relanceEnCours ? 'Envoi…' : 'Relancer le prospect'}
-                </button>
+                {/* Le bouton ne se désarme plus après un premier envoi, et l'historique de ce qui
+                    est déjà parti s'affiche juste en dessous — demande client du 2026-10-19 :
+                    « on peut relancer plusieurs fois un prospect ». */}
+                <PanneauRelances cible={{ prospectId: prospect.id, motif: 'forfait_a_choisir' }} libelle="Relancer le prospect" />
                 {/* Conversion verrouillée tant que le forfait n'est pas encaissé — demande
                     client du 2026-09-21. Le motif est écrit juste au-dessus du bouton plutôt que
                     dans une infobulle : un bouton grisé sans explication est le premier réflexe
@@ -1713,6 +1708,18 @@ function CarteDuo({
                 Modifier ou annuler le rendez-vous
               </button>
             )}
+            {/* Absence au rendez-vous, côté binôme : la relance part au PORTEUR, qui est celui
+                dont le dossier porte le rendez-vous et le forfait partagés (voir
+                `identifierPorteur`). Relancer les deux membres enverrait deux fois le même
+                message pour un seul rendez-vous manqué. */}
+            {a.diagnosticManque && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, padding: '9px 11px', borderRadius: 10, border: '1px solid rgba(233,207,148,.35)', background: 'rgba(233,207,148,.08)' }}>
+                <span style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--ink-2)' }}>
+                  L’heure du rendez-vous est passée et le diagnostic n’est pas marqué comme fait.
+                </span>
+                <PanneauRelances cible={{ prospectId: porteur.id, motif: 'absence_diagnostic' }} libelle="Relancer (absence au rendez-vous)" />
+              </div>
+            )}
 
             {a.paiementOuvert && (
               <DetailPaiementModale
@@ -1803,14 +1810,9 @@ function CarteDuo({
                 <button onClick={enregistrerDuoDiagnostic} disabled={a.enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: a.enCours ? 0.7 : 1 }}>
                   {a.enCours ? 'Enregistrement…' : 'Enregistrer'}
                 </button>
-                <button
-                  onClick={a.relancerProspect}
-                  disabled={a.relanceEnCours || a.relanceEnvoyee}
-                  className="btn-shine btn-secondary"
-                  style={{ fontSize: 12.5, padding: 9, opacity: a.relanceEnCours ? 0.7 : 1, color: a.relanceEnvoyee ? 'var(--accent-teal)' : undefined }}
-                >
-                  {a.relanceEnvoyee ? 'Relance envoyée ✓' : a.relanceEnCours ? 'Envoi…' : 'Relancer le prospect'}
-                </button>
+                {/* Relance du porteur, pour le binôme : voir le commentaire du bloc d'absence
+                    au rendez-vous plus haut. */}
+                <PanneauRelances cible={{ prospectId: porteur.id, motif: 'forfait_a_choisir' }} libelle="Relancer le prospect" />
                 {!a.paiementEnregistre && (
                   <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)', margin: 0, padding: '8px 10px', borderRadius: 8, border: '1px dashed var(--border)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}>
                     Enregistrez d’abord le paiement du forfait ci-dessus, partagé par le binôme : la conversion des

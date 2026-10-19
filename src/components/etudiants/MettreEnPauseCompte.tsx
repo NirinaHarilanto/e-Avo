@@ -22,6 +22,10 @@ export function MettreEnPauseCompte({ personne, onChange }: MettreEnPauseCompteP
   const { session } = useProfileContext()
   const [ouverte, setOuverte] = useState(false)
   const [motif, setMotif] = useState('')
+  /* Date de relance — demande client du 2026-10-19 : « il faut qu'il y ait la possibilité pour
+     l'admin de mettre une date de relance ». Facultative : une pause peut être posée sans savoir
+     encore quand reprendre, et exiger une date obligerait à en inventer une. */
+  const [relancePrevueLe, setRelancePrevueLe] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -32,7 +36,12 @@ export function MettreEnPauseCompte({ personne, onChange }: MettreEnPauseCompteP
     const { ok, error } = await fetch('/api/admin/pause-etudiant', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ profileId: personne.id, decision, motif: decision === 'pause' ? motif.trim() : undefined }),
+      body: JSON.stringify({
+        profileId: personne.id,
+        decision,
+        motif: decision === 'pause' ? motif.trim() : undefined,
+        relancePrevueLe: decision === 'pause' ? relancePrevueLe || null : undefined,
+      }),
     })
       .then((r) => r.json())
       .catch(() => ({ error: 'La demande a échoué. Réessayez dans un instant.' }))
@@ -44,6 +53,7 @@ export function MettreEnPauseCompte({ personne, onChange }: MettreEnPauseCompteP
     }
     setOuverte(false)
     setMotif('')
+    setRelancePrevueLe('')
     onChange()
   }
 
@@ -70,7 +80,7 @@ export function MettreEnPauseCompte({ personne, onChange }: MettreEnPauseCompteP
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <p style={{ fontSize: 13.5, lineHeight: 1.6, color: 'var(--ink-2)', margin: 0 }}>
               {personne.prenom} {personne.nom} reste visible dans vos listes et garde l'accès à son espace, mais son
-              dossier est signalé en pause jusqu'à ce que vous le réactiviez.
+              dossier passe en <strong>inactif</strong> jusqu'à ce que vous le réactiviez.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>Motif de la pause (obligatoire)</label>
@@ -81,6 +91,22 @@ export function MettreEnPauseCompte({ personne, onChange }: MettreEnPauseCompteP
                 placeholder="Ex. absence prolongée, litige de paiement en cours…"
                 style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
               />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>Date de relance (facultative)</label>
+              <input
+                type="date"
+                value={relancePrevueLe}
+                onChange={(e) => setRelancePrevueLe(e.target.value)}
+                /* Pas de relance dans le passé : la date sert à savoir quand rappeler, une date
+                   déjà échue le jour de la saisie est une erreur de frappe. */
+                min={new Date().toISOString().slice(0, 10)}
+                style={champStyle}
+              />
+              <span style={{ fontSize: 11.5, color: 'var(--muted-2)', lineHeight: 1.45 }}>
+                Elle s’affichera sur le dossier, avec le bouton pour envoyer le message de reprise. Vous pourrez le
+                renvoyer autant de fois que nécessaire.
+              </span>
             </div>
             {erreur && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{erreur}</p>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>

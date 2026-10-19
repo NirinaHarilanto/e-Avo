@@ -1,6 +1,7 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { notifierParticipantsSeance } from '../_lib/notifications.js'
 import { inviterAuxAvisSiForfaitTermine } from '../_lib/finDeForfait.js'
+import { poserJalonsDeParcours } from '../_lib/jalonsParcours.js'
 import { replierBinomesDuo, estBinomeDuo } from '../_lib/duo.js'
 import type { TypeFacturationLedger } from '../../src/types/database.types.js'
 
@@ -171,6 +172,20 @@ export default async function handler(request: Request): Promise<Response> {
          est, elle, la vraie opération métier. */
       try {
         await inviterAuxAvisSiForfaitTermine(serviceClient, {
+          etablissementId,
+          cohortId: session.cohort_id,
+          studentIds: debites,
+        })
+      } catch {
+        // Silencieux : voir ci-dessus.
+      }
+
+      /* Pour la même raison, c'est aussi ici que la moitié du forfait et les 3 heures restantes
+         peuvent être franchies : l'admin est alors averti du suivi pédagogique à mener, et
+         l'élève reçoit son enquête de satisfaction (0130, demandes client 5 et 8 du 2026-10-19).
+         Même garde que ci-dessus : jamais bloquant pour la clôture. */
+      try {
+        await poserJalonsDeParcours(serviceClient, {
           etablissementId,
           cohortId: session.cohort_id,
           studentIds: debites,

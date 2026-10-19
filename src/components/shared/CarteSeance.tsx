@@ -1,13 +1,11 @@
 import { useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { type SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
-import { useDetailSeance } from '../../hooks/useDetailSeance'
 import { getJoinUrl } from '../../lib/visio'
 import { libelleTypeSeance, nomsElevesInscrits } from '../../lib/seances'
 import { Bouton } from '../ui/Boutons'
 import { champStyle, LigneInfo } from '../ui/Champ'
 import { BadgeStatutSeance } from './BadgeStatutSeance'
-import { EnqueteSatisfactionAffichage } from './EnqueteSatisfactionAffichage'
 import { BoutonRejoindreVisio } from './BoutonRejoindreVisio'
 import { CompteRenduSeance } from '../professeurs/CompteRenduSeance'
 import { EditerSeancePlanifieeModale } from './EditerSeancePlanifieeModale'
@@ -51,11 +49,6 @@ export function CarteSeance({
   emargementOuvertADemande?: boolean
 }) {
   const { session: authSession, profile } = useProfileContext()
-  // Résultats de l'enquête de satisfaction (0068) visibles dans l'agenda professeur — demande
-  // client du 2026-09-30 : « le professeur, l'étudiant et l'admin devraient pouvoir voir [...]
-  // les résultats de l'enquête [...] dans les agendas respectifs ». Déjà le cas côté admin
-  // (DetailSeanceModale.tsx) ; manquait ici. Chargé seulement une fois la séance terminée.
-  const { detail: detailSatisfaction } = useDetailSeance(seance.session.statut === 'terminee' ? seance.session.id : null)
   const [presences, setPresences] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(seance.inscriptions.map((i) => [i.student_id, true])),
   )
@@ -283,16 +276,6 @@ export function CarteSeance({
           studentIds={seance.inscriptions.map((i) => i.student_id)}
           ouvrirAutomatiquement={proposerCompteRendu}
         />
-      )}
-
-      {seance.session.statut === 'terminee' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
-          <span style={etiquettePresenceStyle}>Enquête de satisfaction</span>
-          <EnqueteSatisfactionAffichage
-            satisfactions={detailSatisfaction?.satisfactions ?? []}
-            resoudreNom={(id) => nomsElevesInscrits(seance.inscriptions.filter((i) => i.student_id === id))[0] ?? 'Élève'}
-          />
-        </div>
       )}
 
       {editionHoraireOuverte && (

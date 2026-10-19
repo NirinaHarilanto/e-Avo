@@ -32,6 +32,7 @@ const PaiementsAdmin = lazy(() => import('./components/admin/PaiementsAdmin').th
 const FacturationAdmin = lazy(() => import('./components/admin/FacturationAdmin').then((m) => ({ default: m.FacturationAdmin })))
 const ContratsAdmin = lazy(() => import('./components/admin/ContratsAdmin').then((m) => ({ default: m.ContratsAdmin })))
 const AvisAdmin = lazy(() => import('./components/admin/AvisAdmin').then((m) => ({ default: m.AvisAdmin })))
+const EventsAdmin = lazy(() => import('./components/admin/EventsAdmin').then((m) => ({ default: m.EventsAdmin })))
 const ParametresAdmin = lazy(() => import('./components/admin/ParametresAdmin').then((m) => ({ default: m.ParametresAdmin })))
 const ProfilHOC = lazy(() => import('./components/admin/ProfilHOC').then((m) => ({ default: m.ProfilHOC })))
 const TarifsAdmin = lazy(() => import('./components/admin/TarifsAdmin').then((m) => ({ default: m.TarifsAdmin })))
@@ -75,13 +76,14 @@ export default function App() {
       <BrowserRouter>
         <Suspense fallback={<ChargementEspace />}>
           <Routes>
-            {/* Les cinq pages de la vitrine ont chacune leur adresse depuis la refonte du
+            {/* Les pages de la vitrine ont chacune leur adresse depuis la refonte du
                 2026-10-09 : les maquettes les écrivent ainsi dans leur barre de navigation, et
                 un vrai changement de page est ce qui rejoue les apparitions au défilement. */}
             <Route path="/" element={<LandingEtablissement />} />
             <Route path="/cours" element={<LandingEtablissement />} />
             <Route path="/professeurs" element={<LandingEtablissement />} />
             <Route path="/temoignages" element={<LandingEtablissement />} />
+            <Route path="/events" element={<LandingEtablissement />} />
             <Route path="/a-propos" element={<LandingEtablissement />} />
             <Route path="/e/:slug" element={<LandingEtablissement />} />
             <Route path="/connexion" element={<Connexion />} />
@@ -105,6 +107,7 @@ export default function App() {
             <Route path="/admin/facturation" element={<FacturationAdmin />} />
             <Route path="/admin/contrats" element={<ContratsAdmin />} />
             <Route path="/admin/avis" element={<AvisAdmin />} />
+            <Route path="/admin/events" element={<EventsAdmin />} />
             <Route path="/admin/profil-hoc" element={<ProfilHOC />} />
             <Route path="/admin/parametres" element={<ParametresAdmin />} />
             <Route path="/admin/tarifs" element={<TarifsAdmin />} />

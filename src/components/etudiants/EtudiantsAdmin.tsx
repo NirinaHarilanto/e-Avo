@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import type { Database } from '../../types/database.types'
 import { AdminLayout } from '../layout/AdminLayout'
 import { supabase } from '../../lib/supabaseClient'
 import { useEtudiants } from '../../hooks/useEtudiants'
@@ -13,14 +14,20 @@ import { AjouterForfaitModale } from './AjouterForfaitModale'
 import { useDemandesForfait } from '../../hooks/useDemandesForfait'
 import { PlanifierSeancesForfait } from './PlanifierSeancesForfait'
 import { DossierEtudiantVue } from './DossierEtudiantVue'
-import { CarteListeEtudiant, TagDossierIncomplet } from './CarteListeEtudiant'
+import { CarteListeEtudiant, TagAucunCoursPlanifie, TagDossierIncomplet } from './CarteListeEtudiant'
+import { useEtatsParcoursEtudiants } from '../../hooks/useEtatsParcoursEtudiants'
+import { activiteEtudiant } from '../../lib/statutProfil'
 import { FormulaireInvitation } from '../shared/FormulaireInvitation'
 import { PanneauInformationsDuo, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
 import { SupprimerCompte } from '../shared/SupprimerCompte'
 import { SyntheseComptesRendus } from '../shared/SyntheseComptesRendus'
 import { heuresRestantes as calculerHeuresRestantes, totalHeuresCumulees } from '../../lib/heures'
 import { MettreEnPauseCompte } from './MettreEnPauseCompte'
+import { PanneauRelances } from '../shared/Relances'
+import { EnquetesParcoursAffichage } from '../shared/EnquetesParcoursAffichage'
 import { EnTetePage } from '../ui/EnTetePage'
+import { GroupeSection } from '../ui/Section'
+import { LigneInfo } from '../ui/Champ'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { ChampRecherche } from '../ui/BarreOutils'
 import { EtatVide } from '../ui/EtatVide'
@@ -30,6 +37,8 @@ import { Icone } from '../ui/Icones'
 import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
 import { useTypesProgrammeEtudiants } from '../../hooks/useTypesProgrammeEtudiants'
 import { BadgeStatutContrat } from '../shared/BadgeStatutContrat'
+
+type Profile = Database['public']['Tables']['profiles']['Row']
 
 export function EtudiantsAdmin() {
   const { id } = useParams<{ id: string }>()
@@ -64,11 +73,23 @@ export function EtudiantsAdmin() {
     [etudiants, recherche, secondaireParPrincipal],
   )
 
-  // Comptés par personne, pas par bloc : un duo, c'est bien deux élèves inscrits.
-  const actifs = tousLesEtudiants.filter((e) => e.status === 'approved').length
   const statutsContrats = useStatutsContratsSignature(useMemo(() => etudiants.map((e) => e.id), [etudiants]))
   const programmes = useTypesProgrammeEtudiants(useMemo(() => etudiants.map((e) => e.id), [etudiants]))
   const sansContratSigne = etudiants.filter((e) => statutsContrats[e.id] && statutsContrats[e.id] !== 'signe').length
+
+  /* Forfait épuisé et absence de cours planifié, pour toute la liste d'un coup — demandes client
+     6 et 7 du 2026-10-19. Calculé sur les blocs affichés (le principal d'un binôme porte le
+     dossier, le forfait et les séances du duo, 0054). */
+  const { etats } = useEtatsParcoursEtudiants(useMemo(() => etudiants.map((e) => e.id), [etudiants]))
+
+  /* « Actif » ne veut plus dire « compte approuvé » mais « parcours en cours » — demande client du
+     2026-10-19 : un élève en pause OU dont le forfait est épuisé est inactif. Compté sur les
+     blocs, et non par personne comme auparavant : l'état du parcours est celui du dossier, et
+     celui d'un binôme DUO est partagé — compter deux fois un même forfait épuisé n'aurait aucun
+     sens. Le total d'inscrits juste à côté, lui, reste bien par personne. */
+  const actifs = etudiants.filter((e) => activiteEtudiant({ status: e.status, forfaitEpuise: !!etats[e.id]?.forfaitEpuise }) === 'actif').length
+  const inactifs = etudiants.filter((e) => activiteEtudiant({ status: e.status, forfaitEpuise: !!etats[e.id]?.forfaitEpuise }) === 'inactif').length
+  const sansCoursPlanifie = etudiants.filter((e) => etats[e.id]?.sansCoursPlanifie).length
 
   return (
     <AdminLayout actif="Étudiants">
@@ -98,13 +119,20 @@ export function EtudiantsAdmin() {
         <div style={{ marginBottom: 14 }}>
           <GrilleStats min={160} compact>
             <Stat compact libelle="Étudiants inscrits" valeur={tousLesEtudiants.length} ton="or" />
-            <Stat compact libelle="Comptes actifs" valeur={actifs} ton="teal" aide="Invitation acceptée et mot de passe défini" />
+            <Stat compact libelle="Dossiers actifs" valeur={actifs} ton="teal" aide="Parcours en cours : ni en pause, ni forfait épuisé" />
             <Stat
               compact
-              libelle="En attente d’activation"
-              valeur={tousLesEtudiants.length - actifs}
-              ton={tousLesEtudiants.length - actifs > 0 ? 'alerte' : 'neutre'}
-              aide="Invitation envoyée, pas encore acceptée"
+              libelle="Dossiers inactifs"
+              valeur={inactifs}
+              ton={inactifs > 0 ? 'alerte' : 'neutre'}
+              aide="En pause, ou forfait d’heures entièrement consommé"
+            />
+            <Stat
+              compact
+              libelle="Sans cours planifié"
+              valeur={sansCoursPlanifie}
+              ton={sansCoursPlanifie > 0 ? 'alerte' : 'neutre'}
+              aide="Aucune séance à venir au planning"
             />
             <Stat
               compact
@@ -151,6 +179,7 @@ export function EtudiantsAdmin() {
                 onClick={() => navigate(`/admin/etudiants/${etudiant.id}`)}
                 programme={programmes[etudiant.id]}
                 statutContrat={statutsContrats[etudiant.id]}
+                etatParcours={etats[etudiant.id]}
               />
             )
           })}
@@ -186,6 +215,10 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
      (pas `dossier.etudiant.id`, pas encore connu avant le premier rendu) pour respecter les
      règles des hooks : jamais après un retour anticipé. */
   const statutsContrats = useStatutsContratsSignature(useMemo(() => [studentId], [studentId]))
+  /* Même calcul que la liste de gauche, pour le seul dossier ouvert : la fiche doit annoncer
+     exactement l'activité que la liste annonce, pas une variante. */
+  const { etats } = useEtatsParcoursEtudiants(useMemo(() => [studentId], [studentId]))
+  const etat = etats[studentId]
 
   if (loading) return <EtatChargement lignes={3} hauteur={110} />
   if (erreur || !dossier) return <MessageErreur>{erreur ?? 'Dossier introuvable.'}</MessageErreur>
@@ -203,10 +236,12 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
   return (
     <DossierEtudiantVue
       dossier={dossier}
+      activite={activiteEtudiant({ status: etudiant.status, forfaitEpuise: !!etat?.forfaitEpuise })}
       badgesSupplementaires={
         <>
           {statutsContrats[studentId] && <BadgeStatutContrat statut={statutsContrats[studentId]} />}
           {dossierIncomplet && <TagDossierIncomplet />}
+          {etat?.sansCoursPlanifie && <TagAucunCoursPlanifie />}
         </>
       }
       panneauProfesseur={
@@ -217,7 +252,27 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
           onTermine={recharger}
         />
       }
-      panneauInformations={<PanneauInformationsDuo etudiant={etudiant} duoPartenaire={dossier.duoPartenaire} onChange={recharger} />}
+      panneauInformations={
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <PanneauInformationsDuo etudiant={etudiant} duoPartenaire={dossier.duoPartenaire} onChange={recharger} />
+          {/* Enquêtes de parcours de l'élève, et de son binôme s'il y en a un : chaque membre
+              répond à la sienne (0130), les deux doivent donc se lire dans le dossier partagé. */}
+          <EnquetesParcoursAffichage studentId={etudiant.id} />
+          {dossier.duoPartenaire && (
+            <EnquetesParcoursAffichage
+              studentId={dossier.duoPartenaire.id}
+              titre={`Enquêtes de satisfaction — ${dossier.duoPartenaire.prenom} ${dossier.duoPartenaire.nom}`}
+            />
+          )}
+          {/* Relance d'un dossier à l'arrêt — demande client du 2026-10-19 (point 7) : date de
+              relance, bouton de relance et historique. Proposé dès que le parcours est inactif,
+              pas seulement en pause : un élève dont le forfait est épuisé est exactement
+              quelqu'un qu'on veut pouvoir rappeler. */}
+          {activiteEtudiant({ status: etudiant.status, forfaitEpuise: !!etat?.forfaitEpuise }) === 'inactif' && (
+            <BlocRelanceEtudiant etudiant={etudiant} />
+          )}
+        </div>
+      }
       panneauSuppression={
         <div style={{ display: 'flex', gap: 8 }}>
           <MettreEnPauseCompte personne={etudiant} onChange={recharger} />
@@ -295,6 +350,37 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
       peutModifierPlanning
       onDossierChange={recharger}
     />
+  )
+}
+
+/* Relance d'un étudiant dont le parcours est à l'arrêt (demande client du 2026-10-19, point 7).
+   Rappelle la pause et sa date de relance quand elles existent, puis le bouton d'envoi et
+   l'historique — le bouton reste actif après un premier envoi, c'est précisément ce que la
+   demande rend possible. */
+function BlocRelanceEtudiant({ etudiant }: { etudiant: Profile }) {
+  const relanceDue = etudiant.relance_prevue_le ? etudiant.relance_prevue_le <= new Date().toISOString().slice(0, 10) : false
+
+  return (
+    <GroupeSection titre="Relance">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {etudiant.status === 'en_pause' && etudiant.motif_pause && (
+          <LigneInfo collee label="Motif de la pause" valeur={etudiant.motif_pause} />
+        )}
+        {etudiant.relance_prevue_le && (
+          <LigneInfo
+            collee
+            label="Relance prévue le"
+            valeur={
+              <span style={{ color: relanceDue ? 'var(--warning)' : 'var(--ink-2)', fontWeight: relanceDue ? 700 : 400 }}>
+                {new Date(etudiant.relance_prevue_le).toLocaleDateString('fr-FR', { dateStyle: 'long' })}
+                {relanceDue ? ' — à relancer' : ''}
+              </span>
+            }
+          />
+        )}
+        <PanneauRelances cible={{ studentId: etudiant.id }} libelle="Envoyer le message de reprise" />
+      </div>
+    </GroupeSection>
   )
 }
 

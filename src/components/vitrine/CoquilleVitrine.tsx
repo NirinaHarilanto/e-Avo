@@ -6,19 +6,23 @@ import { FenetreContact } from './FenetreContact'
 import { IcoHX } from './IconesHX'
 import { CHEMIN_CANDIDATURE } from './candidature'
 
-/* Les cinq entrées de la barre, dans l'ordre des maquettes. Les chemins sont ceux qu'elles
-   écrivent, à une exception près : la candidature formateur garde `/rejoignez-nous`, l'adresse
-   déjà en service et déjà partagée (les maquettes écrivaient `/devenir-formateur`). */
+/* Les entrées de la barre, dans l'ordre des maquettes. Les chemins sont ceux qu'elles écrivent,
+   à une exception près : la candidature formateur garde `/rejoignez-nous`, l'adresse déjà en
+   service et déjà partagée (les maquettes écrivaient `/devenir-formateur`).
+   « Events » s'y ajoute le 2026-10-19 (demande client 12, « au même niveau que Tarifs & cours,
+   témoignages »), placé après Témoignages : la barre se lit du parcours d'achat (cours, équipe,
+   avis) vers la vie du club. */
 const ENTREES = [
   { chemin: '/', libelle: 'Accueil' },
   { chemin: '/cours', libelle: 'Cours & tarifs' },
   { chemin: '/professeurs', libelle: 'Professeurs' },
   { chemin: '/temoignages', libelle: 'Témoignages' },
+  { chemin: '/events', libelle: 'Events' },
   { chemin: '/a-propos', libelle: 'À propos' },
 ]
 
 
-/* Enveloppe commune aux cinq pages de la vitrine : conteneur `.hx` qui porte les variables du
+/* Enveloppe commune aux pages de la vitrine : conteneur `.hx` qui porte les variables du
    thème, barre fixe, pied de page et fenêtre « Nous contacter ».
 
    La connexion et la candidature formateur ne passent pas par ici : les maquettes leur donnent

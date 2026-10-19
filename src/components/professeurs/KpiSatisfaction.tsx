@@ -58,9 +58,10 @@ function Disque({ segments, total }: { segments: { valeur: number; couleur: stri
   )
 }
 
-/* KPI de satisfaction d'un professeur, alimenté par les enquêtes de fin de séance (0068) — il
-   se met donc à jour tout seul à chaque avis déposé. Affiché dans l'espace du professeur et
-   dans sa fiche côté admin, à l'identique. */
+/* KPI de satisfaction d'un professeur, alimenté par les enquêtes de PARCOURS (0130) depuis le
+   2026-10-19 — deux par élève et par forfait, à la moitié des heures puis à trois heures de la
+   fin, au lieu d'une par séance clôturée. Affiché dans l'espace du professeur et dans sa fiche
+   côté admin, à l'identique. */
 export function KpiSatisfaction({ teacherId, compact }: { teacherId: string | undefined; compact?: boolean }) {
   const { satisfaction, loading } = useSatisfactionProfesseur(teacherId)
 
@@ -79,8 +80,8 @@ export function KpiSatisfaction({ teacherId, compact }: { teacherId: string | un
         <EtatChargement lignes={1} hauteur={140} />
       ) : satisfaction.total === 0 ? (
         <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0, lineHeight: 1.55 }}>
-          Aucun avis pour le moment. L’indicateur se remplira dès que les élèves auront répondu à l’enquête proposée à
-          la fin de leurs séances clôturées.
+          Aucun avis pour le moment. L’indicateur se remplira dès que les élèves auront répondu à l’enquête qui leur est
+          proposée à la moitié de leurs heures, puis à trois heures de la fin de leur forfait.
         </p>
       ) : (
         <div style={{ display: 'flex', alignItems: 'center', gap: 22, flexWrap: 'wrap' }}>

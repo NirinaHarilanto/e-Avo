@@ -3329,6 +3329,209 @@ body.vitrine-hx {
   }
 }
 
+/* ---------- Section Events ----------
+
+   Demande client du 2026-10-19 (point 12) : « prépare les animations et visuel respectant les
+   codes de HOC ». Aucune maquette n'existant pour cette page, tout est repris du vocabulaire déjà
+   en place : le hero sombre `.phero` avec ses halos (mutualisé, rien à redéfinir ici), les
+   apparitions `.rv`, le liseré doré au survol, et la pastille de date qui emprunte au cadre
+   incliné de la page À propos.
+
+   Les cartes ne portent AUCUNE hauteur fixe : une description longue allonge sa carte, et c'est
+   la grille qui égalise les lignes (`align-items: stretch` par défaut). Fixer une hauteur aurait
+   rogné le texte dès qu'un admin écrit un paragraphe de plus. */
+.hx .ev-intro {
+  max-width: 760px;
+}
+.hx .ev-sec {
+  padding: 84px 0 110px;
+}
+.hx .ev-titre-groupe {
+  font-family: var(--f-display);
+  font-size: clamp(22px, 2.4vw, 32px);
+  font-weight: 500;
+  color: var(--purple-dark);
+  margin: 0 0 26px;
+}
+/* Un second groupe (« Déjà passés ») reprend sa respiration sans marge fusionnée : c'est le
+   sélecteur de frère qui la porte, pas une classe en plus côté composant. */
+.hx .ev-grille + .ev-titre-groupe {
+  margin-top: 72px;
+}
+.hx .ev-grille {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 26px;
+}
+.hx .ev-carte {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  overflow: hidden;
+  background: var(--white);
+  border: 1px solid var(--border, #e5daf8);
+  box-shadow: 0 18px 40px rgba(78, 53, 111, 0.08);
+  transition:
+    transform 0.4s var(--ease),
+    box-shadow 0.4s var(--ease),
+    border-color 0.4s var(--ease),
+    opacity 1s var(--ease);
+}
+.hx .ev-carte:hover {
+  transform: translateY(-4px);
+  border-color: var(--gold);
+  box-shadow: 0 26px 54px rgba(78, 53, 111, 0.16);
+}
+/* Événement passé : estompé, mais toujours lisible — il raconte l'activité du club. Il retrouve
+   sa pleine opacité au survol, pour qu'on puisse le lire sans effort si on s'y intéresse. */
+.hx .ev-carte.passe {
+  opacity: 0.62;
+}
+.hx .ev-carte.passe:hover {
+  opacity: 1;
+}
+/* `.rv` pose `opacity: 0` et ne la relève qu'une fois la carte visible : sans ce rappel, une
+   carte passée serait remontée à 1 par `.rv.in` puis redescendue par la règle ci-dessus selon
+   l'ordre des déclarations. Ici, l'état d'arrivée est explicite dans les deux cas. */
+.hx .ev-carte.passe.rv.in {
+  opacity: 0.62;
+}
+.hx .ev-visuel {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);
+}
+.hx .ev-visuel img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.6s var(--ease);
+}
+.hx .ev-carte:hover .ev-visuel img {
+  transform: scale(1.04);
+}
+/* Carte sans image : l'étoile dorée tient le cadre, discrète et centrée. */
+.hx .ev-visuel.vide {
+  display: grid;
+  place-items: center;
+}
+.hx .ev-visuel.vide svg {
+  width: 46px;
+  height: 46px;
+  color: var(--gold);
+  opacity: 0.55;
+}
+.hx .ev-date {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  padding: 7px 10px 8px;
+  border-radius: 14px;
+  background: rgba(254, 255, 250, 0.94);
+  box-shadow: 0 8px 20px rgba(42, 25, 64, 0.26);
+  line-height: 1;
+}
+.hx .ev-mois {
+  font-family: var(--f-body);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--purple);
+}
+.hx .ev-jour {
+  font-family: var(--f-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--purple-dark);
+  margin-top: 3px;
+}
+.hx .ev-corps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px 22px 24px;
+  /* Pousse le bouton d'action en bas de carte, quelle que soit la longueur du texte : les
+     boutons de toute une ligne s'alignent ainsi sur une seule horizontale. */
+  flex-grow: 1;
+}
+.hx .ev-corps h3 {
+  font-family: var(--f-display);
+  font-size: clamp(17px, 1.5vw, 21px);
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--purple-dark);
+  margin: 0;
+}
+.hx .ev-accroche {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  font-weight: 600;
+  color: var(--gold);
+}
+.hx .ev-meta {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hx .ev-meta li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.hx .ev-meta svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--purple);
+}
+.hx .ev-texte {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+.hx .ev-action {
+  margin-top: auto;
+  align-self: flex-start;
+}
+.hx .ev-vide {
+  margin: 0;
+  padding: 54px 0;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--ink);
+}
+@media (max-width: 760px) {
+  .hx .ev-sec {
+    padding: 60px 0 80px;
+  }
+  .hx .ev-grille {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .hx .ev-grille + .ev-titre-groupe {
+    margin-top: 52px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hx *,
   .hx-nav *,
@@ -3341,6 +3544,10 @@ body.vitrine-hx {
   .hx .rv {
     transform: none;
     opacity: 1;
+  }
+  /* Même exception que ci-dessus : un événement passé reste estompé, même sans animation. */
+  .hx .ev-carte.passe {
+    opacity: 0.62;
   }
   /* Chevrons et étincelles reposent presque transparents, l'animation seule les allume :
      sans mouvement, ils resteraient invisibles. */

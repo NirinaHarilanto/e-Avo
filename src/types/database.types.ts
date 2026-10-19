@@ -11,6 +11,15 @@ export type SessionType = 'individuel' | 'collectif'
 /* Cycle de vie d'un avis (0128) : déposé par l'élève, il attend la validation de l'admin avant
    d'apparaître sur la page publique Témoignages. */
 export type StatutTemoignage = 'en_attente' | 'publie' | 'refuse'
+/* Un événement reste invisible du public tant qu'il est en brouillon (0130). */
+export type StatutEvent = 'brouillon' | 'publie'
+/* Les trois motifs de relance tracés (0130) : le prospect qui n'a pas encore choisi son forfait,
+   celui qui ne s'est pas présenté à son appel diagnostic, et l'étudiant à rappeler après une
+   pause. */
+export type MotifRelance = 'forfait_a_choisir' | 'absence_diagnostic' | 'reprise_apres_pause'
+/* Les deux instants du parcours où l'admin fait son suivi pédagogique et où l'élève remplit son
+   enquête de satisfaction (0130) : la moitié des heures, puis 3 h avant la fin. */
+export type JalonParcours = 'mi_parcours' | 'fin_parcours'
 // 'reportee' (0085) : absence à la clôture, séance reportée — distincte de 'annulee' (n'aura
 // jamais lieu) et de 'terminee' (effectivement comptée, présence ou non).
 export type SessionStatut = 'planifiee' | 'terminee' | 'annulee' | 'reportee'
@@ -174,6 +183,11 @@ export interface Database {
           taux_horaire_individuel: number | null
           taux_horaire_duo: number | null
           taux_horaire_collectif: number | null
+          /* Deux taux de plus (0130, demande client du 2026-10-19). Saisis et affichés sur la
+             fiche, mais encore appliqués à aucune rémunération automatique : `type_facturation`
+             ne connaît pas ces deux types de séance (voir le commentaire de 0130). */
+          taux_horaire_corporate: number | null
+          taux_horaire_chat_chill: number | null
           signature_path: string | null
           photo_path: string | null
           mot_de_passe_defini: boolean
@@ -187,6 +201,9 @@ export interface Database {
           motif_pause: string | null
           pause_le: string | null
           pause_par: string | null
+          /* Date à laquelle rappeler un étudiant mis en pause (0130, demande client du
+             2026-10-19). Conservée après réactivation, comme `motif_pause`. */
+          relance_prevue_le: string | null
           /* Professeur recruté encore en phase d'intégration (0082). */
           statut_integration: 'en_integration' | null
           created_at: string
@@ -209,6 +226,8 @@ export interface Database {
           taux_horaire_individuel?: number | null
           taux_horaire_duo?: number | null
           taux_horaire_collectif?: number | null
+          taux_horaire_corporate?: number | null
+          taux_horaire_chat_chill?: number | null
           signature_path?: string | null
           photo_path?: string | null
           mot_de_passe_defini?: boolean
@@ -217,6 +236,7 @@ export interface Database {
           motif_pause?: string | null
           pause_le?: string | null
           pause_par?: string | null
+          relance_prevue_le?: string | null
           statut_integration?: 'en_integration' | null
           created_at?: string
         }
@@ -367,6 +387,131 @@ export interface Database {
           updated_at?: string
         }
         Update: Partial<Database['public']['Tables']['temoignages']['Insert']>
+        Relationships: []
+      }
+      /* Section Events de la vitrine, alimentée depuis l'espace admin (0130, demande client du
+         2026-10-19). Même principe que `temoignages` : seul un événement `publie` est lisible
+         sans être connecté. */
+      events: {
+        Row: {
+          id: string
+          etablissement_id: string
+          titre: string
+          accroche: string | null
+          description: string
+          debut: string
+          fin: string | null
+          lieu: string | null
+          /* Chemin dans le bucket public `events` — null pour une carte sans visuel. */
+          image_path: string | null
+          /* Les deux vont ensemble (contrainte `events_lien_complet`) : pas de bouton sans
+             libellé, pas de libellé sans destination. */
+          lien_url: string | null
+          lien_libelle: string | null
+          statut: StatutEvent
+          ordre: number
+          cree_par: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          titre: string
+          accroche?: string | null
+          description: string
+          debut: string
+          fin?: string | null
+          lieu?: string | null
+          image_path?: string | null
+          lien_url?: string | null
+          lien_libelle?: string | null
+          statut?: StatutEvent
+          ordre?: number
+          cree_par?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['events']['Insert']>
+        Relationships: []
+      }
+      /* Historique des relances (0130, demandes client 2, 4 et 7 du 2026-10-19) : un même
+         prospect peut être relancé plusieurs fois, et chaque envoi laisse sa trace. Journal
+         interne : ni l'élève relancé ni son professeur n'y ont accès. */
+      relances: {
+        Row: {
+          id: string
+          etablissement_id: string
+          /* Exactement l'une des deux cibles est renseignée (contrainte
+             `relances_une_seule_cible`) : un prospect, ou un étudiant déjà inscrit. */
+          prospect_id: string | null
+          student_id: string | null
+          motif: MotifRelance
+          destinataire_email: string
+          modele_reference: string | null
+          /* Un envoi refusé par Resend est tracé lui aussi : sans cela l'admin conclurait à tort
+             qu'il n'a jamais relancé. */
+          succes: boolean
+          erreur: string | null
+          envoyee_le: string
+          envoyee_par: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          prospect_id?: string | null
+          student_id?: string | null
+          motif: MotifRelance
+          destinataire_email: string
+          modele_reference?: string | null
+          succes?: boolean
+          erreur?: string | null
+          envoyee_le?: string
+          envoyee_par?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['relances']['Insert']>
+        Relationships: []
+      }
+      /* Jalons du parcours (0130, demandes client 5 et 8 du 2026-10-19) : la ligne naît quand le
+         cron constate la moitié des heures consommées ou les 3 h restantes, elle notifie l'admin
+         pour son suivi pédagogique, et c'est elle que l'élève remplit comme enquête de
+         satisfaction. `total_heures_reference` entre dans la clé d'unicité : une prolongation de
+         forfait déplace la moitié du parcours, donc rouvre un jalon. */
+      jalons_parcours: {
+        Row: {
+          id: string
+          etablissement_id: string
+          student_id: string
+          jalon: JalonParcours
+          total_heures_reference: number
+          heures_consommees_au_declenchement: number
+          /* Professeur attitré au moment du déclenchement, figé : c'est lui que l'enquête
+             évalue, même s'il change ensuite. */
+          teacher_id: string | null
+          declenche_le: string
+          /* Null tant que l'élève n'a pas répondu — c'est ce qui fait qu'on le lui redemande. */
+          note_globale: number | null
+          note_pedagogie: number | null
+          commentaire: string | null
+          repondu_le: string | null
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          student_id: string
+          jalon: JalonParcours
+          total_heures_reference: number
+          heures_consommees_au_declenchement: number
+          teacher_id?: string | null
+          declenche_le?: string
+          note_globale?: number | null
+          note_pedagogie?: number | null
+          commentaire?: string | null
+          repondu_le?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['jalons_parcours']['Insert']>
         Relationships: []
       }
       teacher_assignments: {

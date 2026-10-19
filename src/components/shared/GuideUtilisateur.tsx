@@ -30,7 +30,13 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
       lien: '/mon-espace',
       points: [
         <>Quatre encadrés résument votre situation : heures suivies sur votre forfait, assiduité, prochaine séance (avec le lien <strong>Rejoindre la visio</strong>) et niveau évalué.</>,
-        <>L’onglet <strong>Parcours pédagogique</strong> liste vos séances et votre présence. Après une séance terminée, <strong>Donner votre avis</strong> ouvre une courte enquête : note du cours, pédagogie, commentaire.</>,
+        <>L’onglet <strong>Parcours pédagogique</strong> liste vos séances et votre présence.</>,
+        <>
+          Deux fois dans votre parcours, une courte <strong>enquête de satisfaction</strong> s’ouvre d’elle-même : à la
+          moitié de vos heures, puis lorsqu’il vous en reste moins de trois. Note globale, qualité pédagogique,
+          commentaire — quelques secondes suffisent. Votre formateur et l’administration la relisent pour ajuster la
+          suite.
+        </>,
         <>L’onglet <strong>Forfait</strong> donne vos heures restantes et son échéance. <strong>Demander un forfait supplémentaire</strong> envoie la demande à l’administration, qui la valide après paiement.</>,
         <>En cours collectif, l’encadré <strong>Ma classe</strong> affiche votre professeur, vos camarades et le planning de votre classe ; c’est l’onglet <strong>Programme</strong> qui remplace alors le forfait.</>,
       ],
@@ -100,7 +106,7 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
         <>
           <strong>Mon avis sur mon parcours</strong> : quand vous avez terminé les heures de votre forfait, vous êtes
           invité à raconter votre expérience d’ensemble. L’équipe la relit avant de la publier parmi les témoignages du
-          site. C’est différent de la courte enquête proposée après chaque séance, qui reste interne.
+          site. C’est différent des deux enquêtes de satisfaction de votre parcours, qui restent internes.
         </>,
       ],
     },
@@ -181,8 +187,33 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
       lien: '/admin/prospects',
       points: [
         <><strong>Prospects</strong> : tableau des candidats, de la demande d’appel diagnostic à la conversion. Renseignez la trame du diagnostic, le forfait choisi, l’éventuelle séance d’essai (1 à 3 h, facturée au tarif horaire de son programme), puis le paiement — un acompte suffit — avant de convertir.</>,
+        <>
+          <strong>Relances</strong> : un prospect peut être relancé autant de fois que nécessaire, et chaque envoi est
+          tracé sous le bouton (date et motif). Si l’heure d’un appel diagnostic est passée sans que vous l’ayez
+          marqué comme fait, un second bouton apparaît pour relancer le candidat absent. Les deux textes se
+          modifient dans Messages › Template e-mails (modèles 1.2 et 1.3).
+        </>,
+        <>
+          Un candidat au collectif qui a terminé son quiz de positionnement <strong>quitte ce tableau</strong> : il se
+          suit dans « Cours collectifs › Session orale », puis dans « Étudiants » une fois converti.
+        </>,
         <><strong>Agenda</strong> : demandes d’appel diagnostic à valider et rendez-vous de l’administration, dans une seule vue hebdomadaire. Les cours professeur ↔ élève n’y figurent pas : ils sont dans « Séances &amp; visio ».</>,
         <><strong>Étudiants</strong> : dossiers complets (parcours, informations, professeur, forfait et planning). Changement de professeur, forfait supplémentaire, décision après l’essai, mise en pause et suppression se font ici. Chaque nom porte son programme et l’état de son contrat.</>,
+        <>
+          Un dossier est <strong>actif</strong> tant que le parcours avance. Il passe <strong>inactif</strong> dès que
+          le forfait d’heures est entièrement consommé, ou que vous mettez l’élève en pause. À la mise en pause,
+          notez une <strong>date de relance</strong> : elle s’affiche ensuite sur le dossier, avec le bouton qui envoie
+          le message de reprise et l’historique des envois.
+        </>,
+        <>
+          L’étiquette <strong>Sans cours</strong> signale un élève dont aucune séance n’est planifiée à venir — le
+          plus souvent quelqu’un qui a payé et dont le planning reste à construire.
+        </>,
+        <>
+          À la <strong>moitié</strong> des heures d’un élève, puis lorsqu’il lui en reste <strong>moins de trois</strong>,
+          vous êtes notifié d’un <strong>suivi pédagogique</strong> à mener : prenez un rendez-vous avec lui et son
+          formateur. L’élève reçoit au même moment son enquête de satisfaction, que vous relisez dans son dossier.
+        </>,
         <><strong>Cours collectifs</strong> : quatre onglets — Vagues et leurs classes de niveau, Suivi des candidats (le tableau personne par personne), Session orale, Quiz de positionnement.</>,
       ],
     },
@@ -212,6 +243,11 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
       lien: '/admin/paiements',
       points: [
         <><strong>Documents</strong> : pièces des élèves et des professeurs, documents partageables, comptes rendus de séance et documents confidentiels (visibles des seules personnes que vous y ajoutez).</>,
+        <>
+          <strong>Events</strong> : les événements de la section « Events » du site public. Titre, accroche, dates,
+          lieu, image et bouton d’inscription. Un événement est créé en <strong>brouillon</strong> : rien n’est en
+          ligne avant « Publier ». Les événements passés restent visibles sur le site, estompés.
+        </>,
         <><strong>Messages</strong> : la messagerie interne, et les 22 modèles d’e-mails du parcours apprenant. Un modèle relu part au choix <strong>en interne</strong> (dans l’espace des destinataires) ou <strong>via Gmail</strong>, depuis votre propre boîte.</>,
         <><strong>Paiements</strong> : encaissements des élèves (acomptes réservés aux forfaits de 40 h et plus) et rémunérations des professeurs. L’onglet <strong>TimeSheets</strong> reçoit les relevés d’heures envoyés par les professeurs : les valider crée d’un coup leur rémunération et leur facture.</>,
         <><strong>Facturation</strong> : devis, factures et reçus. Chaque document se voit, s’imprime et se télécharge en PDF.</>,
@@ -222,8 +258,9 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
           raconter son parcours depuis son espace. Son avis arrive dans <strong>À valider</strong> et n’est visible de
           personne tant que vous ne l’avez pas publié. Publié, il rejoint la page Témoignages du site avec sa photo de
           profil. Le même écran gère les témoignages déjà en ligne : les modifier, les réordonner, les retirer, ou en
-          ajouter un reçu hors de l’application. À ne pas confondre avec les enquêtes de satisfaction remplies après
-          chaque séance, qui se lisent sur la fiche de chaque professeur.
+          ajouter un reçu hors de l’application. À ne pas confondre avec les enquêtes de satisfaction de parcours
+          (mi-parcours et trois heures avant la fin), qui se lisent dans le dossier de l’élève et alimentent
+          l’indicateur de satisfaction de chaque professeur.
         </>,
         <>
           <strong>Paramètres</strong> : réglages de l’établissement et agendas Google. Le compte de l’établissement

@@ -462,24 +462,19 @@ a:hover {
 }
 
 /* Passage d'une question à l'autre du test de positionnement (TestPositionnement.tsx, demande
-   client du 2026-10-13) : la carte entre par la droite quand on avance, par la gauche quand on
-   revient — le déplacement se lit, au lieu d'un remplacement sec. Pas de `filter: blur` ici,
-   contrairement aux arrivées de cartes ci-dessus : le visiteur lit un texte, le voir net dès la
-   première image compte plus que l'effet. Neutralisé par la règle globale `prefers-reduced-motion`
-   plus bas, qui rend simplement l'affichage instantané. */
+   client du 2026-10-13) : la carte entre par la droite — le déplacement se lit, au lieu d'un
+   remplacement sec. Pas de `filter: blur` ici, contrairement aux arrivées de cartes ci-dessus :
+   le visiteur lit un texte, le voir net dès la première image compte plus que l'effet. Neutralisé
+   par la règle globale `prefers-reduced-motion` plus bas, qui rend simplement l'affichage
+   instantané.
+   La variante symétrique (entrée par la gauche) a été retirée le 2026-10-19 avec le bouton
+   « Précédent » : le questionnaire chronométré n'avance plus que dans un seul sens. */
 @keyframes quizCarteAvant {
   from { opacity: 0; transform: translateX(26px); }
   to { opacity: 1; transform: none; }
 }
-@keyframes quizCarteArriere {
-  from { opacity: 0; transform: translateX(-26px); }
-  to { opacity: 1; transform: none; }
-}
 .quiz-carte-avant {
   animation: quizCarteAvant 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-.quiz-carte-arriere {
-  animation: quizCarteArriere 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 /* Le radio natif d'une proposition est masqué (voir TestPositionnement.tsx) : sans cette règle,
    la navigation au clavier n'aurait plus aucun repère visible. */
@@ -721,10 +716,24 @@ select option {
    de l'écran, bien agencé, rangé et lisible ») : l'espace admin est resserré à `zoom: 0.74`, ce
    qui ramenait cette barre à 183 px réels à l'écran, pour des libellés qui n'en occupaient que
    123 — les pilules de navigation flottaient dans une colonne trop étroite pour elles. Les
-   gouttières passent de 14 à 11 px dans le même mouvement : c'est de la largeur rendue aux
-   libellés, pas du vide ajouté. */
+   gouttières étaient passées de 14 à 11 px dans le même mouvement : de la largeur rendue aux
+   libellés, pas du vide ajouté. Puis de 280 à 316 px le 2026-10-19 (voir juste en dessous), les
+   gouttières revenant à 13 px puisque la colonne est désormais assez large pour les deux. */
+/* Agrandie d'un cran le 2026-10-19 (« il faudrait agrandir le visuel du bloc de navigation
+   finalement ») : 280 → 316 px de large, et +15 % sur le PLAFOND de chaque dimension qui suit la
+   hauteur de fenêtre (pilules, icônes, logo, pied de page).
+
+   Les plafonds seuls, et surtout PAS les coefficients `vh` : une première version les avait
+   augmentés tous les deux, et la mesure l'a tout de suite montré — à 820 px de haut, les 19
+   entrées de l'espace admin ne tenaient plus et la zone de navigation se remettait à défiler,
+   exactement le défaut que le chantier du 2026-10-13 avait fait disparaître. En ne relevant que
+   les plafonds, l'agrandissement se voit sur les écrans qui ont la place (au-delà de ~940 px, où
+   les plafonds sont atteints) et, en dessous, le resserrement reprend au même rythme qu'avant :
+   rien ne change pour les fenêtres courtes.
+
+   La largeur, elle, ne coûte rien en hauteur : elle passe donc à 316 px sans condition. */
 .barre-laterale {
-  width: 280px;
+  width: 316px;
   flex-shrink: 0;
   position: fixed;
   top: 0;
@@ -740,8 +749,8 @@ select option {
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: clamp(4px, 1.7vh, 14px);
-  padding: clamp(6px, 1.95vh, 16px) 11px clamp(5px, 1.45vh, 12px);
+  gap: clamp(4px, 1.7vh, 16px);
+  padding: clamp(6px, 1.95vh, 18px) 13px clamp(5px, 1.45vh, 14px);
   border-right: 1px solid var(--border-soft);
   background: linear-gradient(180deg, rgba(26, 15, 56, 0.92), rgba(11, 6, 24, 0.92));
   backdrop-filter: blur(8px);
@@ -768,24 +777,24 @@ select option {
    calcule sur la hauteur du viewport et reste cohérent avec le `zoom` de <body> (0,74 côté admin,
    0,82 ailleurs), qui s'applique de la même façon aux deux. */
 .barre-laterale .nav-item {
-  padding-top: clamp(2px, calc(1.21vh * min(1.5, 19 / var(--nb-entrees, 19))), 10px);
-  padding-bottom: clamp(2px, calc(1.21vh * min(1.5, 19 / var(--nb-entrees, 19))), 10px);
-  padding-left: 12px;
-  padding-right: 12px;
-  font-size: clamp(10.5px, calc(1.81vh * min(1.5, 19 / var(--nb-entrees, 19))), 15px);
-  gap: clamp(6px, calc(1.45vh * min(1.5, 19 / var(--nb-entrees, 19))), 12px);
+  padding-top: clamp(2px, calc(1.21vh * min(1.5, 19 / var(--nb-entrees, 19))), 12px);
+  padding-bottom: clamp(2px, calc(1.21vh * min(1.5, 19 / var(--nb-entrees, 19))), 12px);
+  padding-left: 14px;
+  padding-right: 14px;
+  font-size: clamp(10.5px, calc(1.81vh * min(1.5, 19 / var(--nb-entrees, 19))), 17px);
+  gap: clamp(6px, calc(1.45vh * min(1.5, 19 / var(--nb-entrees, 19))), 14px);
 }
 /* Les icônes portent leur taille en attribut (`<Icone taille={18} />`) : une règle CSS l'emporte
    sur un attribut de présentation, c'est donc ici qu'elles suivent la même réduction. Sans cela,
    elles resteraient à 18 px au milieu d'un texte descendu à 11 px — disproportionné, et surtout
    c'est la hauteur de l'icône qui fixerait alors celle de la pilule. */
 .barre-laterale .nav-item svg {
-  width: clamp(13px, calc(2.17vh * min(1.5, 19 / var(--nb-entrees, 19))), 18px);
-  height: clamp(13px, calc(2.17vh * min(1.5, 19 / var(--nb-entrees, 19))), 18px);
+  width: clamp(13px, calc(2.17vh * min(1.5, 19 / var(--nb-entrees, 19))), 21px);
+  height: clamp(13px, calc(2.17vh * min(1.5, 19 / var(--nb-entrees, 19))), 21px);
   flex-shrink: 0;
 }
 .zone-nav-barre {
-  gap: clamp(3px, 1.7vh, 14px);
+  gap: clamp(3px, 1.7vh, 16px);
   /* Jusqu'à ~540 px de fenêtre, le dimensionnement fluide ci-dessus suffit et aucun ascenseur
      n'apparaît. En dessous, la police a atteint son plancher de lisibilité et il faut bien choisir
      entre deux défauts : du texte illisible, ou un défilement. C'est le défilement — mais CONFINÉ
@@ -797,33 +806,33 @@ select option {
   overflow-x: hidden;
 }
 .groupe-nav-barre {
-  gap: clamp(0px, 0.48vh, 4px);
+  gap: clamp(0px, 0.48vh, 5px);
 }
 .titre-groupe-barre {
-  font-size: clamp(9px, calc(1.39vh * min(1.5, 19 / var(--nb-entrees, 19))), 11.5px);
+  font-size: clamp(9px, calc(1.39vh * min(1.5, 19 / var(--nb-entrees, 19))), 13px);
 }
 .barre-laterale .entete-barre {
-  gap: clamp(2px, 1.33vh, 11px) !important;
+  gap: clamp(2px, 1.33vh, 13px) !important;
 }
 /* La règle qui dimensionnait l'image du logo ici a été retirée le 2026-10-16 : l'en-tête de barre
    porte désormais le logo ÉCRIT des maquettes, dont les tailles vivent dans `.logo-ecrit-*`. */
 /* Le nom et le rôle de la personne connectée : même traitement, sinon ce bloc garderait sa taille
    d'origine et reprendrait à lui seul la place gagnée sur les dix-neuf entrées au-dessus. */
 .pied-barre {
-  padding-top: clamp(4px, 1.57vh, 13px) !important;
+  padding-top: clamp(4px, 1.57vh, 15px) !important;
 }
 .pied-barre-mention {
-  font-size: clamp(8.5px, calc(1.39vh * min(1.5, 19 / var(--nb-entrees, 19))), 11.5px);
+  font-size: clamp(8.5px, calc(1.39vh * min(1.5, 19 / var(--nb-entrees, 19))), 13px);
 }
 .pied-barre-nom {
-  font-size: clamp(11px, calc(1.81vh * min(1.5, 19 / var(--nb-entrees, 19))), 15px);
-  margin-top: clamp(1px, 0.36vh, 3px);
+  font-size: clamp(11px, calc(1.81vh * min(1.5, 19 / var(--nb-entrees, 19))), 17px);
+  margin-top: clamp(1px, 0.36vh, 4px);
 }
 
 .zone-contenu {
   flex-grow: 1;
   min-width: 0;
-  margin-left: 280px;
+  margin-left: 316px;
   display: flex;
   flex-direction: column;
 }
@@ -1283,17 +1292,17 @@ body.espace-clair .pied-barre.carte-compte {
    (voir `.barre-laterale` plus haut) : à 19 entrées sur un écran court, un avatar figé à 40 px
    reprendrait à lui seul la place gagnée sur les pilules. */
 body.espace-clair .avatar-compte {
-  width: clamp(26px, calc(4.83vh * min(1.5, 19 / var(--nb-entrees, 19))), 40px);
-  height: clamp(26px, calc(4.83vh * min(1.5, 19 / var(--nb-entrees, 19))), 40px);
-  font-size: clamp(10px, calc(1.69vh * min(1.5, 19 / var(--nb-entrees, 19))), 14px);
+  width: clamp(26px, calc(4.83vh * min(1.5, 19 / var(--nb-entrees, 19))), 46px);
+  height: clamp(26px, calc(4.83vh * min(1.5, 19 / var(--nb-entrees, 19))), 46px);
+  font-size: clamp(10px, calc(1.69vh * min(1.5, 19 / var(--nb-entrees, 19))), 16px);
 }
 body.espace-clair .bouton-deconnexion-barre {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: clamp(26px, calc(4.35vh * min(1.5, 19 / var(--nb-entrees, 19))), 36px);
-  height: clamp(26px, calc(4.35vh * min(1.5, 19 / var(--nb-entrees, 19))), 36px);
+  width: clamp(26px, calc(4.35vh * min(1.5, 19 / var(--nb-entrees, 19))), 41px);
+  height: clamp(26px, calc(4.35vh * min(1.5, 19 / var(--nb-entrees, 19))), 41px);
   border: none;
   border-radius: 12px;
   background: transparent;
@@ -1306,17 +1315,18 @@ body.espace-clair .bouton-deconnexion-barre:hover {
   color: #fefffa;
 }
 body.espace-clair .pastille-espace {
-  font-size: clamp(8.5px, calc(1.33vh * min(1.5, 19 / var(--nb-entrees, 19))), 11px);
+  font-size: clamp(8.5px, calc(1.33vh * min(1.5, 19 / var(--nb-entrees, 19))), 12.5px);
 }
 /* Logo écrit en tête de barre (voir EspaceLayout.tsx), comme sur les maquettes. Mêmes
-   coefficients `vh` que le reste de la barre, calés pour redonner les tailles de la maquette
-   (26 px et 15 px) sur un écran de 828 px de haut : à hauteur confortable le logo est à sa
-   taille dessinée, et il ne se resserre qu'en dessous, avec les pilules de navigation. */
+   coefficients `vh` que le reste de la barre : à hauteur confortable le logo atteint son plafond,
+   et il ne se resserre qu'en dessous, avec les pilules de navigation. Les tailles dessinées par
+   les maquettes (26 px et 15 px) sont devenues les plafonds de 30 et 17 px avec l'agrandissement
+   du 2026-10-19, demandé par le client pour toute la barre. */
 body.espace-clair .logo-ecrit-nom {
-  font-size: clamp(17px, calc(3.14vh * min(1.5, 19 / var(--nb-entrees, 19))), 26px);
+  font-size: clamp(17px, calc(3.14vh * min(1.5, 19 / var(--nb-entrees, 19))), 30px);
 }
 body.espace-clair .logo-ecrit-suite {
-  font-size: clamp(10px, calc(1.81vh * min(1.5, 19 / var(--nb-entrees, 19))), 15px);
+  font-size: clamp(10px, calc(1.81vh * min(1.5, 19 / var(--nb-entrees, 19))), 17px);
 }
 /* Entrée de navigation non encore disponible : c'est un `<span>`, pas un `<a>`. */
 body.espace-clair .barre-laterale span.nav-item {

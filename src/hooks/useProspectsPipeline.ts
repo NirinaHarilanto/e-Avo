@@ -124,18 +124,33 @@ export function useProspectsPipeline() {
       }
     }
 
-    const prospects = (prospectsData ?? []).map((prospect): ProspectAvecDiagnostic => {
-      const testPositionnement = testParProspect.get(prospect.id) ?? null
-      return {
-        ...prospect,
-        diagnostic: diagnosticParProspect.get(prospect.id) ?? null,
-        rendezVous: rendezVousParProspect.get(prospect.id) ?? null,
-        testPositionnement,
-        creneauTest: testPositionnement ? (creneauParId.get(testPositionnement.creneau_id) ?? null) : null,
-        duoPartenaireNom: prospect.duo_partenaire_id ? (nomParProspect.get(prospect.duo_partenaire_id) ?? null) : null,
-        paiement: paiementParProspect.get(prospect.id) ?? null,
-      }
-    })
+    const prospects = (prospectsData ?? [])
+      /* Un candidat au collectif qui a TERMINÉ son quiz de positionnement quitte ce tableau —
+         demande client du 2026-10-19 : « pour les personnes qui s'inscrivent en cours collectifs
+         via le quiz de positionnement, quand le quiz est terminé, il ne faut plus l'afficher dans
+         la section prospect de l'espace admin. La personne apparaîtra uniquement dans la section
+         cours collectifs. »
+
+         L'existence d'une ligne `test_positionnement_inscriptions` EST la preuve que le quiz est
+         terminé : elle n'est créée qu'à la toute fin du questionnaire, une fois les réponses
+         corrigées (api/prospects/inscrire-test.ts, « la réservation n'est validée que par le
+         quiz »). Un candidat qui abandonne en cours de route n'en a donc aucune, et reste visible
+         ici — c'est voulu, il n'est nulle part ailleurs.
+         Même raison pour un prospect collectif saisi à la main par l'admin, sans passer par le
+         quiz : il n'apparaîtrait dans aucun écran s'il sortait d'ici. */
+      .filter((prospect) => !(prospect.type_programme === 'collectif' && testParProspect.has(prospect.id)))
+      .map((prospect): ProspectAvecDiagnostic => {
+        const testPositionnement = testParProspect.get(prospect.id) ?? null
+        return {
+          ...prospect,
+          diagnostic: diagnosticParProspect.get(prospect.id) ?? null,
+          rendezVous: rendezVousParProspect.get(prospect.id) ?? null,
+          testPositionnement,
+          creneauTest: testPositionnement ? (creneauParId.get(testPositionnement.creneau_id) ?? null) : null,
+          duoPartenaireNom: prospect.duo_partenaire_id ? (nomParProspect.get(prospect.duo_partenaire_id) ?? null) : null,
+          paiement: paiementParProspect.get(prospect.id) ?? null,
+        }
+      })
 
     return { prospects, totalConvertis: totalConvertis ?? 0 }
     /* Filet de sécurité (couche 3 de la stratégie temps réel du 2026-09-29) : un déplacement de

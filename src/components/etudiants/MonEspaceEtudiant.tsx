@@ -2,6 +2,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { DossierEtudiantVue } from './DossierEtudiantVue'
 import { DemandeForfaitEtudiant } from './DemandeForfaitEtudiant'
+import { RappelEnqueteParcours } from './EnqueteParcours'
 import { PlanningVagueEtudiant } from './PlanningVagueEtudiant'
 import { EtudiantLayout } from '../layout/EtudiantLayout'
 import { EnTetePage } from '../ui/EnTetePage'
@@ -30,6 +31,13 @@ export function MonEspaceEtudiant() {
         </div>
       )}
 
+      {/* Rappel pour revenir à une enquête refermée : la pop-up ne s'ouvre qu'une fois par
+          chargement de page, il faut un moyen de la rouvrir. Ne s'affiche que s'il y a quelque
+          chose à remplir (demande client 8 du 2026-10-19). */}
+      <div style={{ marginBottom: 14 }}>
+        <RappelEnqueteParcours />
+      </div>
+
       {loading && <EtatChargement lignes={3} hauteur={110} />}
       {erreur && <MessageErreur>{erreur}</MessageErreur>}
       {!loading && !erreur && !dossier && (
@@ -49,7 +57,6 @@ export function MonEspaceEtudiant() {
         <DossierEtudiantVue
           dossier={dossier}
           panneauDemandeForfait={<DemandeForfaitEtudiant studentId={idEtudiantEffectif} />}
-          satisfactionEtudiantId={profile.id}
           onDossierChange={recharger}
         />
       )}
