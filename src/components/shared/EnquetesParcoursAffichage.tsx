@@ -14,7 +14,17 @@ import { GroupeSection } from '../ui/Section'
 
    Un jalon atteint mais sans réponse figure aussi dans la liste : savoir que l'élève a été
    sollicité et n'a pas répondu est une information, pas un trou à masquer. */
-export function EnquetesParcoursAffichage({ studentId, titre = 'Enquêtes de satisfaction' }: { studentId: string; titre?: string }) {
+export function EnquetesParcoursAffichage({
+  studentId,
+  /* `null` plutôt qu'une chaîne vide : supprime l'intitulé de GroupeSection, pas seulement son
+     texte — utilisé depuis que cet affichage vit dans son propre onglet « Enquêtes de
+     satisfaction » (2026-10-19), où le répéter en sous-titre serait redondant avec l'onglet lui-
+     même. Le binôme garde le sien (second bloc du même onglet, à distinguer du premier). */
+  titre = 'Enquêtes de satisfaction',
+}: {
+  studentId: string
+  titre?: string | null
+}) {
   const { jalons, loading } = useJalonsParcours(studentId)
 
   if (loading) {

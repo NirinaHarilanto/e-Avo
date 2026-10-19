@@ -30,6 +30,7 @@ import { Onglets, type Onglet } from '../ui/Onglets'
 import { ListeRepliable, TexteRepliable } from '../ui/Repliable'
 import { HistoriqueNiveauModale } from './HistoriqueNiveauModale'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
+import { DetailSeanceModale } from '../shared/DetailSeanceModale'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -300,14 +301,16 @@ function BadgeProfesseurSupprime() {
 function BlocPeriode({
   periode,
   estActuelle,
-  onModifierSeance,
+  onClickSeance,
 }: {
   periode: PeriodeProfesseur
   estActuelle: boolean
-  /* Absent en lecture seule (élève/professeur) ; sinon, cliquer une séance encore planifiée
-     ouvre le même pop-up de reprogrammation que l'onglet Forfait & Planning — même interaction,
-     deux points d'entrée. */
-  onModifierSeance?: (seance: SeanceDuParcours) => void
+  /* Toujours fourni (même en lecture seule élève/professeur) — demande client du 2026-10-19 :
+     une séance clôturée n'avait plus aucune ligne cliquable, donc plus aucun moyen de revoir son
+     compte rendu depuis le parcours. L'appelant (DossierEtudiantVue) décide lui-même, par
+     séance, s'il ouvre la reprogrammation (encore planifiée, autorisé) ou la fiche en lecture
+     seule (tous les autres cas) — voir onClickSeance ci-dessous. */
+  onClickSeance: (seance: SeanceDuParcours) => void
 }) {
   // « enseignées » ne doit compter que les séances réellement COMPTÉES (statut « terminée ») —
   // avant ce filtre, une séance encore planifiée (future) ou reportée (0085, demande client du
@@ -405,17 +408,12 @@ function BlocPeriode({
               garde le parcours lisible quand plusieurs périodes s'enchaînent. */}
           <ListeRepliable visibles={3} nom="séances">
           {periode.seances.map((seance) => {
-            // Une séance de classe collective ne se modifie plus depuis la fiche d'UN élève
-            // (demande client du 2026-10-12) : la classe entière partage le même horaire, donc le
-            // seul endroit cohérent pour le reprogrammer est « Cours collectifs » › Planning de la
-            // classe, qui prévient tous ses élèves d'un coup plutôt qu'un seul.
-            const modifiable = !!onModifierSeance && seance.session.statut === 'planifiee' && seance.session.type !== 'collectif'
             return (
               <div
                 key={seance.enrollment.id}
                 className="row-hl"
-                onClick={modifiable ? () => onModifierSeance(seance) : undefined}
-                style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '11px 18px', borderBottom: '1px solid var(--border-soft)', cursor: modifiable ? 'pointer' : 'default' }}
+                onClick={() => onClickSeance(seance)}
+                style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '11px 18px', borderBottom: '1px solid var(--border-soft)', cursor: 'pointer' }}
               >
                 <span style={{ fontSize: 12, color: 'var(--muted)', width: 90, flexShrink: 0 }}>
                   {new Date(seance.session.debut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
@@ -441,13 +439,19 @@ function BlocPeriode({
   )
 }
 
-type OngletDossier = 'parcours' | 'informations' | 'professeur' | 'programme' | 'planning'
+type OngletDossier = 'parcours' | 'informations' | 'enquetes' | 'professeur' | 'programme' | 'planning'
 
 interface DossierEtudiantVueProps {
   dossier: DossierEtudiant
   /* Blocs admin uniquement — absents en vue élève/professeur. */
   panneauProfesseur?: ReactNode
   panneauInformations?: ReactNode
+  /* Enquêtes de satisfaction du parcours (0130) — onglet séparé depuis le 2026-10-19 (capture
+     client à l'appui) : vivait jusqu'ici sous « Informations personnelles », sans rapport avec le
+     contenu de cet onglet (nom, coordonnées, adresse…), ce qui le noyait en bas de page. Même
+     contenu qu'avant (EnquetesParcoursAffichage, élève + binôme s'il y en a un), simplement
+     déplacé par l'appelant dans ce nouveau prop plutôt que dans panneauInformations. */
+  panneauEnquetes?: ReactNode
   /* Choix initial du programme (individuel/duo/collectif), affiché tant que l'étudiant n'a ni
      forfait ni vague. */
   panneauChoixInitial?: ReactNode
@@ -510,6 +514,7 @@ export function DossierEtudiantVue({
   dossier,
   panneauProfesseur,
   panneauInformations,
+  panneauEnquetes,
   panneauChoixInitial,
   panneauForfaitEdition,
   panneauPlanification,
@@ -552,6 +557,19 @@ export function DossierEtudiantVue({
   const [editionVagueOuverte, setEditionVagueOuverte] = useState(false)
   const [historiqueNiveauOuvert, setHistoriqueNiveauOuvert] = useState(false)
   const [seanceEnEdition, setSeanceEnEdition] = useState<SeanceDuParcours | null>(null)
+  const [seanceEnDetail, setSeanceEnDetail] = useState<SeanceDuParcours | null>(null)
+  /* Une séance de classe collective ne se modifie plus depuis la fiche d'UN élève (demande
+     client du 2026-10-12) : la classe entière partage le même horaire, donc le seul endroit
+     cohérent pour la reprogrammer est « Cours collectifs » › Planning de la classe, qui prévient
+     tous ses élèves d'un coup plutôt qu'un seul — ici, elle s'ouvre donc toujours en lecture
+     seule, jamais en édition, même encore planifiée. */
+  function onClickSeance(seance: SeanceDuParcours) {
+    if (peutModifierPlanning && seance.session.statut === 'planifiee' && seance.session.type !== 'collectif') {
+      setSeanceEnEdition(seance)
+    } else {
+      setSeanceEnDetail(seance)
+    }
+  }
   const [ongletDemande, setOngletDemande] = useState<OngletDossier>('parcours')
   const { evaluations: niveaux } = useNiveauxEtudiant(etudiant.id)
   const niveauActuel = niveauDefinitif(diagnostic, niveaux)
@@ -582,6 +600,9 @@ export function DossierEtudiantVue({
   const onglets: Onglet<OngletDossier>[] = [
     { value: 'parcours', label: 'Parcours pédagogique' },
     ...(panneauInformations ? [{ value: 'informations' as const, label: 'Informations personnelles' }] : []),
+    /* Onglet séparé depuis le 2026-10-19 — auparavant une section au bas d'« Informations
+       personnelles », sans rapport avec son contenu (voir panneauEnquetes ci-dessus). */
+    ...(panneauEnquetes ? [{ value: 'enquetes' as const, label: 'Enquêtes de satisfaction' }] : []),
     ...(professeurActuel || panneauProfesseur ? [{ value: 'professeur' as const, label: 'Professeur' }] : []),
     ...(forfait || cohorte || panneauChoixInitial ? [{ value: 'programme' as const, label: cohorte ? 'Programme' : 'Forfait' }] : []),
     /* Forfait et Planning étaient regroupés sous un seul onglet « Forfait & Planning » :
@@ -775,7 +796,7 @@ export function DossierEtudiantVue({
                     key={periode.affectation.id}
                     periode={periode}
                     estActuelle={periode.affectation.id === periodeActuelle?.affectation.id}
-                    onModifierSeance={peutModifierPlanning ? setSeanceEnEdition : undefined}
+                    onClickSeance={onClickSeance}
                   />
                 ))}
                 {(diagnostic || diagnosticPartenaire) && (
@@ -793,6 +814,8 @@ export function DossierEtudiantVue({
         )}
 
         {ongletActif === 'informations' && panneauInformations}
+
+        {ongletActif === 'enquetes' && panneauEnquetes}
 
         {ongletActif === 'professeur' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -974,6 +997,21 @@ export function DossierEtudiantVue({
             setSeanceEnEdition(null)
             onDossierChange?.()
           }}
+        />
+      )}
+
+      {/* Fiche en lecture seule — toute séance qui n'est pas ouverte en édition ci-dessus
+          (clôturée, annulée, reportée, collective, ou simplement en espace sans droit de
+          modification) : date, durée, participants, compte rendu si la séance est terminée.
+          Demande client du 2026-10-19 : une séance clôturée n'avait plus aucune ligne cliquable
+          dans le parcours, donc plus aucun moyen d'y revenir voir ce qui s'est dit. */}
+      {seanceEnDetail && (
+        <DetailSeanceModale
+          session={seanceEnDetail.session}
+          professeur={periodes.find((p) => p.seances.some((s) => s.session.id === seanceEnDetail.session.id))?.professeur ?? null}
+          eleves={duoPartenaire ? [etudiant, duoPartenaire] : [etudiant]}
+          video={seanceEnDetail.video}
+          onFermer={() => setSeanceEnDetail(null)}
         />
       )}
     </div>

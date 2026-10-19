@@ -43,9 +43,9 @@ export function RecrutementAdmin() {
   const liste = candidatures.filter((c) => STATUTS_PAR_VUE[vue].includes(c.statut))
 
   return (
-    <AdminLayout actif="Recrutement">
+    <AdminLayout actif="Recrutement Professeurs">
       <EnTetePage
-        titre="Recrutement"
+        titre="Recrutement Professeurs"
       />
 
       {!loading && candidatures.length > 0 && (

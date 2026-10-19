@@ -190,12 +190,15 @@ function DossierPanel({ studentId, transfereLe }: { studentId: string; transfere
             lectureSeule
             masquerCoordonnees
           />
-          {/* Demande client du 2026-10-19 (point 8) : « l'admin et le professeur concerné pourront
-              voir l'enquête de satisfaction renseignée par l'étudiant ». En lecture seule — un
-              professeur ne modifie pas l'avis qu'on porte sur lui (policy
-              `jalons_parcours_teacher_select`, 0130). */}
-          <EnquetesParcoursAffichage studentId={dossier.etudiant.id} />
         </div>
+      }
+      panneauEnquetes={
+        /* Demande client du 2026-10-19 (point 8) : « l'admin et le professeur concerné pourront
+           voir l'enquête de satisfaction renseignée par l'étudiant ». En lecture seule — un
+           professeur ne modifie pas l'avis qu'on porte sur lui (policy
+           `jalons_parcours_teacher_select`, 0130). Onglet séparé depuis le même jour (capture
+           client) : vivait jusqu'ici tout en bas d'« Informations personnelles ». */
+        <EnquetesParcoursAffichage studentId={dossier.etudiant.id} titre={null} />
       }
       badgesSupplementaires={
         <>

@@ -80,7 +80,7 @@ export function EtudiantsAdmin() {
   /* Forfait épuisé et absence de cours planifié, pour toute la liste d'un coup — demandes client
      6 et 7 du 2026-10-19. Calculé sur les blocs affichés (le principal d'un binôme porte le
      dossier, le forfait et les séances du duo, 0054). */
-  const { etats } = useEtatsParcoursEtudiants(useMemo(() => etudiants.map((e) => e.id), [etudiants]))
+  const { etats, recharger: rechargerEtats } = useEtatsParcoursEtudiants(useMemo(() => etudiants.map((e) => e.id), [etudiants]))
 
   /* « Actif » ne veut plus dire « compte approuvé » mais « parcours en cours » — demande client du
      2026-10-19 : un élève en pause OU dont le forfait est épuisé est inactif. Compté sur les
@@ -92,10 +92,10 @@ export function EtudiantsAdmin() {
   const sansCoursPlanifie = etudiants.filter((e) => etats[e.id]?.sansCoursPlanifie).length
 
   return (
-    <AdminLayout actif="Étudiants">
+    <AdminLayout actif="Cours individuels & DUO">
       <EnTetePage
         compact
-        titre="Étudiants"
+        titre="Cours individuels & DUO"
         actions={
           <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
             <Icone nom="plus" taille={15} />
@@ -193,6 +193,7 @@ export function EtudiantsAdmin() {
                 recharger()
                 navigate('/admin/etudiants')
               }}
+              onParcoursChange={rechargerEtats}
             />
           ) : (
             <EtatVide
@@ -207,7 +208,21 @@ export function EtudiantsAdmin() {
   )
 }
 
-function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime: () => void }) {
+function DossierPanel({
+  studentId,
+  onSupprime,
+  onParcoursChange,
+}: {
+  studentId: string
+  onSupprime: () => void
+  /* Recharge l'état de parcours (forfait épuisé, sans cours planifié) calculé par le PARENT pour
+     toute la liste — clé de cache différente de celle ci-dessous, propre au seul dossier ouvert.
+     Les deux doivent être rafraîchies ensemble dès qu'une séance est planifiée ou reprogrammée,
+     demande client du 2026-10-19 : l'icône d'avertissement doit disparaître « instantanément et
+     rapidement », pas seulement après le signal de synchro distant (jusqu'à ~1 s, voir
+     src/lib/synchro.ts) qui suffisait jusqu'ici. */
+  onParcoursChange: () => void
+}) {
   const { dossier, loading, erreur, recharger } = useDossierEtudiant(studentId)
   /* Statut de contrat en toutes lettres dans l'en-tête de la fiche (demande client du
      2026-10-11) : la liste de gauche, elle, ne montre plus qu'un glyphe (CarteListeEtudiant.tsx)
@@ -217,8 +232,12 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
   const statutsContrats = useStatutsContratsSignature(useMemo(() => [studentId], [studentId]))
   /* Même calcul que la liste de gauche, pour le seul dossier ouvert : la fiche doit annoncer
      exactement l'activité que la liste annonce, pas une variante. */
-  const { etats } = useEtatsParcoursEtudiants(useMemo(() => [studentId], [studentId]))
+  const { etats, recharger: rechargerEtatLocal } = useEtatsParcoursEtudiants(useMemo(() => [studentId], [studentId]))
   const etat = etats[studentId]
+  function rechargerParcours() {
+    rechargerEtatLocal()
+    onParcoursChange()
+  }
 
   if (loading) return <EtatChargement lignes={3} hauteur={110} />
   if (erreur || !dossier) return <MessageErreur>{erreur ?? 'Dossier introuvable.'}</MessageErreur>
@@ -255,21 +274,27 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
       panneauInformations={
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <PanneauInformationsDuo etudiant={etudiant} duoPartenaire={dossier.duoPartenaire} onChange={recharger} />
-          {/* Enquêtes de parcours de l'élève, et de son binôme s'il y en a un : chaque membre
-              répond à la sienne (0130), les deux doivent donc se lire dans le dossier partagé. */}
-          <EnquetesParcoursAffichage studentId={etudiant.id} />
-          {dossier.duoPartenaire && (
-            <EnquetesParcoursAffichage
-              studentId={dossier.duoPartenaire.id}
-              titre={`Enquêtes de satisfaction — ${dossier.duoPartenaire.prenom} ${dossier.duoPartenaire.nom}`}
-            />
-          )}
           {/* Relance d'un dossier à l'arrêt — demande client du 2026-10-19 (point 7) : date de
               relance, bouton de relance et historique. Proposé dès que le parcours est inactif,
               pas seulement en pause : un élève dont le forfait est épuisé est exactement
               quelqu'un qu'on veut pouvoir rappeler. */}
           {activiteEtudiant({ status: etudiant.status, forfaitEpuise: !!etat?.forfaitEpuise }) === 'inactif' && (
             <BlocRelanceEtudiant etudiant={etudiant} />
+          )}
+        </div>
+      }
+      panneauEnquetes={
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {/* Enquêtes de parcours de l'élève, et de son binôme s'il y en a un : chaque membre
+              répond à la sienne (0130), les deux doivent donc se lire dans le dossier partagé.
+              Onglet séparé depuis le 2026-10-19 (capture client) : vivait jusqu'ici tout en bas
+              d'« Informations personnelles », sans rapport avec le reste de cet onglet. */}
+          <EnquetesParcoursAffichage studentId={etudiant.id} titre={null} />
+          {dossier.duoPartenaire && (
+            <EnquetesParcoursAffichage
+              studentId={dossier.duoPartenaire.id}
+              titre={`Enquêtes de satisfaction — ${dossier.duoPartenaire.prenom} ${dossier.duoPartenaire.nom}`}
+            />
           )}
         </div>
       }
@@ -312,6 +337,7 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
                     await supabase.from('packages').update({ echeance: dateFinRetenue }).eq('id', forfait.id)
                   }
                   recharger()
+                  rechargerParcours()
                 }}
               />
             )
@@ -348,7 +374,10 @@ function DossierPanel({ studentId, onSupprime }: { studentId: string; onSupprime
       }
       peutModifierNiveau
       peutModifierPlanning
-      onDossierChange={recharger}
+      onDossierChange={() => {
+        recharger()
+        rechargerParcours()
+      }}
     />
   )
 }
