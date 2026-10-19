@@ -270,10 +270,10 @@ export function FicheCandidatCollectifModale({
                 mêmes garanties, même texte de confirmation — y compris la disparition
                 automatique de la ligne au Suivi (construireSuiviCollectif.ts exclut déjà tout
                 profil suspendu et toute suppression de prospect fait disparaître la ligne de la
-                table source). Un prospect qui a déjà un paiement de frais d'inscription enregistré
-                (comme Ludivic ici) ne peut pas être supprimé tant que cette ligne existe — l'API
-                le dit explicitement, et c'est la même garde que partout ailleurs dans
-                l'application : la ligne se supprime d'abord depuis « Paiements » juste en dessous. */}
+                table source). Un candidat qui a déjà réglé ses frais d'inscription part avec son
+                encaissement, mais jamais à l'aveugle : SupprimerProspect demande une deuxième
+                confirmation qui affiche les montants concernés (décision client du 2026-10-19,
+                après que le refus pur et simple l'ait laissé sans issue). */}
             <span style={{ marginLeft: 'auto' }}>
               {profilEtudiant ? (
                 <SupprimerCompte
@@ -391,9 +391,9 @@ export function FicheCandidatCollectifModale({
               Affichée dès qu'il y a quelque chose à montrer, plus seulement une fois converti —
               bug trouvé le 2026-10-19 : les frais d'inscription sont encaissés dès l'étape
               prospect (0056), et cette section restait pourtant invisible avant la conversion.
-              C'est justement elle qui permet de supprimer une ligne de frais déjà réglée — la
-              seule façon de débloquer la suppression du candidat tant qu'elle existe (message de
-              l'API : « supprimez-le d'abord depuis sa fiche »). Le bouton « Enregistrer les frais
+              Un admin doit pouvoir voir et traiter un encaissement dès ce stade, sans attendre la
+              conversion — y compris pour le supprimer seul, sans toucher au candidat (supprimer le
+              candidat emporte désormais ses encaissements, mais c'est l'autre geste). Le bouton « Enregistrer les frais
               d'inscription » reste réservé à un étudiant déjà converti (`profilEtudiant`) : avant
               conversion, c'est « Convertir en étudiant » plus bas qui porte cette saisie. */}
           {(profilEtudiant || (paiements?.length ?? 0) > 0) && (
