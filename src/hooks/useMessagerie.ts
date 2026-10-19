@@ -3,7 +3,7 @@ import type { Database } from '../types/database.types'
 import { useCacheRequete } from './useCacheRequete'
 
 type Message = Database['public']['Tables']['messages']['Row']
-type Annuaire = Database['public']['Views']['annuaire_etablissement']['Row']
+export type Annuaire = Database['public']['Views']['annuaire_etablissement']['Row']
 
 export interface MessageAvecPersonnes extends Message {
   expediteur: Annuaire | null

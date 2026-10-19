@@ -61,3 +61,46 @@ export function libelleDestinataires(noms: string[], maximum = 3): string {
   const restants = noms.length - maximum
   return `${noms.slice(0, maximum).join(', ')} et ${restants} autre${restants > 1 ? 's' : ''}`
 }
+
+export interface PersonneAffichable {
+  prenom: string | null
+  nom: string | null
+  role: string
+}
+
+function nomRole(personne: PersonneAffichable | null, libelleRole: Record<string, string>, repli: string): string {
+  if (!personne) return repli
+  const nom = [personne.prenom, personne.nom].filter(Boolean).join(' ') || repli
+  return `${nom} · ${libelleRole[personne.role] ?? personne.role}`
+}
+
+/* Les deux intitulés d'une fiche de message ouverte, « comme une lettre » — demande client du
+   2026-10-19, capture à l'appui : jusqu'ici un seul correspondant était nommé, sur une ligne qui
+   ne disait que le sens de lecture (« De » ou « À »). Destinataire ET Expéditeur sont désormais
+   TOUJOURS affichés l'un sous l'autre, quel que soit l'onglet ouvert — c'est toujours « moi »
+   d'un côté et le correspondant (ou les correspondants, pour un envoi groupé) de l'autre.
+   Fonction pure, testable sans monter de composant. */
+export function entetesMessage(params: {
+  estRecu: boolean
+  correspondant: PersonneAffichable | null
+  moi: PersonneAffichable | null
+  /* Un seul destinataire, ou plusieurs pour un envoi groupé — toujours fourni, même à un seul
+     élément, pour ne pas dupliquer la logique « groupé ou pas » chez l'appelant. */
+  destinataires: PersonneAffichable[]
+  libelleRole: Record<string, string>
+}): { destinataire: string; expediteur: string } {
+  const libelleMoi = nomRole(params.moi, params.libelleRole, 'Moi')
+  const libelleCorrespondant = nomRole(params.correspondant, params.libelleRole, 'Personne inconnue')
+
+  const libelleGroupe =
+    params.destinataires.length > 1
+      ? `${params.destinataires.length} destinataires · ${libelleDestinataires(
+          params.destinataires.map((d) => [d.prenom, d.nom].filter(Boolean).join(' ') || 'Personne inconnue'),
+        )}`
+      : null
+
+  return {
+    destinataire: libelleGroupe ?? (params.estRecu ? libelleMoi : libelleCorrespondant),
+    expediteur: params.estRecu ? libelleCorrespondant : libelleMoi,
+  }
+}

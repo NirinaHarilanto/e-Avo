@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { grouperEnvois, libelleDestinataires } from '../messagerie'
+import { entetesMessage, grouperEnvois, libelleDestinataires } from '../messagerie'
 
 /* Capture client du 2026-10-19 : « Message de bienvenue de la fondatrice » occupait cinq lignes
    dans « Envoyés », une par élève, toutes identiques à la minute près. « Il faut que le mail
@@ -72,5 +72,64 @@ describe('libelleDestinataires', () => {
 
   it('ne laisse pas une ligne vide quand personne n’est résolu', () => {
     expect(libelleDestinataires([])).toBe('Personne')
+  })
+})
+
+/* Capture client du 2026-10-19 : la fiche d'un message ouvert ne nommait qu'un seul
+   correspondant, sur une ligne qui ne disait que le sens de lecture (« De » ou « À »). « Il faut
+   bien présenter visuellement un message envoyé et bien structuré : Destinataire, Expéditeur,
+   Date et heure d'envoi, Message. » Les deux intitulés doivent donc TOUJOURS apparaître, quel que
+   soit l'onglet ouvert — c'est toujours « moi » d'un côté et le ou les correspondants de
+   l'autre. */
+describe('entetesMessage', () => {
+  const libelleRole = { etudiant: 'Élève', admin_etablissement: 'Administration' }
+  const admin = { prenom: 'Harinjo', nom: 'Andriamahenina', role: 'admin_etablissement' }
+  const eleve = { prenom: 'bernard', nom: 'bensas', role: 'etudiant' }
+
+  it('un message reçu : moi en destinataire, le correspondant en expéditeur', () => {
+    const { destinataire, expediteur } = entetesMessage({
+      estRecu: true,
+      correspondant: eleve,
+      moi: admin,
+      destinataires: [],
+      libelleRole,
+    })
+    expect(destinataire).toBe('Harinjo Andriamahenina · Administration')
+    expect(expediteur).toBe('bernard bensas · Élève')
+  })
+
+  it('un message envoyé à une seule personne : le correspondant en destinataire, moi en expéditeur', () => {
+    const { destinataire, expediteur } = entetesMessage({
+      estRecu: false,
+      correspondant: eleve,
+      moi: admin,
+      destinataires: [eleve],
+      libelleRole,
+    })
+    expect(destinataire).toBe('bernard bensas · Élève')
+    expect(expediteur).toBe('Harinjo Andriamahenina · Administration')
+  })
+
+  it('un envoi groupé : tous les destinataires nommés, moi en expéditeur', () => {
+    const lalaina = { prenom: 'Lalaina', nom: 'bensas', role: 'etudiant' }
+    const { destinataire, expediteur } = entetesMessage({
+      estRecu: false,
+      correspondant: eleve,
+      moi: admin,
+      destinataires: [eleve, lalaina],
+      libelleRole,
+    })
+    expect(destinataire).toBe('2 destinataires · bernard bensas et Lalaina bensas')
+    expect(expediteur).toBe('Harinjo Andriamahenina · Administration')
+  })
+
+  it('ne plante pas quand la personne connectée n’est pas encore connue', () => {
+    const { expediteur } = entetesMessage({ estRecu: false, correspondant: eleve, moi: null, destinataires: [eleve], libelleRole })
+    expect(expediteur).toBe('Moi')
+  })
+
+  it('nomme un correspondant dont le compte a disparu, plutôt que de planter', () => {
+    const { expediteur } = entetesMessage({ estRecu: true, correspondant: null, moi: admin, destinataires: [], libelleRole })
+    expect(expediteur).toBe('Personne inconnue')
   })
 })

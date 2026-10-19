@@ -7,10 +7,11 @@ import {
   supprimerMessage,
   useAnnuaire,
   useMessagerie,
+  type Annuaire,
   type MessageAvecPersonnes,
 } from '../../hooks/useMessagerie'
 import { useVagues } from '../../hooks/useVagues'
-import { grouperEnvois, libelleDestinataires } from '../../lib/messagerie'
+import { entetesMessage, grouperEnvois, libelleDestinataires } from '../../lib/messagerie'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { classesSelectionnables, vaguesSelectionnables } from '../../lib/invitations'
 import { Modale } from '../ui/Modale'
@@ -19,7 +20,7 @@ import { SelecteurPersonnes } from '../ui/SelecteurPersonnes'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur, MessageSucces } from '../ui/Etats'
 import { Icone } from '../ui/Icones'
-import { champStyle, etiquetteStyle } from '../ui/Champ'
+import { champStyle, etiquetteStyle, LigneInfo } from '../ui/Champ'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 
 type Onglet = 'recus' | 'envoyes'
@@ -160,12 +161,18 @@ function RedigerMessage({
 function FicheMessage({
   message,
   estRecu,
+  moi,
   onFermer,
   onChange,
   messagesGroupe,
 }: {
   message: MessageAvecPersonnes
   estRecu: boolean
+  /* La personne connectée, du côté qu'elle occupe dans l'échange (destinataire en réception,
+     expéditeur en envoi) — demande client du 2026-10-19 : présenter le message « comme une
+     lettre », avec un intitulé Destinataire et un intitulé Expéditeur TOUS LES DEUX affichés,
+     jamais un seul selon le sens de lecture comme avant. */
+  moi: Annuaire | null
   onFermer: () => void
   onChange: () => void
   /* Les lignes de l'envoi, une par destinataire (2026-10-19) : la fiche en nomme la liste
@@ -178,7 +185,13 @@ function FicheMessage({
   const [suppressionEnCours, setSuppressionEnCours] = useState(false)
   const correspondant = estRecu ? message.expediteur : message.destinataire
   const lignes = messagesGroupe?.length ? messagesGroupe : [message]
-  const estGroupe = !estRecu && lignes.length > 1
+  const { destinataire: libelleDestinataire, expediteur: libelleExpediteur } = entetesMessage({
+    estRecu,
+    correspondant,
+    moi,
+    destinataires: estRecu ? [] : lignes.map((l) => l.destinataire).filter((d): d is Annuaire => !!d),
+    libelleRole: LIBELLE_ROLE,
+  })
 
   async function supprimer() {
     setSuppressionEnCours(true)
@@ -194,23 +207,20 @@ function FicheMessage({
   return (
     <>
       <Modale titre={message.objet} onFermer={onFermer} largeurMax={560}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {estGroupe ? (
-              <span style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.6 }}>
-                À <strong>{lignes.length} destinataires</strong> ·{' '}
-                {lignes.map((l) => nomPersonne(l.destinataire)).join(', ')}
-              </span>
-            ) : (
-              <span style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
-                {estRecu ? 'De' : 'À'} <strong>{nomPersonne(correspondant)}</strong>
-                {correspondant && ` · ${LIBELLE_ROLE[correspondant.role] ?? correspondant.role}`}
-              </span>
-            )}
-            <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{dateLisible(message.created_at)}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* En-tête « lettre », demande client du 2026-10-19 : les quatre informations d'un
+              message nommées chacune par son intitulé, plutôt qu'une seule ligne resserrée qui
+              ne disait que le sens de lecture (« De » ou « À »). */}
+          <div style={{ display: 'flex', flexDirection: 'column', borderRadius: 10, border: '1px solid var(--border-soft)', background: 'var(--surface-alt)', padding: '4px 13px' }}>
+            <LigneInfo label="Destinataire" valeur={libelleDestinataire} collee />
+            <LigneInfo label="Expéditeur" valeur={libelleExpediteur} collee />
+            <LigneInfo label="Date et heure d’envoi" valeur={dateLisible(message.created_at)} collee />
           </div>
 
-          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, color: 'var(--ink-2)', whiteSpace: 'pre-wrap' }}>{message.corps}</p>
+          <div>
+            <span style={{ ...etiquetteStyle, display: 'block', marginBottom: 6 }}>Message</span>
+            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, color: 'var(--ink-2)', whiteSpace: 'pre-wrap' }}>{message.corps}</p>
+          </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 13 }}>
             <button type="button" onClick={supprimer} disabled={suppressionEnCours} style={boutonDangerStyle}>
@@ -405,6 +415,7 @@ export function Messagerie() {
         <FicheMessage
           message={ouvert}
           estRecu={onglet === 'recus'}
+          moi={profile}
           messagesGroupe={groupeOuvert?.messages}
           onFermer={() => setOuvertId(null)}
           onChange={recharger}
