@@ -91,10 +91,6 @@ export function ProfesseurDetailAdmin() {
             />
           </GrilleStats>
 
-          {/* Demande client du 2026-10-19 : l'admin crée et suit ici l'historique des cours
-              corporate et chat & chill de ce professeur. */}
-          <PrestationsExternes professeur={detail.professeur} peutGerer peutCloturer />
-
           <KpiSatisfaction teacherId={detail.professeur.id} />
 
           <DetacherVisioEtablissement
@@ -104,25 +100,34 @@ export function ProfesseurDetailAdmin() {
           />
 
           <div className="grille-dossier">
-            <Section
-              titre="Élèves attribués"
-              compteur={detail.eleves.length}
-              padding={22}
-            >
-              {detail.eleves.length === 0 ? (
-                <EtatVide
-                  icone="etudiants"
-                  titre="Aucun élève attribué"
-                  description="L’attribution se fait depuis le dossier de l’élève, page Étudiants : ouvrez son dossier puis choisissez ce professeur dans la colonne de droite."
-                />
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {detail.eleves.map((e) => (
-                    <LigneEleve key={e.eleve.id} eleveDuProfesseur={e} />
-                  ))}
-                </div>
-              )}
-            </Section>
+            {/* Colonne de gauche : Élèves attribués, puis juste en dessous (demande client du
+                2026-10-19, capture à l'appui) le bloc des cours corporate & chat & chill de ce
+                professeur — regroupés dans le même conteneur flex que la colonne de droite,
+                plutôt que deux lignes séparées de la grille, pour qu'il suive visuellement
+                « Élèves attribués » sans dépendre de la largeur d'écran. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <Section
+                titre="Élèves attribués"
+                compteur={detail.eleves.length}
+                padding={22}
+              >
+                {detail.eleves.length === 0 ? (
+                  <EtatVide
+                    icone="etudiants"
+                    titre="Aucun élève attribué"
+                    description="L’attribution se fait depuis le dossier de l’élève, page Étudiants : ouvrez son dossier puis choisissez ce professeur dans la colonne de droite."
+                  />
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {detail.eleves.map((e) => (
+                      <LigneEleve key={e.eleve.id} eleveDuProfesseur={e} />
+                    ))}
+                  </div>
+                )}
+              </Section>
+
+              <PrestationsExternes professeur={detail.professeur} peutGerer peutCloturer padding={22} />
+            </div>
 
             {/* Colonne de droite : Informations personnelles puis, juste en dessous (demande
                 client du 2026-10-13), le résumé des TimeSheets de ce professeur. Empilés dans

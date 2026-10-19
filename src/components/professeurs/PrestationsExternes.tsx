@@ -14,7 +14,7 @@ import {
   peutEtreModifiee,
 } from '../../lib/prestationsExternes'
 import { usePrestationsExternes, type PrestationExterne } from '../../hooks/usePrestationsExternes'
-import { GroupeSection } from '../ui/Section'
+import { Section } from '../ui/Section'
 import { Modale } from '../ui/Modale'
 import { ModaleConfirmation } from '../ui/ModaleConfirmation'
 import { Champ, champStyle } from '../ui/Champ'
@@ -416,12 +416,20 @@ export function PrestationsExternes({
   professeur,
   peutGerer = false,
   peutCloturer = false,
+  padding,
 }: {
   professeur: Profile | null
   /* Création, modification et annulation : l'admin seulement. */
   peutGerer?: boolean
   /* Clôture : l'admin, et le professeur pour les siennes. */
   peutCloturer?: boolean
+  /* Repassé tel quel à `Section` — demande client du 2026-10-19 : ce bloc doit avoir
+     « exactement » le même style que ses voisins directs. Dans la fiche professeur de l'espace
+     admin, il suit immédiatement « Élèves attribués » (padding={22}) ; dans « Mes heures » côté
+     professeur, ses voisins (« Répartition par élève », « Satisfaction des élèves ») n'en passent
+     aucun — chaque appelant demande donc le padding de SES propres voisins plutôt qu'une valeur
+     unique qui ne collerait qu'à l'un des deux contextes. */
+  padding?: number | string
 }) {
   const { prestations, loading, recharger } = usePrestationsExternes(professeur?.id)
   const [creationOuverte, setCreationOuverte] = useState(false)
@@ -430,8 +438,10 @@ export function PrestationsExternes({
   const aVenir = prestations.filter((p) => p.statut === 'planifiee')
 
   return (
-    <GroupeSection
+    <Section
       titre="Cours corporate & chat & chill"
+      compteur={prestations.length}
+      padding={padding}
       actions={
         peutGerer && professeur ? (
           <button type="button" onClick={() => setCreationOuverte(true)} style={boutonSecondaireStyle}>
@@ -490,6 +500,6 @@ export function PrestationsExternes({
           }}
         />
       )}
-    </GroupeSection>
+    </Section>
   )
 }
