@@ -109,20 +109,33 @@ export function FicheCandidatCollectifModale({
     setProspect(prospectData)
     setProfilEtudiant(profilData ?? null)
 
+    /* Les frais d'inscription sont rattachés au PROSPECT dès leur encaissement (0056), avant
+       toute conversion — c'est justement ce qui bloque la suppression d'un candidat pas encore
+       converti (api/admin/supprimer-prospect.ts refuse tant qu'une ligne existe). Cette requête
+       partait donc toujours, même sans profil : bug trouvé le 2026-10-19, un candidat non
+       converti voyait sa ligne de paiement forcée à `[]` ici, alors qu'elle existait bel et bien
+       en base — la section Paiements de cette fiche (plus bas) restait alors invisible, sans
+       aucun moyen d'y faire le geste que le message d'erreur de suppression demande pourtant
+       explicitement de faire « depuis sa fiche ». */
+    const [{ data: parProspect }, { data: parEtudiant }] = await Promise.all([
+      supabase.from('student_payments').select('*').eq('prospect_id', ligne.prospectId).is('supprime_le', null),
+      profilData
+        ? supabase.from('student_payments').select('*').eq('student_id', profilData.id).is('supprime_le', null)
+        : Promise.resolve({ data: [] as StudentPayment[] }),
+    ])
+    // Une même ligne peut porter les deux clés (convert-prospect.ts pose prospect_id ET
+    // student_id) : dédoublonnée par id plutôt que listée deux fois.
+    const fusion = new Map([...(parProspect ?? []), ...(parEtudiant ?? [])].map((p) => [p.id, p]))
+    setPaiements([...fusion.values()].sort((a, b) => b.created_at.localeCompare(a.created_at)))
+
     if (profilData) {
-      // De même, la vague et les deux requêtes de paiements ne dépendent que de `profilData`,
-      // jamais l'une de l'autre : les trois partent ensemble.
-      const [{ data: inscriptionVague }, { data: parProspect }, { data: parEtudiant }] = await Promise.all([
-        supabase.from('cohort_enrollments').select('cohort_id, cohort_class_id').eq('student_id', profilData.id).maybeSingle(),
-        supabase.from('student_payments').select('*').eq('prospect_id', ligne.prospectId).is('supprime_le', null),
-        supabase.from('student_payments').select('*').eq('student_id', profilData.id).is('supprime_le', null),
-      ])
+      const { data: inscriptionVague } = await supabase
+        .from('cohort_enrollments')
+        .select('cohort_id, cohort_class_id')
+        .eq('student_id', profilData.id)
+        .maybeSingle()
       setVagueId(inscriptionVague?.cohort_id ?? null)
       setClasseId(inscriptionVague?.cohort_class_id ?? null)
-      // Une même ligne peut porter les deux clés (convert-prospect.ts pose prospect_id ET
-      // student_id) : dédoublonnée par id plutôt que listée deux fois.
-      const fusion = new Map([...(parProspect ?? []), ...(parEtudiant ?? [])].map((p) => [p.id, p]))
-      setPaiements([...fusion.values()].sort((a, b) => b.created_at.localeCompare(a.created_at)))
 
       /* Heures consommées DANS CETTE VAGUE précisément : jointure manuelle sessions→hour_ledger
          (pas de select imbriqué, piège déjà rencontré sur adopter-seances.ts) plutôt que
@@ -142,7 +155,6 @@ export function FicheCandidatCollectifModale({
     } else {
       setVagueId(null)
       setClasseId(null)
-      setPaiements([])
       setHeuresConsommeesVague(null)
     }
 
@@ -374,8 +386,17 @@ export function FicheCandidatCollectifModale({
 
           {/* Frais et autres paiements : chaque ligne ouvre la fiche complète (acomptes, reçu,
               facture — DetailPaiementModale.tsx), déjà construite ailleurs dans l'app plutôt que
-              réinventée ici. */}
-          {profilEtudiant && (
+              réinventée ici.
+
+              Affichée dès qu'il y a quelque chose à montrer, plus seulement une fois converti —
+              bug trouvé le 2026-10-19 : les frais d'inscription sont encaissés dès l'étape
+              prospect (0056), et cette section restait pourtant invisible avant la conversion.
+              C'est justement elle qui permet de supprimer une ligne de frais déjà réglée — la
+              seule façon de débloquer la suppression du candidat tant qu'elle existe (message de
+              l'API : « supprimez-le d'abord depuis sa fiche »). Le bouton « Enregistrer les frais
+              d'inscription » reste réservé à un étudiant déjà converti (`profilEtudiant`) : avant
+              conversion, c'est « Convertir en étudiant » plus bas qui porte cette saisie. */}
+          {(profilEtudiant || (paiements?.length ?? 0) > 0) && (
             <GroupeSection titre="Paiements">
               {paiements === null ? (
                 <EtatChargement lignes={1} hauteur={34} />
@@ -507,16 +528,28 @@ export function FicheCandidatCollectifModale({
         />
       )}
 
-      {paiementOuvert && profilEtudiant && (
+      {paiementOuvert && prospect && (
         <DetailPaiementModale
           cible={
-            {
-              type: 'etudiant',
-              paiement: paiementOuvert,
-              personne: profilEtudiant,
-              forfait: null,
-              professeur: null,
-            } satisfies CiblePaiement
+            profilEtudiant
+              ? ({
+                  type: 'etudiant',
+                  paiement: paiementOuvert,
+                  personne: profilEtudiant,
+                  forfait: null,
+                  professeur: null,
+                } satisfies CiblePaiement)
+              : /* Candidat pas encore converti (2026-10-19) : les frais d'inscription
+                   encaissés avant conversion (0056) restent rattachés au PROSPECT, pas à un
+                   profil qui n'existe pas encore. `tarif: null` ne sert qu'à la création d'une
+                   nouvelle ligne (`CreationLignePaiement`) — on en ouvre ici une qui existe
+                   déjà (`paiementOuvert`), jamais lue dans ce cas. */
+                ({
+                  type: 'prospect',
+                  prospect: { id: prospect.id, etablissement_id: prospect.etablissement_id, prenom: prospect.prenom, nom: prospect.nom },
+                  tarif: null,
+                  paiement: paiementOuvert,
+                } satisfies CiblePaiement)
           }
           onFermer={() => setPaiementOuvert(null)}
           onChange={toutRecharger}
