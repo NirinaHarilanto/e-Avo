@@ -15,6 +15,10 @@ import { trouverHomonymeProspect, trouverProfilHomonyme } from '../nomDuplique.j
 let prospects: { id: string; nom: string; prenom: string }[] = []
 let profilsActifs: { id: string; nom: string; prenom: string }[] = []
 let profilsSupprimes: { prospect_id: string | null }[] = []
+/* Tous les profils du rôle demandé, comptes supprimés COMPRIS : depuis le 2026-10-19 la requête
+   ne les écarte plus elle-même, c'est `homonymeBloquant` qui tranche (règle unique, partagée avec
+   l'édition de fiche côté navigateur). */
+let profilsDuRole: { id: string; nom: string; prenom: string; status?: string }[] = []
 
 function clientFactice() {
   return {
@@ -27,14 +31,20 @@ function clientFactice() {
         select: () => ({
           eq: () => ({
             /* Trois chaînes partent du filtre d'établissement :
-               `.in('role', …).neq('status', …)`     → profils actifs (homonyme prospect)
-               `.eq('role', …).neq('status', …)`     → profils actifs (homonyme de profil)
+               `.in('role', …).neq('status', …)` → profils actifs (homonyme prospect)
+               `.eq('role', …)`                  → tous les profils du rôle, supprimés compris :
+                                                   c'est `homonymeBloquant` qui les écarte, pour
+                                                   que la règle ne soit plus écrite deux fois
                `.eq('status', …).not('prospect_id')` → prospects des comptes supprimés */
             in: () => ({ neq: async () => ({ data: profilsActifs }) }),
-            eq: () => ({
-              not: async () => ({ data: profilsSupprimes }),
-              neq: async () => ({ data: profilsActifs }),
-            }),
+            eq: (colonne: string) => {
+              const chaine = {
+                not: async () => ({ data: profilsSupprimes }),
+                then: (resoudre: (r: { data: unknown }) => unknown) =>
+                  Promise.resolve({ data: colonne === 'status' ? profilsSupprimes : profilsDuRole }).then(resoudre),
+              }
+              return chaine
+            },
           }),
         }),
       }
@@ -48,6 +58,7 @@ beforeEach(() => {
   prospects = []
   profilsActifs = []
   profilsSupprimes = []
+  profilsDuRole = []
 })
 
 describe('trouverHomonymeProspect', () => {
@@ -84,14 +95,28 @@ describe('trouverHomonymeProspect', () => {
 })
 
 describe('trouverProfilHomonyme', () => {
-  it('ne regarde que les profils actifs', async () => {
-    profilsActifs = [{ id: 'profil-1', nom: 'bensas', prenom: 'dentalis' }]
+  it('refuse un nom déjà porté par un profil actif', async () => {
+    profilsDuRole = [{ id: 'profil-1', nom: 'bensas', prenom: 'dentalis', status: 'approved' }]
     const trouve = await trouverProfilHomonyme(clientFactice(), { ...params, role: 'etudiant' })
     expect(trouve).toMatchObject({ id: 'profil-1' })
   })
 
-  it('laisse le nom libre quand aucun profil actif ne le porte', async () => {
-    profilsActifs = []
+  it('laisse le nom libre quand aucun profil ne le porte', async () => {
+    profilsDuRole = []
     expect(await trouverProfilHomonyme(clientFactice(), { ...params, role: 'etudiant' })).toBeNull()
+  })
+
+  /* Capture client du 2026-10-19 : un compte supprimé réservait encore son nom. La requête ne
+     filtre plus elle-même — c'est `homonymeBloquant` qui écarte les supprimés, pour que la règle
+     ne vive qu'à un seul endroit (le navigateur avait sa propre copie, qui l'avait oubliée). */
+  it('ne se laisse pas bloquer par un compte supprimé', async () => {
+    profilsDuRole = [{ id: 'profil-mort', nom: 'bensas', prenom: 'dentalis', status: 'suspended' }]
+    expect(await trouverProfilHomonyme(clientFactice(), { ...params, role: 'etudiant' })).toBeNull()
+  })
+
+  it('ne bloque pas une personne sur sa propre fiche', async () => {
+    profilsDuRole = [{ id: 'profil-1', nom: 'bensas', prenom: 'dentalis', status: 'approved' }]
+    const trouve = await trouverProfilHomonyme(clientFactice(), { ...params, role: 'etudiant', exclureId: 'profil-1' })
+    expect(trouve).toBeNull()
   })
 })

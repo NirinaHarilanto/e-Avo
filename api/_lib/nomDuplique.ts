@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import type { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
-import { memeNom, nomComplet } from '../../src/lib/nomDuplique.js'
+import { homonymeBloquant, memeNom, nomComplet } from '../../src/lib/nomDuplique.js'
 
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
@@ -39,16 +39,17 @@ export async function trouverProfilHomonyme(
 ) {
   const { data: profils } = await serviceClient
     .from('profiles')
-    .select('id, nom, prenom')
+    .select('id, nom, prenom, status')
     .eq('etablissement_id', params.etablissementId)
     .eq('role', params.role)
-    .neq('status', 'suspended')
 
-  return (
-    (profils ?? []).find(
-      (p) => p.id !== params.exclureId && memeNom(p, { nom: params.nom, prenom: params.prenom }),
-    ) ?? null
-  )
+  /* `homonymeBloquant` (src/lib/nomDuplique.ts) porte la règle, partagée avec l'édition de fiche
+     côté navigateur : le filtre des comptes supprimés y est inclus, il n'est plus écrit deux fois
+     — c'est son oubli dans la copie du navigateur qui bloquait un élève sur sa propre fiche le
+     2026-10-19. Le tri se fait donc en mémoire plutôt que dans la requête ; la liste des profils
+     d'un établissement tient en quelques dizaines de lignes, et c'était déjà le cas pour la
+     comparaison de noms (accents et casse, hors de portée de PostgREST sans `unaccent`). */
+  return homonymeBloquant(profils ?? [], { nom: params.nom, prenom: params.prenom, exclureId: params.exclureId })
 }
 
 export function messageHomonyme(role: 'etudiant' | 'professeur' | 'admin_etablissement', personne: { nom?: string | null; prenom?: string | null }) {

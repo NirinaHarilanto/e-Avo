@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import { memeNom, nomComplet } from '../../lib/nomDuplique'
+import { homonymeBloquant, nomComplet } from '../../lib/nomDuplique'
 import type { Database } from '../../types/database.types'
 import { GroupeSection, Section } from '../ui/Section'
 import { Champ, LigneInfo, champStyle } from '../ui/Champ'
@@ -89,10 +89,14 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
     if (nom.trim() && prenom.trim()) {
       const { data: profils } = await supabase
         .from('profiles')
-        .select('id, nom, prenom')
+        .select('id, nom, prenom, status')
         .eq('etablissement_id', personne.etablissement_id)
         .eq('role', personne.role)
-      const homonyme = (profils ?? []).find((p) => p.id !== personne.id && memeNom(p, { nom, prenom }))
+      /* `homonymeBloquant` plutôt qu'un filtre écrit ici : cette copie de la règle avait oublié
+         les comptes supprimés, et un élève bien actif ne pouvait plus enregistrer sa propre fiche
+         parce qu'un homonyme SUPPRIMÉ existait encore en base (2026-10-19, capture client). La
+         règle est désormais au même endroit pour le navigateur et pour les routes `api/`. */
+      const homonyme = homonymeBloquant(profils ?? [], { nom, prenom, exclureId: personne.id })
       if (homonyme) {
         setEnCours(false)
         setErreur(
