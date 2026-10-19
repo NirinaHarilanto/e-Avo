@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { completsAReporterSurProfil, deduireSource, preparerVariables, substituerVariablesDuo, type VariableResolue } from '../contrats'
+import {
+  clesCommunesAuxEleves,
+  completsAReporterSurProfil,
+  deduireSource,
+  preparerVariables,
+  substituerVariablesDuo,
+  type VariableResolue,
+} from '../contrats'
 import type { Database } from '../../types/database.types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -555,5 +562,50 @@ describe('completsAReporterSurProfil', () => {
       ville_prestataire: 'Antananarivo',
     })
     expect(destinataire).toEqual({ adresse: 'LOT IIR 345 TER Betongolo', whatsapp: '0340000000', ville: 'Antananarivo' })
+  })
+})
+
+/* Demande client du 2026-10-19, capture à l'appui : en lançant les contrats d'une classe
+   collective, le bloc « champs remplis automatiquement » ne montrait que le premier élève
+   (nom, téléphone, e-mail de bernard) alors que quatre contrats partaient. « Il faut afficher
+   les renseignements de chaque étudiant composant le groupe sélectionné. » Ce qui ne varie pas
+   d'un élève à l'autre reste listé une fois, pour ne pas noyer ce qui les distingue. */
+describe('clesCommunesAuxEleves', () => {
+  const eleve = (nomComplet: string, telephone: string | undefined, heures: string) => [
+    { cle: 'etablissement', label: 'Établissement', valeurAuto: 'Hari Online Club', source: 'etablissement_nom' },
+    { cle: 'nom_etudiant', label: "Nom complet de l'étudiant", valeurAuto: nomComplet, source: 'nom_complet' },
+    { cle: 'tel_etudiant', label: "Téléphone de l'étudiant", valeurAuto: telephone, source: 'telephone' },
+    { cle: 'heures', label: 'Heures du programme', valeurAuto: heures, source: 'heures_programme' },
+  ]
+
+  it('garde en commun ce qui ne dépend pas de l’élève', () => {
+    const communes = clesCommunesAuxEleves([eleve('bernard bensas', '+261 34', '32'), eleve('Lalaina bensas', '+261 33', '32')])
+    expect(communes.has('etablissement')).toBe(true)
+    // Même nombre d'heures pour les deux : commun, inutile de le répéter sous chaque nom.
+    expect(communes.has('heures')).toBe(true)
+  })
+
+  it('sort de commun ce qui distingue les élèves', () => {
+    const communes = clesCommunesAuxEleves([eleve('bernard bensas', '+261 34', '32'), eleve('Lalaina bensas', '+261 33', '32')])
+    expect(communes.has('nom_etudiant')).toBe(false)
+    expect(communes.has('tel_etudiant')).toBe(false)
+  })
+
+  it('ne range jamais un champ d’identité en commun, même vide chez tout le monde', () => {
+    // Deux élèves sans téléphone partagent la même valeur : s'y fier ferait croire qu'ils
+    // partagent un numéro. C'est la SOURCE du champ qui tranche, pas l'égalité des valeurs.
+    const communes = clesCommunesAuxEleves([eleve('bernard bensas', undefined, '32'), eleve('Lalaina bensas', undefined, '32')])
+    expect(communes.has('tel_etudiant')).toBe(false)
+  })
+
+  it('sort de commun un nombre d’heures qui diffère d’un élève à l’autre', () => {
+    // Forfait collectif propre à chaque élève (trigger creer_forfait_collectif, 0071).
+    const communes = clesCommunesAuxEleves([eleve('bernard bensas', '+261 34', '32'), eleve('Lalaina bensas', '+261 33', '20')])
+    expect(communes.has('heures')).toBe(false)
+    expect(communes.has('etablissement')).toBe(true)
+  })
+
+  it('ne renvoie rien sans élève', () => {
+    expect(clesCommunesAuxEleves([]).size).toBe(0)
   })
 })

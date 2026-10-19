@@ -142,11 +142,15 @@ export function libelleSource(source: string): string | undefined {
   return SOURCES_VARIABLE.find((s) => s.valeur === source)?.label ?? SOURCES_RETIREES[source]
 }
 
-/* Champs d'identité personnelle qu'un contrat DUO doit porter pour les DEUX membres même quand
-   le modèle n'a jamais été pensé pour ça (voir `preparerVariables`, repli automatique) — exclut
-   `taux_horaire` (professeur uniquement, jamais de DUO) et tous les champs de programme/
-   établissement/date, partagés par construction, pas propres à une personne. */
-const CHAMPS_IDENTITE_JOIGNABLES_DUO = new Set<SourceVariable>([
+/* Champs d'identité propres à UNE personne — par opposition aux champs de programme, de date ou
+   d'établissement, partagés par construction. Deux usages :
+   - un contrat DUO les porte pour les DEUX membres même quand le modèle n'a jamais été pensé
+     pour ça (voir `preparerVariables`, repli automatique) ;
+   - l'aperçu d'un contrat de classe collective les affiche sous le nom de chaque élève plutôt
+     qu'une fois pour tous (LancerApprobationContrat.tsx, 2026-10-19) — s'y fier plutôt qu'à
+     l'égalité des valeurs évite de ranger en « commun » un téléphone vide chez tout le monde.
+   Exclut `taux_horaire` : propre au professeur, jamais à un élève. */
+export const SOURCES_IDENTITE_PERSONNE = new Set<SourceVariable>([
   'prenom',
   'nom',
   'nom_complet',
@@ -511,7 +515,7 @@ export function preparerVariables(
     if (destinataire && source && source !== SOURCE_MANUELLE) {
       const valeurAuto = resoudreSource(source, destinataire, etablissement, contexte, destinataireSecondaire)
       if (valeurAuto !== null) {
-        if (joindreLesDeuxMembres && CHAMPS_IDENTITE_JOIGNABLES_DUO.has(source as SourceVariable)) {
+        if (joindreLesDeuxMembres && SOURCES_IDENTITE_PERSONNE.has(source as SourceVariable)) {
           const valeurSecondaire = resoudreSource(source, destinataireSecondaire!, etablissement, contexte)
           if (valeurSecondaire !== null && valeurSecondaire !== valeurAuto) {
             return { cle, label, valeurAuto, valeurAutoSecondaire: valeurSecondaire, source }
@@ -628,4 +632,26 @@ export function substituerVariablesDuo(
       return `${premierMembre}\n${secondMembre}`
     })
     .join('\n\n')
+}
+
+/* Clés communes à TOUS les élèves d'une classe collective, pour l'aperçu d'un lancement de
+   contrats groupé (LancerApprobationContrat.tsx) — demande client du 2026-10-19 : le bloc des
+   champs remplis automatiquement ne montrait que le premier élève, alors qu'un contrat part pour
+   chacun. Les informations de chaque élève sont désormais listées sous son nom, et ce qui ne
+   varie pas (établissement, vague, date du jour) reste affiché une seule fois en tête — le
+   répéter sous chaque nom noierait justement ce qui les distingue.
+
+   Deux conditions pour qu'une clé soit « commune », et la seconde n'est pas redondante : un
+   champ d'identité que personne n'a renseigné (téléphone vide chez les quatre) a bien la même
+   valeur partout, mais le ranger en « commun » laisserait croire que les élèves partagent un
+   téléphone. Sa source le trahit, donc on s'y fie d'abord. */
+export function clesCommunesAuxEleves(variablesParEleve: VariableResolue[][]): Set<string> {
+  const [premier, ...autres] = variablesParEleve
+  if (!premier) return new Set()
+  return new Set(
+    premier
+      .filter((v) => !v.source || !SOURCES_IDENTITE_PERSONNE.has(v.source as SourceVariable))
+      .filter((v) => autres.every((eleve) => eleve.find((x) => x.cle === v.cle)?.valeurAuto === v.valeurAuto))
+      .map((v) => v.cle),
+  )
 }

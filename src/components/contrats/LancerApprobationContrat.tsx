@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
@@ -8,7 +8,14 @@ import { useProfesseurDetailAdmin } from '../../hooks/useProfesseurDetailAdmin'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import { supabase } from '../../lib/supabaseClient'
-import { completsAReporterSurProfil, libelleTypeProgramme, preparerVariables, substituerVariablesDuo, type ContexteProgramme } from '../../lib/contrats'
+import {
+  clesCommunesAuxEleves,
+  completsAReporterSurProfil,
+  libelleTypeProgramme,
+  preparerVariables,
+  substituerVariablesDuo,
+  type ContexteProgramme,
+} from '../../lib/contrats'
 import type { Database, Role } from '../../types/database.types'
 import { Champ, LigneInfo, champStyle } from '../ui/Champ'
 import { ChampRechercheChoix, type OptionRecherche } from '../ui/ChampRechercheChoix'
@@ -186,6 +193,72 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
 
   const pret = !!(profile && destinataire && modele)
 
+  /* Forfaits des élèves de la classe, chargés dès qu'elle est choisie — demande client du
+     2026-10-19 : l'aperçu ne montrait que le premier élève (« bernard bensas » et ses
+     coordonnées) alors que quatre contrats partaient. Pour afficher les VRAIES informations de
+     chacun, il faut aussi son forfait : le montant et le nombre d'heures d'un forfait collectif
+     sont propres à chaque élève (trigger creer_forfait_collectif, 0071), ils ne se déduisent pas
+     de la vague. `lancerPourClasse` les relit de son côté au moment d'écrire, pour partir de
+     données fraîches plutôt que d'un état d'écran peut-être vieux de plusieurs minutes. */
+  const [forfaitsApercu, setForfaitsApercu] = useState<Record<string, { montant: number | null; total_heures: number }>>({})
+  const idsMembres = membresClasse.map((m) => m.id).join(',')
+  useEffect(() => {
+    if (!idsMembres) {
+      setForfaitsApercu({})
+      return
+    }
+    let annule = false
+    supabase
+      .from('packages')
+      .select('student_id, montant, total_heures, created_at')
+      .in('student_id', idsMembres.split(','))
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (annule) return
+        const parEleve: Record<string, { montant: number | null; total_heures: number }> = {}
+        for (const f of data ?? []) if (!parEleve[f.student_id]) parEleve[f.student_id] = f
+        setForfaitsApercu(parEleve)
+      })
+    return () => {
+      annule = true
+    }
+  }, [idsMembres])
+
+  /* Le contexte d'un élève de la classe : celui de la vague, son propre forfait par-dessus.
+     Partagé entre l'aperçu ci-dessous et `lancerPourClasse`, pour que l'admin lise exactement ce
+     qui sera écrit dans les contrats. */
+  function contextePourMembre(forfait: { montant: number | null; total_heures: number } | undefined): ContexteProgramme {
+    return {
+      ...contexteProgramme,
+      heuresProgramme: forfait?.total_heures ?? contexteProgramme?.heuresProgramme ?? null,
+      montantProgramme: forfait?.montant ?? null,
+    }
+  }
+
+  /* Les champs remplis automatiquement, élève par élève. Même appel que celui du lancement : ce
+     qui s'affiche ici est ce qui sera écrit dans son contrat, pas une approximation. */
+  const variablesParMembre = useMemo(() => {
+    if (!modele || !classeChoisie) return []
+    return membresClasse.map((membre) => ({
+      membre,
+      variables: preparerVariables(
+        modele.corps_template,
+        modele.variables_disponibles,
+        membre,
+        etablissement,
+        contextePourMembre(forfaitsApercu[membre.id]),
+        null,
+      ).filter((v) => !!v.valeurAuto),
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modele, classeChoisie, membresClasse, etablissement, forfaitsApercu, contexteProgramme])
+
+  /* Ce qui ne varie pas d'un élève à l'autre est listé une fois, en tête du bloc — voir
+     `clesCommunesAuxEleves` pour la règle et pourquoi elle ne se contente pas de comparer les
+     valeurs. */
+  const clesCommunes = clesCommunesAuxEleves(variablesParMembre.map((m) => m.variables))
+  const variablesCommunes = (variablesParMembre[0]?.variables ?? []).filter((v) => clesCommunes.has(v.cle))
+
   /* Une ligne de contrat par élève de la classe. Le montant du forfait collectif est propre à
      chaque élève (trigger creer_forfait_collectif, 0071) : relu au moment du lancement plutôt
      que supposé identique pour tous. */
@@ -202,12 +275,8 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
 
     const aujourdhui = new Date().toISOString().slice(0, 10)
     const lignes = membresClasse.map((membre) => {
-      const forfait = forfaitParEleve.get(membre.id)
-      const contexte: ContexteProgramme = {
-        ...contexteProgramme,
-        heuresProgramme: forfait?.total_heures ?? contexteProgramme?.heuresProgramme ?? null,
-        montantProgramme: forfait?.montant ?? null,
-      }
+      // Même fonction que l'aperçu par élève plus haut : ce que l'admin a lu est ce qui s'écrit.
+      const contexte = contextePourMembre(forfaitParEleve.get(membre.id))
       const vars = preparerVariables(modeleClasse.corps_template, modeleClasse.variables_disponibles, membre, etablissement, contexte, null)
       const valeursMembre: Record<string, string> = {}
       for (const variable of vars) {
@@ -393,7 +462,52 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
         </p>
       )}
 
-      {remplies.length > 0 && (
+      {/* Classe collective : un contrat par élève, donc les informations de CHAQUE élève —
+          demande client du 2026-10-19, capture à l'appui. Le bloc n'affichait que celles du
+          premier de la liste, si bien que l'admin lançait quatre contrats en n'ayant vérifié
+          qu'un seul nom, un seul téléphone, un seul e-mail. Ce qui est vraiment commun aux
+          quatre (établissement, vague, date) reste listé une fois, en tête : le répéter sous
+          chaque nom noierait justement ce qui les distingue. */}
+      {classeChoisie && variablesParMembre.length > 0 && (
+        <div style={{ borderRadius: 12, border: '1px solid rgba(111,227,192,.24)', background: 'rgba(111,227,192,.06)', padding: '12px 15px' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-teal)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+            Champs remplis automatiquement · {membresClasse.length} élève{membresClasse.length > 1 ? 's' : ''}
+          </div>
+
+          {variablesCommunes.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 2 }}>
+                Communs à tous
+              </div>
+              {variablesCommunes.map((variable) => (
+                <LigneInfo key={variable.cle} label={variable.label} valeur={variable.valeurAuto} />
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {variablesParMembre.map(({ membre, variables }, index) => {
+              const propres = variables.filter((v) => !clesCommunes.has(v.cle))
+              return (
+                <div key={membre.id} style={{ borderTop: '1px solid rgba(111,227,192,.22)', paddingTop: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', marginBottom: 2 }}>
+                    Étudiant {index + 1} · {[membre.prenom, membre.nom].filter(Boolean).join(' ')}
+                  </div>
+                  {propres.length > 0 ? (
+                    propres.map((variable) => <LigneInfo key={variable.cle} label={variable.label} valeur={variable.valeurAuto} />)
+                  ) : (
+                    <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted-2)' }}>
+                      Aucune information propre à cet élève dans ce modèle : son contrat ne portera que les champs communs ci-dessus.
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {!classeChoisie && remplies.length > 0 && (
         <div style={{ borderRadius: 12, border: '1px solid rgba(111,227,192,.24)', background: 'rgba(111,227,192,.06)', padding: '12px 15px' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-teal)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
             {remplies.length} champ{remplies.length > 1 ? 's remplis' : ' rempli'} automatiquement
@@ -472,8 +586,9 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
       {classeChoisie && (
         <p style={{ margin: 0, fontSize: 12, color: 'var(--accent-gold, #e9cf94)', lineHeight: 1.5 }}>
           Cours collectif : {membresClasse.length} contrat{membresClasse.length > 1 ? 's individuels seront envoyés' : ' individuel sera envoyé'}, un
-          par élève ({membresClasse.map((m) => m.prenom).join(', ')}). Chacun signe le sien, entre HOC et lui seul. L’aperçu
-          ci-dessous est celui de {destinataire?.prenom}.
+          par élève ({membresClasse.map((m) => m.prenom).join(', ')}). Chacun signe le sien, entre HOC et lui seul, avec ses
+          propres informations (listées plus haut, élève par élève). L’aperçu du texte ci-dessous est celui de{' '}
+          {destinataire?.prenom}.
         </p>
       )}
 
