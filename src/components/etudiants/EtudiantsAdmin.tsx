@@ -7,7 +7,6 @@ import { useEtudiants } from '../../hooks/useEtudiants'
 import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { AttribuerProfesseur } from './AttribuerProfesseur'
 import { CreerForfait } from './CreerForfait'
-import { AssignerVague } from './AssignerVague'
 import { ChoixProgrammeInitial } from './ChoixProgrammeInitial'
 import { DecisionHeureEssai } from './DecisionHeureEssai'
 import { AjouterForfaitModale } from './AjouterForfaitModale'
@@ -92,10 +91,10 @@ export function EtudiantsAdmin() {
   const sansCoursPlanifie = etudiants.filter((e) => etats[e.id]?.sansCoursPlanifie).length
 
   return (
-    <AdminLayout actif="Cours individuels & DUO">
+    <AdminLayout actif="Étudiants">
       <EnTetePage
         compact
-        titre="Cours individuels & DUO"
+        titre="Étudiants"
         actions={
           <button onClick={() => setFormulaireOuvert((v) => !v)} className="btn-shine" style={boutonPrimaireStyle}>
             <Icone nom="plus" taille={15} />
@@ -367,13 +366,11 @@ function DossierPanel({
           onAjoute={recharger}
         />
       }
-      panneauVague={
-        dossier.cohorte ? (
-          <AssignerVague studentId={etudiant.id} etablissementId={etudiant.etablissement_id} vagueActuelle={dossier.cohorte} ouvertParDefaut onTermine={recharger} />
-        ) : undefined
-      }
       peutModifierNiveau
-      peutModifierPlanning
+      /* Jamais pour un élève collectif (2026-10-19) : ses séances appartiennent à sa classe, les
+         reprogrammer d'ici n'aurait de sens que pour lui seul alors que toute la classe les suit
+         — « les modifications se font par classe dans la section cours collectifs ». */
+      peutModifierPlanning={!dossier.cohorte}
       onDossierChange={() => {
         recharger()
         rechargerParcours()

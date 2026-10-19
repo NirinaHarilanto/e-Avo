@@ -384,57 +384,144 @@ function BlocPeriode({
         </div>
       </div>
 
-      {periode.seances.length > 0 && (
-        <div>
-          {/* En-têtes purement visuels : chaque ligne reste lisible seule à la lecture d'écran
-              (une date, un libellé, une durée, un statut), donc les répéter en rôles ARIA de
-              tableau n'apporterait rien et imposerait un balisage de cellules complet. */}
+      {periode.seances.length > 0 && <TableauSeances seances={periode.seances} onClickSeance={onClickSeance} />}
+    </div>
+  )
+}
+
+/* Extrait de BlocPeriode le 2026-10-19 pour servir aussi la classe de niveau d'un élève
+   collectif (BlocClasseCollective ci-dessous) : les deux listent les mêmes séances, de la même
+   façon, avec la même ligne cliquable — un seul rendu à maintenir. */
+function TableauSeances({
+  seances,
+  onClickSeance,
+}: {
+  seances: SeanceDuParcours[]
+  onClickSeance: (seance: SeanceDuParcours) => void
+}) {
+  return (
+    <div>
+      {/* En-têtes purement visuels : chaque ligne reste lisible seule à la lecture d'écran
+          (une date, un libellé, une durée, un statut), donc les répéter en rôles ARIA de
+          tableau n'apporterait rien et imposerait un balisage de cellules complet. */}
+      <div
+        aria-hidden
+        style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '7px 18px', background: 'var(--fond-champ, rgba(0,0,0,.22))', borderBottom: '1px solid var(--border-soft)' }}
+      >
+        <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 90, flexShrink: 0 }}>
+          Date
+        </span>
+        <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, flexGrow: 1 }}>
+          Séance
+        </span>
+        <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Durée</span>
+        <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 72, textAlign: 'right' }}>
+          Présence
+        </span>
+      </div>
+      {/* Une période peut compter des dizaines de séances : n'en montrer que les premières
+          garde le parcours lisible quand plusieurs périodes s'enchaînent. */}
+      <ListeRepliable visibles={3} nom="séances">
+        {seances.map((seance) => (
           <div
-            aria-hidden
-            style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '7px 18px', background: 'var(--fond-champ, rgba(0,0,0,.22))', borderBottom: '1px solid var(--border-soft)' }}
+            key={seance.enrollment.id}
+            className="row-hl"
+            onClick={() => onClickSeance(seance)}
+            style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '11px 18px', borderBottom: '1px solid var(--border-soft)', cursor: 'pointer' }}
           >
-            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 90, flexShrink: 0 }}>
-              Date
+            <span style={{ fontSize: 12, color: 'var(--muted)', width: 90, flexShrink: 0 }}>
+              {new Date(seance.session.debut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
             </span>
-            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, flexGrow: 1 }}>
-              Séance
+            {/* L'enquête de satisfaction par séance a été retirée le 2026-10-19 (demande
+                client 8) : elle n'est plus demandée à chaque cours mais deux fois par
+                parcours, à la moitié des heures puis à trois heures de la fin — voir
+                EnqueteParcours.tsx et EnquetesParcoursAffichage.tsx. */}
+            <span style={{ fontSize: 13, color: 'var(--ink)', flexGrow: 1, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              {seance.session.type === 'individuel' ? 'Séance individuelle' : 'Séance collective'}
             </span>
-            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Durée</span>
-            <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 72, textAlign: 'right' }}>
-              Présence
+            <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{formaterMinutes(seance.session.duree_minutes)}</span>
+            <span style={{ width: 72, textAlign: 'right' }}>
+              <StatutSeance enrollment={seance.enrollment} statutSession={seance.session.statut} />
             </span>
           </div>
-          {/* Une période peut compter des dizaines de séances : n'en montrer que les premières
-              garde le parcours lisible quand plusieurs périodes s'enchaînent. */}
-          <ListeRepliable visibles={3} nom="séances">
-          {periode.seances.map((seance) => {
-            return (
-              <div
-                key={seance.enrollment.id}
-                className="row-hl"
-                onClick={() => onClickSeance(seance)}
-                style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '11px 18px', borderBottom: '1px solid var(--border-soft)', cursor: 'pointer' }}
-              >
-                <span style={{ fontSize: 12, color: 'var(--muted)', width: 90, flexShrink: 0 }}>
-                  {new Date(seance.session.debut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
-                </span>
-                {/* L'enquête de satisfaction par séance a été retirée le 2026-10-19 (demande
-                    client 8) : elle n'est plus demandée à chaque cours mais deux fois par
-                    parcours, à la moitié des heures puis à trois heures de la fin — voir
-                    EnqueteParcours.tsx et EnquetesParcoursAffichage.tsx. */}
-                <span style={{ fontSize: 13, color: 'var(--ink)', flexGrow: 1, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  {seance.session.type === 'individuel' ? 'Séance individuelle' : 'Séance collective'}
-                </span>
-                <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{formaterMinutes(seance.session.duree_minutes)}</span>
-                <span style={{ width: 72, textAlign: 'right' }}>
-                  <StatutSeance enrollment={seance.enrollment} statutSession={seance.session.statut} />
-                </span>
-              </div>
-            )
-          })}
-          </ListeRepliable>
+        ))}
+      </ListeRepliable>
+    </div>
+  )
+}
+
+/* Équivalent de BlocPeriode pour un élève en cours collectif — demande client du 2026-10-19 :
+   « il faudrait que tous les étudiants en cours collectifs soient visibles dans la section
+   Étudiants afin de bien suivre l'étudiant en cours collectif ». Son parcours affichait jusqu'ici
+   « Aucune séance enregistrée » : les périodes se construisent sur `teacher_assignments`, qu'un
+   élève collectif n'a pas (son professeur est celui de sa classe de niveau, 0074).
+
+   L'en-tête nomme donc la CLASSE et son professeur, là où BlocPeriode nomme une affectation
+   individuelle — mais le tableau de séances est exactement le même. */
+function BlocClasseCollective({
+  seances,
+  professeur,
+  classe,
+  onClickSeance,
+}: {
+  seances: SeanceDuParcours[]
+  professeur: Profile | null
+  classe: Database['public']['Tables']['cohort_classes']['Row'] | null
+  onClickSeance: (seance: SeanceDuParcours) => void
+}) {
+  const heures = seances.filter((s) => s.session.statut === 'terminee').reduce((total, s) => total + s.session.duree_minutes / 60, 0)
+  return (
+    <div style={{ borderRadius: 16, border: '1px solid rgba(169,140,255,.3)', background: 'var(--hoc-pastille, rgba(42,26,82,.6))', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', padding: '16px 18px', borderBottom: seances.length ? '1px solid var(--border-soft)' : 'none' }}>
+        <span
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 14,
+            background: 'var(--accent-blue-gradient)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontSize: 14,
+            fontWeight: 800,
+            flexShrink: 0,
+          }}
+        >
+          {professeur ? initiales(professeur) : '?'}
+        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexGrow: 1, minWidth: 160 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+            <span className="brand-font" style={{ fontSize: 16, color: 'var(--ink)' }}>
+              {professeur ? `${professeur.prenom} ${professeur.nom}` : 'Professeur non désigné'}
+            </span>
+            <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '3px 9px' }}>
+              Cours collectif
+            </span>
+          </div>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+            {classe
+              ? `${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` — ${classe.nom}` : ''} · ${LABEL_CRENEAU_CLASSE[classe.creneau]}`
+              : 'Classe de niveau non attribuée'}
+          </span>
         </div>
-      )}
+        <div style={{ display: 'flex', gap: 20, flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
+            <span className="brand-font" style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>
+              {seances.length}
+            </span>
+            <span style={{ fontSize: 10, color: 'var(--muted)' }}>séances</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
+            <span className="brand-font" style={{ fontSize: 15, color: 'var(--accent-gold, #e9cf94)' }}>
+              {formaterHeures(heures)}
+            </span>
+            <span style={{ fontSize: 10, color: 'var(--muted)' }}>suivies</span>
+          </div>
+        </div>
+      </div>
+
+      {seances.length > 0 && <TableauSeances seances={seances} onClickSeance={onClickSeance} />}
     </div>
   )
 }
@@ -465,8 +552,9 @@ interface DossierEtudiantVueProps {
      Avant ce prop, `onCree` ne rechargeait que les données ; rien ne refermait le formulaire, qui
      restait affiché indéfiniment par-dessus le planning qu'il venait de créer. */
   panneauPlanification?: (fermer: () => void) => ReactNode
-  /* Formulaire d'assignation/changement de vague pour le programme collectif. */
-  panneauVague?: ReactNode
+  /* `panneauVague` (changement de vague depuis la fiche) a été retiré le 2026-10-19 : la vague et
+     la classe d'un élève collectif ne se modifient plus que depuis Cours collectifs, par classe
+     — voir l'onglet Programme plus bas. */
   /* Décision à prendre après l'heure d'essai (0057) — admin uniquement, absent en lecture seule. */
   panneauDecisionEssai?: ReactNode
   /* Bouton d'ajout de forfait supplémentaire (0061) — admin uniquement. */
@@ -518,7 +606,6 @@ export function DossierEtudiantVue({
   panneauChoixInitial,
   panneauForfaitEdition,
   panneauPlanification,
-  panneauVague,
   panneauDecisionEssai,
   panneauAjoutForfait,
   panneauDemandeForfait,
@@ -534,6 +621,7 @@ export function DossierEtudiantVue({
   const {
     etudiant,
     periodes,
+    seancesCollectives,
     periodeActuelle,
     diagnostic,
     diagnosticPartenaire,
@@ -554,7 +642,6 @@ export function DossierEtudiantVue({
   const heuresRestantes = calculerHeuresRestantes(packages, heuresConsommees)
   const [editionForfaitOuverte, setEditionForfaitOuverte] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
-  const [editionVagueOuverte, setEditionVagueOuverte] = useState(false)
   const [historiqueNiveauOuvert, setHistoriqueNiveauOuvert] = useState(false)
   const [seanceEnEdition, setSeanceEnEdition] = useState<SeanceDuParcours | null>(null)
   const [seanceEnDetail, setSeanceEnDetail] = useState<SeanceDuParcours | null>(null)
@@ -580,18 +667,27 @@ export function DossierEtudiantVue({
      useNiveauxEtudiant (retourne un tableau vide tant qu'aucun id n'est fourni). */
   const { evaluations: niveauxPartenaire } = useNiveauxEtudiant(duoPartenaire?.id)
   const niveauActuelPartenaire = duoPartenaire ? niveauDefinitif(diagnosticPartenaire, niveauxPartenaire) : null
-  const seancesTerminees = periodes.flatMap((p) => p.seances).filter((s) => s.session.statut === 'terminee')
+  /* Les séances de la classe de niveau comptent comme les autres (2026-10-19) : sans elles,
+     l'assiduité d'un élève collectif restait « — » et ses heures suivies à zéro alors qu'il
+     suivait bien ses cours. */
+  const toutesSeances = [...periodes.flatMap((p) => p.seances), ...seancesCollectives]
+  const seancesTerminees = toutesSeances.filter((s) => s.session.statut === 'terminee')
   const assiduite =
     seancesTerminees.length > 0
       ? Math.round((seancesTerminees.filter((s) => s.enrollment.present).length / seancesTerminees.length) * 100)
       : null
   const professeurActuel = periodeActuelle
-  /* Séances déjà planifiées (statut « planifiée ») pour la période en cours, triées
-     chronologiquement — le planning prévisionnel affiché en lecture seule avant que l'admin ne
-     clique « Modifier » pour rouvrir le formulaire de génération. */
-  const seancesPlanifiees = (professeurActuel?.seances ?? [])
+  /* Séances déjà planifiées (statut « planifiée »), triées chronologiquement — le planning
+     prévisionnel affiché en lecture seule avant que l'admin ne clique « Modifier » pour rouvrir
+     le formulaire de génération. Pour un élève collectif, ce sont celles de sa classe : il n'a
+     pas de période individuelle, c'est donc `seancesCollectives` qui porte son planning. */
+  const seancesPlanifiees = (cohorte ? seancesCollectives : (professeurActuel?.seances ?? []))
     .filter((s) => s.session.statut === 'planifiee')
     .sort((a, b) => a.session.debut.localeCompare(b.session.debut))
+  /* « Le parcours a quelque chose à montrer » : une période individuelle OU des séances de
+     classe. Avant le 2026-10-19, seules les périodes comptaient — un élève collectif, qui n'en a
+     aucune, tombait donc sur « Aucune séance enregistrée » quoi qu'il ait suivi. */
+  const aDuParcours = periodes.length > 0 || seancesCollectives.length > 0
 
   /* Les quatre blocs auparavant séparés (parcours, informations, professeur, forfait) tiennent
      dans une seule carte à onglets — leur contenu ne change pas, seul l'habillage se
@@ -603,13 +699,18 @@ export function DossierEtudiantVue({
     /* Onglet séparé depuis le 2026-10-19 — auparavant une section au bas d'« Informations
        personnelles », sans rapport avec son contenu (voir panneauEnquetes ci-dessus). */
     ...(panneauEnquetes ? [{ value: 'enquetes' as const, label: 'Enquêtes de satisfaction' }] : []),
-    ...(professeurActuel || panneauProfesseur ? [{ value: 'professeur' as const, label: 'Professeur' }] : []),
+    ...(professeurActuel || professeurClasse || panneauProfesseur ? [{ value: 'professeur' as const, label: 'Professeur' }] : []),
     ...(forfait || cohorte || panneauChoixInitial ? [{ value: 'programme' as const, label: cohorte ? 'Programme' : 'Forfait' }] : []),
     /* Forfait et Planning étaient regroupés sous un seul onglet « Forfait & Planning » :
        séparés depuis le 2026-09-21 (demande client), le forfait portant désormais aussi
-       l'historique des forfaits successifs. Le collectif n'a pas de planning par forfait
-       (l'élève suit le calendrier de sa vague), donc pas d'onglet Planning dans ce cas. */
-    ...(!cohorte && forfait ? [{ value: 'planning' as const, label: 'Planning' }] : []),
+       l'historique des forfaits successifs.
+
+       Le collectif n'avait pas d'onglet Planning du tout jusqu'au 2026-10-19 : son planning ne
+       vient pas d'un forfait mais du calendrier de sa classe. Il l'a désormais, en LECTURE SEULE
+       — demande client : « pour les étudiants collectifs, l'onglet professeur, forfait, planning
+       doivent être uniquement en mode lecture. Les modifications se font par classe dans la
+       section cours collectifs. » */
+    ...((cohorte && seancesCollectives.length > 0) || (!cohorte && forfait) ? [{ value: 'planning' as const, label: 'Planning' }] : []),
   ]
   const ongletActif = onglets.some((o) => o.value === ongletDemande) ? ongletDemande : onglets[0].value
 
@@ -773,7 +874,7 @@ export function DossierEtudiantVue({
                 les séances du professeur concerné.
               </p>
             )}
-            {periodes.length === 0 && (diagnostic || diagnosticPartenaire) && (
+            {!aDuParcours && (diagnostic || diagnosticPartenaire) && (
               <BlocDiagnosticDuo
                 diagnostic={diagnostic}
                 diagnosticPartenaire={diagnosticPartenaire}
@@ -782,15 +883,27 @@ export function DossierEtudiantVue({
                 tarifChoisi={cohorte ? tarifChoisi : null}
               />
             )}
-            {periodes.length === 0 && !diagnostic && !diagnosticPartenaire && (
+            {!aDuParcours && !diagnostic && !diagnosticPartenaire && (
               <EtatVide
                 icone="seances"
                 titre="Aucune séance enregistrée"
                 description="Le parcours se remplit automatiquement dès qu’un professeur est attribué et que ses séances sont planifiées puis clôturées."
               />
             )}
-            {periodes.length > 0 && (
+            {aDuParcours && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* La classe de niveau en premier : c'est le suivi EN COURS d'un élève collectif,
+                    là où les périodes individuelles ci-dessous relèvent le plus souvent d'un
+                    parcours antérieur (un élève peut avoir eu un professeur individuel avant de
+                    rejoindre une vague). */}
+                {seancesCollectives.length > 0 && (
+                  <BlocClasseCollective
+                    seances={seancesCollectives}
+                    professeur={professeurClasse}
+                    classe={cohortClasse}
+                    onClickSeance={onClickSeance}
+                  />
+                )}
                 {periodes.map((periode) => (
                   <BlocPeriode
                     key={periode.affectation.id}
@@ -820,6 +933,27 @@ export function DossierEtudiantVue({
         {ongletActif === 'professeur' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {professeurActuel && <IdentiteProfesseur periode={professeurActuel} />}
+            {/* Élève collectif : son professeur n'est pas une affectation individuelle mais celui
+                de sa classe de niveau (0074). Sans ce bloc, l'onglet ne montrait que le bouton
+                désactivé d'AttribuerProfesseur, sans jamais dire QUI enseigne à cet élève
+                — demande client du 2026-10-19 : « afin de bien suivre l'étudiant en cours
+                collectif ». */}
+            {!professeurActuel && cohorte && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <LigneInfo
+                  label="Professeur de la classe"
+                  valeur={professeurClasse ? `${professeurClasse.prenom} ${professeurClasse.nom}` : 'Non désigné'}
+                />
+                <LigneInfo
+                  label="Classe"
+                  valeur={
+                    cohortClasse
+                      ? `${LABEL_NIVEAU_CLASSE[cohortClasse.niveau]}${cohortClasse.nom ? ` — ${cohortClasse.nom}` : ''}`
+                      : 'Non attribuée'
+                  }
+                />
+              </div>
+            )}
             {panneauProfesseur}
           </div>
         )}
@@ -830,13 +964,13 @@ export function DossierEtudiantVue({
 
             {cohorte && (
               <>
-                {panneauVague && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <button onClick={() => setEditionVagueOuverte((v) => !v)} style={boutonPanneauStyle}>
-                      {editionVagueOuverte ? 'Annuler' : 'Changer'}
-                    </button>
-                  </div>
-                )}
+                {/* Lecture seule, sans bouton « Changer » depuis le 2026-10-19 — demande client :
+                    « pour les étudiants collectifs, l'onglet professeur, forfait, planning
+                    doivent être uniquement en mode lecture. Les modifications se font par classe
+                    dans la section cours collectifs. » Rien n'est perdu : c'est bien là que
+                    l'élève s'ajoute à une classe (CohortesAdmin.tsx), et le faire par classe
+                    évite de déplacer un élève seul hors du groupe avec lequel il suit ses
+                    cours. */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <LigneInfo label="Vague" valeur={cohorte.nom} />
                   <LigneInfo label="Langue" valeur={cohorte.langue ?? '—'} />
@@ -858,7 +992,9 @@ export function DossierEtudiantVue({
                     </>
                   )}
                 </div>
-                {editionVagueOuverte && panneauVague}
+                <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted-2)', lineHeight: 1.5 }}>
+                  Vague et classe se modifient depuis Cours collectifs, par classe — jamais élève par élève.
+                </p>
               </>
             )}
 
@@ -913,7 +1049,11 @@ export function DossierEtudiantVue({
           </div>
         )}
 
-        {ongletActif === 'planning' && forfait && (
+        {/* `cohorte` admise depuis le 2026-10-19 : le planning d'un élève collectif est celui de
+            sa classe. Aucun bouton n'y apparaît — l'appelant ne fournit `panneauPlanification`
+            que pour un forfait individuel — et les lignes passent par `onClickSeance`, qui
+            n'ouvre jamais la reprogrammation sur une séance collective. */}
+        {ongletActif === 'planning' && (forfait || cohorte) && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {panneauPlanification && (
               <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -937,15 +1077,15 @@ export function DossierEtudiantVue({
                     {seancesPlanifiees.map((s) => (
                       <div
                         key={s.enrollment.id}
-                        onClick={peutModifierPlanning ? () => setSeanceEnEdition(s) : undefined}
-                        className={peutModifierPlanning ? 'row-hl' : undefined}
+                        onClick={() => onClickSeance(s)}
+                        className="row-hl"
                         style={{
                           display: 'flex',
                           alignItems: 'center',
                           gap: 14,
                           padding: '9px 13px',
                           borderBottom: '1px solid var(--border-soft)',
-                          cursor: peutModifierPlanning ? 'pointer' : 'default',
+                          cursor: 'pointer',
                         }}
                       >
                         <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1 }}>
@@ -964,7 +1104,11 @@ export function DossierEtudiantVue({
                 compact
                 icone="seances"
                 titre="Aucune séance planifiée"
-                description="Générez le planning prévisionnel du forfait pour que l’élève et son professeur voient leurs prochaines échéances."
+                description={
+                  cohorte
+                    ? 'Le planning de cet élève est celui de sa classe : il se remplit depuis Cours collectifs, dès que les séances de la classe sont programmées.'
+                    : 'Générez le planning prévisionnel du forfait pour que l’élève et son professeur voient leurs prochaines échéances.'
+                }
               />
             )}
 

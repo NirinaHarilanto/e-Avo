@@ -62,6 +62,25 @@ export function libelleTypeSeance(
   return type === 'individuel' ? 'Individuel' : 'Collectif'
 }
 
+/* Séances d'un élève que AUCUNE de ses affectations individuelles ne réclame — demande client du
+   2026-10-19 : « il faudrait que tous les étudiants en cours collectifs soient visibles dans la
+   section Étudiants afin de bien suivre l'étudiant en cours collectif ». Le parcours d'un dossier
+   se construit sur `teacher_assignments` (une période par professeur), or un élève en cours
+   collectif n'en a aucune : son professeur est celui de sa classe de niveau (0074). Ses séances
+   restaient donc invisibles, et son dossier affichait « Aucune séance enregistrée » alors qu'il
+   suivait normalement ses cours.
+
+   Le second test (`!ids.has(...)`) n'est pas redondant avec le premier : une affectation
+   supprimée laisse derrière elle des inscriptions qui la référencent encore, et ces séances-là
+   ne doivent pas disparaître du dossier non plus. */
+export function seancesHorsAffectation<S extends { enrollment: { teacher_assignment_id: string | null } }>(
+  seances: S[],
+  affectationIds: string[],
+): S[] {
+  const ids = new Set(affectationIds)
+  return seances.filter((s) => !s.enrollment.teacher_assignment_id || !ids.has(s.enrollment.teacher_assignment_id))
+}
+
 /* Auteur affiché dans l'historique d'une séance (EditerSeancePlanifieeModale.tsx) — demande
    client du 2026-10-19, capture à l'appui : une modification faite par un admin s'affichait
    « Utilisateur inconnu ». `estAdmin` vient de `session_modifications.modifie_par_est_admin`

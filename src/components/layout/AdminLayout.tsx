@@ -9,18 +9,10 @@ const ADMIN_NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Prospects', href: '/admin/prospects', disponible: true, icone: 'prospects', description: 'Suivi des candidats avant inscription' },
       { label: 'Agenda', href: '/admin/rendez-vous', disponible: true, icone: 'seances', description: 'Demandes d’appel diagnostic et rendez-vous à valider' },
-      {
-        // Renommé le 2026-10-19 (capture client, flèche sur cette entrée) : à côté de « Cours
-        // collectifs » juste en dessous, « Étudiants » seul ne disait pas lequel des deux publics
-        // on y gère — cette page couvre les parcours individuel et duo, jamais le collectif (sa
-        // propre page, séparée). L'adresse (/admin/etudiants) et le composant ne changent pas,
-        // seul l'intitulé affiché change.
-        label: 'Cours individuels & DUO',
-        href: '/admin/etudiants',
-        disponible: true,
-        icone: 'etudiants',
-        description: 'Dossiers, professeurs et forfaits',
-      },
+      // Reste « Étudiants » : renommée « Cours individuels & DUO » le 2026-10-19 puis remise telle
+      // quelle le même jour, la page réunissant désormais TOUS les élèves — collectifs compris,
+      // en lecture seule pour ce qui se décide par classe (voir DossierEtudiantVue.tsx).
+      { label: 'Étudiants', href: '/admin/etudiants', disponible: true, icone: 'etudiants', description: 'Dossiers, professeurs et forfaits' },
       { label: 'Cours collectifs', href: '/admin/vagues', disponible: true, icone: 'vagues', description: 'Vagues, sessions de test oral et quiz de positionnement' },
       {
         // Renommé le 2026-10-19 (demande client) : à côté de « Professeurs » juste en dessous

@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
 import { chargerProfilsEtablissement } from '../lib/profilsEtablissement'
+import { seancesHorsAffectation } from '../lib/seances'
 import { useCacheRequete } from './useCacheRequete'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -29,6 +30,10 @@ export interface PeriodeProfesseur {
 export interface DossierEtudiant {
   etudiant: Profile
   periodes: PeriodeProfesseur[]
+  /* Séances suivies hors de toute affectation individuelle : celles de la classe de niveau d'un
+     élève en cours collectif (0074). Elles n'appartiennent à aucune `PeriodeProfesseur`, qui se
+     construit à partir de `teacher_assignments` — un élève collectif n'en a aucun. */
+  seancesCollectives: SeanceDuParcours[]
   /* Affectation en cours, reconnue à `date_fin is null` — jamais « la première période de la
      liste ». Deux affectations peuvent partager la même `date_debut` (c'est une date, pas un
      instant : un changement de professeur le jour même en crée deux), et à égalité PostgreSQL
@@ -189,6 +194,22 @@ export function useDossierEtudiant(studentId: string | undefined) {
         .sort((a, b) => a.session.debut.localeCompare(b.session.debut)),
     }))
 
+    /* Séances suivies SANS affectation individuelle — celles d'une classe de niveau (0074) :
+       l'élève y est inscrit par sa classe, pas par un `teacher_assignments`, donc leur
+       `teacher_assignment_id` est nul et aucune des périodes ci-dessus ne les réclame. Sans ce
+       champ, le dossier d'un élève collectif n'affichait AUCUNE séance : « Aucune séance
+       enregistrée » alors qu'il suivait son cursus normalement (demande client du 2026-10-19 :
+       « il faudrait que tous les étudiants en cours collectifs soient visibles dans la section
+       Étudiants afin de bien suivre l'étudiant en cours collectif »).
+
+       Le rattachement se fait par l'absence d'affectation plutôt que par `sessions.type` : une
+       séance collective reste collective même si l'élève a eu un professeur individuel par
+       ailleurs, et c'est bien le lien d'inscription qui décide de qui l'a planifiée. */
+    const seancesCollectives = seancesHorsAffectation(
+      seancesToutes,
+      (affectations ?? []).map((a) => a.id),
+    ).sort((a, b) => a.session.debut.localeCompare(b.session.debut))
+
     const maintenant = new Date().toISOString()
     const prochaineSeance =
       seancesToutes
@@ -198,6 +219,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
     return {
       etudiant,
       periodes,
+      seancesCollectives,
       periodeActuelle: periodes.find((p) => !p.affectation.date_fin) ?? null,
       diagnostic,
       diagnosticPartenaire: diagnosticPartenaire ?? null,

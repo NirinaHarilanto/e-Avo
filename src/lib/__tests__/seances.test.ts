@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { estSeanceDuo, inscriptionsVisibles, libelleAuteurModification, libelleTypeSeance, nomEleveInscrit } from '../seances'
+import {
+  estSeanceDuo,
+  inscriptionsVisibles,
+  libelleAuteurModification,
+  libelleTypeSeance,
+  nomEleveInscrit,
+  seancesHorsAffectation,
+} from '../seances'
 
 describe('nomEleveInscrit', () => {
   it('nomme explicitement un élève dont le profil n’est plus résoluble', () => {
@@ -90,5 +97,35 @@ describe('libelleAuteurModification', () => {
 
   it('dit « Utilisateur inconnu » seulement quand ni la capacité ni le nom ne sont connus', () => {
     expect(libelleAuteurModification(false, null)).toBe('Utilisateur inconnu')
+  })
+})
+
+/* Demande client du 2026-10-19 : le dossier d'un élève en cours collectif affichait « Aucune
+   séance enregistrée ». Les périodes du parcours se construisent sur `teacher_assignments`, qu'un
+   élève collectif n'a pas — ses séances, inscrites par sa classe de niveau (0074), n'étaient
+   réclamées par aucune période et disparaissaient du dossier. */
+describe('seancesHorsAffectation', () => {
+  const seance = (id: string, teacher_assignment_id: string | null) => ({ id, enrollment: { teacher_assignment_id } })
+
+  it('retient les séances d’une classe de niveau, sans affectation individuelle', () => {
+    const seances = [seance('collective-1', null), seance('individuelle-1', 'affectation-1')]
+    expect(seancesHorsAffectation(seances, ['affectation-1']).map((s) => s.id)).toEqual(['collective-1'])
+  })
+
+  it('laisse les séances individuelles à leur période', () => {
+    const seances = [seance('individuelle-1', 'affectation-1'), seance('individuelle-2', 'affectation-2')]
+    expect(seancesHorsAffectation(seances, ['affectation-1', 'affectation-2'])).toEqual([])
+  })
+
+  it('ne perd pas une séance dont l’affectation a disparu', () => {
+    // Sinon elle ne s'afficherait nulle part : ni dans une période (l'affectation n'existe plus),
+    // ni dans le bloc collectif.
+    const seances = [seance('orpheline', 'affectation-supprimee')]
+    expect(seancesHorsAffectation(seances, ['affectation-1']).map((s) => s.id)).toEqual(['orpheline'])
+  })
+
+  it('rend toutes les séances quand l’élève n’a aucune affectation', () => {
+    const seances = [seance('collective-1', null), seance('collective-2', null)]
+    expect(seancesHorsAffectation(seances, [])).toHaveLength(2)
   })
 })
