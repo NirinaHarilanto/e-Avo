@@ -37,13 +37,19 @@ export function ModaleReservation({
   const [confirme, setConfirme] = useState(false)
 
   return (
-    <div className="voile-modale" onClick={onFermer}>
+    /* Plus de fermeture au clic extérieur (demande client du 2026-10-19, capture à l'appui) :
+       un clic accidentel à côté du quiz de positionnement (jusqu'à 67 questions chronométrées)
+       ou du formulaire de réservation (nom, e-mail, téléphone, objectif, parfois un binôme
+       entier) effaçait tout sans confirmation. Seule la croix « Fermer » ferme désormais cette
+       fenêtre — même règle que `Modale.tsx` applique déjà ailleurs dans l'app pour une longue
+       saisie en cours (`fermetureExterieureDesactivee`), simplement inconditionnelle ici : ce
+       balisage-ci est propre à cette seule fenêtre publique, pas partagé. */
+    <div className="voile-modale">
       <div
         role="dialog"
         aria-modal="true"
         aria-label={libelleAppel(type)}
         className="card fenetre-reservation"
-        onClick={(e) => e.stopPropagation()}
       >
         <header className="entete-reservation">
           <div style={{ minWidth: 0 }}>
