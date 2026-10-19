@@ -11,8 +11,10 @@ export const config = { runtime: 'edge' }
  * prospect n'est pas un compte : rien ne l'empêche d'être vraiment effacé. Les FK sans cascade
  * protègent déjà ce qui compte : un prospect qui a déjà réglé un acompte de forfait
  * (`student_payments.prospect_id`, 0056) ne peut pas être supprimé tant que cette ligne
- * financière existe — l'admin doit d'abord la traiter via supprimer-ligne-financiere.ts, comme
- * n'importe quelle autre trace financière de l'application. `diagnostic_calls`, lui, n'a aucune
+ * financière est ACTIVE — l'admin doit d'abord la traiter via supprimer-ligne-financiere.ts,
+ * comme n'importe quelle autre trace financière de l'application. Une fois traitée, en revanche,
+ * la ligne supprimée en douceur est purgée ici : sans cela, son `prospect_id` retenait le
+ * prospect en base pour toujours (voir le détail plus bas). `diagnostic_calls`, lui, n'a aucune
  * portée financière : supprimé avec le prospect, volontairement (sinon « supprimer un prospect
  * à chaque étape », y compris après son diagnostic, resterait impossible — la contrainte FK
  * bloquerait juste la suppression). `rendez_vous` et `test_positionnement_inscriptions` cascadent
@@ -47,16 +49,55 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Prospect introuvable pour cet établissement.' }, { status: 404 })
     }
 
-    const { count: nombrePaiements } = await serviceClient
+    /* Toutes les lignes financières du prospect, supprimées en douceur comprises : la colonne
+       `student_payments.prospect_id` (0056) n'a volontairement ni `on delete cascade` ni
+       `on delete set null`, donc chacune de ces lignes retient le prospect en base. Le garde-fou
+       ci-dessous ne comptait que les lignes encore actives : une fois le forfait supprimé depuis
+       la fiche, il passait, et c'est le DELETE final qui échouait sur une violation de clé
+       étrangère brute — la suppression d'un candidat ayant un jour réglé un acompte restait donc
+       impossible à jamais (incident du 2026-10-19, candidat collectif « Ludovic bensas »). */
+    const { data: paiements, error: erreurLecturePaiements } = await serviceClient
       .from('student_payments')
-      .select('id', { count: 'exact', head: true })
+      .select('id, student_id, supprime_le')
       .in('prospect_id', prospectIds)
-      .is('supprime_le', null)
-    if (nombrePaiements && nombrePaiements > 0) {
+    if (erreurLecturePaiements) {
+      return Response.json({ error: erreurLecturePaiements.message }, { status: 500 })
+    }
+
+    if ((paiements ?? []).some((p) => p.supprime_le === null)) {
       return Response.json(
         { error: 'Ce prospect a déjà un paiement de forfait enregistré : supprimez-le d’abord depuis sa fiche.' },
         { status: 409 },
       )
+    }
+    /* Une ligne déjà convertie porte AUSSI un titulaire étudiant : elle appartient au dossier de
+       l'élève, pas au prospect, et n'a donc rien à faire dans la suppression de celui-ci. Le cas
+       ne devrait pas se présenter (le filtre `statut === 'etudiant'` plus haut l'écarte), mais
+       `prospects.statut` n'est pas garanti synchronisé avec la réalité des profils : mieux vaut un
+       refus explicite qu'une erreur Postgres à l'écran. */
+    if ((paiements ?? []).some((p) => p.student_id)) {
+      return Response.json(
+        { error: 'Ce prospect est déjà rattaché au dossier financier d’un élève : supprimez le compte de l’élève depuis la page Étudiants.' },
+        { status: 409 },
+      )
+    }
+
+    /* Reste les lignes supprimées en douceur et jamais converties : l'admin les a déjà traitées
+       depuis la fiche, on les efface pour de bon. Leurs acomptes (`paiement_versements`, 0049) et
+       leurs échéances (`paiement_echeances`, 0070) suivent d'eux-mêmes (`on delete cascade`), et
+       aucune facture ne peut les référencer (0056 ne génère ni reçu ni facture tant que le
+       titulaire est un prospect). */
+    if ((paiements ?? []).length > 0) {
+      const { error: erreurPurgePaiements } = await serviceClient
+        .from('student_payments')
+        .delete()
+        .in(
+          'id',
+          (paiements ?? []).map((p) => p.id),
+        )
+      if (erreurPurgePaiements) {
+        return Response.json({ error: erreurPurgePaiements.message }, { status: 500 })
+      }
     }
 
     const { error: erreurDiagnostics } = await serviceClient.from('diagnostic_calls').delete().in('prospect_id', prospectIds)
