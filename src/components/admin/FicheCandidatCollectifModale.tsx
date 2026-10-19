@@ -15,6 +15,7 @@ import { ConvertirCandidatCollectif } from '../prospects/ConvertirCandidatCollec
 import { ReevaluerEtudiantCollectif } from '../prospects/ReevaluerEtudiantCollectif'
 import { FraisInscriptionCollectifModale, type FraisInscription } from '../prospects/FraisInscriptionCollectifModale'
 import { DetailPaiementModale, type CiblePaiement } from '../paiements/DetailPaiementModale'
+import { SupprimerCompte } from '../shared/SupprimerCompte'
 import { AssignerVague } from '../etudiants/AssignerVague'
 import { ChangerClasseEtudiant } from '../etudiants/ChangerClasseEtudiant'
 import { Modale } from '../ui/Modale'
@@ -241,6 +242,27 @@ export function FicheCandidatCollectifModale({
               >
                 {marquageOralEnCours ? 'Enregistrement…' : 'Marquer le test oral comme passé'}
               </button>
+            )}
+            {/* Suppression complète du compte — demande client du 2026-10-19 : « dans la section
+                des cours collectifs, il faut rajouter la possibilité de supprimer complètement un
+                étudiant ». Jusqu'ici, un admin devait quitter Cours collectifs et rouvrir le
+                dossier depuis la page Étudiants pour faire ce même geste (déjà possible là-bas,
+                voir EtudiantsAdmin.tsx). Même composant, donc même comportement, garanties et
+                texte de confirmation qu'ailleurs dans l'application — y compris la disparition de
+                ce candidat du Suivi des cours collectifs lui-même (construireSuiviCollectif.ts
+                exclut déjà tout profil suspendu). Seulement une fois converti : un candidat encore
+                prospect se supprime différemment (SupprimerProspect, depuis le pipeline), hors du
+                périmètre de cette demande. */}
+            {profilEtudiant && (
+              <span style={{ marginLeft: 'auto' }}>
+                <SupprimerCompte
+                  personne={profilEtudiant}
+                  onSupprime={() => {
+                    onChange()
+                    onFermer()
+                  }}
+                />
+              </span>
             )}
           </div>
 
