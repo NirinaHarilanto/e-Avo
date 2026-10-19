@@ -11,6 +11,7 @@ import { useEtablissement } from '../../hooks/useEtablissement'
 import type { Database } from '../../types/database.types'
 import { InformationsPersonnelles } from '../shared/InformationsPersonnelles'
 import { EditerIdentiteProspect } from '../prospects/EditerIdentiteProspect'
+import { SupprimerProspect } from '../prospects/SupprimerProspect'
 import { ConvertirCandidatCollectif } from '../prospects/ConvertirCandidatCollectif'
 import { ReevaluerEtudiantCollectif } from '../prospects/ReevaluerEtudiantCollectif'
 import { FraisInscriptionCollectifModale, type FraisInscription } from '../prospects/FraisInscriptionCollectifModale'
@@ -243,18 +244,26 @@ export function FicheCandidatCollectifModale({
                 {marquageOralEnCours ? 'Enregistrement…' : 'Marquer le test oral comme passé'}
               </button>
             )}
-            {/* Suppression complète du compte — demande client du 2026-10-19 : « dans la section
-                des cours collectifs, il faut rajouter la possibilité de supprimer complètement un
-                étudiant ». Jusqu'ici, un admin devait quitter Cours collectifs et rouvrir le
-                dossier depuis la page Étudiants pour faire ce même geste (déjà possible là-bas,
-                voir EtudiantsAdmin.tsx). Même composant, donc même comportement, garanties et
-                texte de confirmation qu'ailleurs dans l'application — y compris la disparition de
-                ce candidat du Suivi des cours collectifs lui-même (construireSuiviCollectif.ts
-                exclut déjà tout profil suspendu). Seulement une fois converti : un candidat encore
-                prospect se supprime différemment (SupprimerProspect, depuis le pipeline), hors du
-                périmètre de cette demande. */}
-            {profilEtudiant && (
-              <span style={{ marginLeft: 'auto' }}>
+            {/* Suppression complète — demande client du 2026-10-19 : « dans la section des cours
+                collectifs, il faut rajouter la possibilité de supprimer complètement un
+                étudiant », précisée à la capture suivante : le bouton doit être sur CETTE fiche,
+                à n'importe quelle étape du candidat — pas seulement une fois converti. Jusqu'ici,
+                supprimer un candidat collectif obligeait à retrouver sa trace ailleurs : la page
+                Étudiants (une fois converti, via SupprimerCompte) ou le pipeline Prospects (avant
+                conversion, via SupprimerProspect) — or un candidat collectif dont le quiz est
+                terminé a justement disparu du pipeline (demande 3 du même chantier), le laissant
+                sans AUCUN moyen de suppression tant qu'il n'était pas converti.
+
+                Les deux mêmes composants qu'ailleurs, choisis selon l'étape : même comportement,
+                mêmes garanties, même texte de confirmation — y compris la disparition
+                automatique de la ligne au Suivi (construireSuiviCollectif.ts exclut déjà tout
+                profil suspendu et toute suppression de prospect fait disparaître la ligne de la
+                table source). Un prospect qui a déjà un paiement de frais d'inscription enregistré
+                (comme Ludivic ici) ne peut pas être supprimé tant que cette ligne existe — l'API
+                le dit explicitement, et c'est la même garde que partout ailleurs dans
+                l'application : la ligne se supprime d'abord depuis « Paiements » juste en dessous. */}
+            <span style={{ marginLeft: 'auto' }}>
+              {profilEtudiant ? (
                 <SupprimerCompte
                   personne={profilEtudiant}
                   onSupprime={() => {
@@ -262,8 +271,16 @@ export function FicheCandidatCollectifModale({
                     onFermer()
                   }}
                 />
-              </span>
-            )}
+              ) : (
+                <SupprimerProspect
+                  prospects={[{ id: prospect.id, prenom: prospect.prenom, nom: prospect.nom }]}
+                  onSupprime={() => {
+                    onChange()
+                    onFermer()
+                  }}
+                />
+              )}
+            </span>
           </div>
 
           {/* Identité : éditée dans `profiles` une fois converti (source de vérité partout
