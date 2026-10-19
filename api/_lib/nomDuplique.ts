@@ -69,7 +69,7 @@ export async function trouverHomonymeProspect(
   serviceClient: ServiceClient,
   params: { etablissementId: string; nom: string; prenom: string },
 ) {
-  const [{ data: prospects }, { data: profils }] = await Promise.all([
+  const [{ data: prospects }, { data: profils }, { data: profilsSupprimes }] = await Promise.all([
     serviceClient.from('prospects').select('id, nom, prenom').eq('etablissement_id', params.etablissementId),
     serviceClient
       .from('profiles')
@@ -77,10 +77,26 @@ export async function trouverHomonymeProspect(
       .eq('etablissement_id', params.etablissementId)
       .in('role', ['etudiant', 'professeur'])
       .neq('status', 'suspended'),
+    /* Prospects d'origine des comptes SUPPRIMÉS — signalé par le client le 2026-10-19 : « je suis
+       encore bloqué par des utilisateurs fantômes, qui ont été supprimés ». Le profil suspendu est
+       déjà ignoré (requête ci-dessus), mais le prospect dont il était né restait, lui, en base :
+       il suffisait à réserver le nom à vie, alors que la personne n'apparaît plus nulle part dans
+       l'application. supprimer-utilisateur.ts efface désormais ce prospect ; ce filtre couvre
+       ceux qui existaient avant le correctif, et tout prospect qu'une suppression future
+       laisserait passer. */
+    serviceClient
+      .from('profiles')
+      .select('prospect_id')
+      .eq('etablissement_id', params.etablissementId)
+      .eq('status', 'suspended')
+      .not('prospect_id', 'is', null),
   ])
 
+  const fantomes = new Set((profilsSupprimes ?? []).map((p) => p.prospect_id))
+  const prospectsVivants = (prospects ?? []).filter((p) => !fantomes.has(p.id))
+
   return (
-    (prospects ?? []).find((p) => memeNom(p, params)) ?? (profils ?? []).find((p) => memeNom(p, params)) ?? null
+    prospectsVivants.find((p) => memeNom(p, params)) ?? (profils ?? []).find((p) => memeNom(p, params)) ?? null
   )
 }
 

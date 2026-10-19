@@ -44,6 +44,13 @@ export const config = { runtime: 'edge' }
  * visible par d'autres personnes doit rejoindre cette liste au même endroit — c'est la seule façon
  * d'empêcher une personne supprimée de ressurgir ailleurs sans qu'un développeur ait à s'en
  * souvenir page par page.
+ *
+ * Complété le 2026-10-19, à la demande du client (« il faut que la suppression soit totale et sans
+ * historique bloquant pour le ré-ajout ») : `purgerProspectDOrigine`. Une trace supprimée ne doit
+ * pas seulement cesser d'être VISIBLE, elle doit cesser d'EMPÊCHER — le prospect dont le compte
+ * était né restait en base et faisait refuser toute nouvelle inscription du même nom depuis la
+ * page publique. Même critère à appliquer à toute garde d'unicité ajoutée plus tard : elle ne
+ * compte que ce qui est encore vivant, jamais ce qui a été supprimé.
  */
 async function purgerDocuments(
   serviceClient: Awaited<ReturnType<typeof requireAdmin>>['serviceClient'],
@@ -409,6 +416,46 @@ async function nettoyerPartenaireDuoJamaisActive(
   }
 }
 
+/* Le prospect dont ce compte est né — signalé par le client le 2026-10-19 : « je suis encore
+   bloqué par des utilisateurs fantômes, qui ont été supprimés. Il faut que la suppression soit
+   totale et sans historique bloquant pour le ré-ajout ». Le profil passe bien en `suspended` et
+   disparaît partout, mais la ligne `prospects` d'origine, elle, restait : elle suffisait à faire
+   refuser une nouvelle inscription du même nom depuis la page publique (trouverHomonymeProspect),
+   à vie. Cinq comptes supprimés étaient dans ce cas en production.
+
+   L'historique financier, lui, n'est jamais perdu — c'est la règle de ce fichier (« SAUF les
+   historiques de paiement », 2026-09-24). `student_payments.prospect_id` (0056) n'a ni cascade ni
+   `set null`, donc chaque ligne est d'abord détachée du prospect, en lui posant au besoin le
+   `student_id` du compte supprimé : c'est la même personne, la ligne reste donc rattachée à son
+   dossier et reste identifiable par un nom, ce que la contrainte `student_payments_titulaire`
+   exige de toute façon. */
+export async function purgerProspectDOrigine(
+  serviceClient: Awaited<ReturnType<typeof requireAdmin>>['serviceClient'],
+  profileId: string,
+  prospectId: string | null,
+): Promise<void> {
+  if (!prospectId) return
+
+  const { data: paiements } = await serviceClient
+    .from('student_payments')
+    .select('id, student_id')
+    .eq('prospect_id', prospectId)
+
+  for (const paiement of paiements ?? []) {
+    await serviceClient
+      .from('student_payments')
+      .update({ prospect_id: null, student_id: paiement.student_id ?? profileId })
+      .eq('id', paiement.id)
+  }
+
+  /* Aucune portée financière, et `diagnostic_calls.prospect_id` (0006) n'a pas de cascade :
+     même geste que supprimer-prospect.ts. `rendez_vous`, `test_positionnement_inscriptions` et
+     `relances` cascadent déjà (0042/0051/0130), et le `duo_partenaire_id` d'un éventuel binôme
+     repasse à null tout seul (0054). */
+  await serviceClient.from('diagnostic_calls').delete().eq('prospect_id', prospectId)
+  await serviceClient.from('prospects').delete().eq('id', prospectId)
+}
+
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 })
@@ -426,7 +473,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: cible, error: erreurCible } = await serviceClient
       .from('profiles')
-      .select('id, role, etablissement_id, duo_partenaire_id')
+      .select('id, role, etablissement_id, duo_partenaire_id, prospect_id')
       .eq('id', body.profileId)
       .maybeSingle()
 
@@ -452,6 +499,7 @@ export default async function handler(request: Request): Promise<Response> {
     await purgerPartagesDocuments(serviceClient, body.profileId)
     await purgerMessages(serviceClient, body.profileId)
     await rompreLienDuo(serviceClient, body.profileId)
+    await purgerProspectDOrigine(serviceClient, body.profileId, cible.prospect_id)
 
     /* `email` remis à null en même temps que le statut — pas seulement l'e-mail Auth (anonymisé
        plus bas par `deleteUser(..., true)`, ce qui libère bien l'adresse pour un nouveau compte
