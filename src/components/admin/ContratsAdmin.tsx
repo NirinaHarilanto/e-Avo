@@ -27,7 +27,10 @@ const STATUTS_MODIFIABLES: StatutContrat[] = ['brouillon', 'envoye', 'resilie']
 
 export function ContratsAdmin() {
   const { profile } = useProfileContext()
-  const [onglet, setOnglet] = useState<Onglet>('modeles')
+  // Contrats avant Modèles, et premier onglet affiché à l'arrivée sur la page — demande client
+  // du 2026-10-19 : c'est le suivi des contrats en cours que l'admin vient consulter le plus
+  // souvent, les modèles ne servent qu'à préparer ce suivi en amont.
+  const [onglet, setOnglet] = useState<Onglet>('contrats')
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [modeleEnEdition, setModeleEnEdition] = useState<ContractTemplate | null>(null)
   const [contratAImprimer, setContratAImprimer] = useState<ContratAvecDestinataire | null>(null)
@@ -76,8 +79,8 @@ export function ContratsAdmin() {
             setModeleEnEdition(null)
           }}
           onglets={[
-            { value: 'modeles', label: 'Modèles', compteur: modeles.length },
             { value: 'contrats', label: 'Contrats', compteur: contrats.length },
+            { value: 'modeles', label: 'Modèles', compteur: modeles.length },
           ]}
         />
       </div>
