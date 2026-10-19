@@ -202,6 +202,9 @@ export default async function handler(request: Request): Promise<Response> {
         session_id: session.id,
         etablissement_id: etablissementId,
         modifie_par: profileId,
+        // Capturé ici, jamais recalculé à la lecture — même raisonnement que modifier-seance.ts
+        // (voir 0132).
+        modifie_par_est_admin: roles.includes('admin_etablissement'),
         type_modification: nouveauStatut === 'reportee' ? 'reportee' : 'absence_comptabilisee',
         ancien_debut: session.debut,
         ancienne_duree_minutes: session.duree_minutes,

@@ -6,12 +6,14 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
    cliquée est annulée ; 'serie' annule toutes les séances SŒURS encore planifiées, et une seule
    notification consolidée part plutôt qu'une par séance. */
 
+let rolesActuels: Array<'professeur' | 'admin_etablissement'> = ['professeur']
+
 vi.mock('../../_lib/teacherAuth.js', () => ({
   requireTeacherOrAdmin: vi.fn(async (..._args: unknown[]) => ({
     serviceClient: clientFactice(),
     profileId: 'prof-1',
     etablissementId: 'etab-1',
-    roles: ['professeur'],
+    roles: rolesActuels,
   })),
   TeacherAuthError: class TeacherAuthError extends Error {
     status: number
@@ -89,9 +91,29 @@ beforeEach(() => {
   misesAJourCapturees = []
   insertionsCapturees = []
   serieIdDemandee = null
+  rolesActuels = ['professeur']
   annulerVisio.mockClear()
   notifierParticipantsSeance.mockClear()
   notifierAdminsMouvementPlanning.mockClear()
+})
+
+/* Demande client du 2026-10-19 : même raisonnement que modifier-seance.test.ts — la capacité
+   réelle de l'acteur est enregistrée à l'écriture, jamais recalculée à la lecture (0132). */
+describe('api/professeur/annuler-seance — modifie_par_est_admin', () => {
+  it('capture true quand l’acteur a la capacité admin', async () => {
+    rolesActuels = ['professeur', 'admin_etablissement']
+    seanceCible = {
+      id: 'seance-1',
+      teacher_id: 'prof-1',
+      statut: 'planifiee',
+      etablissement_id: 'etab-1',
+      debut: '2026-10-19T08:00:00.000Z',
+      duree_minutes: 60,
+      serie_id: null,
+    }
+    await handler(requete({ sessionId: 'seance-1' }))
+    expect(insertionsCapturees).toEqual([expect.objectContaining({ modifie_par_est_admin: true })])
+  })
 })
 
 describe('api/professeur/annuler-seance — portée occurrence/série', () => {

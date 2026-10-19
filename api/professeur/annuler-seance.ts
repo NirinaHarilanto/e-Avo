@@ -21,12 +21,21 @@ interface Corps {
 /* Annule UNE séance en base (statut + historique + visio), sans notifier personne — la
    notification est l'affaire de l'appelant, qui décide d'en envoyer une par séance ou une seule
    consolidée pour toute une série (voir plus bas). */
-async function annulerUneSeance(serviceClient: ServiceClient, session: SeanceAAnnuler, profileId: string, etablissementId: string): Promise<void> {
+async function annulerUneSeance(
+  serviceClient: ServiceClient,
+  session: SeanceAAnnuler,
+  profileId: string,
+  etablissementId: string,
+  estAdmin: boolean,
+): Promise<void> {
   await serviceClient.from('sessions').update({ statut: 'annulee' }).eq('id', session.id)
   await serviceClient.from('session_modifications').insert({
     session_id: session.id,
     etablissement_id: etablissementId,
     modifie_par: profileId,
+    // Capturé ici, jamais recalculé à la lecture — même raisonnement que modifier-seance.ts
+    // (voir 0132).
+    modifie_par_est_admin: estAdmin,
     type_modification: 'annulee',
     ancien_debut: session.debut,
     ancienne_duree_minutes: session.duree_minutes,
@@ -88,8 +97,9 @@ export default async function handler(request: Request): Promise<Response> {
           ).data ?? [session]
         : [session]
 
+    const estAdmin = roles.includes('admin_etablissement')
     for (const s of sessionsAAnnuler) {
-      await annulerUneSeance(serviceClient, s, profileId, etablissementId)
+      await annulerUneSeance(serviceClient, s, profileId, etablissementId, estAdmin)
     }
 
     const estSerie = sessionsAAnnuler.length > 1

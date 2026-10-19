@@ -33,12 +33,16 @@ async function reprogrammerUneSeance(
   profileId: string,
   etablissementId: string,
   justificatif: string,
+  estAdmin: boolean,
 ): Promise<void> {
   await serviceClient.from('sessions').update({ debut: nouveauDebut, duree_minutes: nouvelleDuree }).eq('id', session.id)
   await serviceClient.from('session_modifications').insert({
     session_id: session.id,
     etablissement_id: etablissementId,
     modifie_par: profileId,
+    // Capturé ici, jamais recalculé à la lecture : un admin plateforme reste invisible via RLS
+    // à un autre admin une fois son établissement différent de celui de la séance (0132).
+    modifie_par_est_admin: estAdmin,
     type_modification: 'reprogrammee',
     ancien_debut: session.debut,
     nouveau_debut: nouveauDebut,
@@ -127,7 +131,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     for (const s of seancesAReprogrammer) {
       const debutDeS = s.id === session.id ? nouveauDebut : new Date(new Date(s.debut).getTime() + deltaMs).toISOString()
-      await reprogrammerUneSeance(serviceClient, s, debutDeS, nouvelleDuree, profileId, etablissementId, justificatif)
+      await reprogrammerUneSeance(serviceClient, s, debutDeS, nouvelleDuree, profileId, etablissementId, justificatif, estAdmin)
     }
 
     const estSerie = seancesAReprogrammer.length > 1

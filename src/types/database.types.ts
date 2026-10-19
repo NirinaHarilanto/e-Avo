@@ -648,6 +648,11 @@ export interface Database {
           ancienne_duree_minutes: number
           nouvelle_duree_minutes: number | null
           justificatif: string | null
+          /* Capacité réelle de l'acteur au moment d'agir (0132), jamais recalculée à la lecture :
+             un admin plateforme garde une ligne `profiles` rattachée à SON établissement
+             d'origine, invisible via RLS à un autre admin dès que la séance appartient à un
+             établissement différent — d'où « Utilisateur inconnu » affiché à tort. */
+          modifie_par_est_admin: boolean
           created_at: string
         }
         Insert: {
@@ -661,6 +666,7 @@ export interface Database {
           ancienne_duree_minutes: number
           nouvelle_duree_minutes?: number | null
           justificatif?: string | null
+          modifie_par_est_admin?: boolean
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['session_modifications']['Insert']>

@@ -6,12 +6,14 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
    date de chacune ne change pas, seule l'heure du jour se décale, comme Google Agenda sur « toute
    la série ». Sans portée précisée, seule la séance cliquée bouge. */
 
+let rolesActuels: Array<'professeur' | 'admin_etablissement'> = ['professeur']
+
 vi.mock('../../_lib/teacherAuth.js', () => ({
   requireTeacherOrAdmin: vi.fn(async (..._args: unknown[]) => ({
     serviceClient: clientFactice(),
     profileId: 'prof-1',
     etablissementId: 'etab-1',
-    roles: ['professeur'],
+    roles: rolesActuels,
   })),
   TeacherAuthError: class TeacherAuthError extends Error {
     status: number
@@ -89,9 +91,48 @@ beforeEach(() => {
   misesAJourCapturees = []
   insertionsCapturees = []
   serieIdDemandee = null
+  rolesActuels = ['professeur']
   deplacerVisio.mockClear()
   notifierParticipantsSeance.mockClear()
   notifierAdminsMouvementPlanning.mockClear()
+})
+
+/* Demande client du 2026-10-19, capture à l'appui : l'historique d'une séance affichait
+   « Utilisateur inconnu » pour une modification pourtant faite par un admin — l'auteur était
+   résolu en relisant `profiles` avec le client authentifié, soumis à une RLS qui ne garantit pas
+   qu'un admin voie toujours la ligne d'un AUTRE admin (voir la migration 0132). La capacité
+   réelle de l'acteur est donc enregistrée ici, au moment de l'action, indépendamment de toute
+   lecture ultérieure. */
+describe('api/professeur/modifier-seance — modifie_par_est_admin', () => {
+  it('capture false quand l’acteur est un professeur', async () => {
+    rolesActuels = ['professeur']
+    seanceCible = {
+      id: 'seance-1',
+      teacher_id: 'prof-1',
+      statut: 'planifiee',
+      etablissement_id: 'etab-1',
+      debut: '2026-10-19T08:00:00.000Z',
+      duree_minutes: 60,
+      serie_id: null,
+    }
+    await handler(requete({ sessionId: 'seance-1', debut: '2026-10-19T09:00:00.000Z', dureeMinutes: 90, justificatif: 'Imprévu' }))
+    expect(insertionsCapturees).toEqual([expect.objectContaining({ modifie_par_est_admin: false })])
+  })
+
+  it('capture true quand l’acteur a la capacité admin', async () => {
+    rolesActuels = ['professeur', 'admin_etablissement']
+    seanceCible = {
+      id: 'seance-1',
+      teacher_id: 'prof-1',
+      statut: 'planifiee',
+      etablissement_id: 'etab-1',
+      debut: '2026-10-19T08:00:00.000Z',
+      duree_minutes: 60,
+      serie_id: null,
+    }
+    await handler(requete({ sessionId: 'seance-1', debut: '2026-10-19T09:00:00.000Z', dureeMinutes: 90, justificatif: 'Imprévu' }))
+    expect(insertionsCapturees).toEqual([expect.objectContaining({ modifie_par_est_admin: true })])
+  })
 })
 
 describe('api/professeur/modifier-seance — portée occurrence/série', () => {

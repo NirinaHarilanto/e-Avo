@@ -3,6 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useHistoriqueSeance } from '../../hooks/useHistoriqueSeance'
 import type { Database } from '../../types/database.types'
 import { getJoinUrl, estLienReel } from '../../lib/visio'
+import { libelleAuteurModification } from '../../lib/seances'
 import { Modale } from '../ui/Modale'
 import { Champ, champStyle, etiquetteStyle } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
@@ -220,7 +221,7 @@ export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre, e
                 <span style={{ color: 'var(--muted)' }}>
                   {new Date(modification.created_at).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
                   {' · '}
-                  {auteur ? `${auteur.prenom ?? ''} ${auteur.nom ?? ''}`.trim() : 'Utilisateur inconnu'}
+                  {libelleAuteurModification(modification.modifie_par_est_admin, auteur)}
                 </span>
                 {modification.type_modification === 'annulee' ? (
                   <p style={{ margin: '2px 0 0' }}>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estSeanceDuo, inscriptionsVisibles, libelleTypeSeance, nomEleveInscrit } from '../seances'
+import { estSeanceDuo, inscriptionsVisibles, libelleAuteurModification, libelleTypeSeance, nomEleveInscrit } from '../seances'
 
 describe('nomEleveInscrit', () => {
   it('nomme explicitement un élève dont le profil n’est plus résoluble', () => {
@@ -67,5 +67,28 @@ describe('libelleTypeSeance', () => {
   it('garde Individuel et Collectif pour les autres cas', () => {
     expect(libelleTypeSeance('individuel', [{ etudiant: francois }])).toBe('Individuel')
     expect(libelleTypeSeance('collectif', [{ etudiant: francois }, { etudiant: tiers }])).toBe('Collectif')
+  })
+})
+
+/* Demande client du 2026-10-19, capture à l'appui : une modification faite par un admin
+   s'affichait « Utilisateur inconnu » dans l'historique d'une séance, l'auteur étant résolu en
+   relisant `profiles` avec le client authentifié — soumis à une RLS qui ne garantit pas qu'un
+   admin voie la ligne d'un AUTRE admin (voir 0132). `estAdmin` vient désormais d'une colonne
+   enregistrée à l'écriture, indépendante de cette lecture. */
+describe('libelleAuteurModification', () => {
+  it('dit « Admin » quand l’acteur a la capacité admin mais que son nom reste illisible', () => {
+    expect(libelleAuteurModification(true, null)).toBe('Admin')
+  })
+
+  it('ajoute le nom à « Admin » quand il est aussi lisible', () => {
+    expect(libelleAuteurModification(true, { prenom: 'Nirina Stéphane', nom: 'RAKOTONJANAHARY' })).toBe('Admin · Nirina Stéphane RAKOTONJANAHARY')
+  })
+
+  it('affiche le nom seul pour un professeur', () => {
+    expect(libelleAuteurModification(false, { prenom: 'Antsa', nom: 'RAHINARA' })).toBe('Antsa RAHINARA')
+  })
+
+  it('dit « Utilisateur inconnu » seulement quand ni la capacité ni le nom ne sont connus', () => {
+    expect(libelleAuteurModification(false, null)).toBe('Utilisateur inconnu')
   })
 })

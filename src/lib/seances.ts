@@ -61,3 +61,20 @@ export function libelleTypeSeance(
   if (estSeanceDuo(inscriptions)) return 'Duo'
   return type === 'individuel' ? 'Individuel' : 'Collectif'
 }
+
+/* Auteur affiché dans l'historique d'une séance (EditerSeancePlanifieeModale.tsx) — demande
+   client du 2026-10-19, capture à l'appui : une modification faite par un admin s'affichait
+   « Utilisateur inconnu ». `estAdmin` vient de `session_modifications.modifie_par_est_admin`
+   (0132), enregistré à l'écriture et jamais recalculé en relisant le profil : un admin
+   plateforme garde une ligne `profiles` rattachée à SON établissement d'origine, invisible via
+   RLS à un autre admin dès que la séance appartient à un établissement différent
+   (`profiles_admin_select_etablissement`, 0004) — d'où le nom introuvable malgré un acteur bien
+   identifié comme admin. Le nom est ajouté quand il est aussi lisible, jamais substitué à lui. */
+export function libelleAuteurModification(
+  estAdmin: boolean,
+  auteur: { prenom: string | null; nom: string | null } | null,
+): string {
+  const nom = auteur ? `${auteur.prenom ?? ''} ${auteur.nom ?? ''}`.trim() : ''
+  if (estAdmin) return nom ? `Admin · ${nom}` : 'Admin'
+  return nom || 'Utilisateur inconnu'
+}
