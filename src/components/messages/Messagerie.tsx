@@ -10,6 +10,7 @@ import {
   type MessageAvecPersonnes,
 } from '../../hooks/useMessagerie'
 import { useVagues } from '../../hooks/useVagues'
+import { grouperEnvois, libelleDestinataires } from '../../lib/messagerie'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { classesSelectionnables, vaguesSelectionnables } from '../../lib/invitations'
 import { Modale } from '../ui/Modale'
@@ -161,20 +162,28 @@ function FicheMessage({
   estRecu,
   onFermer,
   onChange,
+  messagesGroupe,
 }: {
   message: MessageAvecPersonnes
   estRecu: boolean
   onFermer: () => void
   onChange: () => void
+  /* Les lignes de l'envoi, une par destinataire (2026-10-19) : la fiche en nomme la liste
+     complète, et la suppression les emporte toutes — n'en retirer qu'une ferait réapparaître le
+     même envoi avec un destinataire de moins, ce qui n'a aucun sens pour qui vient de le voir
+     comme UN message. */
+  messagesGroupe?: MessageAvecPersonnes[]
 }) {
   const [repondreOuvert, setRepondreOuvert] = useState(false)
   const [suppressionEnCours, setSuppressionEnCours] = useState(false)
   const correspondant = estRecu ? message.expediteur : message.destinataire
+  const lignes = messagesGroupe?.length ? messagesGroupe : [message]
+  const estGroupe = !estRecu && lignes.length > 1
 
   async function supprimer() {
     setSuppressionEnCours(true)
     try {
-      await supprimerMessage(message.id)
+      for (const ligne of lignes) await supprimerMessage(ligne.id)
       onFermer()
       onChange()
     } finally {
@@ -187,10 +196,17 @@ function FicheMessage({
       <Modale titre={message.objet} onFermer={onFermer} largeurMax={560}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <span style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
-              {estRecu ? 'De' : 'À'} <strong>{nomPersonne(correspondant)}</strong>
-              {correspondant && ` · ${LIBELLE_ROLE[correspondant.role] ?? correspondant.role}`}
-            </span>
+            {estGroupe ? (
+              <span style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.6 }}>
+                À <strong>{lignes.length} destinataires</strong> ·{' '}
+                {lignes.map((l) => nomPersonne(l.destinataire)).join(', ')}
+              </span>
+            ) : (
+              <span style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
+                {estRecu ? 'De' : 'À'} <strong>{nomPersonne(correspondant)}</strong>
+                {correspondant && ` · ${LIBELLE_ROLE[correspondant.role] ?? correspondant.role}`}
+              </span>
+            )}
             <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{dateLisible(message.created_at)}</span>
           </div>
 
@@ -231,13 +247,19 @@ function LigneMessage({
   message,
   estRecu,
   onOuvrir,
+  destinatairesGroupe,
 }: {
   message: MessageAvecPersonnes
   estRecu: boolean
   onOuvrir: () => void
+  /* Tous les destinataires quand ce message est un envoi groupé — demande client du 2026-10-19 :
+     une seule ligne pour l'envoi, comme dans Outlook, et non une par personne. Absent côté
+     « Reçus », où chacun ne voit que le sien. */
+  destinatairesGroupe?: MessageAvecPersonnes[]
 }) {
   const correspondant = estRecu ? message.expediteur : message.destinataire
   const nonLu = estRecu && !message.lu
+  const estGroupe = (destinatairesGroupe?.length ?? 0) > 1
   return (
     <button
       type="button"
@@ -264,8 +286,17 @@ function LigneMessage({
           {message.objet}
         </span>
         <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-          {estRecu ? 'De' : 'À'} {nomPersonne(correspondant)}
-          {correspondant ? ` · ${LIBELLE_ROLE[correspondant.role] ?? correspondant.role}` : ''}
+          {estGroupe ? (
+            <>
+              À {libelleDestinataires((destinatairesGroupe ?? []).map((m) => nomPersonne(m.destinataire)))} ·{' '}
+              {destinatairesGroupe?.length} destinataires
+            </>
+          ) : (
+            <>
+              {estRecu ? 'De' : 'À'} {nomPersonne(correspondant)}
+              {correspondant ? ` · ${LIBELLE_ROLE[correspondant.role] ?? correspondant.role}` : ''}
+            </>
+          )}
         </span>
       </span>
       <span style={{ fontSize: 11, color: 'var(--muted-2)', flexShrink: 0 }}>{dateLisible(message.created_at)}</span>
@@ -286,7 +317,12 @@ export function Messagerie() {
   const [succes, setSucces] = useState<string | null>(null)
 
   const liste = onglet === 'recus' ? recus : envoyes
-  const ouvert = liste.find((m) => m.id === ouvertId) ?? null
+  /* Un envoi groupé = une ligne, comme dans Outlook (demande client du 2026-10-19). Seulement
+     côté « Envoyés » : dans « Reçus », chacun ne voit que le message qui lui est adressé, il n'y
+     a rien à regrouper. */
+  const groupes = useMemo(() => (onglet === 'envoyes' ? grouperEnvois(liste) : liste.map((m) => ({ principal: m, messages: [m] }))), [onglet, liste])
+  const groupeOuvert = groupes.find((g) => g.principal.id === ouvertId) ?? null
+  const ouvert = groupeOuvert?.principal ?? null
 
   async function ouvrir(message: MessageAvecPersonnes) {
     setOuvertId(message.id)
@@ -341,8 +377,14 @@ export function Messagerie() {
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {liste.map((message) => (
-            <LigneMessage key={message.id} message={message} estRecu={onglet === 'recus'} onOuvrir={() => ouvrir(message)} />
+          {groupes.map((groupe) => (
+            <LigneMessage
+              key={groupe.principal.id}
+              message={groupe.principal}
+              estRecu={onglet === 'recus'}
+              onOuvrir={() => ouvrir(groupe.principal)}
+              destinatairesGroupe={groupe.messages}
+            />
           ))}
         </div>
       )}
@@ -360,7 +402,13 @@ export function Messagerie() {
       )}
 
       {ouvert && (
-        <FicheMessage message={ouvert} estRecu={onglet === 'recus'} onFermer={() => setOuvertId(null)} onChange={recharger} />
+        <FicheMessage
+          message={ouvert}
+          estRecu={onglet === 'recus'}
+          messagesGroupe={groupeOuvert?.messages}
+          onFermer={() => setOuvertId(null)}
+          onChange={recharger}
+        />
       )}
     </div>
   )
