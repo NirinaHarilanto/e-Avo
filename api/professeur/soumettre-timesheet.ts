@@ -3,6 +3,7 @@ import { adminsDeLEtablissement } from '../_lib/reservation.js'
 import { creerNotification } from '../_lib/notifications.js'
 import { numeroSuivant } from '../_lib/numerotation.js'
 import { calculerRemuneration } from '../../src/lib/remuneration.js'
+import { LIBELLE_TYPE_PRESTATION } from '../../src/lib/prestationsExternes.js'
 import type { LigneTimesheet } from '../../src/types/database.types.js'
 
 export const config = { runtime: 'edge' }
@@ -39,7 +40,9 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: ecritures } = await serviceClient
       .from('hour_ledger')
-      .select('id, heures, session_id, teacher_id, etablissement_id, type_ecriture, type_facturation, teacher_payment_id, timesheet_id')
+      .select(
+        'id, heures, session_id, prestation_externe_id, teacher_id, etablissement_id, type_ecriture, type_facturation, teacher_payment_id, timesheet_id',
+      )
       .in('id', corps.hourLedgerIds)
     const valides = (ecritures ?? []).filter(
       (e) =>
@@ -53,11 +56,28 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Certaines heures sont déjà payées ou déjà déclarées sur un autre TimeSheet. Rechargez la page.' }, { status: 409 })
     }
 
-    const sessionIds = [...new Set(valides.map((e) => e.session_id))]
-    const [{ data: seances }, { data: inscriptions }, { data: professeur }] = await Promise.all([
-      serviceClient.from('sessions').select('id, debut').in('id', sessionIds),
-      serviceClient.from('session_enrollments').select('session_id, student_id').in('session_id', sessionIds),
-      serviceClient.from('profiles').select('prenom, nom, taux_horaire_individuel, taux_horaire_duo, taux_horaire_collectif').eq('id', profileId).single(),
+    /* Une écriture vient d'une séance HOC OU d'une prestation externe (0131) : les deux se
+       déclarent sur le même relevé, c'est tout l'intérêt. Les identifiants sont donc filtrés
+       avant d'interroger chaque table. */
+    const sessionIds = [...new Set(valides.map((e) => e.session_id).filter((id): id is string => id !== null))]
+    const prestationIds = [...new Set(valides.map((e) => e.prestation_externe_id).filter((id): id is string => id !== null))]
+    const [{ data: seances }, { data: inscriptions }, { data: prestations }, { data: professeur }] = await Promise.all([
+      sessionIds.length
+        ? serviceClient.from('sessions').select('id, debut').in('id', sessionIds)
+        : Promise.resolve({ data: [] as { id: string; debut: string }[] }),
+      sessionIds.length
+        ? serviceClient.from('session_enrollments').select('session_id, student_id').in('session_id', sessionIds)
+        : Promise.resolve({ data: [] as { session_id: string; student_id: string }[] }),
+      prestationIds.length
+        ? serviceClient.from('prestations_externes').select('id, debut, type, client').in('id', prestationIds)
+        : Promise.resolve({ data: [] as { id: string; debut: string; type: 'corporate' | 'chat_chill'; client: string }[] }),
+      serviceClient
+        .from('profiles')
+        .select(
+          'prenom, nom, taux_horaire_individuel, taux_horaire_duo, taux_horaire_collectif, taux_horaire_corporate, taux_horaire_chat_chill',
+        )
+        .eq('id', profileId)
+        .single(),
     ])
     const eleveIds = [...new Set((inscriptions ?? []).map((i) => i.student_id))]
     const { data: eleves } = eleveIds.length
@@ -65,6 +85,7 @@ export default async function handler(request: Request): Promise<Response> {
       : { data: [] as { id: string; prenom: string | null; nom: string | null }[] }
     const nomEleve = new Map((eleves ?? []).map((e) => [e.id, [e.prenom, e.nom].filter(Boolean).join(' ')]))
     const debutSeance = new Map((seances ?? []).map((s) => [s.id, s.debut]))
+    const prestationParId = new Map((prestations ?? []).map((p) => [p.id, p]))
 
     /* Taux appliqué par ligne SELON LE TYPE de chacune (0126) — simple estimation à ce stade,
        tant que le relevé n'est pas validé : le montant définitif est recalculé avec le taux en
@@ -77,13 +98,22 @@ export default async function handler(request: Request): Promise<Response> {
       taux_horaire_individuel: null,
       taux_horaire_duo: null,
       taux_horaire_collectif: null,
+      taux_horaire_corporate: null,
+      taux_horaire_chat_chill: null,
     })
     const lignes: LigneTimesheet[] = lignesCalculees
-      .map(({ ligne: e, type, taux: tauxLigne, montant: montantLigne }) => ({
+      .map(({ ligne: e, type, taux: tauxLigne, montant: montantLigne }) => {
+        const prestation = e.prestation_externe_id ? prestationParId.get(e.prestation_externe_id) : null
+        return {
         hour_ledger_id: e.id,
         session_id: e.session_id,
-        debut: debutSeance.get(e.session_id) ?? null,
-        eleves: (inscriptions ?? [])
+        prestation_externe_id: e.prestation_externe_id,
+        debut: prestation ? prestation.debut : e.session_id ? (debutSeance.get(e.session_id) ?? null) : null,
+        /* `eleves` porte l'intitulé de la ligne : les élèves pour une séance, le client pour une
+           prestation externe, qui n'en a aucun. Le relevé et la facture l'affichent tel quel. */
+        eleves: prestation
+          ? `${LIBELLE_TYPE_PRESTATION[prestation.type]} · ${prestation.client}`
+          : (inscriptions ?? [])
           .filter((i) => i.session_id === e.session_id)
           .map((i) => nomEleve.get(i.student_id) ?? 'Élève')
           .join(', '),
@@ -91,7 +121,8 @@ export default async function handler(request: Request): Promise<Response> {
         type,
         taux: tauxLigne,
         montant: montantLigne,
-      }))
+        }
+      })
       .sort((a, b) => (a.debut ?? '').localeCompare(b.debut ?? ''))
 
     const totalHeures = Math.round(lignes.reduce((t, l) => t + l.heures, 0) * 100) / 100

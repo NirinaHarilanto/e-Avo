@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
 import { chargerProfilsEtablissement } from '../lib/profilsEtablissement'
+import { LIBELLE_TYPE_PRESTATION } from '../lib/prestationsExternes'
 import { useCacheRequete } from './useCacheRequete'
 
 type Timesheet = Database['public']['Tables']['timesheets']['Row']
@@ -36,8 +37,11 @@ export function useTimesheets(cleSuffixe: string | undefined) {
 export interface HeureDeclarable {
   id: string
   heures: number
-  sessionId: string
+  /* Null pour une prestation externe (0131), qui n'a pas de séance. */
+  sessionId: string | null
   debut: string | null
+  /* Les élèves de la séance, ou « Corporate · <client> » pour une prestation externe : c'est
+     l'intitulé affiché sur la ligne à déclarer. */
   eleves: string
   /* Type figé à la clôture (0126) — null pour une écriture antérieure, traitée comme
      'individuel' par src/lib/remuneration.ts. */
@@ -55,7 +59,7 @@ export function useHeuresDeclarables(teacherId: string | undefined) {
     const [{ data: ecritures }, { data: toutesSeances }, { data: toutesInscriptions }, profilsTous] = await Promise.all([
       supabase
         .from('hour_ledger')
-        .select('id, heures, session_id, type_facturation')
+        .select('id, heures, session_id, prestation_externe_id, type_facturation')
         .eq('teacher_id', teacherId as string)
         .eq('type_ecriture', 'credit_professeur')
         .is('teacher_payment_id', null)
@@ -64,24 +68,41 @@ export function useHeuresDeclarables(teacherId: string | undefined) {
       supabase.from('session_enrollments').select('session_id, student_id'),
       chargerProfilsEtablissement(),
     ])
-    const sessionIds = new Set((ecritures ?? []).map((e) => e.session_id))
-    if (sessionIds.size === 0) return [] as HeureDeclarable[]
+    if ((ecritures ?? []).length === 0) return [] as HeureDeclarable[]
+
+    /* Deux origines possibles depuis 0131 : une séance HOC, ou une prestation externe (corporate,
+       chat & chill). Les deux se déclarent sur le même relevé — c'est précisément ce que la
+       demande du 2026-10-19 attend. */
+    const sessionIds = new Set((ecritures ?? []).map((e) => e.session_id).filter((id): id is string => id !== null))
+    const prestationIds = [
+      ...new Set((ecritures ?? []).map((e) => e.prestation_externe_id).filter((id): id is string => id !== null)),
+    ]
+    const { data: prestations } = prestationIds.length
+      ? await supabase.from('prestations_externes').select('id, debut, type, client').in('id', prestationIds)
+      : { data: [] as { id: string; debut: string; type: 'corporate' | 'chat_chill'; client: string }[] }
+    const prestationParId = new Map((prestations ?? []).map((p) => [p.id, p]))
+
     const seances = (toutesSeances ?? []).filter((s) => sessionIds.has(s.id))
     const inscriptions = (toutesInscriptions ?? []).filter((i) => sessionIds.has(i.session_id))
     const nom = new Map(profilsTous.map((e) => [e.id, [e.prenom, e.nom].filter(Boolean).join(' ')]))
     const debut = new Map((seances ?? []).map((s) => [s.id, s.debut]))
     return (ecritures ?? [])
-      .map((e) => ({
-        id: e.id,
-        heures: Number(e.heures),
-        sessionId: e.session_id,
-        debut: debut.get(e.session_id) ?? null,
-        eleves: (inscriptions ?? [])
-          .filter((i) => i.session_id === e.session_id)
-          .map((i) => nom.get(i.student_id) ?? 'Élève')
-          .join(', '),
-        typeFacturation: e.type_facturation,
-      }))
+      .map((e) => {
+        const prestation = e.prestation_externe_id ? prestationParId.get(e.prestation_externe_id) : null
+        return {
+          id: e.id,
+          heures: Number(e.heures),
+          sessionId: e.session_id,
+          debut: prestation ? prestation.debut : e.session_id ? (debut.get(e.session_id) ?? null) : null,
+          eleves: prestation
+            ? `${LIBELLE_TYPE_PRESTATION[prestation.type]} · ${prestation.client}`
+            : (inscriptions ?? [])
+                .filter((i) => i.session_id === e.session_id)
+                .map((i) => nom.get(i.student_id) ?? 'Élève')
+                .join(', '),
+          typeFacturation: e.type_facturation,
+        }
+      })
       .sort((a, b) => (a.debut ?? '').localeCompare(b.debut ?? ''))
   })
   return { heures: valeur ?? [], loading, recharger }

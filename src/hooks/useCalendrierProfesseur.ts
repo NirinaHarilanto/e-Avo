@@ -9,6 +9,7 @@ type SessionEnrollment = Database['public']['Tables']['session_enrollments']['Ro
 type Profile = Database['public']['Tables']['profiles']['Row']
 type VideoSession = Database['public']['Tables']['video_sessions']['Row']
 type Cohort = Database['public']['Tables']['cohorts']['Row']
+type PrestationExterne = Database['public']['Tables']['prestations_externes']['Row']
 
 export interface SeanceProfesseur {
   session: Session
@@ -34,6 +35,9 @@ interface CalendrierProfesseur {
      pas dans `teacher_assignments`, un élève de vague n'ayant pas d'affectation individuelle. */
   vagues: { cohorte: Cohort; eleves: Profile[] }[]
   heuresEnseignees: number
+  /* Prestations hors cursus du professeur (0131) : elles n'ont ni élève ni forfait, mais
+     occupent bien un créneau de son agenda et créditent ses heures une fois clôturées. */
+  prestations: PrestationExterne[]
 }
 
 export function useCalendrierProfesseur(teacherId: string | undefined) {
@@ -55,6 +59,7 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
       { data: toutesInscriptionsVagues },
       { data: tousEnrollments },
       { data: tousVideos },
+      { data: prestations },
       profilsTous,
     ] = await Promise.all([
       supabase.from('sessions').select('*').eq('teacher_id', teacherId as string).order('debut', { ascending: false }),
@@ -67,6 +72,13 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
       supabase.from('cohort_enrollments').select('cohort_id, student_id'),
       supabase.from('session_enrollments').select('*'),
       supabase.from('video_sessions').select('*'),
+      /* Prestations hors cursus de CE professeur (0131). Filtrée explicitement sur lui, même si
+         sa policy la borne déjà : ce hook sert aussi un admin plateforme, qui lit tout. */
+      supabase
+        .from('prestations_externes')
+        .select('*')
+        .eq('teacher_id', teacherId as string)
+        .order('debut', { ascending: false }),
       /* Les profils lisibles par ce professeur, d'un bloc : ses élèves affectés (0017), ses
          secondaires DUO (0064/0067), ses élèves de vague (0069) et de classe (0074). C'est
          exactement l'union de ce que les quatre requêtes filtrées supprimées cherchaient — la RLS
@@ -172,6 +184,7 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
           .filter((e): e is Profile => !!e),
       })),
       heuresEnseignees: resumeHeures?.heures_enseignees ?? 0,
+      prestations: prestations ?? [],
     }
     // Filet de sécurité (couche 3 de la stratégie temps réel du 2026-09-29) : une modification
     // faite par l'admin déclenche déjà une notification (voir CalendrierProfesseur.tsx, couche
@@ -184,6 +197,7 @@ export function useCalendrierProfesseur(teacherId: string | undefined) {
     etudiantsAnciens: valeur?.etudiantsAnciens ?? [],
     vagues: valeur?.vagues ?? [],
     heuresEnseignees: valeur?.heuresEnseignees ?? 0,
+    prestations: valeur?.prestations ?? [],
     loading,
     erreur,
     recharger,

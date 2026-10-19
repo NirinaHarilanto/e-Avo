@@ -1,14 +1,24 @@
-import { NATURES_RENDEZ_VOUS, type NatureRendezVous } from '../../lib/natureRendezVous'
+import { NATURES_RENDEZ_VOUS, type DescriptionNature, type NatureRendezVous } from '../../lib/natureRendezVous'
 
-/* Sélecteur de nature (séance de cours / autre), partagé entre RendezVousAdmin.tsx et
-   CalendrierProfesseur.tsx — voir lib/natureRendezVous.ts. */
-export function ChoixNatureRendezVous({ valeur, onChange }: { valeur: NatureRendezVous; onChange: (v: NatureRendezVous) => void }) {
+/* Sélecteur de nature, partagé entre RendezVousAdmin.tsx et CalendrierProfesseur.tsx — voir
+   lib/natureRendezVous.ts. La liste est paramétrable depuis le 2026-10-19 : le professeur se voit
+   proposer en plus ses deux prestations hors cursus, que l'agenda de l'administration n'a pas à
+   offrir. */
+export function ChoixNatureRendezVous({
+  valeur,
+  onChange,
+  natures = NATURES_RENDEZ_VOUS,
+}: {
+  valeur: NatureRendezVous
+  onChange: (v: NatureRendezVous) => void
+  natures?: DescriptionNature[]
+}) {
   return (
     <fieldset style={{ border: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
       <legend style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', padding: 0, marginBottom: 2 }}>
         Nature du rendez-vous
       </legend>
-      {NATURES_RENDEZ_VOUS.map((nature) => {
+      {natures.map((nature) => {
         const actif = valeur === nature.valeur
         return (
           <label

@@ -6,18 +6,37 @@
    api/admin/traiter-timesheet.ts, api/admin/payer-professeur.ts) que côté client (estimation
    avant envoi). */
 
-export type TypeFacturation = 'individuel' | 'collectif' | 'duo'
+/* 'corporate' et 'chat_chill' (0131, 2026-10-19) ne viennent pas d'une séance HOC mais d'une
+   prestation externe, sans élève ni forfait — seul leur crédit d'heures rejoint le registre
+   commun, pour être facturé sur le même TimeSheet que le reste. */
+export type TypeFacturation = 'individuel' | 'collectif' | 'duo' | 'corporate' | 'chat_chill'
 
 export const LIBELLE_TYPE_FACTURATION: Record<TypeFacturation, string> = {
   individuel: 'Individuel',
   duo: 'Duo',
   collectif: 'Collectif',
+  corporate: 'Corporate',
+  chat_chill: 'Chat & chill',
 }
 
 export interface TauxProfesseur {
   taux_horaire_individuel: number | null
   taux_horaire_duo: number | null
   taux_horaire_collectif: number | null
+  /* Optionnels : les appels qui ne traitent que des séances HOC (écrans antérieurs à 0131) ne
+     les passent pas, et une ligne corporate serait alors signalée comme « taux manquant » plutôt
+     que facturée en silence au taux individuel. */
+  taux_horaire_corporate?: number | null
+  taux_horaire_chat_chill?: number | null
+}
+
+/* Les valeurs que `hour_ledger.type_facturation` peut porter, pour reconnaître une chaîne venue
+   de la base sans se fier à un `as` — un type inconnu (base plus récente que le code) retombe
+   ainsi sur « individuel » au lieu de produire un taux fantôme. */
+const TYPES_CONNUS: readonly TypeFacturation[] = ['individuel', 'collectif', 'duo', 'corporate', 'chat_chill']
+
+export function typeFacturationOuDefaut(valeur: string | null | undefined): TypeFacturation {
+  return TYPES_CONNUS.includes(valeur as TypeFacturation) ? (valeur as TypeFacturation) : 'individuel'
 }
 
 /* Une écriture hour_ledger antérieure au 2026-10-12 n'a pas de `type_facturation` (colonne
@@ -27,6 +46,8 @@ export interface TauxProfesseur {
 export function tauxPourType(taux: TauxProfesseur, type: TypeFacturation | string | null | undefined): number | null {
   if (type === 'collectif') return taux.taux_horaire_collectif
   if (type === 'duo') return taux.taux_horaire_duo
+  if (type === 'corporate') return taux.taux_horaire_corporate ?? null
+  if (type === 'chat_chill') return taux.taux_horaire_chat_chill ?? null
   return taux.taux_horaire_individuel
 }
 
@@ -59,7 +80,7 @@ export function calculerRemuneration<T extends EcritureFacturable>(ecritures: T[
   let heures = 0
 
   const lignes = ecritures.map((ligne) => {
-    const type = (ligne.type_facturation === 'collectif' || ligne.type_facturation === 'duo' ? ligne.type_facturation : 'individuel') as TypeFacturation
+    const type = typeFacturationOuDefaut(ligne.type_facturation)
     const t = tauxPourType(taux, type)
     heures += ligne.heures
     if (t == null) {

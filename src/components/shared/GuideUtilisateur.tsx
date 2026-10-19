@@ -141,6 +141,25 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
       ],
     },
     {
+      titre: 'Cours corporate & chat & chill',
+      lien: '/professeur/calendrier',
+      points: [
+        <>
+          Ces cours sont donnés <strong>hors cursus HOC</strong> : aucun élève inscrit, aucun forfait entamé. Vous les
+          planifiez depuis <strong>« Planifier une séance »</strong> de votre agenda, en choisissant « Un cours
+          corporate » ou « Un cours chat & chill » et en indiquant le client.
+        </>,
+        <>
+          Ils apparaissent dans votre agenda en <strong>vert d’eau</strong>. Un clic ouvre leur fiche, d’où vous les
+          marquez <strong>terminés</strong> une fois le cours donné — c’est ce geste qui crédite vos heures.
+        </>,
+        <>
+          La séance est alors <strong>facturable sur votre TimeSheet</strong>, à votre taux corporate ou chat & chill,
+          à côté de vos cours HOC. L’historique complet se consulte dans « Mes heures ».
+        </>,
+      ],
+    },
+    {
       titre: 'Mes heures et TimeSheet',
       lien: '/professeur/heures',
       points: [
@@ -234,6 +253,13 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
       points: [
         <><strong>Recrutement</strong> : candidatures reçues depuis le bouton « Rejoignez-nous » de la vitrine. Faites avancer chaque candidat : pré-sélection, tests (C1 minimum), simulation de cours, puis intégration. Le compte professeur est créé automatiquement à l’entrée en intégration.</>,
         <><strong>Professeurs</strong> : équipe enseignante, taux horaire, élèves et satisfaction. Un professeur en intégration porte ce statut jusqu’à la fin de sa checklist.</>,
+        <>
+          Sa fiche porte un bloc <strong>Cours corporate & chat & chill</strong> : des prestations données hors cursus
+          HOC, sans élève ni forfait. Vous les créez et en suivez l’historique ici ; le professeur les voit dans son
+          espace et peut aussi les planifier depuis son agenda. Une fois terminée, la séance crédite ses heures et se
+          facture sur son TimeSheet, au taux corporate ou chat & chill de sa fiche — à renseigner dans
+          « Informations personnelles », sans quoi son relevé ne pourra pas être validé.
+        </>,
         <><strong>Séances & visio</strong> : planning de tous les cours. Toute création, reprogrammation ou annulation faite par un professeur vous est notifiée. C’est ici que vous suivez les emplois du temps de toute l’équipe : les invitations des cours partent de l’agenda Google du professeur, vous n’en recevez donc pas de copie dans votre boîte sauf si l’on vous ajoute aux participants.</>,
         <><strong>Heures & forfaits</strong> : compteurs d’heures suivies et enseignées.</>,
       ],

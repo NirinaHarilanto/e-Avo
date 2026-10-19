@@ -41,6 +41,19 @@ export function idSeanceDepuisEvenement(id: string): string {
   return id.startsWith(PREFIXE_SEANCE) ? id.slice(PREFIXE_SEANCE.length) : id
 }
 
+/* Prestation hors cursus — corporate ou chat & chill (0131). Elle occupe un créneau de l'agenda
+   du professeur au même titre qu'une séance, mais ouvre sa propre fiche au clic : elle n'a ni
+   élève, ni présence à émarger, ni compte rendu. */
+export const PREFIXE_PRESTATION = 'prestation:'
+
+export function estEvenementPrestation(id: string | null | undefined): boolean {
+  return !!id && id.startsWith(PREFIXE_PRESTATION)
+}
+
+export function idPrestationDepuisEvenement(id: string): string {
+  return id.startsWith(PREFIXE_PRESTATION) ? id.slice(PREFIXE_PRESTATION.length) : id
+}
+
 /* Couleurs tournantes par professeur, pour qu'une semaine chargée se lise d'un coup d'œil. */
 const TONS_PROFESSEUR = ['bleu', 'or', 'teal', 'violet'] as const
 

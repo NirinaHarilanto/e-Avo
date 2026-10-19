@@ -27,7 +27,13 @@ export type InvitationStatut = 'en_attente' | 'acceptee' | 'excusee'
 export type LedgerType = 'credit_professeur' | 'debit_etudiant'
 /* Type de séance au moment de la clôture (0126) — pas le même alias que `TypeFacturation` de
    src/lib/remuneration.ts (celui-ci admet `null`, jamais lui). */
-export type TypeFacturationLedger = 'individuel' | 'collectif' | 'duo'
+/* 'corporate' et 'chat_chill' (0131) ne viennent pas d'une séance mais d'une prestation externe,
+   sans élève ni forfait : seul leur crédit d'heures rejoint ce registre, pour être facturé sur le
+   même TimeSheet. */
+export type TypeFacturationLedger = 'individuel' | 'collectif' | 'duo' | 'corporate' | 'chat_chill'
+/* Les deux types de prestation facturés hors cursus HOC (0131). */
+export type TypePrestationExterne = 'corporate' | 'chat_chill'
+export type StatutPrestationExterne = 'planifiee' | 'terminee' | 'annulee'
 export type CategorieDocument =
   | 'identite'
   | 'diplome_certification'
@@ -62,8 +68,13 @@ export type StatutTimesheet = 'soumis' | 'valide' | 'refuse'
 /* Une séance déclarée sur un TimeSheet (0081), figée au moment de l'envoi. */
 export interface LigneTimesheet {
   hour_ledger_id: string
-  session_id: string
+  /* Null pour une prestation externe (0131), qui n'a pas de séance : `prestation_externe_id`
+     prend alors le relais et `eleves` porte le nom du client. */
+  session_id: string | null
+  prestation_externe_id?: string | null
   debut: string | null
+  /* Les élèves de la séance, ou — pour une prestation externe — « Corporate · <client> » : c'est
+     l'intitulé de la ligne, affiché tel quel sur le relevé et sur la facture. */
   eleves: string
   heures: number
   /* Depuis 0126 (2026-10-12) : absents sur les relevés créés avant ce chantier. `type` vient de
@@ -514,6 +525,52 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['jalons_parcours']['Insert']>
         Relationships: []
       }
+      /* Cours corporate et chat & chill (0131, demande client du 2026-10-19) : des prestations
+         données hors cursus HOC, sans élève inscrit ni forfait. L'admin les crée depuis la fiche
+         du professeur ; une fois terminées, elles créditent ses heures et se facturent sur son
+         TimeSheet comme n'importe quelle séance. */
+      prestations_externes: {
+        Row: {
+          id: string
+          etablissement_id: string
+          teacher_id: string
+          type: TypePrestationExterne
+          /* L'entreprise ou la personne pour qui la prestation est donnée — c'est l'intitulé de
+             la ligne au TimeSheet. */
+          client: string
+          debut: string
+          duree_minutes: number
+          lieu: string | null
+          notes: string | null
+          statut: StatutPrestationExterne
+          terminee_le: string | null
+          terminee_par: string | null
+          motif_annulation: string | null
+          cree_par: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          teacher_id: string
+          type: TypePrestationExterne
+          client: string
+          debut: string
+          duree_minutes: number
+          lieu?: string | null
+          notes?: string | null
+          statut?: StatutPrestationExterne
+          terminee_le?: string | null
+          terminee_par?: string | null
+          motif_annulation?: string | null
+          cree_par?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['prestations_externes']['Insert']>
+        Relationships: []
+      }
       teacher_assignments: {
         Row: {
           id: string
@@ -879,7 +936,10 @@ export interface Database {
         Row: {
           id: string
           etablissement_id: string
-          session_id: string
+          /* Null pour une prestation externe (0131) : l'écriture porte alors
+             `prestation_externe_id`. Exactement une des deux sources est renseignée. */
+          session_id: string | null
+          prestation_externe_id: string | null
           student_id: string | null
           teacher_id: string | null
           type_ecriture: LedgerType
@@ -898,7 +958,8 @@ export interface Database {
         Insert: {
           id?: string
           etablissement_id: string
-          session_id: string
+          session_id?: string | null
+          prestation_externe_id?: string | null
           student_id?: string | null
           teacher_id?: string | null
           type_ecriture: LedgerType

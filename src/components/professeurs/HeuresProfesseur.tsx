@@ -9,6 +9,7 @@ import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, EtatChargementStats } from '../ui/Etats'
 import { formaterHeures } from '../../lib/heures'
 import { KpiSatisfaction } from './KpiSatisfaction'
+import { PrestationsExternes } from './PrestationsExternes'
 import { TimesheetProfesseur } from './TimesheetProfesseur'
 
 export function HeuresProfesseur() {
@@ -103,6 +104,11 @@ export function HeuresProfesseur() {
               </div>
             )}
           </Section>
+
+          {/* Le même bloc que sur la fiche admin, en lecture et clôture : « le bloc devra être
+              également visible dans l'espace professeur » (2026-10-19). Le professeur ne crée pas
+              ses propres prestations — c'est l'administration qui les engage. */}
+          <PrestationsExternes professeur={profile} peutCloturer />
 
           <KpiSatisfaction teacherId={profile?.id} />
         </div>

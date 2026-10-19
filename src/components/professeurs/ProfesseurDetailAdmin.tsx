@@ -16,6 +16,7 @@ import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { formaterHeures } from '../../lib/heures'
 import { LABEL_TYPE_PROGRAMME } from '../../lib/paiements'
 import { KpiSatisfaction } from './KpiSatisfaction'
+import { PrestationsExternes } from './PrestationsExternes'
 import { DetacherVisioEtablissement } from './DetacherVisioEtablissement'
 import { TimesheetsAdmin } from '../admin/TimesheetsAdmin'
 
@@ -73,7 +74,26 @@ export function ProfesseurDetailAdmin() {
               unite={detail.professeur.taux_horaire_collectif ? 'Ar/h' : undefined}
               ton={detail.professeur.taux_horaire_collectif ? 'teal' : 'alerte'}
             />
+            {/* Les deux taux hors cursus (0131) : « neutre » et non « alerte » quand ils manquent,
+                contrairement aux trois ci-dessus — un professeur qui ne donne aucune prestation
+                corporate n'a aucune raison d'en avoir un, ce n'est donc pas une fiche incomplète. */}
+            <Stat
+              libelle="Taux corporate"
+              valeur={detail.professeur.taux_horaire_corporate ? `${detail.professeur.taux_horaire_corporate}` : '—'}
+              unite={detail.professeur.taux_horaire_corporate ? 'Ar/h' : undefined}
+              ton={detail.professeur.taux_horaire_corporate ? 'teal' : 'neutre'}
+            />
+            <Stat
+              libelle="Taux chat & chill"
+              valeur={detail.professeur.taux_horaire_chat_chill ? `${detail.professeur.taux_horaire_chat_chill}` : '—'}
+              unite={detail.professeur.taux_horaire_chat_chill ? 'Ar/h' : undefined}
+              ton={detail.professeur.taux_horaire_chat_chill ? 'teal' : 'neutre'}
+            />
           </GrilleStats>
+
+          {/* Demande client du 2026-10-19 : l'admin crée et suit ici l'historique des cours
+              corporate et chat & chill de ce professeur. */}
+          <PrestationsExternes professeur={detail.professeur} peutGerer peutCloturer />
 
           <KpiSatisfaction teacherId={detail.professeur.id} />
 

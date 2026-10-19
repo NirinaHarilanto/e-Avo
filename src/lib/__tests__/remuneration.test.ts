@@ -76,4 +76,54 @@ describe('calculerRemuneration', () => {
     const resultat = calculerRemuneration([], taux)
     expect(resultat).toEqual({ lignes: [], montant: 0, heures: 0, manque: [] })
   })
+
+  /* Prestations hors cursus (0131) : corporate et chat & chill ont leur propre taux, et ne
+     doivent SURTOUT pas retomber sur le taux individuel — c'est justement ce qui distingue une
+     prestation facturée à une entreprise d'un cours d'élève. */
+  describe('prestations corporate et chat & chill', () => {
+    const tauxComplet: TauxProfesseur = {
+      taux_horaire_individuel: 10000,
+      taux_horaire_duo: 12000,
+      taux_horaire_collectif: 15000,
+      taux_horaire_corporate: 40000,
+      taux_horaire_chat_chill: 25000,
+    }
+
+    it('applique le taux corporate à une prestation corporate', () => {
+      const resultat = calculerRemuneration([{ heures: 2, type_facturation: 'corporate' }], tauxComplet)
+      expect(resultat.montant).toBe(80000)
+      expect(resultat.lignes[0].type).toBe('corporate')
+      expect(resultat.manque).toEqual([])
+    })
+
+    it('applique le taux chat & chill à une prestation chat & chill', () => {
+      const resultat = calculerRemuneration([{ heures: 1.5, type_facturation: 'chat_chill' }], tauxComplet)
+      expect(resultat.montant).toBe(37500)
+    })
+
+    it('mélange séances et prestations sur un même relevé', () => {
+      const resultat = calculerRemuneration(
+        [
+          { heures: 1, type_facturation: 'individuel' },
+          { heures: 1, type_facturation: 'corporate' },
+          { heures: 1, type_facturation: 'chat_chill' },
+        ],
+        tauxComplet,
+      )
+      expect(resultat.montant).toBe(75000)
+      expect(resultat.heures).toBe(3)
+    })
+
+    it('signale le taux manquant au lieu de facturer au taux individuel', () => {
+      const resultat = calculerRemuneration([{ heures: 2, type_facturation: 'corporate' }], taux)
+      expect(resultat.montant).toBe(0)
+      expect(resultat.manque).toEqual(['corporate'])
+    })
+
+    it('un type inconnu retombe sur individuel plutôt que de produire un taux fantôme', () => {
+      const resultat = calculerRemuneration([{ heures: 1, type_facturation: 'type_futur' }], tauxComplet)
+      expect(resultat.lignes[0].type).toBe('individuel')
+      expect(resultat.montant).toBe(10000)
+    })
+  })
 })

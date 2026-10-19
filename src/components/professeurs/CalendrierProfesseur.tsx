@@ -10,10 +10,22 @@ import type { Database } from '../../types/database.types'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
 import { nomVagueSeul } from '../../lib/cohortes'
 import { estSeanceDuo, libelleTypeSeance, nomsElevesInscrits } from '../../lib/seances'
-import { versEvenementAdmin, estEvenementGooglePersonnel, idGoogleDepuisEvenement, seanceSansEffet } from '../../lib/agendaEvenements'
+import {
+  versEvenementAdmin,
+  estEvenementGooglePersonnel,
+  estEvenementPrestation,
+  idGoogleDepuisEvenement,
+  idPrestationDepuisEvenement,
+  PREFIXE_PRESTATION,
+  seanceSansEffet,
+} from '../../lib/agendaEvenements'
 import { useEvenementsGoogleCalendarPersonnel, useStatutGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { useRepriseAutomatiqueReunions } from '../../hooks/useRepriseReunionsGoogle'
-import { type NatureRendezVous } from '../../lib/natureRendezVous'
+import { estPrestationExterne, NATURES_PROFESSEUR, type NatureRendezVous } from '../../lib/natureRendezVous'
+import { COLONNE_TAUX_PRESTATION, LIBELLE_TYPE_PRESTATION } from '../../lib/prestationsExternes'
+import { FichePrestation } from './PrestationsExternes'
+import type { PrestationExterne } from '../../hooks/usePrestationsExternes'
+import { formaterMontant } from '../../lib/paiements'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -68,6 +80,23 @@ function versEvenement(seance: SeanceProfesseur): EvenementAgenda {
   }
 }
 
+/* Une prestation hors cursus dans la grille (0131) : teal, un ton encore libre dans cette
+   légende — bleu/or/violet désignent déjà individuel/duo/collectif, et les réutiliser ferait
+   passer un cours corporate pour un cours d'élève. */
+function versEvenementPrestation(prestation: PrestationExterne): EvenementAgenda {
+  return {
+    id: `${PREFIXE_PRESTATION}${prestation.id}`,
+    debut: prestation.debut,
+    dureeMinutes: prestation.duree_minutes,
+    titre: prestation.client,
+    sousTitre: `${LIBELLE_TYPE_PRESTATION[prestation.type]} · ${prestation.duree_minutes} min`,
+    ton: prestation.statut === 'annulee' ? 'neutre' : 'teal',
+    attenue: prestation.statut === 'annulee',
+    statut:
+      prestation.statut === 'annulee' ? 'Annulée' : prestation.statut === 'terminee' ? 'Terminée' : undefined,
+  }
+}
+
 /* Légende des couleurs par type de cours (0068, demande client du 2026-09-23) — mêmes teintes
    que `versEvenement` ci-dessus et que le vocabulaire de couleur déjà établi ailleurs dans
    l'application pour Duo/Collectif (TagProgramme, EtudiantsAdmin.tsx : or = duo, ici étendu à
@@ -77,6 +106,7 @@ function LegendeTypeSeance() {
     { libelle: 'Individuel', couleur: 'var(--accent-blue)' },
     { libelle: 'Duo', couleur: 'var(--accent-gold)' },
     { libelle: 'Collectif', couleur: 'var(--accent-violet)' },
+    { libelle: 'Corporate / chat & chill', couleur: 'var(--accent-teal)' },
   ]
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -97,7 +127,7 @@ function versDatetimeLocal(date: Date): string {
 
 export function CalendrierProfesseur() {
   const { profile, session, derniereNotification } = useProfileContext()
-  const { seances, etudiantsActifs, vagues, heuresEnseignees, loading, erreur, recharger } = useCalendrierProfesseur(profile?.id)
+  const { seances, etudiantsActifs, vagues, heuresEnseignees, prestations, loading, erreur, recharger } = useCalendrierProfesseur(profile?.id)
   /* Couche 2 de la stratégie temps réel du 2026-09-29 : une séance reprogrammée/annulée par
      l'admin recharge l'agenda du professeur sans qu'il ait à rafraîchir — voir
      useRafraichirSurNotification.ts. (Sa propre action ne se notifie jamais lui-même, voir
@@ -118,6 +148,7 @@ export function CalendrierProfesseur() {
      une reprogrammation, `recharger()` remplace l'objet et la fiche doit afficher la version à
      jour, pas celle capturée au moment du clic. */
   const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
+  const [prestationOuverteId, setPrestationOuverteId] = useState<string | null>(null)
   const [elementOuvertId, setElementOuvertId] = useState<string | null>(null)
   /* Distingue un clic sur une séance pour la CONSULTER (ouvre la fiche, émargement replié) d'un
      clic sur « Clôturer » depuis la vue Liste (ouvre la MÊME fiche, mais émargement déjà déplié)
@@ -162,11 +193,16 @@ export function CalendrierProfesseur() {
     () => [
       ...seances.filter((s) => !seanceSansEffet(s.session.statut)).map(versEvenement),
       ...evenementsAutres.filter((e) => !e.annule).map(versEvenementAdmin),
+      /* Les prestations annulées sont retirées de la grille comme les séances annulées : elles
+         n'occuperont plus le créneau, et le laisser barré encombre la semaine. L'historique
+         complet reste dans le bloc « Cours corporate & chat & chill » de Mes heures. */
+      ...prestations.filter((p) => p.statut !== 'annulee').map(versEvenementPrestation),
       ...evenementsGooglePersonnel,
     ],
-    [seances, evenementsAutres, evenementsGooglePersonnel],
+    [seances, evenementsAutres, prestations, evenementsGooglePersonnel],
   )
   const seanceOuverte = seances.find((s) => s.session.id === seanceOuverteId) ?? null
+  const prestationOuverte = prestations.find((p) => p.id === prestationOuverteId) ?? null
 
   useRepriseAutomatiqueReunions(agendaEnEcriture, () => {
     /* Les deux à recharger : la séance porte un nouveau lien de visio (`recharger`) et son
@@ -254,6 +290,10 @@ export function CalendrierProfesseur() {
                 setEvenementGoogleOuvertId(idGoogleDepuisEvenement(evenement.id))
                 return
               }
+              if (estEvenementPrestation(evenement.id)) {
+                setPrestationOuverteId(idPrestationDepuisEvenement(evenement.id))
+                return
+              }
               if (estEvenementAdmin(evenement.id)) setElementOuvertId(evenement.id)
               else setSeanceOuverteId(evenement.id)
             }}
@@ -330,6 +370,22 @@ export function CalendrierProfesseur() {
         </Modale>
       )}
 
+      {/* Fiche d'une prestation hors cursus (0131) : elle se clôture ici comme une séance se
+          clôture depuis sa carte — c'est cette clôture qui crédite les heures et rend la
+          prestation facturable sur le TimeSheet. */}
+      {prestationOuverte && (
+        <Modale titre="Prestation hors cursus" onFermer={() => setPrestationOuverteId(null)} largeurMax={460}>
+          <FichePrestation
+            prestation={prestationOuverte}
+            professeur={profile}
+            onChange={() => {
+              recharger()
+              setPrestationOuverteId(null)
+            }}
+          />
+        </Modale>
+      )}
+
       {/* Fiche d'un événement de l'agenda Google du professeur (0107) : mêmes informations que le
           pop-up de Google Agenda, et modification/suppression renvoyées sur son propre compte via
           /api/google-personnel/evenement — jamais celui de l'établissement. */}
@@ -370,7 +426,9 @@ function FormulairePlanification({
   onAnnuler: () => void
   onCree: () => void
 }) {
-  const { session } = useProfileContext()
+  /* `profile` sert à lire les taux corporate / chat & chill du professeur connecté : ce
+     formulaire ne planifie que SES propres créneaux, c'est donc bien sa fiche qui fait foi. */
+  const { session, profile } = useProfileContext()
   const { vagues } = useVagues()
   const { classes } = useClassesAvecMembres()
   const [nature, setNature] = useState<NatureRendezVous>('seance_cours')
@@ -381,6 +439,9 @@ function FormulairePlanification({
   const [optionnelsIds, setOptionnelsIds] = useState<string[]>([])
   const [debut, setDebut] = useState(debutInitial ?? '')
   const [dureeMinutes, setDureeMinutes] = useState(60)
+  /* Client d'une prestation corporate ou chat & chill (0131) : c'est l'intitulé de la séance dans
+     l'agenda, puis de la ligne au TimeSheet. Une prestation n'a pas d'élève à la place. */
+  const [client, setClient] = useState('')
   /* `null` = rendez-vous ponctuel, le cas courant. Sinon, une règle de récurrence construite par
      SelecteurRecurrence.tsx — même mécanique et mêmes routes qu'en espace admin
      (RendezVousAdmin.tsx) : l'agenda du professeur doit offrir ce que celui de l'admin offre. */
@@ -418,15 +479,46 @@ function FormulairePlanification({
      exige encore un élève — elle n'a aucun sens sans lui, et c'est son inscription qui décompte
      les heures. */
   const participantsManquants = nature === 'seance_cours' && studentIds.length === 0
+  /* Une prestation externe n'a pas d'élève, mais elle a un client : sans lui, sa ligne serait
+     anonyme sur le relevé d'heures. */
+  const clientManquant = estPrestationExterne(nature) && client.trim().length === 0
+  const tauxPrestation = estPrestationExterne(nature) && profile ? profile[COLONNE_TAUX_PRESTATION[nature]] : null
 
   async function creer() {
-    if (!session || !debut || participantsManquants) return
+    if (!session || !debut || participantsManquants || clientManquant) return
     if (nature === 'autre' && !titre.trim()) {
       setErreur('Le titre est obligatoire.')
       return
     }
     setEnCours(true)
     setErreur(null)
+
+    /* Prestation hors cursus (0131) : écrite directement dans `prestations_externes`, sans passer
+       par une route serveur — aucune heure n'est créditée à la création, c'est la CLÔTURE qui
+       écrit dans `hour_ledger` (api/prestations/cloturer.ts). La policy admin de la table ne
+       couvrant pas le professeur en écriture, cet insert passe par la route dédiée. */
+    if (estPrestationExterne(nature)) {
+      const reponsePrestation = await fetch('/api/prestations/creer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          type: nature,
+          client: client.trim(),
+          debut: new Date(debut).toISOString(),
+          dureeMinutes,
+          notes: notes.trim() || undefined,
+        }),
+      })
+        .then((r) => r.json())
+        .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
+      setEnCours(false)
+      if (reponsePrestation.error) {
+        setErreur(reponsePrestation.error)
+        return
+      }
+      onCree()
+      return
+    }
 
     /* Un rendez-vous qui se répète part directement dans l'agenda Google du professeur, sans ligne
        `evenements_admin` : cette table ne sait pas représenter une répétition, et n'y inscrire que
@@ -530,7 +622,7 @@ function FormulairePlanification({
     <Modale titre="Nouveau rendez-vous" onFermer={onAnnuler} largeurMax={480}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-      <ChoixNatureRendezVous valeur={nature} onChange={setNature} />
+      <ChoixNatureRendezVous valeur={nature} onChange={setNature} natures={NATURES_PROFESSEUR} />
 
       {nature === 'autre' && (
         <input
@@ -540,6 +632,27 @@ function FormulairePlanification({
           onChange={(e) => setTitre(e.target.value)}
           style={champStyle}
         />
+      )}
+
+      {estPrestationExterne(nature) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Client</label>
+          <input
+            required
+            placeholder="L’entreprise ou la personne (ex. Telma)"
+            value={client}
+            onChange={(e) => setClient(e.target.value)}
+            style={champStyle}
+          />
+          {/* Le taux est annoncé AVANT la création : c'est lui qui décidera du montant au
+              TimeSheet, et s'il manque, mieux vaut le savoir maintenant que le découvrir au
+              moment où l'administration refuse de valider le relevé. */}
+          <span style={{ fontSize: 11.5, color: tauxPrestation == null ? 'var(--warning)' : 'var(--muted)', lineHeight: 1.5 }}>
+            {tauxPrestation == null
+              ? `Aucun taux ${LIBELLE_TYPE_PRESTATION[nature].toLowerCase()} n’est renseigné sur votre fiche : demandez à l’administration de le poser avant de déclarer cette séance.`
+              : `Une fois la séance clôturée, elle sera facturée ${formaterMontant(tauxPrestation)}/h sur votre TimeSheet. Aucun forfait d’élève n’est touché.`}
+          </span>
+        </div>
       )}
 
       {/* Le défaut d'élèves attribués ne bloque plus QUE la séance de cours : un créneau « autre »
@@ -629,7 +742,7 @@ function FormulairePlanification({
         </div>
       </div>
 
-      {nature === 'autre' && (
+      {(nature === 'autre' || estPrestationExterne(nature)) && (
         <textarea
           placeholder="Notes (facultatif)"
           value={notes}
@@ -647,11 +760,15 @@ function FormulairePlanification({
         </button>
         <button
           onClick={creer}
-          disabled={enCours || !debut || participantsManquants}
+          disabled={enCours || !debut || participantsManquants || clientManquant}
           className="btn-shine"
-          style={{ flexGrow: 1, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours || !debut || participantsManquants ? 0.6 : 1 }}
+          style={{ flexGrow: 1, background: 'var(--accent-gradient)', color: '#1b1510', opacity: enCours || !debut || participantsManquants || clientManquant ? 0.6 : 1 }}
         >
-          {enCours ? 'Création…' : nature === 'seance_cours' ? 'Planifier' : 'Créer le rendez-vous'}
+          {enCours
+            ? 'Création…'
+            : nature === 'seance_cours' || estPrestationExterne(nature)
+              ? 'Planifier'
+              : 'Créer le rendez-vous'}
         </button>
       </div>
       </div>

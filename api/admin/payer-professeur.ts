@@ -28,7 +28,9 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: teacher } = await serviceClient
       .from('profiles')
-      .select('id, role, etablissement_id, taux_horaire_individuel, taux_horaire_duo, taux_horaire_collectif')
+      .select(
+        'id, role, etablissement_id, taux_horaire_individuel, taux_horaire_duo, taux_horaire_collectif, taux_horaire_corporate, taux_horaire_chat_chill',
+      )
       .eq('id', body.teacherId)
       .single()
     if (!teacher || teacher.role !== 'professeur' || teacher.etablissement_id !== etablissementId) {

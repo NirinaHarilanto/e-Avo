@@ -147,16 +147,35 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
     if (estProfesseur) {
       const { data: ecritures } = await supabase
         .from('hour_ledger')
-        .select('id, heures, session_id')
+        .select('id, heures, session_id, prestation_externe_id')
         .eq('teacher_payment_id', paiement.id)
-      const sessionIds = [...new Set((ecritures ?? []).map((e) => e.session_id))]
-      const { data: seances } = sessionIds.length
-        ? await supabase.from('sessions').select('id, debut').in('id', sessionIds)
-        : { data: [] as { id: string; debut: string }[] }
+      /* Une écriture payée peut venir d'une séance HOC ou d'une prestation externe (0131) : les
+         deux portent une date, lue dans leur table respective. */
+      const sessionIds = [...new Set((ecritures ?? []).map((e) => e.session_id).filter((id): id is string => id !== null))]
+      const prestationIds = [
+        ...new Set((ecritures ?? []).map((e) => e.prestation_externe_id).filter((id): id is string => id !== null)),
+      ]
+      const [{ data: seances }, { data: prestations }] = await Promise.all([
+        sessionIds.length
+          ? supabase.from('sessions').select('id, debut').in('id', sessionIds)
+          : Promise.resolve({ data: [] as { id: string; debut: string }[] }),
+        prestationIds.length
+          ? supabase.from('prestations_externes').select('id, debut').in('id', prestationIds)
+          : Promise.resolve({ data: [] as { id: string; debut: string }[] }),
+      ])
       const debutParSeance = new Map((seances ?? []).map((s) => [s.id, s.debut]))
+      const debutParPrestation = new Map((prestations ?? []).map((p) => [p.id, p.debut]))
       setHeures(
         (ecritures ?? [])
-          .map((e) => ({ id: e.id, heures: e.heures, debut: debutParSeance.get(e.session_id) ?? null }))
+          .map((e) => ({
+            id: e.id,
+            heures: e.heures,
+            debut: e.prestation_externe_id
+              ? (debutParPrestation.get(e.prestation_externe_id) ?? null)
+              : e.session_id
+                ? (debutParSeance.get(e.session_id) ?? null)
+                : null,
+          }))
           .sort((a, b) => (a.debut ?? '').localeCompare(b.debut ?? '')),
       )
     }
