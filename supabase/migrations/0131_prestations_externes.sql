@@ -1,3 +1,7 @@
+-- `begin`/`commit` explicites, comme 0130 : tout ou rien, pour ne jamais laisser d'objet à moitié
+-- créé qui bloquerait une nouvelle tentative.
+begin;
+
 -- Cours corporate et chat & chill — demande client du 2026-10-19, précisée le même jour : « ces
 -- taux ne sont pas applicables à des étudiants en interne de HOC. Il faut donc que l'on ait un
 -- bloc spécifique pour ces taux dans la fiche professeur de l'espace admin, à partir de laquelle
@@ -123,3 +127,5 @@ alter table public.hour_ledger
 
 comment on column public.hour_ledger.type_facturation is
   'Type de séance au moment de la clôture, pour choisir le taux horaire applicable (0126, étendu aux prestations externes en 0131). NULL = antérieure à 0126, traitée comme ''individuel''.';
+
+commit;

@@ -1,3 +1,9 @@
+-- `begin`/`commit` explicites : toutes les instructions DDL ci-dessous forment un seul bloc
+-- transactionnel — soit elles réussissent toutes, soit rien n'est créé. Sans ça, un copier-coller
+-- accidentellement dupliqué (ou une erreur en cours de script) peut laisser des objets à moitié
+-- créés, qui bloquent ensuite toute nouvelle tentative avec des erreurs « already exists ».
+begin;
+
 -- Chantier du 2026-10-19 (13 demandes client). Cinq socles de données, regroupés ici parce
 -- qu'aucun ne se tient sans les autres dans ce lot :
 --   1. `relances`      — historique des relances (prospect, absence au diagnostic, reprise après
@@ -354,3 +360,5 @@ begin
   return new;
 end;
 $$;
+
+commit;
