@@ -78,6 +78,7 @@ export function FicheCandidatCollectifModale({
   const [succes, setSucces] = useState<string | null>(null)
 
   const [convertirOuvert, setConvertirOuvert] = useState(false)
+  const [marquageOralEnCours, setMarquageOralEnCours] = useState(false)
   const [reevaluerOuvert, setReevaluerOuvert] = useState(false)
   const [creerFraisOuvert, setCreerFraisOuvert] = useState(false)
   const [enCoursFrais, setEnCoursFrais] = useState(false)
@@ -155,6 +156,28 @@ export function FicheCandidatCollectifModale({
     onChange()
   }
 
+  /* Fait passer le candidat de « Test oral planifié » à « Test oral passé » — bug trouvé le
+     2026-10-19 : depuis que le quiz terminé retire un candidat collectif du tableau Prospects
+     (demande client du 2026-10-19, point 3), plus aucun écran ne pouvait faire avancer ce statut.
+     Il ne vivait jusque-là QUE dans PipelineCRM.tsx (bouton « Marquer le test comme fait »,
+     accessible seulement depuis Prospects) — en retirant ces candidats de ce tableau, cette action
+     était devenue inaccessible pour eux, laissant « Test oral planifié » affiché indéfiniment
+     même après la date de la session, y compris pour un candidat dont l'oral a réellement eu
+     lieu. Ici, aucune donnée du quiz ni de l'oral n'est réécrite : le niveau final se saisit à la
+     conversion (ConvertirCandidatCollectif), ce bouton ne fait avancer que le statut. */
+  async function marquerOralPasse() {
+    if (!prospect) return
+    setMarquageOralEnCours(true)
+    setErreur(null)
+    const { error } = await supabase.from('prospects').update({ statut: 'diagnostic_fait' }).eq('id', prospect.id)
+    setMarquageOralEnCours(false)
+    if (error) {
+      setErreur(error.message)
+      return
+    }
+    await toutRecharger()
+  }
+
   // Inscription réelle (`cohort_enrollments`, rechargée dans `vagueId`) une fois converti ; tant
   // que ce n'est pas le cas, `vagueId` reste à `null` (rien à charger sans profil) et la vague
   // VISÉE vient de `ligne.vagueId`, déjà résolue par construireSuiviCollectif depuis la session
@@ -207,6 +230,18 @@ export function FicheCandidatCollectifModale({
             >
               {LIBELLE_ETAPE_COLLECTIF[etape]}
             </span>
+            {/* Visible seulement tant que l'oral n'a pas déjà été marqué passé ni le candidat
+                converti — une fois « Test oral passé », la seule suite possible est la
+                conversion, juste en dessous. */}
+            {!profilEtudiant && prospect.statut === 'diagnostic_planifie' && (
+              <button
+                onClick={marquerOralPasse}
+                disabled={marquageOralEnCours}
+                style={{ ...boutonSecondaireStyle, opacity: marquageOralEnCours ? 0.6 : 1 }}
+              >
+                {marquageOralEnCours ? 'Enregistrement…' : 'Marquer le test oral comme passé'}
+              </button>
+            )}
           </div>
 
           {/* Identité : éditée dans `profiles` une fois converti (source de vérité partout
