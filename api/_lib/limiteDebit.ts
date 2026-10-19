@@ -42,6 +42,21 @@ export interface LimiteDebit {
 }
 
 /**
+ * « Réessayez dans un instant » était un mensonge : la fenêtre dure une heure entière, et un
+ * candidat collectif bloqué au bout de ses 67 questions recliquait indéfiniment sans comprendre
+ * (signalé par le client le 2026-10-19, capture à l'appui). Le refus annonce désormais l'attente
+ * réelle, calculée sur l'expiration du compteur et jamais sur la durée de la fenêtre : rouvrir la
+ * page vingt minutes plus tard ne doit pas réannoncer une heure.
+ */
+export function messageAttente(secondesRestantes: number): string {
+  if (secondesRestantes <= 60) return 'Trop de tentatives. Réessayez dans une minute.'
+  const minutes = Math.ceil(secondesRestantes / 60)
+  if (minutes < 60) return `Trop de tentatives. Réessayez dans ${minutes} minutes.`
+  const heures = Math.round(minutes / 60)
+  return `Trop de tentatives. Réessayez dans ${heures === 1 ? 'une heure' : `${heures} heures`}.`
+}
+
+/**
  * `null` si la requête peut continuer, ou la réponse 429 à renvoyer telle quelle sinon.
  *
  * Volontairement permissif en cas de panne du compteur lui-même (table ou fonction indisponible,
@@ -64,8 +79,22 @@ export async function verifierDebit(
   if (error) return null
   if (autorise) return null
 
+  /* Lecture de l'expiration uniquement sur le chemin du refus — rare par construction — pour
+     annoncer l'attente qui reste vraiment. La fonction RPC ne renvoie qu'un booléen, et lui faire
+     renvoyer la date demanderait une migration à appliquer à la main (voir le README) pour un
+     gain que cette requête obtient déjà. Si elle échoue, on retombe sur la durée de la fenêtre :
+     une annonce trop large vaut mieux qu'une absence d'information. */
+  const { data: compteur } = await serviceClient
+    .from('limites_debit')
+    .select('expire_le')
+    .eq('cle', cle)
+    .maybeSingle()
+  const secondesRestantes = compteur?.expire_le
+    ? Math.max(0, Math.round((new Date(compteur.expire_le).getTime() - Date.now()) / 1000))
+    : limite.fenetreSecondes
+
   return Response.json(
-    { error: 'Trop de tentatives. Réessayez dans un instant.' },
-    { status: 429, headers: { 'Retry-After': String(limite.fenetreSecondes) } },
+    { error: messageAttente(secondesRestantes), secondesRestantes },
+    { status: 429, headers: { 'Retry-After': String(secondesRestantes) } },
   )
 }

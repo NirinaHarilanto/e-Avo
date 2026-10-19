@@ -58,7 +58,13 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     const serviceClient = createClient<Database>(url, serviceKey)
-    const refus = await verifierDebit(request, serviceClient, { route: 'inscrire-test', max: 5, fenetreSecondes: 3600 })
+    /* 15 et non 5 par heure (relevé à la main le 2026-10-19) : l'inscription au test collectif
+       est la seule route publique dont une tentative refusée coûte au visiteur un questionnaire
+       entier — il atteint ce bouton après 67 questions chronométrées. Et c'est aussi celle où
+       plusieurs candidats légitimes partagent le plus facilement une IP : même foyer, même
+       bureau, même cybercafé. À 5, un sixième inscrit de l'heure était renvoyé sans recours ;
+       à 15, un abus par script reste arrêté net, ce qui est tout ce que ce compteur vise. */
+    const refus = await verifierDebit(request, serviceClient, { route: 'inscrire-test', max: 15, fenetreSecondes: 3600 })
     if (refus) return refus
 
     const { data: etablissement } = await serviceClient

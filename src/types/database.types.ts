@@ -1744,6 +1744,24 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['journal_erreurs']['Insert']>
         Relationships: []
       }
+      /* Compteurs de débit des routes publiques (0101), par IP hachée. Écrits UNIQUEMENT par la
+         fonction `verifier_limite_debit` : le serveur ne fait que lire `expire_le` pour annoncer
+         au visiteur refusé l'attente qui reste (api/_lib/limiteDebit.ts). Aucune policy, donc
+         invisible aux rôles anon/authenticated. */
+      limites_debit: {
+        Row: {
+          cle: string
+          compteur: number
+          expire_le: string
+        }
+        Insert: {
+          cle: string
+          compteur?: number
+          expire_le: string
+        }
+        Update: Partial<Database['public']['Tables']['limites_debit']['Insert']>
+        Relationships: []
+      }
       /* Constantes de la maison injectées dans les modèles (0093) : liens de réservation, numéros
          Orange Money/Mvola, dates de test oral. Une valeur vide fait tomber la ligne qui la porte
          plutôt que d'exposer un gabarit nu (voir src/lib/templatesEmail.ts). */
