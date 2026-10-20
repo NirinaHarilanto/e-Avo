@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient'
 import { forfaitEntierementConsomme } from '../lib/heures'
 import { useCacheRequete } from './useCacheRequete'
+import { selectionParLots } from '../lib/requetesParLots'
 
 export interface EtatParcoursEtudiant {
   /* Toutes les heures souscrites sont consommées. `false` aussi quand aucun forfait n'est connu —
@@ -55,13 +56,13 @@ export function useEtatsParcoursEtudiants(studentIds: string[]) {
     ])
 
     const idsSeancesAVenir = (seancesAVenir ?? []).map((s) => s.id)
-    const { data: inscriptionsSeances } = idsSeancesAVenir.length > 0
-      ? await supabase
-          .from('session_enrollments')
-          .select('student_id')
-          .in('student_id', studentIds)
-          .in('session_id', idsSeancesAVenir)
-      : { data: [] as { student_id: string }[] }
+    /* Par lots (lib/requetesParLots.ts) : les séances à venir de TOUS les élèves, qui peuvent se
+       compter par milliers dès que quelques plannings prévisionnels sont posés (jusqu'à 156
+       séances par élève) — un `.in()` d'un seul tenant dépasserait la longueur d'URL acceptée, et
+       chaque élève passerait à tort en « aucun cours planifié ». */
+    const { data: inscriptionsSeances } = await selectionParLots<{ student_id: string }>(idsSeancesAVenir, (lot) =>
+      supabase.from('session_enrollments').select('student_id').in('student_id', studentIds).in('session_id', lot),
+    )
     const avecCoursAVenir = new Set((inscriptionsSeances ?? []).map((i) => i.student_id))
 
     const cohortIds = [...new Set((inscriptionsVague ?? []).map((i) => i.cohort_id))]
@@ -87,14 +88,16 @@ export function useEtatsParcoursEtudiants(studentIds: string[]) {
       : { data: [] as { id: string; cohort_id: string | null }[] }
     const vagueParSeance = new Map((seancesDesVagues ?? []).map((s) => [s.id, s.cohort_id]))
 
-    const { data: debitsVague } = vagueParSeance.size > 0
-      ? await supabase
+    const { data: debitsVague } = await selectionParLots<{ student_id: string | null; heures: number; session_id: string | null }>(
+      [...vagueParSeance.keys()],
+      (lot) =>
+        supabase
           .from('hour_ledger')
           .select('student_id, heures, session_id')
           .in('student_id', etudiantsEnVague)
           .eq('type_ecriture', 'debit_etudiant')
-          .in('session_id', [...vagueParSeance.keys()])
-      : { data: [] as { student_id: string | null; heures: number; session_id: string | null }[] }
+          .in('session_id', lot),
+    )
 
     const consommeesDansVague = new Map<string, number>()
     for (const debit of debitsVague ?? []) {

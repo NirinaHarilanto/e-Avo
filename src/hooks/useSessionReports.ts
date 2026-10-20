@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabaseClient'
 import type { Database } from '../types/database.types'
 import { useCacheRequete } from './useCacheRequete'
+import { selectionParLots } from '../lib/requetesParLots'
 
 type SessionReport = Database['public']['Tables']['session_reports']['Row']
 type Session = Database['public']['Tables']['sessions']['Row']
@@ -32,14 +33,15 @@ export function useSessionReports() {
 
     const rapportIds = (rapports ?? []).map((r) => r.id)
     const sessionIds = [...new Set((rapports ?? []).map((r) => r.session_id))]
+    /* Par lots (lib/requetesParLots.ts) : ces listes couvrent tous les comptes rendus de
+       l'établissement côté admin et grossissent à chaque séance clôturée — un `.in()` d'un seul
+       tenant finirait par dépasser la longueur d'URL acceptée et renverrait une liste vide. */
     const [{ data: sessions }, { data: enrollments }, { data: supportsBruts }] = await Promise.all([
-      sessionIds.length ? supabase.from('sessions').select('*').in('id', sessionIds) : Promise.resolve({ data: [] as Session[] }),
-      sessionIds.length
-        ? supabase.from('session_enrollments').select('session_id, student_id').in('session_id', sessionIds)
-        : Promise.resolve({ data: [] as { session_id: string; student_id: string }[] }),
-      rapportIds.length
-        ? supabase.from('documents').select('*').in('session_report_id', rapportIds)
-        : Promise.resolve({ data: [] as Document[] }),
+      selectionParLots<Session>(sessionIds, (lot) => supabase.from('sessions').select('*').in('id', lot)),
+      selectionParLots<{ session_id: string; student_id: string }>(sessionIds, (lot) =>
+        supabase.from('session_enrollments').select('session_id, student_id').in('session_id', lot),
+      ),
+      selectionParLots<Document>(rapportIds, (lot) => supabase.from('documents').select('*').in('session_report_id', lot)),
     ])
     const sessionParId = new Map((sessions ?? []).map((s) => [s.id, s]))
     const supportsParRapport = new Map<string, Document[]>()
@@ -56,9 +58,7 @@ export function useSessionReports() {
     const profileIds = [
       ...new Set([...(rapports ?? []).map((r) => r.teacher_id), ...(enrollments ?? []).map((e) => e.student_id)]),
     ]
-    const { data: profils } = profileIds.length
-      ? await supabase.from('profiles').select('*').in('id', profileIds)
-      : { data: [] as Profile[] }
+    const { data: profils } = await selectionParLots<Profile>(profileIds, (lot) => supabase.from('profiles').select('*').in('id', lot))
     const profilParId = new Map((profils ?? []).map((p) => [p.id, p]))
 
     return (rapports ?? []).map((rapport): CompteRenduComplet => ({
