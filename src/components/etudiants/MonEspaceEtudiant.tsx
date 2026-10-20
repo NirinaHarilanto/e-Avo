@@ -17,9 +17,9 @@ export function MonEspaceEtudiant() {
   const estSecondaireDuo = !!profile?.duo_partenaire_id
 
   return (
-    <EtudiantLayout actif="Mon dossier">
+    <EtudiantLayout actif="Dashboard">
       <EnTetePage
-        titre={profile ? `Bonjour ${profile.prenom}` : 'Mon dossier'}
+        titre={profile ? `Bonjour ${profile.prenom}` : 'Dashboard'}
       />
 
       {estSecondaireDuo && dossier && (

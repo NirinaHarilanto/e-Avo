@@ -26,7 +26,7 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
       ],
     },
     {
-      titre: 'Mon dossier',
+      titre: 'Dashboard',
       lien: '/mon-espace',
       points: [
         <>Quatre encadrés résument votre situation : heures suivies sur votre forfait, assiduité, prochaine séance (avec le lien <strong>Rejoindre la visio</strong>) et niveau évalué.</>,
