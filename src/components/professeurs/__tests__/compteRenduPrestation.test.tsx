@@ -1,20 +1,22 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-/* Demande client du 2026-10-20 : « pour les cours corporate & chat and chill, le professeur
-   concerné devrait renseigner un compte rendu au moment de la clôture de la séance. Ce compte
-   rendu pourra être visible par le professeur depuis l'espace professeur et par l'admin depuis
-   l'espace admin. »
+/* Demande client du 2026-10-19 : « pour les cours corporate & chat and chill, le professeur
+   concerné devrait renseigner un compte rendu au moment de la clôture de la séance [...] visible
+   par le professeur [...] et par l'admin [...] », complétée le lendemain : « il faut que l'admin
+   puisse modifier le compte rendu [...] si besoin ».
 
    Ces tests vérifient le RENDU réel (pas seulement le typage) : qui voit un formulaire d'écriture
-   et qui ne voit qu'une lecture, selon qu'on est le professeur concerné ou non. */
+   et qui ne voit qu'une lecture. `FichePrestation` (agenda du professeur, CalendrierProfesseur.tsx)
+   n'est jamais ouverte par un admin — `LignePrestation` avec `peutGerer`, la vraie fiche admin
+   (ProfesseurDetailAdmin.tsx), couvre ce second parcours. */
 
 let profilActuel = { id: 'prof-1' }
 vi.mock('../../../context/ProfileContext', () => ({
   useProfileContext: () => ({ session: { access_token: 'jeton-test' }, profile: profilActuel }),
 }))
 
-const { FichePrestation } = await import('../PrestationsExternes')
+const { FichePrestation, LignePrestation } = await import('../PrestationsExternes')
 
 const professeur = {
   id: 'prof-1',
@@ -64,20 +66,41 @@ describe('CompteRenduPrestation (via FichePrestation)', () => {
     expect(screen.getByRole('button', { name: /Enregistrer le compte rendu/ })).toBeTruthy()
   })
 
-  it('n’affiche aucun formulaire à l’admin tant que rien n’est rédigé', () => {
+  it('propose aussi le formulaire à l’admin, même si rien n’est encore rédigé', () => {
     profilActuel = { id: 'admin-1' }
-    render(<FichePrestation prestation={prestation()} professeur={professeur} onChange={() => {}} />)
-    expect(screen.queryByPlaceholderText(/Ce qui a été fait/)).toBeNull()
-    // Rien à montrer, rien à écrire : la section ne s'affiche même pas.
-    expect(screen.queryByText('Compte rendu')).toBeNull()
+    render(<LignePrestation prestation={prestation()} professeur={professeur} peutGerer peutCloturer onChange={() => {}} />)
+    fireEvent.click(screen.getByText('Compte rendu'))
+    expect(screen.getByPlaceholderText(/Ce qui a été fait/)).toBeTruthy()
   })
 
-  it('affiche le compte rendu en lecture seule à l’admin une fois rédigé', () => {
+  it('laisse l’admin modifier un compte rendu déjà rédigé par le professeur', async () => {
+    const onChange = vi.fn()
     profilActuel = { id: 'admin-1' }
     render(
-      <FichePrestation
+      <LignePrestation
         prestation={prestation({ compte_rendu: 'Atelier e-mails professionnels, groupe motivé.' })}
         professeur={professeur}
+        peutGerer
+        peutCloturer
+        onChange={onChange}
+      />,
+    )
+    fireEvent.click(screen.getByText('Compte rendu'))
+    fireEvent.click(screen.getByRole('button', { name: 'Modifier le compte rendu' }))
+    const champ = screen.getByDisplayValue('Atelier e-mails professionnels, groupe motivé.')
+    fireEvent.change(champ, { target: { value: 'Atelier e-mails professionnels, groupe motivé (corrigé par l’admin).' } })
+    fireEvent.click(screen.getByRole('button', { name: /Enregistrer le compte rendu/ }))
+    await waitFor(() => expect(onChange).toHaveBeenCalled())
+  })
+
+  it('n’affiche qu’une lecture, sans formulaire, à un visiteur qui n’est ni l’admin ni le professeur concerné', () => {
+    profilActuel = { id: 'autre-prof' }
+    render(
+      <LignePrestation
+        prestation={prestation({ compte_rendu: 'Atelier e-mails professionnels, groupe motivé.' })}
+        professeur={professeur}
+        peutGerer={false}
+        peutCloturer={false}
         onChange={() => {}}
       />,
     )

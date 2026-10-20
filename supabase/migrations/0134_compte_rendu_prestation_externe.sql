@@ -11,8 +11,11 @@
 --
 -- `notes` existant ne convient pas : c'est un champ PRÉALABLE (rempli à la création/modification,
 -- verrouillé dès que la prestation est clôturée — voir peutEtreModifiee côté code). Le compte
--- rendu, lui, ne peut exister qu'APRÈS la séance, et seul le professeur qui l'a donnée doit
--- pouvoir l'écrire — exactement le rôle que joue déjà `session_reports` pour une séance normale.
+-- rendu, lui, ne peut exister qu'APRÈS la séance.
+--
+-- Écriture ouverte au professeur qui l'a donnée ET à l'admin (complété le 2026-10-20, même jour :
+-- « il faut que l'admin puisse modifier le compte rendu [...] si besoin ») — à la différence de
+-- `session_reports`, réservé au seul professeur pour une séance normale.
 
 begin;
 
@@ -23,11 +26,11 @@ alter table public.prestations_externes
 comment on column public.prestations_externes.compte_rendu is
   'Compte rendu libre du professeur, renseigné après la clôture de la prestation (0134). Jamais écrit avant : une prestation encore planifiée n''a rien eu lieu à rendre compte.';
 
--- Écriture réservée au professeur concerné, sur sa PROPRE prestation déjà terminée — le serveur
--- (api/prestations/enregistrer-compte-rendu.ts) vérifie ces deux conditions avant d'écrire, avec
--- la clé service_role comme la clôture elle-même (0131) : aucune policy client n'est nécessaire
--- ni ajoutée, cohérent avec `prestations_externes_teacher_select` existante, qui ne donne déjà au
--- professeur qu'un accès en LECTURE sur ses prestations — jamais en écriture directe depuis le
--- navigateur, ici comme pour la clôture.
+-- Écriture réservée à l'admin et au professeur concerné, sur une prestation déjà terminée — le
+-- serveur (api/prestations/enregistrer-compte-rendu.ts) vérifie ces conditions avant d'écrire,
+-- avec la clé service_role comme la clôture elle-même (0131) : aucune policy client n'est
+-- nécessaire ni ajoutée, cohérent avec `prestations_externes_teacher_select` existante, qui ne
+-- donne déjà au professeur qu'un accès en LECTURE sur ses prestations — jamais en écriture
+-- directe depuis le navigateur, ici comme pour la clôture.
 
 commit;

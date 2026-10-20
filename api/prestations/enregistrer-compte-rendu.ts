@@ -18,8 +18,9 @@ interface Corps {
  * `statut` depuis le navigateur, des champs que `peutEtreModifiee` réserve à l'admin. Même
  * raisonnement que la clôture elle-même (api/prestations/cloturer.ts), qui passe déjà par ici.
  *
- * Écriture réservée au professeur CONCERNÉ (jamais l'admin, même s'il peut déjà tout lire) : « le
- * professeur concerné devrait renseigner », l'admin n'est cité que pour la visibilité. Et jamais
+ * Écriture ouverte au professeur CONCERNÉ et à l'admin — complété le 2026-10-20 : « il faut que
+ * l'admin puisse modifier le compte rendu [...] si besoin » (une faute à corriger, un détail que
+ * le professeur a oublié de préciser). Jamais un autre professeur que celui concerné. Et jamais
  * avant la clôture : une prestation encore planifiée n'a rien eu lieu à rendre compte.
  */
 export default async function handler(request: Request): Promise<Response> {
@@ -28,7 +29,7 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   try {
-    const { serviceClient, profileId, etablissementId } = await requireTeacherOrAdmin(request)
+    const { serviceClient, profileId, etablissementId, roles } = await requireTeacherOrAdmin(request)
     const corps = (await request.json()) as Corps
     if (!corps.prestationId) {
       return Response.json({ error: 'prestationId est requis.' }, { status: 400 })
@@ -47,7 +48,8 @@ export default async function handler(request: Request): Promise<Response> {
     if (!prestation || prestation.etablissement_id !== etablissementId) {
       return Response.json({ error: 'Prestation introuvable.' }, { status: 404 })
     }
-    if (prestation.teacher_id !== profileId) {
+    const estAdmin = roles.includes('admin_etablissement')
+    if (!estAdmin && prestation.teacher_id !== profileId) {
       return Response.json({ error: 'Vous ne pouvez renseigner le compte rendu que de vos propres prestations.' }, { status: 403 })
     }
     if (prestation.statut !== 'terminee') {

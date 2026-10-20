@@ -222,24 +222,28 @@ function FormulairePrestation({
   )
 }
 
-/* Compte rendu d'une prestation clôturée — demande client du 2026-10-20 : « le professeur
+/* Compte rendu d'une prestation clôturée — demande client du 2026-10-19 : « le professeur
    concerné devrait renseigner un compte rendu au moment de la clôture [...] visible par le
-   professeur [...] et par l'admin ».
+   professeur [...] et par l'admin », complétée le lendemain : « il faut que l'admin puisse
+   modifier le compte rendu [...] si besoin ».
 
    Texte libre, pas le gabarit pédagogique complet de CompteRenduSeance.tsx (objectifs,
    vocabulaire, progrès…) : une prestation externe n'a ni élève ni cursus à suivre d'une séance à
-   l'autre. Écriture réservée au professeur concerné (api/prestations/enregistrer-compte-rendu.ts
-   vérifie `teacher_id` côté serveur) ; l'admin et le professeur le LISENT tous les deux, seul le
-   second peut l'écrire — ce composant ne montre le formulaire qu'à lui, l'admin n'a qu'un
-   affichage. */
+   l'autre. Écriture ouverte au professeur concerné ET à l'admin (api/prestations/enregistrer-
+   compte-rendu.ts vérifie les deux côté serveur) — ce composant ne montre le formulaire qu'à
+   l'un des deux, n'importe quel autre visiteur n'aurait qu'un affichage. */
 function CompteRenduPrestation({
   prestation,
-  estLeProfesseurConcerne,
+  peutModifier,
   ouvrirAutomatiquement = false,
   onChange,
 }: {
   prestation: PrestationExterne
-  estLeProfesseurConcerne: boolean
+  /* Le professeur concerné, ou l'admin — les deux seuls visiteurs qui existent en pratique pour
+     cette fiche (la RLS ne laisse de toute façon voir une prestation qu'à son propre professeur
+     ou à l'admin de l'établissement), mais le composant reste correct si un jour ce n'était plus
+     le cas. */
+  peutModifier: boolean
   ouvrirAutomatiquement?: boolean
   onChange: () => void
 }) {
@@ -268,20 +272,19 @@ function CompteRenduPrestation({
     onChange()
   }
 
-  // Ni compte rendu existant, ni droit de l'écrire : rien à montrer (cas de l'admin consultant
-  // une prestation que le professeur n'a pas encore renseignée).
-  if (!estLeProfesseurConcerne && !prestation.compte_rendu) return null
+  // Ni compte rendu existant, ni droit de l'écrire : rien à montrer.
+  if (!peutModifier && !prestation.compte_rendu) return null
 
   return (
     <SectionRepliable titre="Compte rendu" ouvertParDefaut={ouvrirAutomatiquement}>
-      {!estLeProfesseurConcerne || (prestation.compte_rendu && !ouvert) ? (
+      {!peutModifier || (prestation.compte_rendu && !ouvert) ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {prestation.compte_rendu ? (
             <TexteRepliable texte={prestation.compte_rendu} style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.55 }} />
           ) : (
             <p style={{ margin: 0, fontSize: 12, color: 'var(--muted-2)' }}>Le professeur n’a pas encore rédigé de compte rendu.</p>
           )}
-          {estLeProfesseurConcerne && (
+          {peutModifier && (
             <button type="button" onClick={() => setOuvert(true)} style={{ ...boutonSecondaireStyle, alignSelf: 'flex-start' }}>
               Modifier le compte rendu
             </button>
@@ -319,7 +322,9 @@ function CompteRenduPrestation({
   )
 }
 
-function LignePrestation({
+// Exportée pour être testée directement avec `peutGerer` (la vraie fiche admin, voir
+// ProfesseurDetailAdmin.tsx) sans remonter tout `PrestationsExternes` et son hook de données.
+export function LignePrestation({
   prestation,
   professeur,
   peutGerer,
@@ -433,7 +438,7 @@ function LignePrestation({
       {prestation.statut === 'terminee' && (
         <CompteRenduPrestation
           prestation={prestation}
-          estLeProfesseurConcerne={profile?.id === prestation.teacher_id}
+          peutModifier={peutGerer || profile?.id === prestation.teacher_id}
           ouvrirAutomatiquement={proposerCompteRendu}
           onChange={onChange}
         />

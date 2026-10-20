@@ -1,13 +1,14 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
-/* Demande client du 2026-10-20 : « pour les cours corporate & chat and chill, le professeur
-   concerné devrait renseigner un compte rendu au moment de la clôture de la séance. Ce compte
-   rendu pourra être visible par le professeur [...] et par l'admin [...] ».
+/* Demande client du 2026-10-19 : « pour les cours corporate & chat and chill, le professeur
+   concerné devrait renseigner un compte rendu au moment de la clôture de la séance [...] visible
+   par le professeur [...] et par l'admin [...] », complétée le lendemain : « il faut que l'admin
+   puisse modifier le compte rendu [...] si besoin ».
 
-   Ces tests verrouillent les trois garde-fous qui distinguent cette route de la clôture
-   elle-même : jamais avant la clôture (une prestation planifiée n'a rien eu lieu à rendre
-   compte), jamais un autre professeur que celui concerné (même si l'admin peut déjà tout lire,
-   seul le professeur « renseigne »), et jamais vide. */
+   Ces tests verrouillent les garde-fous qui distinguent cette route de la clôture elle-même :
+   jamais avant la clôture (une prestation planifiée n'a rien eu lieu à rendre compte), jamais un
+   AUTRE professeur que celui concerné, jamais vide — mais professeur concerné ET admin peuvent
+   tous deux écrire. */
 
 let rolesActuels: Array<'professeur' | 'admin_etablissement'> = ['professeur']
 let profileIdActuel = 'prof-1'
@@ -98,13 +99,14 @@ describe('api/prestations/enregistrer-compte-rendu', () => {
     expect(misesAJourCapturees).toEqual([])
   })
 
-  it('refuse l’admin : seul le professeur concerné renseigne le compte rendu', async () => {
+  it('laisse l’admin modifier le compte rendu, lui aussi', async () => {
     profileIdActuel = 'admin-1'
     rolesActuels = ['admin_etablissement']
     prestationRetournee = { id: 'prestation-1', etablissement_id: 'etab-1', teacher_id: 'prof-1', statut: 'terminee' }
-    const reponse = await handler(requete({ prestationId: 'prestation-1', compteRendu: 'Texte.' }))
-    expect(reponse.status).toBe(403)
-    expect(misesAJourCapturees).toEqual([])
+    const reponse = await handler(requete({ prestationId: 'prestation-1', compteRendu: 'Correction orthographique.' }))
+    expect(reponse.status).toBe(200)
+    expect(misesAJourCapturees).toHaveLength(1)
+    expect(misesAJourCapturees[0].valeurs.compte_rendu).toBe('Correction orthographique.')
   })
 
   it('refuse une prestation d’un autre établissement', async () => {
