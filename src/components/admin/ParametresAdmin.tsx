@@ -9,7 +9,6 @@ import { supabase } from '../../lib/supabaseClient'
 import { IntegrationGoogleMeet } from './IntegrationGoogleMeet'
 import { AgendasProfesseursAdmin } from './AgendasProfesseursAdmin'
 import { DisponibilitesAdmin } from './DisponibilitesAdmin'
-import { JournalErreursAdmin } from './JournalErreursAdmin'
 import type { Database } from '../../types/database.types'
 import { ChampDate } from '../ui/ChampDate'
 
@@ -154,9 +153,10 @@ export function ParametresAdmin() {
 
         <DisponibilitesAdmin />
 
-        {/* En dernier : on ne le consulte qu'en cas de doute, il n'a pas à occuper le haut de la
-            page tant que rien ne va mal. */}
-        <JournalErreursAdmin />
+        {/* Le bloc « Journal des erreurs » (JournalErreursAdmin.tsx, migration 0121) a été retiré
+            de cet écran — demande client du 2026-10-20, le composant a été supprimé avec lui. La
+            table `journal_erreurs` et l'écriture faite par FrontiereErreur.tsx restent en place :
+            seule sa LECTURE ici a disparu, pas la collecte. */}
       </div>
     </AdminLayout>
   )
