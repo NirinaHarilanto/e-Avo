@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
+  champsIdentiteDuo,
   clesCommunesAuxEleves,
   completsAReporterSurProfil,
+  completsSecondaireAReporter,
   deduireSource,
   preparerVariables,
   SOURCES_IDENTITE_PERSONNE,
   substituerVariablesDuo,
+  valeursChampsIdentiteDuo,
   type VariableResolue,
 } from '../contrats'
 import type { Database } from '../../types/database.types'
@@ -635,5 +638,118 @@ describe('SOURCES_IDENTITE_PERSONNE', () => {
 
   it('laisse dehors le taux horaire, propre au professeur et jamais à un élève', () => {
     expect(SOURCES_IDENTITE_PERSONNE.has('taux_horaire' as never)).toBe(false)
+  })
+})
+
+/* Capture client du 2026-10-20 : « pour les groupes d'étudiants, chaque étudiant a leur propre
+   adresse, donc il faut mettre l'adresse de chaque étudiant dans les champs automatiques ou
+   mettre adresse de l'étudiant 1, adresse de l'étudiant 2 ». Même principe que
+   `clesCommunesAuxEleves` pour les classes, appliqué cette fois au binôme DUO : un champ
+   d'identité que ni l'un ni l'autre profil ne porte doit rester DEUX champs à compléter, un par
+   personne — jamais une seule case partagée. */
+describe('champsIdentiteDuo', () => {
+  const sansAdresse: Profile = { ...etudiant, id: 'p1', prenom: 'dentalis', nom: 'bensas', adresse: null }
+  const partenaireSansAdresse: Profile = { ...etudiant, id: 'p3', prenom: 'François', nom: 'brayan', adresse: null, duo_partenaire_id: 'p1' }
+
+  const modele = [
+    { cle: 'nom_complet_etudiant', label: "Nom complet de l'étudiant" },
+    { cle: 'adresse_etudiant', label: "Adresse de l'étudiant" },
+    { cle: 'ville_signature', label: 'Ville de signature' },
+  ]
+  const corps = '{{nom_complet_etudiant}} {{adresse_etudiant}} {{ville_signature}}'
+
+  it('isole le seul champ d’identité qu’aucun des deux profils ne porte, pas les autres', () => {
+    const variables = preparerVariables(corps, modele, sansAdresse, etablissement, undefined, partenaireSansAdresse)
+    const champs = champsIdentiteDuo(variables, sansAdresse, partenaireSansAdresse, etablissement)
+    // `nom_complet` se résout seul chez les deux (valeurAuto déjà posé par preparerVariables) :
+    // listé quand même ici (l'écran l'affichera en lecture seule, pas en saisie), contrairement à
+    // « ville de signature », qui n'est pas un champ d'identité et ne doit jamais apparaître.
+    expect(champs.map((c) => c.cle).sort()).toEqual(['adresse_etudiant', 'nom_complet_etudiant'])
+  })
+
+  it('ne propose aucun champ quand le contrat n’a pas de second membre', () => {
+    const variables = preparerVariables(corps, modele, sansAdresse, etablissement)
+    expect(champsIdentiteDuo(variables, sansAdresse, null, etablissement)).toEqual([])
+  })
+
+  it('ne propose rien non plus quand le modèle a lui-même prévu des champs « _2 »', () => {
+    const modeleDuoAware = [
+      { cle: 'adresse1', label: 'Adresse (étudiant 1)', source: 'adresse' },
+      { cle: 'adresse2', label: 'Adresse (étudiant 2)', source: 'adresse_2' },
+    ]
+    const variables = preparerVariables('{{adresse1}} {{adresse2}}', modeleDuoAware, sansAdresse, etablissement, undefined, partenaireSansAdresse)
+    expect(champsIdentiteDuo(variables, sansAdresse, partenaireSansAdresse, etablissement)).toEqual([])
+  })
+
+  it('porte la valeur de chaque membre séparément, null si sa fiche ne la porte pas', () => {
+    const variables = preparerVariables(corps, modele, etudiant, etablissement, undefined, { ...etudiant, id: 'p3', adresse: null })
+    const champ = champsIdentiteDuo(variables, etudiant, { ...etudiant, id: 'p3', adresse: null }, etablissement).find(
+      (c) => c.cle === 'adresse_etudiant',
+    )
+    expect(champ?.valeurPrincipale).toBe('Lot II M 12, Antananarivo')
+    expect(champ?.valeurSecondaire).toBeNull()
+  })
+})
+
+describe('valeursChampsIdentiteDuo', () => {
+  const champ = (partiel: Partial<ReturnType<typeof champsIdentiteDuo>[number]> & { cle: string }): ReturnType<typeof champsIdentiteDuo>[number] => ({
+    label: '',
+    source: 'adresse',
+    valeurPrincipale: null,
+    valeurSecondaire: null,
+    ...partiel,
+  })
+
+  it('reprend la saisie de chaque membre pour son propre champ', () => {
+    const champs = [champ({ cle: 'adresse_etudiant' })]
+    const { valeurs, valeursSecondaires } = valeursChampsIdentiteDuo(champs, { adresse_etudiant: 'Lot X' }, { adresse_etudiant: 'Lot Y' })
+    expect(valeurs).toEqual({ adresse_etudiant: 'Lot X' })
+    expect(valeursSecondaires).toEqual({ adresse_etudiant: 'Lot Y' })
+  })
+
+  it('retombe sur la valeur de fiche quand rien n’a été saisi', () => {
+    const champs = [champ({ cle: 'adresse_etudiant', valeurPrincipale: 'Lot auto 1', valeurSecondaire: 'Lot auto 2' })]
+    const { valeurs, valeursSecondaires } = valeursChampsIdentiteDuo(champs, {}, {})
+    expect(valeurs).toEqual({ adresse_etudiant: 'Lot auto 1' })
+    expect(valeursSecondaires).toEqual({ adresse_etudiant: 'Lot auto 2' })
+  })
+
+  it('ne duplique pas le paragraphe quand les deux membres partagent la même valeur', () => {
+    const champs = [champ({ cle: 'adresse_etudiant', valeurPrincipale: 'Même lot' })]
+    const { valeurs, valeursSecondaires } = valeursChampsIdentiteDuo(champs, {}, { adresse_etudiant: 'Même lot' })
+    expect(valeurs).toEqual({ adresse_etudiant: 'Même lot' })
+    expect(valeursSecondaires).toEqual({})
+  })
+
+  it('laisse le champ non résolu quand ni saisie, ni fiche, ni défaut ne le couvrent', () => {
+    const champs = [champ({ cle: 'adresse_etudiant' })]
+    const { valeurs, valeursSecondaires } = valeursChampsIdentiteDuo(champs, {}, {})
+    expect(valeurs).toEqual({})
+    expect(valeursSecondaires).toEqual({})
+  })
+})
+
+describe('completsSecondaireAReporter', () => {
+  const champ = (partiel: Partial<ReturnType<typeof champsIdentiteDuo>[number]> & { cle: string }): ReturnType<typeof champsIdentiteDuo>[number] => ({
+    label: '',
+    source: 'adresse',
+    valeurPrincipale: null,
+    valeurSecondaire: null,
+    ...partiel,
+  })
+
+  it('reporte la saisie du second membre dont la fiche ne portait pas encore la valeur', () => {
+    const champs = [champ({ cle: 'adresse_etudiant' })]
+    expect(completsSecondaireAReporter(champs, { adresse_etudiant: 'Lot Y, Antananarivo' })).toEqual({ adresse: 'Lot Y, Antananarivo' })
+  })
+
+  it('ignore un champ déjà porté par la fiche du second membre', () => {
+    const champs = [champ({ cle: 'adresse_etudiant', valeurSecondaire: 'Déjà sur sa fiche' })]
+    expect(completsSecondaireAReporter(champs, { adresse_etudiant: 'Une saisie qui ne devrait pas compter' })).toEqual({})
+  })
+
+  it('ignore une saisie vide', () => {
+    const champs = [champ({ cle: 'adresse_etudiant' })]
+    expect(completsSecondaireAReporter(champs, { adresse_etudiant: '   ' })).toEqual({})
   })
 })

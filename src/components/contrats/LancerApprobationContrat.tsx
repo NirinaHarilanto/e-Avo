@@ -9,12 +9,15 @@ import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import { supabase } from '../../lib/supabaseClient'
 import {
+  champsIdentiteDuo,
   clesCommunesAuxEleves,
   completsAReporterSurProfil,
+  completsSecondaireAReporter,
   libelleTypeProgramme,
   preparerVariables,
   SOURCES_IDENTITE_PERSONNE,
   substituerVariablesDuo,
+  valeursChampsIdentiteDuo,
   type ContexteProgramme,
   type SourceVariable,
 } from '../../lib/contrats'
@@ -53,6 +56,12 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
   const [destinataireId, setDestinataireId] = useState('')
   const [templateId, setTemplateId] = useState('')
   const [complements, setComplements] = useState<Record<string, string>>({})
+  /* Pendant de `complements`, mais pour le SECOND membre d'un binôme DUO — demande client du
+     2026-10-20 : « chaque étudiant a leur propre adresse [...] mettre adresse de l'étudiant 1,
+     adresse de l'étudiant 2 ». Un champ d'identité que ni l'un ni l'autre ne porte (voir
+     `champsIdentiteDuo`) partage la même clé `cle` entre les deux : une seule carte ne suffit pas
+     à savoir qui a tapé quoi. */
+  const [complementsSecondaire, setComplementsSecondaire] = useState<Record<string, string>>({})
   /* Clause de minorité (0087, demande client du 2026-09-30) : une case à cocher par variable
      `estClauseMineur`, indépendante de `complements` — cochée, le texte de la clause (voir
      `defaut`, éditable) est inséré ; décochée (par défaut), rien ne l'est. Voir `valeurs`
@@ -160,7 +169,18 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
   const variables = modele
     ? preparerVariables(modele.corps_template, modele.variables_disponibles, destinataire, etablissement, contexteProgramme, destinataireSecondaire)
     : []
-  const remplies = variables.filter((v) => !!v.valeurAuto)
+
+  /* Champs d'identité du binôme DUO, un par membre — demande client du 2026-10-20 : « chaque
+     étudiant a leur propre adresse [...] mettre adresse de l'étudiant 1, adresse de l'étudiant
+     2 ». `[]` pour un contrat sans second membre, pour une classe (son propre bloc plus bas gère
+     déjà ce cas), ou pour un modèle qui a lui-même prévu des champs `_2` (voir
+     `champsIdentiteDuo`). */
+  const champsDuo = !classeChoisie && destinataire && destinataireSecondaire
+    ? champsIdentiteDuo(variables, destinataire, destinataireSecondaire, etablissement)
+    : []
+  const clesChampsDuo = new Set(champsDuo.map((c) => c.cle))
+
+  const remplies = variables.filter((v) => !!v.valeurAuto && !clesChampsDuo.has(v.cle))
   // La clause de minorité (0087) a son propre rendu — case à cocher, pas un champ de texte libre
   // parmi les autres — donc exclue d'ici malgré `valeurAuto === undefined`. Voir plus bas.
   /* Pour une CLASSE, un champ propre à la personne (adresse, date de naissance…) ne peut pas être
@@ -169,12 +189,15 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
      capture à l'appui (croix rouge sur « Adresse de l'étudiant ») : « l'adresse est propre à
      chaque étudiant, donc elle doit figurer dans le champ automatique ou ne pas figurer du
      tout ». Elle figure donc sous le nom de chaque élève, remplie depuis sa fiche — et rappelée
-     comme manquante quand sa fiche ne la porte pas. */
+     comme manquante quand sa fiche ne la porte pas. Même principe pour un DUO (ci-dessus,
+     `champsDuo`), avec deux champs de saisie au lieu d'un rappel seul : à deux personnes, demander
+     la valeur directement reste praticable, contrairement à une classe entière. */
   const aCompleter = variables.filter(
     (v) =>
       v.valeurAuto === undefined &&
       !v.estClauseMineur &&
-      !(classeChoisie && v.source && SOURCES_IDENTITE_PERSONNE.has(v.source as SourceVariable)),
+      !(classeChoisie && v.source && SOURCES_IDENTITE_PERSONNE.has(v.source as SourceVariable)) &&
+      !clesChampsDuo.has(v.cle),
   )
   const clausesMineur = variables.filter((v) => v.estClauseMineur)
 
@@ -184,6 +207,7 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
   // la valeur du principal.
   const valeursSecondaires: Record<string, string> = {}
   for (const variable of variables) {
+    if (clesChampsDuo.has(variable.cle)) continue // résolu séparément ci-dessous, un par membre
     /* Clause de minorité : jamais `variable.defaut` en repli silencieux (contrairement aux
        autres champs manuels) — sans la case cochée, la clause doit rester absente du contrat,
        pas s'y glisser parce que personne n'a encore touché le champ. */
@@ -195,6 +219,9 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
     if (valeur !== undefined) valeurs[variable.cle] = valeur
     if (variable.valeurAutoSecondaire !== undefined) valeursSecondaires[variable.cle] = variable.valeurAutoSecondaire
   }
+  const { valeurs: valeursDuo, valeursSecondaires: valeursSecondairesDuo } = valeursChampsIdentiteDuo(champsDuo, complements, complementsSecondaire)
+  Object.assign(valeurs, valeursDuo)
+  Object.assign(valeursSecondaires, valeursSecondairesDuo)
   const corpsGenere = modele ? substituerVariablesDuo(modele.corps_template, valeurs, valeursSecondaires) : ''
 
   function changerType(nouveau: Role) {
@@ -202,6 +229,7 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
     setDestinataireId('')
     setTemplateId('')
     setComplements({})
+    setComplementsSecondaire({})
     setMineurCoche({})
   }
 
@@ -396,14 +424,19 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
        sans effet si rien de tel n'a été saisi. Jamais bloquant : le contrat est déjà enregistré,
        une panne ici ne doit pas donner l'impression que le lancement a échoué. */
     const { destinataire: champsDestinataire, destinataireSecondaire: champsSecondaire } = completsAReporterSurProfil(variables, complements)
+    // Champs d'identité scindés par membre (ci-dessus, `champsDuo`) : leur clé est partagée entre
+    // les deux personnes, `completsAReporterSurProfil` couvre déjà le principal via `complements`
+    // (même map) — seule la saisie du second membre, dans sa propre map, reste à reporter ici.
+    const champsSecondaireDuo = completsSecondaireAReporter(champsDuo, complementsSecondaire)
     if (Object.keys(champsDestinataire).length > 0) {
       supabase.from('profiles').update(champsDestinataire).eq('id', destinataire.id).then(
         () => undefined,
         () => undefined,
       )
     }
-    if (destinataireSecondaire && Object.keys(champsSecondaire).length > 0) {
-      supabase.from('profiles').update(champsSecondaire).eq('id', destinataireSecondaire.id).then(
+    const champsSecondaireTotal = { ...champsSecondaire, ...champsSecondaireDuo }
+    if (destinataireSecondaire && Object.keys(champsSecondaireTotal).length > 0) {
+      supabase.from('profiles').update(champsSecondaireTotal).eq('id', destinataireSecondaire.id).then(
         () => undefined,
         () => undefined,
       )
@@ -537,6 +570,50 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Binôme DUO : un champ d'identité que ni l'un ni l'autre profil ne porte encore reste
+          DEUX champs à compléter, un par personne — demande client du 2026-10-20, capture à
+          l'appui : « chaque étudiant a leur propre adresse [...] mettre adresse de l'étudiant 1,
+          adresse de l'étudiant 2 ». Une valeur déjà connue de la fiche d'un membre s'affiche en
+          lecture seule ; sinon, un champ de saisie propre à CE membre — jamais le même pour les
+          deux, contrairement à l'ancien champ unique. */}
+      {!classeChoisie && champsDuo.length > 0 && destinataire && destinataireSecondaire && (
+        <div style={{ borderRadius: 12, border: '1px solid rgba(111,227,192,.24)', background: 'rgba(111,227,192,.06)', padding: '12px 15px' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-teal)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+            Informations propres à chaque étudiant du duo
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { membre: destinataire, saisie: complements, setSaisie: setComplements, valeurDe: (c: (typeof champsDuo)[number]) => c.valeurPrincipale },
+              { membre: destinataireSecondaire, saisie: complementsSecondaire, setSaisie: setComplementsSecondaire, valeurDe: (c: (typeof champsDuo)[number]) => c.valeurSecondaire },
+            ].map(({ membre, saisie, setSaisie, valeurDe }, index) => (
+              <div key={membre.id} style={index > 0 ? { borderTop: '1px solid rgba(111,227,192,.22)', paddingTop: 8 } : undefined}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>
+                  Étudiant {index + 1} · {[membre.prenom, membre.nom].filter(Boolean).join(' ')}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+                  {champsDuo.map((champ) => {
+                    const auto = valeurDe(champ)
+                    return (
+                      <Champ key={champ.cle} label={champ.label}>
+                        {auto !== null ? (
+                          <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>{auto}</span>
+                        ) : (
+                          <input
+                            value={saisie[champ.cle] ?? champ.defaut ?? ''}
+                            onChange={(e) => setSaisie({ ...saisie, [champ.cle]: e.target.value })}
+                            style={champStyle}
+                          />
+                        )}
+                      </Champ>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

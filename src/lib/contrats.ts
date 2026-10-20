@@ -634,6 +634,100 @@ export function substituerVariablesDuo(
     .join('\n\n')
 }
 
+/* ---------------------------------------------------------------------------------------------
+   Champs d'identité d'un contrat DUO, un par membre — demande client du 2026-10-20, capture à
+   l'appui : « pour les groupes d'étudiants, chaque étudiant a leur propre adresse, donc il faut
+   mettre l'adresse de chaque étudiant dans les champs automatiques ou mettre adresse de l'étudiant
+   1, adresse de l'étudiant 2 ». Jusque-là, un champ d'identité qu'aucun des deux profils ne
+   portait (adresse vide chez les deux) restait une SEULE case à saisir dans
+   LancerApprobationContrat.tsx — ce qui y était tapé partait ensuite pour les DEUX membres
+   (`valeursSecondaires` ne le recevait jamais, faute de valeur automatique côté principal pour
+   amorcer la comparaison dans `preparerVariables`). Mêmes trou et même principe de correction que
+   `clesCommunesAuxEleves` pour les classes collectives : un champ propre à une personne ne peut
+   pas se saisir une seule fois pour plusieurs.
+   --------------------------------------------------------------------------------------------- */
+export interface ChampIdentiteDuo {
+  cle: string
+  label: string
+  source: SourceVariable
+  /* `null` quand la fiche de ce membre ne porte pas (encore) la donnée — à distinguer de
+     `undefined`, réservé aux valeurs composées (voir `valeursChampsIdentiteDuo`). */
+  valeurPrincipale: string | null
+  valeurSecondaire: string | null
+  defaut?: string
+}
+
+/* Liste les champs d'identité à afficher UN PAR MEMBRE plutôt qu'une fois pour le duo entier.
+   Reprend la même détection que `preparerVariables` (un modèle qui déclare déjà au moins un champ
+   `_2` a été pensé pour le duo, on ne le double pas davantage) à partir du résultat déjà calculé
+   par `preparerVariables` plutôt que de la refaire : chaque variable porte encore sa `source`
+   même quand elle n'a pas pu se résoudre seule (voir le commentaire de `preparerVariables`). */
+export function champsIdentiteDuo(
+  variables: VariableResolue[],
+  destinataire: Profile,
+  destinataireSecondaire: Profile | null,
+  etablissement: Etablissement | null,
+): ChampIdentiteDuo[] {
+  if (!destinataireSecondaire) return []
+  const modeleDejaPenseurPourLeDuo = variables.some((v) => v.source?.endsWith('_2'))
+  if (modeleDejaPenseurPourLeDuo) return []
+  return variables
+    .filter((v): v is VariableResolue & { source: SourceVariable } => !!v.source && SOURCES_IDENTITE_PERSONNE.has(v.source as SourceVariable) && !v.estClauseMineur)
+    .map((v) => ({
+      cle: v.cle,
+      label: v.label,
+      source: v.source,
+      valeurPrincipale: resoudreSource(v.source, destinataire, etablissement),
+      valeurSecondaire: resoudreSource(v.source, destinataireSecondaire, etablissement),
+      defaut: v.defaut,
+    }))
+}
+
+/* Valeurs à substituer pour ces champs scindés — même cascade que pour un champ ordinaire
+   (saisie > fiche > défaut courant, voir `preparerVariables`/LancerApprobationContrat.tsx), mais
+   appliquée séparément à chaque membre. `valeursSecondaires` ne reçoit un champ que si sa valeur
+   diffère VRAIMENT de celle du principal — même règle que `preparerVariables` pour ne pas dupliquer
+   un paragraphe entier quand les deux étudiants partagent par exemple la même adresse. */
+export function valeursChampsIdentiteDuo(
+  champs: ChampIdentiteDuo[],
+  complementsPrincipal: Record<string, string>,
+  complementsSecondaire: Record<string, string>,
+): { valeurs: Record<string, string>; valeursSecondaires: Record<string, string> } {
+  const valeurs: Record<string, string> = {}
+  const valeursSecondaires: Record<string, string> = {}
+  for (const champ of champs) {
+    const principale = complementsPrincipal[champ.cle] ?? champ.valeurPrincipale ?? champ.defaut
+    const secondaire = complementsSecondaire[champ.cle] ?? champ.valeurSecondaire ?? champ.defaut
+    if (principale !== undefined) valeurs[champ.cle] = principale
+    if (secondaire !== undefined && secondaire !== principale) valeursSecondaires[champ.cle] = secondaire
+  }
+  return { valeurs, valeursSecondaires }
+}
+
+/* Pendant de `completsAReporterSurProfil`, mais pour le SECOND membre d'un duo quand le champ
+   n'est pas un `_2` explicite du modèle (voir `champsIdentiteDuo` ci-dessus) : sa clé est alors la
+   MÊME que celle du principal (`champ.cle`), `completsAReporterSurProfil` ne peut donc distinguer
+   qui a tapé quoi — il continue de couvrir le principal sans y changer une ligne (sa valeur vit
+   dans le même `complements` que les autres champs manuels de l'écran), ceci ne couvre que ce qui
+   a été tapé dans le second champ, propre à cette liste. */
+export function completsSecondaireAReporter(
+  champs: ChampIdentiteDuo[],
+  complementsSecondaire: Record<string, string>,
+): ChampsProfilAReporter {
+  const cible: ChampsProfilAReporter = {}
+  for (const champ of champs) {
+    if (champ.valeurSecondaire !== null) continue
+    const valeur = complementsSecondaire[champ.cle]?.trim()
+    if (!valeur) continue
+    const colonne = SOURCES_VERS_PROFIL[champ.source]
+    // `taux_horaire` n'est jamais un champ d'identité (voir SOURCES_IDENTITE_PERSONNE) : cette
+    // branche n'est donc en pratique jamais atteinte, gardée seulement pour que le type de
+    // `colonne` reste celui, plus large, de `SOURCES_VERS_PROFIL`.
+    if (colonne && colonne !== 'taux_horaire_individuel') cible[colonne] = valeur
+  }
+  return cible
+}
+
 /* Clés communes à TOUS les élèves d'une classe collective, pour l'aperçu d'un lancement de
    contrats groupé (LancerApprobationContrat.tsx) — demande client du 2026-10-19 : le bloc des
    champs remplis automatiquement ne montrait que le premier élève, alors qu'un contrat part pour
