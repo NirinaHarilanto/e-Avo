@@ -4,9 +4,9 @@ import { Messagerie } from './Messagerie'
 
 export function MessagesEtudiant() {
   return (
-    <EtudiantLayout actif="Messages">
+    <EtudiantLayout actif="Mes messages">
       <EnTetePage
-        titre="Messages"
+        titre="Mes messages"
       />
 
       <Messagerie />

@@ -26,7 +26,7 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
       ],
     },
     {
-      titre: 'Dashboard',
+      titre: 'Mon Dashboard',
       lien: '/mon-espace',
       points: [
         <>Quatre encadrés résument votre situation : heures suivies sur votre forfait, assiduité, prochaine séance (avec le lien <strong>Rejoindre la visio</strong>) et niveau évalué.</>,
@@ -69,7 +69,7 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
       ],
     },
     {
-      titre: 'Messages',
+      titre: 'Mes messages',
       lien: '/mon-espace/messages',
       points: [
         <><strong>Nouveau message</strong> ouvre l’annuaire de HOC : choisissez un ou plusieurs destinataires, un objet, puis envoyez.</>,
@@ -301,10 +301,19 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
   ],
 }
 
+/* Wording propre à l'espace étudiant — demande client du 2026-10-20 : « Guide d'utilisation » y
+   devient « Mon guide d'utilisation », comme « Mon Dashboard »/« Mes messages » juste avant dans
+   le menu. Admin et professeur gardent le libellé d'origine, inchangé. */
+const TITRE_GUIDE: Record<EspaceGuide, string> = {
+  admin: 'Guide d’utilisation',
+  professeur: 'Guide d’utilisation',
+  etudiant: 'Mon guide d’utilisation',
+}
+
 export function GuideUtilisateur({ espace }: { espace: EspaceGuide }) {
   const contenu = (
     <>
-      <EnTetePage titre="Guide d’utilisation" />
+      <EnTetePage titre={TITRE_GUIDE[espace]} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {RUBRIQUES[espace].map((rubrique, index) => (
           <details key={rubrique.titre} open={index === 0} className="card" style={{ padding: '14px 18px' }}>
@@ -329,5 +338,5 @@ export function GuideUtilisateur({ espace }: { espace: EspaceGuide }) {
 
   if (espace === 'admin') return <AdminLayout actif="Guide d’utilisation">{contenu}</AdminLayout>
   if (espace === 'professeur') return <ProfesseurLayout actif="Guide d’utilisation">{contenu}</ProfesseurLayout>
-  return <EtudiantLayout actif="Guide d’utilisation">{contenu}</EtudiantLayout>
+  return <EtudiantLayout actif="Mon guide d’utilisation">{contenu}</EtudiantLayout>
 }

@@ -7,10 +7,10 @@ const ETUDIANT_NAV_GROUPS: NavGroup[] = [
   {
     titre: 'Mon parcours',
     items: [
-      { label: 'Dashboard', href: '/mon-espace', disponible: true, icone: 'dossier', description: 'Professeur, programme et heures' },
+      { label: 'Mon Dashboard', href: '/mon-espace', disponible: true, icone: 'dossier', description: 'Professeur, programme et heures' },
       { label: 'Mon agenda', href: '/mon-espace/agenda', disponible: true, icone: 'seances', description: 'Vos cours de la semaine' },
       { label: 'Mes documents', href: '/mon-espace/documents', disponible: true, icone: 'documents', description: 'Vos pièces et vos comptes rendus de cours' },
-      { label: 'Messages', href: '/mon-espace/messages', disponible: true, icone: 'communication', description: 'Écrire à l’administration ou à votre professeur' },
+      { label: 'Mes messages', href: '/mon-espace/messages', disponible: true, icone: 'communication', description: 'Écrire à l’administration ou à votre professeur' },
     ],
   },
   {
@@ -19,7 +19,7 @@ const ETUDIANT_NAV_GROUPS: NavGroup[] = [
       { label: 'Mes paiements', href: '/mon-espace/paiements', disponible: true, icone: 'paiements', description: 'Vos factures et reçus' },
       { label: 'Mes contrats', href: '/mon-espace/contrats', disponible: true, icone: 'contrats', description: 'Contrats à lire et à signer' },
       { label: 'Mon profil', href: '/mon-espace/profil', disponible: true, icone: 'parametres', description: 'Vos coordonnées et votre signature' },
-      { label: 'Guide d’utilisation', href: '/mon-espace/guide', disponible: true, icone: 'guide', description: 'Le fonctionnement de votre espace' },
+      { label: 'Mon guide d’utilisation', href: '/mon-espace/guide', disponible: true, icone: 'guide', description: 'Le fonctionnement de votre espace' },
     ],
   },
 ]
