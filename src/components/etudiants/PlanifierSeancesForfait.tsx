@@ -18,6 +18,17 @@ interface Creneau {
   heure: string
 }
 
+/* `curseur.toISOString().slice(0, 10)` — utilisé ici jusqu'au 2026-10-20 — convertit D'ABORD en
+   UTC avant de lire le jour : à Madagascar (UTC+3), minuit local le 20/10 devient 21h UTC le 19/10,
+   et la date générée retombe sur le 19/10. Signalé par le client, capture à l'appui : un créneau
+   choisi du 20/10 au 21/10 planifiait la séance le 19/10. Comme partout ailleurs dans ce projet
+   (RendezVousAdmin.tsx, EventsAdmin.tsx, CalendrierProfesseur.tsx…), on lit le jour avec les
+   accesseurs LOCAUX plutôt que par une conversion UTC. */
+function dateLocaleEnJJMMAAAA(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
 interface PlanifierSeancesForfaitProps {
   studentIds: string[]
   /* Planning d'une vague entière (0069) : le serveur résout lui-même les élèves depuis la vague
@@ -107,7 +118,7 @@ export function PlanifierSeancesForfait({
     while (curseur <= fin) {
       if (jours.has(curseur.getDay())) {
         const heure = heureParJour.get(curseur.getDay())!
-        const iso = new Date(`${curseur.toISOString().slice(0, 10)}T${heure}`).toISOString()
+        const iso = new Date(`${dateLocaleEnJJMMAAAA(curseur)}T${heure}`).toISOString()
         debuts.push(iso)
       }
       curseur.setDate(curseur.getDate() + 1)
@@ -136,7 +147,7 @@ export function PlanifierSeancesForfait({
     for (let jour = 0; jour < 366 * 3 && heuresAccumulees < heuresForfait; jour++) {
       if (jours.has(curseur.getDay())) {
         heuresAccumulees += dureeMinutes / 60
-        derniereDate = curseur.toISOString().slice(0, 10)
+        derniereDate = dateLocaleEnJJMMAAAA(curseur)
       }
       curseur.setDate(curseur.getDate() + 1)
     }
