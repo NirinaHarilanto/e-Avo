@@ -10,6 +10,14 @@ export interface EtatParcoursEtudiant {
   /* Aucune séance à venir au planning. C'est l'alerte de la demande 6 (2026-10-19) : un élève
      inscrit, avec un professeur, mais dont rien n'est programmé. */
   sansCoursPlanifie: boolean
+  /* Chiffres bruts, exposés depuis le 2026-10-20 pour l'écran Heures & forfaits (demande client :
+     « heures suivies / forfait d'heures en cours » sur chaque ligne) — mêmes nombres que ceux qui
+     décident `forfaitEpuise` ci-dessus et les jalons de mi-parcours/fin de parcours
+     (lib/jalonsParcours.ts), jamais une variante recalculée ailleurs avec une autre portée. Pour
+     un élève en vague, `consommees` ne compte que les heures DANS cette vague, pas le cumul de
+     toute sa vie de dossier (voir le commentaire de la fonction). */
+  forfait: number | null
+  consommees: number
 }
 
 /* État du parcours de TOUS les étudiants de la liste admin, en une passe — demandes client 6 et 7
@@ -116,6 +124,8 @@ export function useEtatsParcoursEtudiants(studentIds: string[]) {
       etats[studentId] = {
         forfaitEpuise: forfaitEntierementConsomme(consommees, forfait),
         sansCoursPlanifie: !avecCoursAVenir.has(studentId),
+        forfait,
+        consommees,
       }
     }
     return etats
