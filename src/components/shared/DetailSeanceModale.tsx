@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 import type { Database } from '../../types/database.types'
-import { useProfileContext } from '../../context/ProfileContext'
 import { useDetailSeance } from '../../hooks/useDetailSeance'
 import { libelleTypeSeance, nomEleveInscrit } from '../../lib/seances'
 import { formaterMinutes } from '../../lib/heures'
@@ -50,15 +49,19 @@ function Bloc({ titre, children }: { titre: string; children: ReactNode }) {
    l'espace admin et l'espace professeur pour que les deux voient exactement la même chose ; ce
    que chacun a le droit de lire est tranché par la RLS, pas par un filtre d'affichage. */
 export function DetailSeanceModale({ session, professeur, eleves, video, onFermer, actions }: DetailSeanceModaleProps) {
-  const { profile } = useProfileContext()
   const { detail, loading } = useDetailSeance(session.id)
   const lienVisio = video ? getJoinUrl(video) : null
   const debut = new Date(session.debut)
 
   const nomsEleves = eleves.map((e) => nomEleveInscrit(e))
 
+  /* Titre « Détail de la séance », et non « Événement de l'agenda de <prénom> » — signalé par le
+     client le 2026-10-20, capture à l'appui : ce prénom était celui de la personne CONNECTÉE, pas
+     celui de l'agenda consulté. Un admin regardant l'agenda d'un professeur lisait donc
+     « Événement de l'agenda de Harinjo » sur une séance de Nirina Stéphane. La fiche nomme déjà
+     le professeur et l'élève dans son corps : le titre n'a aucune personne à désigner. */
   return (
-    <Modale titre={`Événement de l’agenda de ${profile?.prenom ?? ''}`} onFermer={onFermer} largeurMax={560}>
+    <Modale titre="Détail de la séance" onFermer={onFermer} largeurMax={560}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span className="brand-font" style={{ fontSize: 16, color: 'var(--ink)' }}>

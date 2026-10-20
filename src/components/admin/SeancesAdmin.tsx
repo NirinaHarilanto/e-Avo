@@ -5,7 +5,16 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { useRendezVous } from '../../hooks/useRendezVous'
 import { useEvenementsAdmin } from '../../hooks/useEvenementsAdmin'
-import { agendaAdminComplet, estEvenementGooglePersonnel, idGoogleDepuisEvenement, seanceSansEffet, versEvenementSeance } from '../../lib/agendaEvenements'
+import {
+  agendaAdminComplet,
+  estEvenementGooglePersonnel,
+  estEvenementPrestation,
+  idGoogleDepuisEvenement,
+  idPrestationDepuisEvenement,
+  seanceSansEffet,
+  versEvenementPrestation,
+  versEvenementSeance,
+} from '../../lib/agendaEvenements'
 import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
 import { libelleTypeSeance, nomsElevesInscrits } from '../../lib/seances'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
@@ -13,6 +22,10 @@ import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModa
 import { PopupEvenementAdmin, estEvenementAdmin } from '../shared/PopupEvenementAdmin'
 import { FicheEvenementGoogle } from '../shared/FicheEvenementGoogle'
 import { DetailSeanceModale } from '../shared/DetailSeanceModale'
+import { LegendeTypeSeance } from '../shared/LegendeTypeSeance'
+import { LignePrestation } from '../professeurs/PrestationsExternes'
+import { usePrestationsExternesEtablissement } from '../../hooks/usePrestationsExternes'
+import { Modale } from '../ui/Modale'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -44,11 +57,16 @@ export function SeancesAdmin() {
   const { etudiants } = useEtudiants()
   const { rendezVous, recharger: rechargerRendezVous } = useRendezVous()
   const { evenements: evenementsAdmin, recharger: rechargerEvenementsAdmin } = useEvenementsAdmin()
+  /* Prestations corporate / chat & chill de tout l'établissement — demande client du 2026-10-20 :
+     elles occupaient un créneau dans l'agenda du professeur sans jamais apparaître ici, si bien
+     que les deux agendas ne montraient pas la même semaine. */
+  const { prestations, recharger: rechargerPrestations } = usePrestationsExternesEtablissement()
   const [vue, setVue] = useState<Vue>('semaine')
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
   const [personnesSelectionnees, setPersonnesSelectionnees] = useState<Set<string>>(new Set())
 
   const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
+  const [prestationOuverteId, setPrestationOuverteId] = useState<string | null>(null)
   const [editionOuverte, setEditionOuverte] = useState(false)
 
   function basculerPersonne(id: string) {
@@ -112,7 +130,18 @@ export function SeancesAdmin() {
       .filter((seance) => !seanceSansEffet(seance.session.statut))
       .map((seance) => versEvenementSeance(seance, nomsElevesInscrits(seance.inscriptions), professeurIds))
 
-    if (!adminSelectionne) return seancesEvenements
+    /* Prestations hors cursus de la semaine (0131), affichées ici comme dans l'agenda du
+       professeur — même conversion partagée, donc même couleur et même libellé des deux côtés.
+       Elles n'ont aucun élève : cocher un ÉTUDIANT n'en fait donc apparaître aucune, alors que
+       cocher son professeur les montre toutes. Les annulées sont retirées de la grille, comme
+       les séances annulées (demande client du 2026-10-11). */
+    const prestationsEvenements = prestations
+      .filter((p) => p.statut !== 'annulee')
+      .filter((p) => p.debut >= semaineDebut.toISOString() && p.debut < semaineFin.toISOString())
+      .filter((p) => personnesSelectionnees.size === 0 || profsSelectionnes.has(p.teacher_id))
+      .map(versEvenementPrestation)
+
+    if (!adminSelectionne) return [...seancesEvenements, ...prestationsEvenements]
 
     const evenementsAgendaAdmin = agendaAdminComplet(rendezVous, evenementsAdmin).filter((e) => {
       const debutIso = e.debut
@@ -120,9 +149,10 @@ export function SeancesAdmin() {
     })
     // `evenementsGooglePersonnel` est déjà borné à la semaine affichée par le hook lui-même
     // (paramètre `semaineDebut`), aucun filtrage de date à refaire ici.
-    return [...seancesEvenements, ...evenementsAgendaAdmin, ...evenementsGooglePersonnel]
+    return [...seancesEvenements, ...prestationsEvenements, ...evenementsAgendaAdmin, ...evenementsGooglePersonnel]
   }, [
     seancesSemaine,
+    prestations,
     personnesSelectionnees,
     profsSelectionnes,
     etudiantsSelectionnes,
@@ -146,6 +176,13 @@ export function SeancesAdmin() {
   const clicEstEvenementAdmin = !clicEstEvenementGoogle && estEvenementAdmin(seanceOuverteId)
   const seanceOuverte = !clicEstEvenementAdmin && !clicEstEvenementGoogle
     ? seances.find((s) => s.session.id === seanceOuverteId) ?? null
+    : null
+  /* Une prestation hors cursus ouvre sa propre fiche (2026-10-20), comme dans l'agenda du
+     professeur : elle n'a ni élève, ni présence à émarger, ni visio — la fiche de séance n'aurait
+     rien à y montrer. */
+  const prestationOuverte = prestations.find((p) => p.id === prestationOuverteId) ?? null
+  const professeurDeLaPrestation = prestationOuverte
+    ? (professeurs.find((p) => p.id === prestationOuverte.teacher_id) ?? null)
     : null
   const evenementGoogleOuvert =
     clicEstEvenementGoogle && seanceOuverteId ? (googleParId.get(idGoogleDepuisEvenement(seanceOuverteId)) ?? null) : null
@@ -301,7 +338,12 @@ export function SeancesAdmin() {
                 evenements={evenements}
                 semaineDebut={semaineDebut}
                 onSemaineChange={setSemaineDebut}
-                onSelectionner={(evenement) => setSeanceOuverteId(evenement.id)}
+                onSelectionner={(evenement) =>
+                  estEvenementPrestation(evenement.id)
+                    ? setPrestationOuverteId(idPrestationDepuisEvenement(evenement.id))
+                    : setSeanceOuverteId(evenement.id)
+                }
+                legende={<LegendeTypeSeance />}
                 videMessage={
                   personnesSelectionnees.size > 0
                     ? 'Aucun événement pour les personnes cochées cette semaine. Changez la sélection ou de semaine.'
@@ -328,6 +370,24 @@ export function SeancesAdmin() {
             ) : undefined
           }
         />
+      )}
+
+      {/* Fiche d'une prestation hors cursus (2026-10-20) : l'admin y retrouve ce que le
+          professeur voit depuis son propre agenda — détail, clôture et compte rendu (0134). */}
+      {prestationOuverte && (
+        <Modale titre="Prestation hors cursus" onFermer={() => setPrestationOuverteId(null)} largeurMax={520}>
+          <LignePrestation
+            prestation={prestationOuverte}
+            professeur={professeurDeLaPrestation}
+            peutGerer
+            peutCloturer
+            sansCadre
+            onChange={() => {
+              rechargerPrestations()
+              setPrestationOuverteId(null)
+            }}
+          />
+        </Modale>
       )}
 
       {seanceOuverte && editionOuverte && (

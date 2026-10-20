@@ -8,6 +8,8 @@ import type { RendezVousAvecProspect } from '../hooks/useRendezVous'
 import type { EvenementAdminAvecParticipants } from '../hooks/useEvenementsAdmin'
 import type { SeanceAdmin } from '../hooks/useSeancesAdmin'
 import type { EvenementAgenda } from './agenda'
+import type { StatutPrestationExterne, TypePrestationExterne } from '../types/database.types'
+import { LIBELLE_TYPE_PRESTATION } from './prestationsExternes'
 
 /* Statut d'une séance qui n'a pas eu lieu comme prévu — demande client du 2026-10-11 : ces
    occurrences doivent disparaître des agendas calendaires (grille hebdomadaire), pas seulement
@@ -52,6 +54,35 @@ export function estEvenementPrestation(id: string | null | undefined): boolean {
 
 export function idPrestationDepuisEvenement(id: string): string {
   return id.startsWith(PREFIXE_PRESTATION) ? id.slice(PREFIXE_PRESTATION.length) : id
+}
+
+/* Une prestation hors cursus dans une grille d'agenda : teal, un ton encore libre dans la
+   légende — bleu/or/violet désignent déjà individuel/duo/collectif, et les réutiliser ferait
+   passer un cours corporate pour un cours d'élève.
+
+   Remontée ici depuis CalendrierProfesseur.tsx le 2026-10-20 : l'agenda de l'administration
+   (Séances & visio) ignorait complètement ces prestations, si bien qu'un cours corporate visible
+   dans l'agenda du professeur n'existait nulle part côté admin — « pourquoi les deux agendas ne
+   sont pas synchronisés ». Une seule conversion pour les deux écrans, donc une seule façon
+   d'afficher la même prestation. */
+export function versEvenementPrestation(prestation: {
+  id: string
+  debut: string
+  duree_minutes: number
+  client: string
+  type: TypePrestationExterne
+  statut: StatutPrestationExterne
+}): EvenementAgenda {
+  return {
+    id: `${PREFIXE_PRESTATION}${prestation.id}`,
+    debut: prestation.debut,
+    dureeMinutes: prestation.duree_minutes,
+    titre: prestation.client,
+    sousTitre: `${LIBELLE_TYPE_PRESTATION[prestation.type]} · ${prestation.duree_minutes} min`,
+    ton: prestation.statut === 'annulee' ? 'neutre' : 'teal',
+    attenue: prestation.statut === 'annulee',
+    statut: prestation.statut === 'annulee' ? 'Annulée' : prestation.statut === 'terminee' ? 'Terminée' : undefined,
+  }
 }
 
 /* Couleurs tournantes par professeur, pour qu'une semaine chargée se lise d'un coup d'œil. */

@@ -29,3 +29,21 @@ export function usePrestationsExternes(teacherId: string | undefined) {
 
   return { prestations: valeur ?? [], loading, erreur, recharger }
 }
+
+/* Toutes les prestations de l'établissement, pour l'agenda de l'administration (Séances & visio)
+   — demande client du 2026-10-20 : « pourquoi les deux agendas ne sont pas synchronisés ». Un
+   cours corporate visible dans l'agenda du professeur n'apparaissait nulle part côté admin,
+   faute d'être chargé ici.
+
+   La RLS (`prestations_externes_admin_all`, 0131) borne déjà le résultat à l'établissement de
+   l'admin : rien à filtrer de plus côté client. Clé de cache distincte de celle par professeur
+   ci-dessus, les deux listes n'ayant ni la même portée ni les mêmes écrans. */
+export function usePrestationsExternesEtablissement() {
+  const { valeur, loading, erreur, recharger } = useCacheRequete('prestations-externes-etablissement', async () => {
+    const { data, error } = await supabase.from('prestations_externes').select('*').order('debut', { ascending: false })
+    if (error) throw new Error(error.message)
+    return data ?? []
+  })
+
+  return { prestations: valeur ?? [], loading, erreur, recharger }
+}

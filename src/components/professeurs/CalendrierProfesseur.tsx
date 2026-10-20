@@ -12,11 +12,11 @@ import { nomVagueSeul } from '../../lib/cohortes'
 import { estSeanceDuo, libelleTypeSeance, nomsElevesInscrits } from '../../lib/seances'
 import {
   versEvenementAdmin,
+  versEvenementPrestation,
   estEvenementGooglePersonnel,
   estEvenementPrestation,
   idGoogleDepuisEvenement,
   idPrestationDepuisEvenement,
-  PREFIXE_PRESTATION,
   seanceSansEffet,
 } from '../../lib/agendaEvenements'
 import { useEvenementsGoogleCalendarPersonnel, useStatutGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
@@ -24,7 +24,7 @@ import { useRepriseAutomatiqueReunions } from '../../hooks/useRepriseReunionsGoo
 import { estPrestationExterne, NATURES_PROFESSEUR, type NatureRendezVous } from '../../lib/natureRendezVous'
 import { COLONNE_TAUX_PRESTATION, LIBELLE_TYPE_PRESTATION } from '../../lib/prestationsExternes'
 import { FichePrestation } from './PrestationsExternes'
-import type { PrestationExterne } from '../../hooks/usePrestationsExternes'
+import { LegendeTypeSeance } from '../shared/LegendeTypeSeance'
 import { formaterMontant } from '../../lib/paiements'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { EnTetePage } from '../ui/EnTetePage'
@@ -78,46 +78,6 @@ function versEvenement(seance: SeanceProfesseur): EvenementAgenda {
     attenue: seance.session.statut === 'annulee' || seance.session.statut === 'reportee',
     statut: seance.session.statut === 'reportee' ? 'Reportée' : seance.session.statut === 'annulee' ? 'Annulée' : undefined,
   }
-}
-
-/* Une prestation hors cursus dans la grille (0131) : teal, un ton encore libre dans cette
-   légende — bleu/or/violet désignent déjà individuel/duo/collectif, et les réutiliser ferait
-   passer un cours corporate pour un cours d'élève. */
-function versEvenementPrestation(prestation: PrestationExterne): EvenementAgenda {
-  return {
-    id: `${PREFIXE_PRESTATION}${prestation.id}`,
-    debut: prestation.debut,
-    dureeMinutes: prestation.duree_minutes,
-    titre: prestation.client,
-    sousTitre: `${LIBELLE_TYPE_PRESTATION[prestation.type]} · ${prestation.duree_minutes} min`,
-    ton: prestation.statut === 'annulee' ? 'neutre' : 'teal',
-    attenue: prestation.statut === 'annulee',
-    statut:
-      prestation.statut === 'annulee' ? 'Annulée' : prestation.statut === 'terminee' ? 'Terminée' : undefined,
-  }
-}
-
-/* Légende des couleurs par type de cours (0068, demande client du 2026-09-23) — mêmes teintes
-   que `versEvenement` ci-dessus et que le vocabulaire de couleur déjà établi ailleurs dans
-   l'application pour Duo/Collectif (TagProgramme, EtudiantsAdmin.tsx : or = duo, ici étendu à
-   violet pour collectif faute d'un troisième ton déjà associé). */
-function LegendeTypeSeance() {
-  const puces: { libelle: string; couleur: string }[] = [
-    { libelle: 'Individuel', couleur: 'var(--accent-blue)' },
-    { libelle: 'Duo', couleur: 'var(--accent-gold)' },
-    { libelle: 'Collectif', couleur: 'var(--accent-violet)' },
-    { libelle: 'Corporate / chat & chill', couleur: 'var(--accent-teal)' },
-  ]
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-      {puces.map((puce) => (
-        <span key={puce.libelle} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--muted)' }}>
-          <span style={{ width: 9, height: 9, borderRadius: 999, background: puce.couleur, flexShrink: 0 }} />
-          {puce.libelle}
-        </span>
-      ))}
-    </div>
-  )
 }
 
 function versDatetimeLocal(date: Date): string {
