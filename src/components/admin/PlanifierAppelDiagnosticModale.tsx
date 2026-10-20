@@ -3,7 +3,11 @@ import { useRendezVous } from '../../hooks/useRendezVous'
 import { useEvenementsAdmin } from '../../hooks/useEvenementsAdmin'
 import { supabase } from '../../lib/supabaseClient'
 import { lundiDeLaSemaine } from '../../lib/agenda'
-import { agendaAdminComplet, PREFIXE_PROSPECT } from '../../lib/agendaEvenements'
+import { agendaAdminComplet, estEvenementGooglePersonnel, idGoogleDepuisEvenement, PREFIXE_PROSPECT } from '../../lib/agendaEvenements'
+import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
+import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
+import { useProfileContext } from '../../context/ProfileContext'
+import { FicheEvenementGoogle } from '../shared/FicheEvenementGoogle'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import type { EvenementAgenda } from '../../lib/agenda'
 import { Modale } from '../ui/Modale'
@@ -57,6 +61,19 @@ export function PlanifierAppelDiagnosticModale({
      événements ne sont ouverts qu'en consultation/action ponctuelle, jamais pour re-planifier
      depuis ici le rendez-vous de quelqu'un d'autre. */
   const [autreElementOuvertId, setAutreElementOuvertId] = useState<string | null>(null)
+  const [evenementGoogleOuvert, setEvenementGoogleOuvert] = useState<string | null>(null)
+
+  /* Même agenda que la page « Agenda » — demande client du 2026-10-20 : cette fenêtre doit
+     montrer l'agenda de l'admin À JOUR. Il lui manquait la superposition Google personnelle de
+     l'admin (un engagement pris dans Google restait invisible ici, d'où un risque de double
+     réservation), et elle se contentait du cache déjà en mémoire au lieu de relire la base à
+     l'ouverture. */
+  const { derniereNotification } = useProfileContext()
+  const {
+    evenements: evenementsGooglePersonnel,
+    parId: googleParId,
+    recharger: rechargerGoogle,
+  } = useEvenementsGoogleCalendarPersonnel(semaineDebut)
 
   useEffect(() => {
     supabase
@@ -89,16 +106,26 @@ export function PlanifierAppelDiagnosticModale({
   }, [rdvDuProspect?.id])
 
   const evenements = useMemo<EvenementAgenda[]>(() => {
-    const tous = agendaAdminComplet(rendezVous, evenementsAdmin)
+    const tous = [...agendaAdminComplet(rendezVous, evenementsAdmin), ...evenementsGooglePersonnel]
     if (!rdvDuProspect) return tous
     const idCible = PREFIXE_PROSPECT + rdvDuProspect.id
     return tous.map((e) => (e.id === idCible ? { ...e, ton: 'danger', marqueur: 'ce prospect' } : e))
-  }, [rendezVous, evenementsAdmin, rdvDuProspect])
+  }, [rendezVous, evenementsAdmin, evenementsGooglePersonnel, rdvDuProspect])
 
   function recharger() {
     rechargerRdv()
     rechargerEvenements()
+    rechargerGoogle()
   }
+
+  // Relecture à l'ouverture : le cache partagé peut dater de la dernière visite de l'Agenda.
+  useEffect(() => {
+    rechargerRdv()
+    rechargerEvenements()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  // Une demande de rendez-vous arrivée de la vitrine pendant que la fenêtre est ouverte.
+  useRafraichirSurNotification(derniereNotification, ['rendez_vous_demande'], recharger)
 
   async function appelServeur(url: string, corps: object) {
     const reponse = await fetch(url, {
@@ -189,6 +216,10 @@ export function PlanifierAppelDiagnosticModale({
             onSelectionner={(evenement) => {
               if (rdvDuProspect && evenement.id === PREFIXE_PROSPECT + rdvDuProspect.id) {
                 setAnnulationOuverte(true)
+                return
+              }
+              if (estEvenementGooglePersonnel(evenement.id)) {
+                setEvenementGoogleOuvert(idGoogleDepuisEvenement(evenement.id))
                 return
               }
               if (estEvenementAdmin(evenement.id)) setAutreElementOuvertId(evenement.id)
@@ -289,6 +320,14 @@ export function PlanifierAppelDiagnosticModale({
         session={session}
         onChange={recharger}
       />
+
+      {evenementGoogleOuvert && googleParId.get(evenementGoogleOuvert) && (
+        <FicheEvenementGoogle
+          evenement={googleParId.get(evenementGoogleOuvert)!}
+          onFermer={() => setEvenementGoogleOuvert(null)}
+          onChange={rechargerGoogle}
+        />
+      )}
     </Modale>
   )
 }

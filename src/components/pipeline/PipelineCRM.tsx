@@ -675,7 +675,8 @@ function FormulaireNouveauProspect({
           <select value={typeProgramme} onChange={(e) => setTypeProgramme(e.target.value as TypeProgrammeProspect)} style={champStyle}>
             <option value="individuel">Individuel</option>
             <option value="duo">Duo</option>
-            <option value="collectif">Collectif</option>
+            {/* Pas de « Collectif » ici — demande client du 2026-10-20 : un candidat collectif
+                entre par le test de positionnement de la page publique, jamais à la main. */}
           </select>
         </div>
         {erreur && <p style={{ color: 'var(--danger)', fontSize: 12.5 }}>{erreur}</p>}
