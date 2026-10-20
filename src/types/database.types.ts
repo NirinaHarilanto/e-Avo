@@ -548,6 +548,10 @@ export interface Database {
           terminee_le: string | null
           terminee_par: string | null
           motif_annulation: string | null
+          /* Rempli par le professeur APRÈS la clôture (0134) — à ne pas confondre avec `notes`,
+             rempli avant, verrouillé dès que la prestation est terminée. */
+          compte_rendu: string | null
+          compte_rendu_le: string | null
           cree_par: string | null
           created_at: string
           updated_at: string
@@ -566,6 +570,8 @@ export interface Database {
           terminee_le?: string | null
           terminee_par?: string | null
           motif_annulation?: string | null
+          compte_rendu?: string | null
+          compte_rendu_le?: string | null
           cree_par?: string | null
           created_at?: string
           updated_at?: string

@@ -21,6 +21,8 @@ import { Champ, champStyle } from '../ui/Champ'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { boutonDangerStyle, boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
+import { SectionRepliable } from '../shared/SectionRepliable'
+import { TexteRepliable } from '../ui/Repliable'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -220,6 +222,103 @@ function FormulairePrestation({
   )
 }
 
+/* Compte rendu d'une prestation clôturée — demande client du 2026-10-20 : « le professeur
+   concerné devrait renseigner un compte rendu au moment de la clôture [...] visible par le
+   professeur [...] et par l'admin ».
+
+   Texte libre, pas le gabarit pédagogique complet de CompteRenduSeance.tsx (objectifs,
+   vocabulaire, progrès…) : une prestation externe n'a ni élève ni cursus à suivre d'une séance à
+   l'autre. Écriture réservée au professeur concerné (api/prestations/enregistrer-compte-rendu.ts
+   vérifie `teacher_id` côté serveur) ; l'admin et le professeur le LISENT tous les deux, seul le
+   second peut l'écrire — ce composant ne montre le formulaire qu'à lui, l'admin n'a qu'un
+   affichage. */
+function CompteRenduPrestation({
+  prestation,
+  estLeProfesseurConcerne,
+  ouvrirAutomatiquement = false,
+  onChange,
+}: {
+  prestation: PrestationExterne
+  estLeProfesseurConcerne: boolean
+  ouvrirAutomatiquement?: boolean
+  onChange: () => void
+}) {
+  const { session } = useProfileContext()
+  const [ouvert, setOuvert] = useState(ouvrirAutomatiquement)
+  const [texte, setTexte] = useState(prestation.compte_rendu ?? '')
+  const [enCours, setEnCours] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  async function enregistrer() {
+    if (!session || !texte.trim()) return
+    setEnCours(true)
+    setErreur(null)
+    const reponse = await fetch('/api/prestations/enregistrer-compte-rendu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ prestationId: prestation.id, compteRendu: texte.trim() }),
+    }).catch(() => null)
+    setEnCours(false)
+    if (!reponse || !reponse.ok) {
+      const detail = reponse ? await reponse.json().catch(() => null) : null
+      setErreur(detail?.error ?? "L'enregistrement a échoué. Réessayez dans un instant.")
+      return
+    }
+    setOuvert(false)
+    onChange()
+  }
+
+  // Ni compte rendu existant, ni droit de l'écrire : rien à montrer (cas de l'admin consultant
+  // une prestation que le professeur n'a pas encore renseignée).
+  if (!estLeProfesseurConcerne && !prestation.compte_rendu) return null
+
+  return (
+    <SectionRepliable titre="Compte rendu" ouvertParDefaut={ouvrirAutomatiquement}>
+      {!estLeProfesseurConcerne || (prestation.compte_rendu && !ouvert) ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {prestation.compte_rendu ? (
+            <TexteRepliable texte={prestation.compte_rendu} style={{ fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.55 }} />
+          ) : (
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--muted-2)' }}>Le professeur n’a pas encore rédigé de compte rendu.</p>
+          )}
+          {estLeProfesseurConcerne && (
+            <button type="button" onClick={() => setOuvert(true)} style={{ ...boutonSecondaireStyle, alignSelf: 'flex-start' }}>
+              Modifier le compte rendu
+            </button>
+          )}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <textarea
+            value={texte}
+            onChange={(e) => setTexte(e.target.value)}
+            rows={4}
+            placeholder="Ce qui a été fait, remarques pour la suite…"
+            style={{ ...champStyle, resize: 'vertical', fontFamily: 'inherit' }}
+          />
+          {erreur && <MessageErreur>{erreur}</MessageErreur>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              onClick={enregistrer}
+              disabled={enCours || !texte.trim()}
+              className="btn-shine"
+              style={{ ...boutonPrimaireStyle, fontSize: 12.5, padding: '8px 16px', opacity: enCours || !texte.trim() ? 0.6 : 1 }}
+            >
+              {enCours ? 'Enregistrement…' : 'Enregistrer le compte rendu'}
+            </button>
+            {prestation.compte_rendu && (
+              <button type="button" onClick={() => { setTexte(prestation.compte_rendu ?? ''); setOuvert(false) }} style={boutonNeutreStyle}>
+                Annuler
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </SectionRepliable>
+  )
+}
+
 function LignePrestation({
   prestation,
   professeur,
@@ -237,12 +336,15 @@ function LignePrestation({
   sansCadre?: boolean
   onChange: () => void
 }) {
-  const { session } = useProfileContext()
+  const { session, profile } = useProfileContext()
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [annulationOuverte, setAnnulationOuverte] = useState(false)
   const [motifAnnulation, setMotifAnnulation] = useState('')
+  // Compte rendu proposé tout de suite après la clôture (0134), sans que le professeur ait à
+  // rouvrir la prestation pour le trouver — même geste que CarteSeance.tsx pour une séance.
+  const [proposerCompteRendu, setProposerCompteRendu] = useState(false)
 
   const heures = heuresDepuisMinutes(prestation.duree_minutes)
   const taux = professeur ? professeur[COLONNE_TAUX_PRESTATION[prestation.type]] : null
@@ -265,6 +367,7 @@ function LignePrestation({
       setErreur(detail?.error ?? 'La clôture a échoué. Réessayez dans un instant.')
       return
     }
+    setProposerCompteRendu(true)
     onChange()
   }
 
@@ -325,6 +428,15 @@ function LignePrestation({
       {prestation.notes && <span style={{ fontSize: 11.5, color: 'var(--muted)', whiteSpace: 'pre-wrap' }}>{prestation.notes}</span>}
       {prestation.statut === 'annulee' && prestation.motif_annulation && (
         <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>Motif : {prestation.motif_annulation}</span>
+      )}
+
+      {prestation.statut === 'terminee' && (
+        <CompteRenduPrestation
+          prestation={prestation}
+          estLeProfesseurConcerne={profile?.id === prestation.teacher_id}
+          ouvrirAutomatiquement={proposerCompteRendu}
+          onChange={onChange}
+        />
       )}
 
       {erreur && <MessageErreur>{erreur}</MessageErreur>}

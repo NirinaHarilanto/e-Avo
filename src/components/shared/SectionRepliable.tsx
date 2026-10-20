@@ -21,12 +21,19 @@ export function SectionRepliable({
   titre,
   children,
   couleur,
+  ouvertParDefaut = false,
 }: {
   titre: string
   children: ReactNode
   couleur?: string
+  /* Déplié d'emblée — demande client du 2026-10-20 : juste après la clôture d'une prestation
+     externe, le compte rendu doit se proposer tout de suite (même esprit que
+     `ouvrirAutomatiquement` sur CompteRenduSeance.tsx), pas rester plié derrière un clic
+     supplémentaire. Faux par défaut : la règle du 2026-10-13 (« plié, à l'utilisateur de le
+     déplier ») reste celle des trois autres appelants. */
+  ouvertParDefaut?: boolean
 }) {
-  const [plie, setPlie] = useState(true)
+  const [plie, setPlie] = useState(!ouvertParDefaut)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: plie ? 0 : 10, borderTop: '1px solid var(--border-soft, var(--border))', paddingTop: 13 }}>
       <button
