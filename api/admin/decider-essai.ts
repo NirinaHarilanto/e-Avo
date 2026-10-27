@@ -1,3 +1,4 @@
+import { jourDansFuseauEtablissement } from '../../src/lib/etablissement.js'
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 
 export const config = { runtime: 'edge' }
@@ -139,7 +140,7 @@ export default async function handler(request: Request): Promise<Response> {
         montant: corps.montantPaiement!,
         montant_regle: corps.montantPaiement!,
         statut: 'paye',
-        date_paiement: new Date().toISOString().slice(0, 10),
+        date_paiement: jourDansFuseauEtablissement(),
         moyen_paiement: corps.moyenPaiement?.trim() || null,
         reference: corps.referencePaiement?.trim() || null,
         notes: corps.motifPaiement!.trim(),
@@ -216,7 +217,7 @@ export default async function handler(request: Request): Promise<Response> {
         montant: corps.montantPaiement!,
         montant_regle: corps.montantPaiement!,
         statut: 'paye',
-        date_paiement: new Date().toISOString().slice(0, 10),
+        date_paiement: jourDansFuseauEtablissement(),
         moyen_paiement: corps.moyenPaiement?.trim() || null,
         reference: corps.referencePaiement?.trim() || null,
         notes: corps.motifPaiement!.trim(),

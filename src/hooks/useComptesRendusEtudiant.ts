@@ -14,14 +14,18 @@ type Profile = Database['public']['Tables']['profiles']['Row']
    l'en-tête de CHAQUE dossier consulté, il n'a pas à déclencher quatre requêtes à chaque clic sur
    un nom dans la liste.
 
-   Aucun filtre de visibilité à écrire : la RLS s'en charge et donne exactement la bonne portée
-   selon qui regarde — l'admin voit tous les comptes rendus de l'établissement
-   (`session_reports_admin_select`, 0033), un professeur uniquement ceux dont il est l'auteur
-   (`session_reports_teacher_all`), et `session_enrollments_teacher_select` (0009) limite déjà de
-   la même façon les séances qu'il peut lister. */
-export function useComptesRendusEtudiant(studentId: string | undefined, actif: boolean) {
+   La RLS donne déjà presque la bonne portée selon qui regarde : l'admin voit tous les comptes
+   rendus de l'établissement (`session_reports_admin_select`, 0033), un professeur ceux dont il
+   est l'auteur (`session_reports_teacher_all`).
+   Elle ne suffit plus depuis 0138 : un professeur voit aussi, en lecture seule, les séances et
+   les comptes rendus de son collègue sur un élève qu'ils partagent. La synthèse « mes cours »
+   annoncerait alors « les séances que vous avez assurées » en y mêlant celles de l'autre, d'où
+   `limiterAuProfesseurId` — le seul endroit de l'application où cette restriction doit être
+   écrite à la main, précisément parce que son libellé promet une portée plus étroite que la
+   RLS. */
+export function useComptesRendusEtudiant(studentId: string | undefined, actif: boolean, limiterAuProfesseurId?: string) {
   const { valeur, loading, erreur } = useCacheRequete(
-    actif && studentId ? `comptes-rendus-etudiant-${studentId}` : null,
+    actif && studentId ? `comptes-rendus-etudiant-${studentId}-${limiterAuProfesseurId ?? 'tous'}` : null,
     async () => {
       const { data: inscriptions, error } = await supabase
         .from('session_enrollments')
@@ -37,7 +41,11 @@ export function useComptesRendusEtudiant(studentId: string | undefined, actif: b
         supabase.from('session_reports').select('*').in('session_id', sessionIds),
       ])
 
-      const teacherIds = [...new Set((rapports ?? []).map((r) => r.teacher_id))]
+      const rapportsRetenus = limiterAuProfesseurId
+        ? (rapports ?? []).filter((r) => r.teacher_id === limiterAuProfesseurId)
+        : (rapports ?? [])
+
+      const teacherIds = [...new Set(rapportsRetenus.map((r) => r.teacher_id))]
       const { data: profils } = teacherIds.length
         ? await supabase.from('profiles').select('*').in('id', teacherIds)
         : { data: [] as Profile[] }
@@ -46,7 +54,7 @@ export function useComptesRendusEtudiant(studentId: string | undefined, actif: b
       const presenceParSession = new Map((inscriptions ?? []).map((i) => [i.session_id, i.present]))
       const professeurParId = new Map((profils ?? []).map((p) => [p.id, `${p.prenom ?? ''} ${p.nom ?? ''}`.trim()]))
 
-      const entrees = (rapports ?? [])
+      const entrees = rapportsRetenus
         .map((rapport: SessionReport): EntreeCompteRendu | null => {
           const session: Session | undefined = sessionParId.get(rapport.session_id)
           // Séance invisible pour l'appelant (cas théorique : la RLS de `sessions` est plus large
@@ -66,9 +74,14 @@ export function useComptesRendusEtudiant(studentId: string | undefined, actif: b
 
       return {
         entrees,
-        // « Reportée » (0085) exclue à dessein : la séance n'a pas eu lieu, elle n'attend aucun
-        // compte rendu — la compter ici afficherait un manque qui n'existe pas.
-        nbSeancesTerminees: (sessions ?? []).filter((s) => s.statut === 'terminee').length,
+        /* « Reportée » (0085) exclue à dessein : la séance n'a pas eu lieu, elle n'attend aucun
+           compte rendu — la compter ici afficherait un manque qui n'existe pas.
+           Restreint au même professeur que les comptes rendus quand c'est demandé : sinon la
+           synthèse « vos séances » annoncerait des comptes rendus manquants pour des cours
+           donnés par son collègue. */
+        nbSeancesTerminees: (sessions ?? []).filter(
+          (s) => s.statut === 'terminee' && (!limiterAuProfesseurId || s.teacher_id === limiterAuProfesseurId),
+        ).length,
       }
     },
   )

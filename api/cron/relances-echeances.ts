@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
 import { creerNotification } from '../_lib/notifications.js'
 import { envoyerDepuisModele, montantLisible } from '../_lib/templatesEmail.js'
+import { jourDansFuseauEtablissement } from '../../src/lib/etablissement.js'
 
 export const config = { runtime: 'edge' }
 
@@ -53,7 +54,7 @@ export default async function handler(request: Request): Promise<Response> {
     .select('*')
     .is('reglee_le', null)
     .is('relance_envoyee_le', null)
-    .lte('date_echeance', limite.toISOString().slice(0, 10))
+    .lte('date_echeance', jourDansFuseauEtablissement(limite))
   if (error) {
     return Response.json({ error: error.message }, { status: 500 })
   }
@@ -73,12 +74,14 @@ export default async function handler(request: Request): Promise<Response> {
 
     const seuil = new Date(aujourdhui)
     seuil.setDate(seuil.getDate() + delai)
-    if (echeance.date_echeance > seuil.toISOString().slice(0, 10)) continue
+    if (echeance.date_echeance > jourDansFuseauEtablissement(seuil)) continue
 
     const paiement = paiementParId.get(echeance.student_payment_id)
     if (!paiement?.student_id) continue
 
-    const echue = echeance.date_echeance < aujourdhui.toISOString().slice(0, 10)
+    /* Comparée au jour d'Antananarivo, pas au jour UTC : une échéance tombant aujourd'hui serait
+       sinon annoncée « dépassée » pendant les trois premières heures de la journée malgache. */
+    const echue = echeance.date_echeance < jourDansFuseauEtablissement(aujourdhui)
     const quand = new Date(echeance.date_echeance).toLocaleDateString('fr-FR')
     await creerNotification(serviceClient, {
       etablissementId: echeance.etablissement_id,
@@ -215,15 +218,24 @@ async function alerterFinDHeures(serviceClient: ReturnType<typeof createClient<D
     }
 
     const { data: eleve } = await serviceClient.from('profiles').select('prenom, email').eq('id', studentId).maybeSingle()
-    const { data: affectation } = await serviceClient
+    /* TOUS ses professeurs en cours, et plus un seul (0138) : un `maybeSingle()` échoue dès qu'un
+       élève en a deux, et comme l'erreur n'était pas testée, l'alerte de fin d'heures partait
+       chaque matin avec un nom de formateur vide, sans que rien ne le signale. */
+    const { data: affectations } = await serviceClient
       .from('teacher_assignments')
       .select('teacher_id')
       .eq('student_id', studentId)
       .is('date_fin', null)
-      .maybeSingle()
-    const { data: professeur } = affectation
-      ? await serviceClient.from('profiles').select('prenom, nom').eq('id', affectation.teacher_id).maybeSingle()
-      : { data: null as { prenom: string | null; nom: string | null } | null }
+      .order('date_debut', { ascending: true })
+    const { data: professeurs } = (affectations ?? []).length
+      ? await serviceClient
+          .from('profiles')
+          .select('prenom, nom')
+          .in('id', (affectations ?? []).map((a) => a.teacher_id))
+      : { data: [] as { prenom: string | null; nom: string | null }[] }
+    const nomsFormateurs = (professeurs ?? [])
+      .map((p) => [p.prenom, p.nom].filter(Boolean).join(' '))
+      .filter(Boolean)
 
     if (eleve?.email) {
       const resultat = await envoyerDepuisModele(serviceClient, {
@@ -233,7 +245,8 @@ async function alerterFinDHeures(serviceClient: ReturnType<typeof createClient<D
         valeurs: {
           prenom: eleve.prenom,
           heures_restantes: String(Math.round(restantes * 10) / 10),
-          nom_formateur: professeur ? [professeur.prenom, professeur.nom].filter(Boolean).join(' ') : undefined,
+          // Les deux noms quand il y en a deux : l'élève reconnaît son parcours, pas la moitié.
+          nom_formateur: nomsFormateurs.length > 0 ? nomsFormateurs.join(' et ') : undefined,
         },
       })
       if (resultat.envoye) envoyes += 1

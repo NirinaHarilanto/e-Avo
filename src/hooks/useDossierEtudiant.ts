@@ -34,11 +34,25 @@ export interface DossierEtudiant {
      élève en cours collectif (0074). Elles n'appartiennent à aucune `PeriodeProfesseur`, qui se
      construit à partir de `teacher_assignments` — un élève collectif n'en a aucun. */
   seancesCollectives: SeanceDuParcours[]
-  /* Affectation en cours, reconnue à `date_fin is null` — jamais « la première période de la
+  /* Affectations EN COURS, reconnues à `date_fin is null` — jamais « la première période de la
      liste ». Deux affectations peuvent partager la même `date_debut` (c'est une date, pas un
      instant : un changement de professeur le jour même en crée deux), et à égalité PostgreSQL
-     ne garantit aucun ordre. La migration 0039 garantit qu'il y en a au plus une active. */
-  periodeActuelle: PeriodeProfesseur | null
+     ne garantit aucun ordre.
+     Une liste, et plus une seule période, depuis 0138 : un étudiant peut avoir plusieurs
+     professeurs simultanés (demande client du 2026-10-27). 0039 garantissait l'unicité, 0138 ne
+     garantit plus que l'unicité du couple (élève, professeur). Tout code qui lirait « le »
+     professeur actuel afficherait donc l'un des deux au hasard.
+     Triées du plus anciennement attribué au plus récent : c'est l'ordre dans lequel l'élève a
+     rencontré ses professeurs, le seul qui soit stable d'un écran à l'autre. */
+  periodesActuelles: PeriodeProfesseur[]
+  /* Les professeurs qui ont RÉELLEMENT donné les séances du dossier, indexés par leur id, pour
+     étiqueter chaque séance de son auteur (demande client du 2026-10-27 : « pour chaque séance,
+     il faut afficher visuellement le professeur qui a fait la séance »).
+     Construit depuis `sessions.teacher_id` et non depuis l'affectation de l'inscription :
+     `teacher_assignment_id` est nul pour la seconde d'un binôme duo (0054 : tout vit sur la
+     principale) et pour tout élève collectif, alors que `sessions.teacher_id` ne l'est jamais
+     (0008). Un professeur supprimé y figure encore, comme ailleurs dans cette vue historique. */
+  professeursDesSeances: Record<string, Profile>
   diagnostic: DiagnosticCall | null
   /* Diagnostic du partenaire DUO (0065, demande client du 2026-09-23) : « pour les informations
      qui diffèrent entre les deux personnes... afficher les informations des deux personnes »
@@ -210,6 +224,12 @@ export function useDossierEtudiant(studentId: string | undefined) {
       (affectations ?? []).map((a) => a.id),
     ).sort((a, b) => a.session.debut.localeCompare(b.session.debut))
 
+    const professeursDesSeances: Record<string, Profile> = {}
+    for (const { session } of seancesToutes) {
+      const professeur = professeurParId.get(session.teacher_id)
+      if (professeur) professeursDesSeances[session.teacher_id] = professeur
+    }
+
     const maintenant = new Date().toISOString()
     const prochaineSeance =
       seancesToutes
@@ -220,7 +240,14 @@ export function useDossierEtudiant(studentId: string | undefined) {
       etudiant,
       periodes,
       seancesCollectives,
-      periodeActuelle: periodes.find((p) => !p.affectation.date_fin) ?? null,
+      professeursDesSeances,
+      periodesActuelles: periodes
+        .filter((p) => !p.affectation.date_fin)
+        .sort(
+          (a, b) =>
+            a.affectation.date_debut.localeCompare(b.affectation.date_debut) ||
+            a.affectation.created_at.localeCompare(b.affectation.created_at),
+        ),
       diagnostic,
       diagnosticPartenaire: diagnosticPartenaire ?? null,
       packages: packages ?? [],

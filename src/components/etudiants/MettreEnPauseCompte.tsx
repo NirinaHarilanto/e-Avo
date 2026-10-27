@@ -1,3 +1,4 @@
+import { jourDansFuseauEtablissement } from '../../lib/etablissement'
 import { useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { Modale } from '../ui/Modale'
@@ -100,7 +101,7 @@ export function MettreEnPauseCompte({ personne, onChange }: MettreEnPauseCompteP
                 onChange={(e) => setRelancePrevueLe(e.target.value)}
                 /* Pas de relance dans le passé : la date sert à savoir quand rappeler, une date
                    déjà échue le jour de la saisie est une erreur de frappe. */
-                min={new Date().toISOString().slice(0, 10)}
+                min={jourDansFuseauEtablissement()}
                 style={champStyle}
               />
               <span style={{ fontSize: 11.5, color: 'var(--muted-2)', lineHeight: 1.45 }}>

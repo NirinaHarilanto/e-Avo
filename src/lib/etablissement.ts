@@ -20,6 +20,19 @@ export const EMAIL_OFFICIEL_HOC = 'admin@harionlineclub.com'
    lib/creneaux.ts. Doit rester aligné sur `reservation_parametres.fuseau` (migration 0042). */
 export const FUSEAU_ETABLISSEMENT = 'Indian/Antananarivo'
 
+/* Le jour tel qu'il est à Antananarivo, au format `YYYY-MM-DD` attendu par une colonne `date`
+   de Postgres.
+   À utiliser pour TOUTE date métier écrite en base ou comparée à « aujourd'hui » (date de
+   paiement, date d'envoi d'un contrat, échéance en retard…). `new Date().toISOString()` convertit
+   d'abord en UTC : à Madagascar (UTC+3), minuit local le 20/10 devient 21h UTC le 19/10, et la
+   date enregistrée recule d'un jour entre minuit et 3 h du matin. Passer par le fuseau de
+   l'établissement règle du même coup le cas d'un admin en déplacement, qui doit écrire la date
+   que l'équipe vit sur place et non celle de son propre fuseau.
+   `fr-CA` est la locale qui rend exactement `YYYY-MM-DD`. */
+export function jourDansFuseauEtablissement(instant: Date = new Date()): string {
+  return new Intl.DateTimeFormat('fr-CA', { timeZone: FUSEAU_ETABLISSEMENT }).format(instant)
+}
+
 /* Date et heure d'un instant telles qu'elles se lisent à Antananarivo. */
 export function formaterDansFuseauEtablissement(
   instant: string | Date,

@@ -1,3 +1,4 @@
+import { jourDansFuseauEtablissement } from '../../src/lib/etablissement.js'
 import { nomVagueSeul } from '../../src/lib/cohortes.js'
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { envoyerEmail, modeleRelanceProspect } from '../_lib/email.js'
@@ -78,7 +79,7 @@ export default async function handler(request: Request): Promise<Response> {
       .from('cohorts')
       .select('nom, date_debut, date_fin')
       .eq('etablissement_id', etablissementId)
-      .gte('date_fin', new Date().toISOString().slice(0, 10))
+      .gte('date_fin', jourDansFuseauEtablissement())
       .order('date_debut')
       .limit(1)
       .maybeSingle()

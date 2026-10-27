@@ -17,10 +17,11 @@ export function DocumentsProfesseur() {
   const { profile } = useProfileContext()
   const { documents, loading, erreur, recharger } = useDocuments(profile?.id)
   /* « Mes comptes rendus » (demande client du 2026-09-30) : au même niveau que « Mes pièces »
-     ci-dessous, pas un onglet de plus dans l'explorateur — la RLS de session_reports
-     (session_reports_teacher_all, 0033) ne renvoie déjà que les comptes rendus rédigés PAR ce
-     professeur, aucun filtre à ajouter ici. */
-  const { comptesRendus, loading: chargementComptesRendus, erreur: erreurComptesRendus } = useSessionReports()
+     ci-dessous, pas un onglet de plus dans l'explorateur.
+     Filtré explicitement sur ce professeur depuis 0138 : la RLS ne suffit plus à garantir le
+     « Mes » du titre, puisqu'un professeur voit maintenant les comptes rendus de son collègue
+     sur un élève qu'ils partagent — et cette liste masque volontairement le nom de l'auteur. */
+  const { comptesRendus, loading: chargementComptesRendus, erreur: erreurComptesRendus } = useSessionReports(profile?.id)
 
   return (
     <ProfesseurLayout actif="Documents">

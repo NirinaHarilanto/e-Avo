@@ -1,3 +1,4 @@
+import { jourDansFuseauEtablissement } from '../../lib/etablissement'
 import { useState } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
@@ -240,14 +241,14 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
   // visuellement enfoncé tant que la signature n'est pas faite, pas juste grisé comme les autres.
   const [signatureEnCours, setSignatureEnCours] = useState(false)
 
-  const enRetard = !!contrat.date_limite_signature && contrat.date_limite_signature < new Date().toISOString().slice(0, 10) && contrat.statut === 'envoye'
+  const enRetard = !!contrat.date_limite_signature && contrat.date_limite_signature < jourDansFuseauEtablissement() && contrat.statut === 'envoye'
 
   async function changerStatut(nouveau: StatutContrat) {
     setEnCours(true)
     setErreur(null)
     const update: Database['public']['Tables']['contracts']['Update'] = { statut: nouveau }
-    if (nouveau === 'envoye') update.date_envoi = new Date().toISOString().slice(0, 10)
-    if (nouveau === 'resilie') update.date_resiliation = new Date().toISOString().slice(0, 10)
+    if (nouveau === 'envoye') update.date_envoi = jourDansFuseauEtablissement()
+    if (nouveau === 'resilie') update.date_resiliation = jourDansFuseauEtablissement()
     const { error } = await supabase.from('contracts').update(update).eq('id', contrat.id)
     setEnCours(false)
     if (error) {

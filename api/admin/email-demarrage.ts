@@ -1,10 +1,15 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { dateHeureLisible, dateLisible, envoyerDepuisModele } from '../_lib/templatesEmail.js'
+import { creerNotification } from '../_lib/notifications.js'
 
 export const config = { runtime: 'edge' }
 
 interface Corps {
   studentId?: string
+  /* Le professeur que l'action vient de concerner (0138). Facultatif : l'affectation à une vague
+     (AssignerVague.tsx) n'en passe aucun. Sans lui, le professeur « actuel » était pris au hasard
+     parmi les actifs dès que l'élève en avait plusieurs. */
+  teacherId?: string
 }
 
 /**
@@ -53,8 +58,48 @@ export default async function handler(request: Request): Promise<Response> {
       .eq('student_id', eleve.id)
       .order('date_debut', { ascending: false })
 
-    const active = (affectations ?? []).find((a) => a.date_fin === null) ?? null
+    const actives = (affectations ?? []).filter((a) => a.date_fin === null)
     const closes = (affectations ?? []).filter((a) => a.date_fin !== null)
+    /* Celle que l'action vient de créer, désignée par l'appelant — jamais « la première active »,
+       qui n'a plus de sens dès qu'il y en a deux (0138). */
+    const active = (corps.teacherId ? actives.find((a) => a.teacher_id === corps.teacherId) : null) ?? actives[0] ?? null
+
+    /* AJOUT d'un professeur supplémentaire : l'élève en a maintenant plusieurs en cours. Un
+       changement, lui, aurait clôturé l'ancienne affectation, il n'en resterait qu'une.
+       Aucun e-mail ne part dans ce cas : les 22 modèles fournis par le client (document
+       « HOC_Templates_emails_apprenants ») n'en comportent aucun pour un formateur
+       supplémentaire, et envoyer le 3.1 souhaiterait la bienvenue à quelqu'un qui est déjà
+       élève depuis des mois, ou le 4.5 annoncerait un changement qui n'a pas eu lieu. Les deux
+       intéressés sont prévenus dans l'application, et l'admin garde la main pour écrire
+       lui-même depuis Template e-mails. */
+    if (actives.length > 1) {
+      const professeurAjoute = active?.teacher_id ?? null
+      const { data: professeur } = professeurAjoute
+        ? await serviceClient.from('profiles').select('prenom, nom').eq('id', professeurAjoute).maybeSingle()
+        : { data: null as { prenom: string | null; nom: string | null } | null }
+      const nomProfesseur = professeur ? [professeur.prenom, professeur.nom].filter(Boolean).join(' ') : 'Un nouveau professeur'
+
+      await creerNotification(serviceClient, {
+        etablissementId,
+        destinataireProfileId: eleve.id,
+        type: 'professeur_ajoute',
+        titre: 'Nouveau professeur',
+        message: `${nomProfesseur} enseigne désormais avec vous, en plus de votre professeur actuel.`,
+        lien: '/mon-espace',
+      })
+      if (professeurAjoute) {
+        await creerNotification(serviceClient, {
+          etablissementId,
+          destinataireProfileId: professeurAjoute,
+          type: 'professeur_ajoute',
+          titre: 'Nouvel élève',
+          message: `${eleve.prenom ?? 'Un élève'} vous est attribué, en parallèle d'un autre professeur. Ses séances sont à planifier.`,
+          lien: '/professeur/etudiants',
+        })
+      }
+
+      return Response.json({ ok: true, envoye: false, raison: 'professeur_supplementaire' })
+    }
 
     const { data: inscriptionVague } = await serviceClient
       .from('cohort_enrollments')

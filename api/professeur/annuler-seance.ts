@@ -1,13 +1,8 @@
 import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
-import { annulerVisio } from '../_lib/synchroniserVisio.js'
+import { annulerUneSeance } from '../_lib/annulerSeance.js'
 import { formaterDateSeance, notifierAdminsMouvementPlanning, notifierParticipantsSeance } from '../_lib/notifications.js'
-import type { createClient } from '@supabase/supabase-js'
-import type { Database } from '../../src/types/database.types.js'
 
 export const config = { runtime: 'edge' }
-
-type ServiceClient = ReturnType<typeof createClient<Database>>
-type SeanceAAnnuler = Pick<Database['public']['Tables']['sessions']['Row'], 'id' | 'teacher_id' | 'statut' | 'etablissement_id' | 'debut' | 'duree_minutes'>
 
 interface Corps {
   sessionId?: string
@@ -16,31 +11,6 @@ interface Corps {
      Absent/'occurrence' : seule la séance visée. 'serie' : toutes les séances encore planifiées
      de la même série. */
   portee?: 'occurrence' | 'serie'
-}
-
-/* Annule UNE séance en base (statut + historique + visio), sans notifier personne — la
-   notification est l'affaire de l'appelant, qui décide d'en envoyer une par séance ou une seule
-   consolidée pour toute une série (voir plus bas). */
-async function annulerUneSeance(
-  serviceClient: ServiceClient,
-  session: SeanceAAnnuler,
-  profileId: string,
-  etablissementId: string,
-  estAdmin: boolean,
-): Promise<void> {
-  await serviceClient.from('sessions').update({ statut: 'annulee' }).eq('id', session.id)
-  await serviceClient.from('session_modifications').insert({
-    session_id: session.id,
-    etablissement_id: etablissementId,
-    modifie_par: profileId,
-    // Capturé ici, jamais recalculé à la lecture — même raisonnement que modifier-seance.ts
-    // (voir 0132).
-    modifie_par_est_admin: estAdmin,
-    type_modification: 'annulee',
-    ancien_debut: session.debut,
-    ancienne_duree_minutes: session.duree_minutes,
-  })
-  await annulerVisio(serviceClient, { sessionId: session.id, etablissementId })
 }
 
 // Annulation d'une séance. Le professeur pouvait déjà le faire directement depuis le navigateur

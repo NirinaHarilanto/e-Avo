@@ -1,3 +1,4 @@
+import { jourDansFuseauEtablissement } from '../../lib/etablissement'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useEtudiants } from '../../hooks/useEtudiants'
@@ -321,7 +322,7 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
     const forfaitParEleve = new Map<string, { montant: number | null; total_heures: number }>()
     for (const f of forfaits ?? []) if (!forfaitParEleve.has(f.student_id)) forfaitParEleve.set(f.student_id, f)
 
-    const aujourdhui = new Date().toISOString().slice(0, 10)
+    const aujourdhui = jourDansFuseauEtablissement()
     const lignes = membresClasse.map((membre) => {
       // Même fonction que l'aperçu par élève plus haut : ce que l'admin a lu est ce qui s'écrit.
       const contexte = contextePourMembre(forfaitParEleve.get(membre.id))
@@ -387,7 +388,7 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
       return
     }
 
-    const aujourdhui = new Date().toISOString().slice(0, 10)
+    const aujourdhui = jourDansFuseauEtablissement()
     // DUO (0066) : le titre nomme les deux personnes, pas seulement celle sélectionnée dans le
     // menu déroulant — c'est bien un contrat commun aux deux, pas celui du seul destinataire.
     const nomsDestinataires = [destinataire, destinataireSecondaire]

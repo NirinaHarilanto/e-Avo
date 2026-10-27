@@ -3,6 +3,7 @@ import { creerCompteSansEmail } from '../_lib/creerCompte.js'
 import { notifierBienvenueEtudiant } from '../_lib/notifications.js'
 import { trouverProfilHomonyme, messageHomonyme } from '../_lib/nomDuplique.js'
 import { nomGroupeDuo } from '../../src/lib/duo.js'
+import { jourDansFuseauEtablissement } from '../../src/lib/etablissement.js'
 import { categorieDepuisNiveauEstime, CAPACITE_MAX_CLASSE, niveauRetenu } from '../../src/lib/classesCollectif.js'
 
 export const config = { runtime: 'edge' }
@@ -256,7 +257,7 @@ export default async function handler(request: Request): Promise<Response> {
         montant: body.montantFrais,
         montant_regle: regle ? body.montantFrais : 0,
         statut: regle ? 'paye' : 'attendu',
-        date_paiement: regle ? new Date().toISOString().slice(0, 10) : null,
+        date_paiement: regle ? jourDansFuseauEtablissement() : null,
         moyen_paiement: body.moyenPaiement?.trim() || null,
         reference: body.referencePaiement?.trim() || null,
         notes: body.notesPaiement?.trim() || "Frais d'inscription — cours collectifs",

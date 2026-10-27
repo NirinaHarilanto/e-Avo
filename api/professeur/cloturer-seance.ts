@@ -189,6 +189,9 @@ export default async function handler(request: Request): Promise<Response> {
           etablissementId,
           cohortId: session.cohort_id,
           studentIds: debites,
+          // Le professeur de CETTE séance : celui avec qui l'élève vient de franchir le jalon,
+          // qui n'est plus forcément son unique professeur (0138).
+          teacherId: session.teacher_id,
         })
       } catch {
         // Silencieux : voir ci-dessus.

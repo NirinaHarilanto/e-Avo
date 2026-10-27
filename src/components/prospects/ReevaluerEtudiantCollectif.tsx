@@ -1,3 +1,4 @@
+import { jourDansFuseauEtablissement } from '../../lib/etablissement'
 import { useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
@@ -60,7 +61,7 @@ export function ReevaluerEtudiantCollectif({
       montant: frais.montant,
       montant_regle: frais.regle ? frais.montant : 0,
       statut: frais.regle ? 'paye' : 'attendu',
-      date_paiement: frais.regle ? new Date().toISOString().slice(0, 10) : null,
+      date_paiement: frais.regle ? jourDansFuseauEtablissement() : null,
       moyen_paiement: frais.moyenPaiement || null,
       reference: frais.reference || null,
       notes: frais.notes || "Frais d'inscription — réévaluation de fin de parcours collectif",

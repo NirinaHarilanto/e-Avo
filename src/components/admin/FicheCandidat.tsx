@@ -28,7 +28,7 @@ import {
   type ValeursChecklist,
   type ValeursTests,
 } from '../../lib/recrutement'
-import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
+import { formaterDansFuseauEtablissement, jourDansFuseauEtablissement } from '../../lib/etablissement'
 import { Modale } from '../ui/Modale'
 import { Champ, LigneInfo, champStyle } from '../ui/Champ'
 import { MessageErreur, MessageSucces, MessageAvertissement } from '../ui/Etats'
@@ -307,7 +307,7 @@ export function FicheCandidat({
                       checked={!!integration[item.cle]?.fait}
                       disabled={c.statut === 'integre'}
                       onChange={(e) =>
-                        setIntegration((v) => ({ ...v, [item.cle]: { ...v[item.cle], fait: e.target.checked, date: v[item.cle]?.date ?? (e.target.checked ? new Date().toISOString().slice(0, 10) : null) } }))
+                        setIntegration((v) => ({ ...v, [item.cle]: { ...v[item.cle], fait: e.target.checked, date: v[item.cle]?.date ?? (e.target.checked ? jourDansFuseauEtablissement() : null) } }))
                       }
                     />
                     <span style={{ flexGrow: 1 }}>{item.libelle}</span>

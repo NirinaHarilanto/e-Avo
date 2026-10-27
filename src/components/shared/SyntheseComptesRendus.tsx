@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useProfileContext } from '../../context/ProfileContext'
 import { useComptesRendusEtudiant } from '../../hooks/useComptesRendusEtudiant'
 import { construireSynthese, LIBELLE_TENDANCE, syntheseEnTexte, type ExtraitDate, type SyntheseComptesRendus as Synthese } from '../../lib/syntheseComptesRendus'
 import { formaterHeures, formaterMinutes } from '../../lib/heures'
@@ -12,9 +13,10 @@ import { Icone } from '../ui/Icones'
 import { boutonSecondaireStyle } from '../ui/Boutons'
 import { etiquetteStyle } from '../ui/Champ'
 
-/* Portée de la synthèse — ce que l'utilisateur a le droit de voir est déjà décidé par la RLS
-   (voir useComptesRendusEtudiant) ; ce réglage ne fait que le DIRE à l'écran, pour qu'un
-   professeur ne lise pas « tous les comptes rendus » là où il n'a que les siens. */
+/* Portée de la synthèse. Elle ne faisait que DIRE à l'écran ce que la RLS décidait déjà ; depuis
+   0138, elle le RESTREINT aussi (voir useComptesRendusEtudiant) : un professeur voit maintenant
+   les comptes rendus de son collègue sur un élève qu'ils partagent, et « les séances que vous avez
+   assurées » doit rester vrai. */
 export type PorteeSynthese = 'etablissement' | 'mes-cours'
 
 const SOUS_TITRE: Record<PorteeSynthese, string> = {
@@ -237,7 +239,12 @@ function CorpsSynthese({ synthese, portee }: { synthese: Synthese; portee: Porte
 export function SyntheseComptesRendus({ studentId, nomEleve, portee }: { studentId: string; nomEleve: string; portee: PorteeSynthese }) {
   const [ouvert, setOuvert] = useState(false)
   const [copie, setCopie] = useState(false)
-  const { entrees, nbSeancesTerminees, loading, erreur } = useComptesRendusEtudiant(studentId, ouvert)
+  const { profile } = useProfileContext()
+  const { entrees, nbSeancesTerminees, loading, erreur } = useComptesRendusEtudiant(
+    studentId,
+    ouvert,
+    portee === 'mes-cours' ? profile?.id : undefined,
+  )
   const synthese = useMemo(() => construireSynthese(entrees, nbSeancesTerminees), [entrees, nbSeancesTerminees])
 
   async function copier() {

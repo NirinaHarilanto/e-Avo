@@ -11,7 +11,11 @@ export interface PaiementEtudiant {
   paiement: StudentPayment
   etudiant: Profile | null
   forfait: Package | null
-  professeur: Profile | null
+  /* TOUS les professeurs en cours de l'élève (0138) : indexer un seul professeur par élève
+     écrasait silencieusement l'autre dès qu'il y en avait deux, et la colonne Professeur de cette
+     page affichait alors celui que la base avait renvoyé en dernier. Le forfait, lui, reste
+     unique et partagé entre eux : un paiement ne concerne donc aucun professeur en particulier. */
+  professeurs: Profile[]
   /* Partenaire DUO de l'élève (0054), quel que soit le sens du lien — demande client du
      2026-09-23 : « dans toutes les fenêtres [...] afficher les deux noms des personnes formant
      le DUO ». Un paiement (forfait partagé ou heure d'essai individuelle) ne concerne jamais
@@ -37,7 +41,7 @@ export interface PaiementEtudiant {
 export interface ForfaitAPayer {
   forfait: Package
   etudiant: Profile | null
-  professeur: Profile | null
+  professeurs: Profile[]
   duoPartenaire: Profile | null
 }
 
@@ -86,7 +90,10 @@ export function usePaiementsEtudiants() {
       }
     }
 
-    const professeurParEleve = new Map((affectations ?? []).map((a) => [a.student_id, a.teacher_id]))
+    const professeursParEleve = new Map<string, string[]>()
+    for (const a of affectations ?? []) {
+      professeursParEleve.set(a.student_id, [...(professeursParEleve.get(a.student_id) ?? []), a.teacher_id])
+    }
 
     // Un élève supprimé disparaît de la page Paiements — son paiement, comme son forfait « à
     // payer », reste en base mais n'y apparaît plus (demande client du 2026-09-23). Le
@@ -101,10 +108,10 @@ export function usePaiementsEtudiants() {
        d'attente supplémentaire puisqu'elles ne pouvaient partir qu'une fois les profils connus. */
     const partenaireDe = indexPartenairesDuo(profilsTous)
 
-    const professeurDe = (studentId: string) => {
-      const teacherId = professeurParEleve.get(studentId)
-      return teacherId ? (profilParId.get(teacherId) ?? null) : null
-    }
+    const professeursDe = (studentId: string): Profile[] =>
+      (professeursParEleve.get(studentId) ?? [])
+        .map((teacherId) => profilParId.get(teacherId))
+        .filter((p): p is Profile => p !== undefined)
 
     /* Forfait sans prix propre d'un élève (typiquement son forfait collectif, voir plus bas) —
        le plus récent si plusieurs, grâce à l'ordre déjà demandé sur `forfaits`. Sert à retrouver
@@ -126,7 +133,7 @@ export function usePaiementsEtudiants() {
         paiement,
         etudiant: paiement.student_id ? (profilParId.get(paiement.student_id) ?? null) : null,
         forfait: forfaitDuPaiement(paiement),
-        professeur: paiement.student_id ? professeurDe(paiement.student_id) : null,
+        professeurs: paiement.student_id ? professeursDe(paiement.student_id) : [],
         duoPartenaire: paiement.student_id ? partenaireDe(paiement.student_id) : null,
         moyenPaiementEffectif: paiement.moyen_paiement ?? moyenVersementParPaiement.get(paiement.id) ?? null,
         referenceEffective: paiement.reference ?? referenceVersementParPaiement.get(paiement.id) ?? null,
@@ -149,13 +156,13 @@ export function usePaiementsEtudiants() {
         (f) =>
           !forfaitsDejaFactures.has(f.id) &&
           !(f.montant == null && elevesAvecFraisLibres.has(f.student_id)) &&
-          professeurParEleve.has(f.student_id) &&
+          professeursParEleve.has(f.student_id) &&
           etudiantsActifsIds.has(f.student_id),
       )
       .map((forfait): ForfaitAPayer => ({
         forfait,
         etudiant: profilParId.get(forfait.student_id) ?? null,
-        professeur: professeurDe(forfait.student_id),
+        professeurs: professeursDe(forfait.student_id),
         duoPartenaire: partenaireDe(forfait.student_id),
       }))
 

@@ -1,3 +1,4 @@
+import { jourDansFuseauEtablissement } from '../../lib/etablissement'
 import { useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { champStyle } from '../ui/Champ'
@@ -83,7 +84,7 @@ export function PlanifierSeancesForfait({
 }: PlanifierSeancesForfaitProps) {
   const { session } = useProfileContext()
   const [creneaux, setCreneaux] = useState<Creneau[]>([{ jour: 1, heure: '18:00' }])
-  const [dateDebut, setDateDebut] = useState(() => new Date().toISOString().slice(0, 10))
+  const [dateDebut, setDateDebut] = useState(() => jourDansFuseauEtablissement())
   const [dateFin, setDateFin] = useState(dateFinParDefaut ?? '')
   /* Tant que l'admin n'a pas lui-même retouché le champ, l'échéance reste asservie au calcul
      automatique (voir l'effet plus bas) — demande client du 2026-09-16 : « pré-remplir

@@ -318,9 +318,13 @@ function BlocPeriode({
   periode,
   estActuelle,
   onClickSeance,
+  professeursDesSeances,
+  afficherProfesseur,
 }: {
   periode: PeriodeProfesseur
   estActuelle: boolean
+  professeursDesSeances: Record<string, Profile>
+  afficherProfesseur: boolean
   /* Toujours fourni (même en lecture seule élève/professeur) — demande client du 2026-10-19 :
      une séance clôturée n'avait plus aucune ligne cliquable, donc plus aucun moyen de revoir son
      compte rendu depuis le parcours. L'appelant (DossierEtudiantVue) décide lui-même, par
@@ -400,8 +404,53 @@ function BlocPeriode({
         </div>
       </div>
 
-      {periode.seances.length > 0 && <TableauSeances seances={periode.seances} onClickSeance={onClickSeance} />}
+      {periode.seances.length > 0 && (
+        <TableauSeances
+          seances={periode.seances}
+          onClickSeance={onClickSeance}
+          professeursDesSeances={professeursDesSeances}
+          afficherProfesseur={afficherProfesseur}
+        />
+      )}
     </div>
+  )
+}
+
+/* Étiquette du professeur qui a donné une séance, pour les élèves qui en ont plusieurs
+   (demande client du 2026-10-27). Initiales plus prénom, et jamais le nom complet : la colonne
+   doit tenir à côté du libellé de la séance, et deux professeurs se distinguent d'un coup d'œil
+   par leurs initiales. */
+function ProfesseurDeSeance({ professeur }: { professeur: Profile | null }) {
+  if (!professeur) {
+    return <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>Professeur supprimé</span>
+  }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+      <span
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 999,
+          background: 'var(--voile, rgba(255,255,255,.06))',
+          border: '1px solid var(--border)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'var(--accent-blue)',
+          fontSize: 9.5,
+          fontWeight: 800,
+          flexShrink: 0,
+        }}
+      >
+        {initiales(professeur)}
+      </span>
+      <span
+        className="prof-de-seance-nom"
+        style={{ fontSize: 11.5, color: 'var(--ink-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+      >
+        {professeur.prenom}
+      </span>
+    </span>
   )
 }
 
@@ -411,9 +460,20 @@ function BlocPeriode({
 function TableauSeances({
   seances,
   onClickSeance,
+  professeursDesSeances = {},
+  afficherProfesseur = false,
 }: {
   seances: SeanceDuParcours[]
   onClickSeance: (seance: SeanceDuParcours) => void
+  professeursDesSeances?: Record<string, Profile>
+  /* Qui a donné quoi, ligne par ligne — demande client du 2026-10-27 : « pour chaque séance, il
+     faut afficher visuellement le professeur qui a fait la séance ».
+     Décidé par l'appelant, et non déduit du contenu de la liste : chaque bloc de période ne
+     contient par construction que les séances d'un seul professeur, une détection automatique ne
+     se déclencherait donc jamais. L'en-tête du bloc le nomme déjà, mais il sort de l'écran dès
+     qu'on fait défiler une longue liste — c'est précisément là que la colonne sert. Faux par
+     défaut : un élève à professeur unique, de loin le cas courant, garde le tableau d'avant. */
+  afficherProfesseur?: boolean
 }) {
   return (
     <div>
@@ -430,7 +490,23 @@ function TableauSeances({
         <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, flexGrow: 1 }}>
           Séance
         </span>
-        <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Durée</span>
+        {afficherProfesseur && (
+          <span
+            className="colonne-prof-seance"
+            style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5 }}
+          >
+            {/* Même classe que le prénom dans la cellule : sur écran étroit la colonne se réduit
+                aux initiales, un intitulé tronqué à « PROI » y serait pire que pas d'intitulé. */}
+            <span className="prof-de-seance-nom">Professeur</span>
+          </span>
+        )}
+        {/* Largeur fixe comme les colonnes Date et Présence : sans elle, « Séance » (flexible)
+            absorbait l'écart entre le mot « Durée » et la valeur « 1h », et toutes les colonnes
+            suivantes se décalaient de leur propre en-tête — mesuré à 18 px une fois la colonne
+            Professeur ajoutée à côté. */}
+        <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 64, flexShrink: 0 }}>
+          Durée
+        </span>
         <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 72, textAlign: 'right' }}>
           Présence
         </span>
@@ -455,7 +531,14 @@ function TableauSeances({
             <span style={{ fontSize: 13, color: 'var(--ink)', flexGrow: 1, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               {seance.session.type === 'individuel' ? 'Séance individuelle' : 'Séance collective'}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--ink-2)' }}>{formaterMinutes(seance.session.duree_minutes)}</span>
+            {afficherProfesseur && (
+              <span className="colonne-prof-seance">
+                <ProfesseurDeSeance professeur={professeursDesSeances[seance.session.teacher_id] ?? null} />
+              </span>
+            )}
+            <span style={{ fontSize: 12, color: 'var(--ink-2)', width: 64, flexShrink: 0 }}>
+              {formaterMinutes(seance.session.duree_minutes)}
+            </span>
             <span style={{ width: 72, textAlign: 'right' }}>
               <StatutSeance enrollment={seance.enrollment} statutSession={seance.session.statut} seance={seance.session} />
             </span>
@@ -601,6 +684,10 @@ interface DossierEtudiantVueProps {
      CalendrierProfesseur.tsx : les forfaits/le programme d'un élève ne lui sont pas ouverts,
      scope volontaire déjà en place ailleurs dans le dossier). */
   peutModifierPlanning?: boolean
+  /* Restreint l'édition d'une séance à celles de CE professeur (0138) : un élève peut avoir
+     plusieurs professeurs, qui voient désormais les séances l'un de l'autre en lecture seule.
+     Omis côté admin, qui peut reprogrammer n'importe laquelle. */
+  limiterEditionAuProfesseur?: string
   /* Rechargement du dossier après une action qui ne passe pas par un panneau externe (édition
      d'une séance depuis la liste ci-dessous, par exemple) — les panneauXxx gèrent déjà leur
      propre `onCree`/`onTermine`, celui-ci couvre ce que ce composant fait lui-même. */
@@ -631,6 +718,7 @@ export function DossierEtudiantVue({
   activite = null,
   peutModifierNiveau,
   peutModifierPlanning,
+  limiterEditionAuProfesseur,
   onDossierChange,
   masquerEmailEnTete = false,
 }: DossierEtudiantVueProps) {
@@ -638,7 +726,8 @@ export function DossierEtudiantVue({
     etudiant,
     periodes,
     seancesCollectives,
-    periodeActuelle,
+    periodesActuelles,
+    professeursDesSeances,
     diagnostic,
     diagnosticPartenaire,
     packages,
@@ -667,7 +756,13 @@ export function DossierEtudiantVue({
      tous ses élèves d'un coup plutôt qu'un seul — ici, elle s'ouvre donc toujours en lecture
      seule, jamais en édition, même encore planifiée. */
   function onClickSeance(seance: SeanceDuParcours) {
-    if (peutModifierPlanning && seance.session.statut === 'planifiee' && seance.session.type !== 'collectif') {
+    /* Lecture seule stricte sur la séance d'un collègue (0138, décision client du 2026-10-27) :
+       un professeur voit maintenant les séances de l'autre professeur de leur élève commun, mais
+       ne doit pas pouvoir les reprogrammer. api/professeur/modifier-seance.ts les refuse déjà en
+       403 — ouvrir quand même le formulaire aurait proposé à l'écran ce que le serveur rejette,
+       exactement le défaut trouvé dans le recrutement le 2026-10-10. */
+    const estSienne = !limiterEditionAuProfesseur || seance.session.teacher_id === limiterEditionAuProfesseur
+    if (peutModifierPlanning && estSienne && seance.session.statut === 'planifiee' && seance.session.type !== 'collectif') {
       setSeanceEnEdition(seance)
     } else {
       setSeanceEnDetail(seance)
@@ -692,14 +787,16 @@ export function DossierEtudiantVue({
     seancesTerminees.length > 0
       ? Math.round((seancesTerminees.filter((s) => s.enrollment.present).length / seancesTerminees.length) * 100)
       : null
-  const professeurActuel = periodeActuelle
   /* Séances déjà planifiées (statut « planifiée »), triées chronologiquement — le planning
      prévisionnel affiché en lecture seule avant que l'admin ne clique « Modifier » pour rouvrir
      le formulaire de génération. Pour un élève collectif, ce sont celles de sa classe : il n'a
-     pas de période individuelle, c'est donc `seancesCollectives` qui porte son planning. */
-  const seancesPlanifiees = (cohorte ? seancesCollectives : (professeurActuel?.seances ?? []))
+     pas de période individuelle, c'est donc `seancesCollectives` qui porte son planning.
+     Les séances de TOUS ses professeurs en cours depuis 0138 : prendre celles d'un seul aurait
+     montré la moitié du planning réel d'un élève à deux professeurs. */
+  const seancesPlanifiees = (cohorte ? seancesCollectives : periodesActuelles.flatMap((p) => p.seances))
     .filter((s) => s.session.statut === 'planifiee')
     .sort((a, b) => a.session.debut.localeCompare(b.session.debut))
+  const plusieursProfesseursPlanifies = new Set(seancesPlanifiees.map((s) => s.session.teacher_id)).size > 1
   /* « Le parcours a quelque chose à montrer » : une période individuelle OU des séances de
      classe. Avant le 2026-10-19, seules les périodes comptaient — un élève collectif, qui n'en a
      aucune, tombait donc sur « Aucune séance enregistrée » quoi qu'il ait suivi. */
@@ -715,7 +812,9 @@ export function DossierEtudiantVue({
     /* Onglet séparé depuis le 2026-10-19 — auparavant une section au bas d'« Informations
        personnelles », sans rapport avec son contenu (voir panneauEnquetes ci-dessus). */
     ...(panneauEnquetes ? [{ value: 'enquetes' as const, label: 'Enquêtes de satisfaction' }] : []),
-    ...(professeurActuel || professeurClasse || panneauProfesseur ? [{ value: 'professeur' as const, label: 'Professeur' }] : []),
+    ...(periodesActuelles.length > 0 || professeurClasse || panneauProfesseur
+      ? [{ value: 'professeur' as const, label: periodesActuelles.length > 1 ? 'Professeurs' : 'Professeur' }]
+      : []),
     ...(forfait || cohorte || panneauChoixInitial ? [{ value: 'programme' as const, label: cohorte ? 'Programme' : 'Forfait' }] : []),
     /* Forfait et Planning étaient regroupés sous un seul onglet « Forfait & Planning » :
        séparés depuis le 2026-09-21 (demande client), le forfait portant désormais aussi
@@ -770,9 +869,11 @@ export function DossierEtudiantVue({
                   {libelleStatutProfil(etudiant.status)}
                 </span>
               )}
-              {(periodeActuelle ?? periodes[0])?.affectation.langue && (
+              {/* Une seule pastille de langue, même avec plusieurs professeurs : HOC n'enseigne
+                  que l'anglais et toutes les affectations portent la même valeur (0061). */}
+              {(periodesActuelles[0] ?? periodes[0])?.affectation.langue && (
                 <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-violet)', background: 'rgba(199,156,255,.12)', border: '1px solid rgba(199,156,255,.3)', borderRadius: 999, padding: '4px 11px' }}>
-                  {(periodeActuelle ?? periodes[0]).affectation.langue}
+                  {(periodesActuelles[0] ?? periodes[0]).affectation.langue}
                 </span>
               )}
               {badgesSupplementaires}
@@ -869,11 +970,11 @@ export function DossierEtudiantVue({
       {/* Tant que le dossier n'a ni professeur ni programme, ce récapitulatif occupe l'espace
           utilement plutôt que de laisser un onglet « Professeur » ou « Programme » manquant sans
           explication ; il disparaît de lui-même une fois le dossier complet. */}
-      {(!professeurActuel || (!forfait && !cohorte)) && (
+      {(periodesActuelles.length === 0 || (!forfait && !cohorte)) && (
         <Section titre="Avancement du dossier" padding="14px 16px">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <EtapeAvancement fait={!!diagnostic} label="Appel diagnostic réalisé" />
-            <EtapeAvancement fait={!!professeurActuel} label="Professeur attribué" />
+            <EtapeAvancement fait={periodesActuelles.length > 0} label="Professeur attribué" />
             <EtapeAvancement fait={!!(forfait || cohorte)} label="Programme choisi (forfait ou vague)" />
           </div>
         </Section>
@@ -891,6 +992,17 @@ export function DossierEtudiantVue({
                 {periodes.length} période{periodes.length > 1 ? 's' : ''} de suivi
                 {periodes.length > 1 ? ` · ${periodes.length} professeurs depuis l’inscription` : ''}. Chaque période liste
                 les séances du professeur concerné.
+                {/* Deux périodes peuvent désormais courir EN MÊME TEMPS (0138) : sans cette
+                    précision, deux blocs côte à côte se lisent comme une succession, et le lecteur
+                    conclut à tort qu'un professeur a remplacé l'autre. */}
+                {periodesActuelles.length > 1 && (
+                  <>
+                    {' '}
+                    <strong style={{ color: 'var(--ink-2)' }}>
+                      {periodesActuelles.length} professeurs enseignent actuellement à cet élève, en parallèle.
+                    </strong>
+                  </>
+                )}
               </p>
             )}
             {!aDuParcours && (diagnostic || diagnosticPartenaire) && (
@@ -927,8 +1039,13 @@ export function DossierEtudiantVue({
                   <BlocPeriode
                     key={periode.affectation.id}
                     periode={periode}
-                    estActuelle={periode.affectation.id === periodeActuelle?.affectation.id}
+                    /* Reconnue à `date_fin is null`, jamais par comparaison avec « la » période
+                       actuelle : depuis 0138 plusieurs périodes sont actives en même temps et
+                       chacune doit porter son badge. */
+                    estActuelle={!periode.affectation.date_fin}
                     onClickSeance={onClickSeance}
+                    professeursDesSeances={professeursDesSeances}
+                    afficherProfesseur={periodesActuelles.length > 1}
                   />
                 ))}
                 {(diagnostic || diagnosticPartenaire) && (
@@ -951,13 +1068,19 @@ export function DossierEtudiantVue({
 
         {ongletActif === 'professeur' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {professeurActuel && <IdentiteProfesseur periode={professeurActuel} />}
+            {/* Tous ses professeurs en cours, l'un sous l'autre (demande client du 2026-10-27 :
+                « dans l'espace personnel de l'étudiant, il verra les deux professeurs attribués
+                à lui »). C'est le même onglet que l'élève voit dans son espace, d'où l'exigence
+                remplie ici et nulle part ailleurs. */}
+            {periodesActuelles.map((periode) => (
+              <IdentiteProfesseur key={periode.affectation.id} periode={periode} />
+            ))}
             {/* Élève collectif : son professeur n'est pas une affectation individuelle mais celui
                 de sa classe de niveau (0074). Sans ce bloc, l'onglet ne montrait que le bouton
                 désactivé d'AttribuerProfesseur, sans jamais dire QUI enseigne à cet élève
                 — demande client du 2026-10-19 : « afin de bien suivre l'étudiant en cours
                 collectif ». */}
-            {!professeurActuel && cohorte && (
+            {periodesActuelles.length === 0 && cohorte && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <LigneInfo
                   label="Professeur de la classe"
@@ -1110,6 +1233,12 @@ export function DossierEtudiantVue({
                         <span style={{ fontSize: 12.5, color: 'var(--ink-2)', flexGrow: 1 }}>
                           {new Date(s.session.debut).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
                         </span>
+                        {/* Ce planning fond désormais les séances de TOUS les professeurs en
+                            cours : sans cette étiquette, deux cours le même jour ne se
+                            distingueraient plus l'un de l'autre. */}
+                        {plusieursProfesseursPlanifies && (
+                          <ProfesseurDeSeance professeur={professeursDesSeances[s.session.teacher_id] ?? null} />
+                        )}
                         <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{s.session.duree_minutes} min</span>
                       </div>
                     ))}

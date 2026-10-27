@@ -8,7 +8,7 @@ import { nomAvecDuo } from '../../lib/duo'
 import { EcheancierPaiement } from './EcheancierPaiement'
 import { FactureImprimable, estRecu } from '../facturation/FactureImprimable'
 import type { ActionImpression } from '../facturation/OverlayImpression'
-import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
+import { jourDansFuseauEtablissement } from '../../lib/etablissement'
 import type { Database } from '../../types/database.types'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
 import { Modale } from '../ui/Modale'
@@ -36,13 +36,14 @@ export type CiblePaiement =
       paiement: StudentPayment
       personne: Profile | null
       forfait: Package | null
-      professeur: Profile | null
+      /* Plusieurs depuis 0138 : un élève peut avoir deux professeurs sur un même forfait. */
+      professeurs: Profile[]
       /* Partenaire DUO de la personne concernée (0054) — demande client du 2026-09-23 : « dans
          toutes les fenêtres [...] afficher les deux noms des personnes formant le DUO ». */
       duoPartenaire?: Profile | null
     }
   | { type: 'professeur'; paiement: TeacherPayment; personne: Profile | null }
-  | { type: 'forfait'; forfait: Package; personne: Profile | null; professeur: Profile | null; duoPartenaire?: Profile | null }
+  | { type: 'forfait'; forfait: Package; personne: Profile | null; professeurs: Profile[]; duoPartenaire?: Profile | null }
   /* Forfait réglé AVANT la conversion en étudiant (0056) : la ligne est rattachée au prospect,
      `student_id` reste nul jusqu'à la conversion qui la reprend telle quelle. Rien d'autre ne
      change — acomptes, reste dû, reçu et facture sont ceux de n'importe quel paiement. */
@@ -78,7 +79,19 @@ export interface TarifChoisi {
    accepté que pour un forfait d'au moins 40 heures. Aussi imposée en base (0078). */
 export const HEURES_MIN_PAIEMENT_FRACTIONNE = 40
 
-const dateDuJour = new Intl.DateTimeFormat('fr-CA', { timeZone: FUSEAU_ETABLISSEMENT }).format(new Date())
+const dateDuJour = jourDansFuseauEtablissement()
+
+/* Un élève peut avoir plusieurs professeurs sur un même forfait (0138) : l'intitulé suit le
+   nombre réel, et les noms sont tous donnés — en afficher un seul laisserait croire que le
+   forfait n'est consommé qu'avec lui. */
+function libelleProfesseurs(professeurs: Profile[]): string {
+  return professeurs.length > 1 ? 'Professeurs' : 'Professeur'
+}
+
+function valeurProfesseurs(professeurs: Profile[]): string {
+  if (professeurs.length === 0) return 'Non attribué'
+  return professeurs.map((p) => `${p.prenom} ${p.nom}`).join(', ')
+}
 
 interface HeureEnseignee {
   id: string
@@ -319,7 +332,7 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
               cible.type === 'forfait'
                 ? [
                     { label: 'Forfait', valeur: `${LABEL_TYPE_PROGRAMME[cible.forfait.type_programme]} · ${cible.forfait.total_heures} h` },
-                    { label: 'Professeur', valeur: cible.professeur ? `${cible.professeur.prenom} ${cible.professeur.nom}` : 'Non attribué' },
+                    { label: libelleProfesseurs(cible.professeurs), valeur: valeurProfesseurs(cible.professeurs) },
                   ]
                 : [
                     {
@@ -365,7 +378,7 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
                   />
                 )}
                 {cible.type === 'etudiant' && (
-                  <LigneInfo label="Professeur" valeur={cible.professeur ? `${cible.professeur.prenom} ${cible.professeur.nom}` : 'Non attribué'} />
+                  <LigneInfo label={libelleProfesseurs(cible.professeurs)} valeur={valeurProfesseurs(cible.professeurs)} />
                 )}
                 {cible.type === 'professeur' && 'periode_debut' in paiement && paiement.periode_debut && (
                   <LigneInfo

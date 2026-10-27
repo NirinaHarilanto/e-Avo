@@ -1,3 +1,4 @@
+import { jourDansFuseauEtablissement } from '../../lib/etablissement'
 import { useCallback, useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
@@ -81,7 +82,7 @@ export function EcheancierPaiement({
     setErreur(null)
     const { error } = await supabase
       .from('paiement_echeances')
-      .update({ reglee_le: echeance.reglee_le ? null : new Date().toISOString().slice(0, 10) })
+      .update({ reglee_le: echeance.reglee_le ? null : jourDansFuseauEtablissement() })
       .eq('id', echeance.id)
     if (error) {
       setErreur(error.message)
@@ -100,7 +101,7 @@ export function EcheancierPaiement({
     charger()
   }
 
-  const aujourdhui = new Date().toISOString().slice(0, 10)
+  const aujourdhui = jourDansFuseauEtablissement()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 9, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>

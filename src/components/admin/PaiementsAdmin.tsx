@@ -304,13 +304,15 @@ function ListePaiementsEtudiants({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {/* Les forfaits pas encore facturés passent en tête : ce sont les seuls sur lesquels rien
           n'a encore été fait, donc ceux qui appellent une action. */}
-      {forfaitsAPayer.map(({ forfait, etudiant, professeur, duoPartenaire }) => (
+      {forfaitsAPayer.map(({ forfait, etudiant, professeurs, duoPartenaire }) => (
         <LigneFinanciere
           key={`forfait-${forfait.id}`}
           nomPersonne={etudiant ? nomAvecDuo(etudiant, duoPartenaire) : 'Étudiant inconnu'}
           sousTitre={[
             `Forfait ${LABEL_TYPE_PROGRAMME[forfait.type_programme]} · ${forfait.total_heures} h`,
-            professeur ? `prof. ${professeur.prenom} ${professeur.nom}` : null,
+            /* Tous les professeurs de l'élève (0138) : n'en nommer qu'un sur deux rendait la
+               ligne fausse pour l'autre, sur un forfait qu'ils partagent. */
+            professeurs.length > 0 ? `prof. ${professeurs.map((p) => `${p.prenom} ${p.nom}`).join(', ')}` : null,
             'aucun paiement enregistré',
           ]
             .filter(Boolean)
@@ -320,7 +322,7 @@ function ListePaiementsEtudiants({
           statutBase="attendu"
           devise="Ar"
           dateEcheance={forfait.echeance}
-          onOuvrir={() => onOuvrir({ type: 'forfait', forfait, personne: etudiant, professeur, duoPartenaire })}
+          onOuvrir={() => onOuvrir({ type: 'forfait', forfait, personne: etudiant, professeurs, duoPartenaire })}
         />
       ))}
 
@@ -331,7 +333,7 @@ function ListePaiementsEtudiants({
           se résout même sans `package_id` depuis le correctif de usePaiementsEtudiants.ts ; le
           moyen et la référence remontent aussi d'un acompte (`paiement_versements`) quand le
           paiement n'a pas été réglé en une fois à sa création — autre capture du 2026-10-13. */}
-      {paiements.map(({ paiement, etudiant, forfait, professeur, duoPartenaire, moyenPaiementEffectif, referenceEffective }) => (
+      {paiements.map(({ paiement, etudiant, forfait, professeurs, duoPartenaire, moyenPaiementEffectif, referenceEffective }) => (
         <LigneFinanciere
           key={paiement.id}
           nomPersonne={etudiant ? nomAvecDuo(etudiant, duoPartenaire) : 'Étudiant inconnu'}
@@ -350,7 +352,7 @@ function ListePaiementsEtudiants({
           statutBase={paiement.statut}
           devise={paiement.devise}
           dateEcheance={paiement.date_echeance}
-          onOuvrir={() => onOuvrir({ type: 'etudiant', paiement, personne: etudiant, forfait, professeur, duoPartenaire })}
+          onOuvrir={() => onOuvrir({ type: 'etudiant', paiement, personne: etudiant, forfait, professeurs, duoPartenaire })}
           onSupprimer={() =>
             onSupprimer({ table: 'student_payments', id: paiement.id, libelle: `${etudiant ? nomAvecDuo(etudiant, duoPartenaire) : 'Étudiant inconnu'} · ${formaterMontant(paiement.montant, paiement.devise)}` })
           }

@@ -663,6 +663,25 @@ select option {
 
 /* --- Socle d'interface partagé (src/components/ui/) ------------------------------------- */
 
+/* Colonne « Professeur » des tableaux de séances — n'apparaît que pour un élève suivi par
+   plusieurs professeurs à la fois (0138, demande client du 2026-10-27).
+   Sur un écran étroit, la ligne porte déjà la date, le libellé, la durée et la présence : le
+   prénom en plus la faisait déborder (mesuré à 400 px de large). Les initiales suffisent alors à
+   distinguer deux professeurs d'un coup d'œil, et le nom complet reste écrit en toutes lettres
+   dans l'en-tête de la période juste au-dessus. */
+.colonne-prof-seance {
+  width: 118px;
+  flex-shrink: 0;
+}
+@media (max-width: 760px) {
+  .colonne-prof-seance {
+    width: 26px;
+  }
+  .prof-de-seance-nom {
+    display: none;
+  }
+}
+
 /* `.carte-ligne` et `.row-hl` étaient déjà posées en JSX (listes d'étudiants, filtres de
    professeurs, tableaux d'heures) mais n'ont jamais existé dans cette feuille : ces éléments
    cliquables n'avaient donc aucun retour au survol. */

@@ -1,3 +1,4 @@
+import { jourDansFuseauEtablissement } from '../../src/lib/etablissement.js'
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { creerNotification } from '../_lib/notifications.js'
 import { numeroSuivant } from '../_lib/numerotation.js'
@@ -207,7 +208,7 @@ async function genererRecu(
       montant_ht: montant,
       montant_tva: 0,
       montant_ttc: montant,
-      date_paiement: paiement.date_paiement ?? new Date().toISOString().slice(0, 10),
+      date_paiement: paiement.date_paiement ?? jourDansFuseauEtablissement(),
       created_by_profile_id: profileId,
     })
     .select('id, numero')

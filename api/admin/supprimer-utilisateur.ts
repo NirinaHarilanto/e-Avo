@@ -1,3 +1,4 @@
+import { jourDansFuseauEtablissement } from '../../src/lib/etablissement.js'
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { annulerVisio } from '../_lib/synchroniserVisio.js'
 import { formaterDateSeance, notifierParticipantsSeance } from '../_lib/notifications.js'
@@ -371,7 +372,7 @@ async function purgerDonneesProfesseur(
   await serviceClient
     .from('teacher_assignments')
     .update({
-      date_fin: new Date().toISOString().slice(0, 10),
+      date_fin: jourDansFuseauEtablissement(),
       motif_changement: 'Professeur retiré de l’établissement',
     })
     .eq('teacher_id', teacherId)

@@ -1,3 +1,4 @@
+import { jourDansFuseauEtablissement } from '../../lib/etablissement'
 import { useState } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
@@ -492,7 +493,7 @@ function LigneFacture({
   async function changerStatut(nouveau: StatutFacture) {
     setEnCours(true)
     setErreur(null)
-    const datePaiement = nouveau === 'payee' ? new Date().toISOString().slice(0, 10) : undefined
+    const datePaiement = nouveau === 'payee' ? jourDansFuseauEtablissement() : undefined
     const { error } = await supabase
       .from('invoices')
       .update({ statut: nouveau, ...(datePaiement && { date_paiement: datePaiement }) })

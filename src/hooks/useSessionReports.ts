@@ -23,12 +23,18 @@ export interface CompteRenduComplet {
   supports: Document[]
 }
 
-/* Comptes rendus de cours — RLS (0033) filtre déjà selon qui regarde (admin de
-   l'établissement, professeur auteur, ou étudiant ayant participé à la séance) : une seule
-   requête `select *` suffit, pas besoin de la scoper explicitement ici. */
-export function useSessionReports() {
-  const { valeur, loading, erreur, recharger } = useCacheRequete('session-reports', async () => {
-    const { data: rapports, error } = await supabase.from('session_reports').select('*').order('created_at', { ascending: false })
+/* Comptes rendus de cours — la RLS (0033) filtre selon qui regarde : admin de l'établissement,
+   professeur auteur, ou étudiant ayant participé à la séance.
+   `limiterAuProfesseurId` est nécessaire depuis 0138 : un professeur voit aussi, en lecture
+   seule, les comptes rendus de l'autre professeur de leur élève commun. Utile dans le parcours de
+   cet élève, trompeur sous un écran intitulé « Mes comptes rendus » — qui les affiche d'ailleurs
+   sans nommer leur auteur, puisqu'ils étaient forcément les siens. */
+export function useSessionReports(limiterAuProfesseurId?: string) {
+  const { valeur, loading, erreur, recharger } = useCacheRequete(`session-reports-${limiterAuProfesseurId ?? 'tous'}`, async () => {
+    const requete = supabase.from('session_reports').select('*').order('created_at', { ascending: false })
+    const { data: rapports, error } = await (limiterAuProfesseurId
+      ? requete.eq('teacher_id', limiterAuProfesseurId)
+      : requete)
     if (error) throw new Error(error.message)
 
     const rapportIds = (rapports ?? []).map((r) => r.id)

@@ -152,9 +152,9 @@ export function EtudiantsProfesseur() {
 }
 
 /* `transfereLe` vient de la liste `etudiantsAnciens` (useCalendrierProfesseur), jamais d'une
-   déduction locale : `dossier.periodeActuelle?.professeur?.id !== profile?.id` serait aussi vrai
-   pour un élève de cours COLLECTIF, qui n'a aucune affectation individuelle (0069) et n'est pour
-   autant pas un ancien élève — il serait tagué à tort. */
+   déduction locale : l'absence du professeur courant parmi `dossier.periodesActuelles` serait
+   aussi vraie pour un élève de cours COLLECTIF, qui n'a aucune affectation individuelle (0069)
+   et n'est pour autant pas un ancien élève — il serait tagué à tort. */
 function DossierPanel({ studentId, transfereLe }: { studentId: string; transfereLe: string | null }) {
   const { profile } = useProfileContext()
   const { dossier, loading, erreur, recharger } = useDossierEtudiant(studentId)
@@ -170,7 +170,11 @@ function DossierPanel({ studentId, transfereLe }: { studentId: string; transfere
      l'attribution côté serveur ; ce test ne fait qu'éviter d'afficher un formulaire voué à
      échouer. Le collectif (vague) n'a pas de forfait/planning individuel — hors de portée ici,
      comme côté admin : voir CoursCollectifsProfesseur.tsx pour son propre planning de vague. */
-  const estProfesseurActuel = dossier.periodeActuelle?.professeur?.id === profile?.id
+  /* « L'UN des professeurs actuels », depuis 0138 : un élève peut en avoir plusieurs, et
+     comparer avec un seul d'entre eux retirait son formulaire de planification à l'autre, alors
+     que api/professeur/planifier-seances-prevision.ts l'y autorise — un écran qui refusait ce que
+     le serveur accordait. */
+  const estProfesseurActuel = dossier.periodesActuelles.some((p) => p.professeur?.id === profile?.id)
   /* Dossier incomplet en toutes lettres dans l'en-tête de la fiche (déplacé depuis la carte de
      la liste le 2026-10-11, capture client) — même source que la liste, sur le binôme réel. */
   const dossierIncomplet = (dossier.duoPartenaire ? [dossier.etudiant, dossier.duoPartenaire] : [dossier.etudiant]).some(
@@ -239,6 +243,8 @@ function DossierPanel({ studentId, transfereLe }: { studentId: string; transfere
           : undefined
       }
       peutModifierPlanning={estProfesseurActuel}
+      /* Ses séances seulement : celles du co-professeur s'ouvrent en lecture seule (0138). */
+      limiterEditionAuProfesseur={profile?.id}
       onDossierChange={recharger}
     />
   )

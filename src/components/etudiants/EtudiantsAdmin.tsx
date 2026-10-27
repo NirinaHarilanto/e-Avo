@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { jourDansFuseauEtablissement } from '../../lib/etablissement'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Database } from '../../types/database.types'
 import { AdminLayout } from '../layout/AdminLayout'
@@ -241,8 +242,8 @@ function DossierPanel({
   if (loading) return <EtatChargement lignes={3} hauteur={110} />
   if (erreur || !dossier) return <MessageErreur>{erreur ?? 'Dossier introuvable.'}</MessageErreur>
 
-  const periodeActuelle = dossier.periodeActuelle
-  const affectationActuelle = periodeActuelle?.affectation ?? null
+  const periodesActuelles = dossier.periodesActuelles
+  const professeursAttribues = periodesActuelles.map((p) => p.professeur).filter((p): p is NonNullable<typeof p> => p !== null)
   const forfait = dossier.packages[0] ?? null
   const { etudiant } = dossier
   const heuresRestantes = calculerHeuresRestantes(dossier.packages, dossier.heuresConsommees)
@@ -265,7 +266,7 @@ function DossierPanel({
       panneauProfesseur={
         <AttribuerProfesseur
           studentId={etudiant.id}
-          affectationActuelle={affectationActuelle}
+          periodesActuelles={periodesActuelles}
           estCollectif={!!dossier.cohorte}
           onTermine={recharger}
         />
@@ -313,32 +314,39 @@ function DossierPanel({
         forfait ? <CreerForfait studentId={etudiant.id} etablissementId={etudiant.etablissement_id} forfaitExistant={forfait} onCree={recharger} /> : undefined
       }
       panneauPlanification={
-        forfait && periodeActuelle?.professeur
+        forfait && professeursAttribues.length > 0
           ? (fermer) => (
-              <PlanifierSeancesForfait
-                studentIds={[etudiant.id]}
-                teacherId={periodeActuelle.professeur!.id}
-                dureeParDefaut={60}
-                dateFinParDefaut={forfait.echeance}
-                heuresForfait={forfait.total_heures}
-                onCree={async (dateFinRetenue) => {
-                  // Referme le formulaire pour révéler aussitôt le planning qu'il vient de créer
-                  // (demande client du 2026-09-16) — même geste que côté professeur
-                  // (PlanningPrevisionnelProfesseur.tsx), qui referme déjà son propre générateur.
-                  fermer()
-                  // Reporte l'échéance calculée (ou corrigée à la main) sur le forfait lui-même :
-                  // sans cette écriture, seul le formulaire de planification la connaîtrait, et
-                  // le reste de l'application (résumé du dossier, variable de contrat
-                  // date_echeance_programme) continuerait d'afficher l'ancienne valeur, voire
-                  // aucune — demande client du 2026-09-16, « l'échéance doit être définie
-                  // automatiquement dans TOUTE l'application ».
-                  if (dateFinRetenue && dateFinRetenue !== forfait.echeance) {
-                    await supabase.from('packages').update({ echeance: dateFinRetenue }).eq('id', forfait.id)
-                  }
-                  recharger()
-                  rechargerParcours()
-                }}
-              />
+              /* Pour QUEL professeur — l'admin tranche lui-même dès que l'élève en a plusieurs
+                 (0138). Planifier chez le premier de la liste aurait rempli en silence l'agenda
+                 d'un professeur que l'admin n'a pas choisi. */
+              <ChoixProfesseurPlanification professeurs={professeursAttribues}>
+                {(teacherId) => (
+                  <PlanifierSeancesForfait
+                    studentIds={[etudiant.id]}
+                    teacherId={teacherId}
+                    dureeParDefaut={60}
+                    dateFinParDefaut={forfait.echeance}
+                    heuresForfait={forfait.total_heures}
+                    onCree={async (dateFinRetenue) => {
+                      // Referme le formulaire pour révéler aussitôt le planning qu'il vient de
+                      // créer (demande client du 2026-09-16) — même geste que côté professeur
+                      // (PlanningPrevisionnelProfesseur.tsx), qui referme déjà son générateur.
+                      fermer()
+                      // Reporte l'échéance calculée (ou corrigée à la main) sur le forfait
+                      // lui-même : sans cette écriture, seul le formulaire de planification la
+                      // connaîtrait, et le reste de l'application (résumé du dossier, variable
+                      // de contrat date_echeance_programme) continuerait d'afficher l'ancienne
+                      // valeur, voire aucune — demande client du 2026-09-16, « l'échéance doit
+                      // être définie automatiquement dans TOUTE l'application ».
+                      if (dateFinRetenue && dateFinRetenue !== forfait.echeance) {
+                        await supabase.from('packages').update({ echeance: dateFinRetenue }).eq('id', forfait.id)
+                      }
+                      recharger()
+                      rechargerParcours()
+                    }}
+                  />
+                )}
+              </ChoixProfesseurPlanification>
             )
           : undefined
       }
@@ -379,12 +387,63 @@ function DossierPanel({
   )
 }
 
+/* Choix du professeur pour lequel l'admin planifie, quand l'élève en a plusieurs (0138).
+   Transparent avec un seul professeur attribué, de loin le cas courant : aucun sélecteur ne
+   s'affiche et l'écran est exactement celui d'avant. */
+function ChoixProfesseurPlanification({
+  professeurs,
+  children,
+}: {
+  professeurs: Profile[]
+  children: (teacherId: string) => ReactNode
+}) {
+  const [teacherId, setTeacherId] = useState(professeurs[0].id)
+  // Un professeur retiré pendant que le formulaire est ouvert ne doit pas laisser une sélection
+  // fantôme : on retombe sur le premier encore attribué.
+  const retenu = professeurs.some((p) => p.id === teacherId) ? teacherId : professeurs[0].id
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {professeurs.length > 1 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--muted)' }}>Planifier les séances de</span>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {professeurs.map((p) => {
+              const actif = p.id === retenu
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setTeacherId(p.id)}
+                  aria-pressed={actif}
+                  style={{
+                    fontSize: 12.5,
+                    padding: '7px 14px',
+                    borderRadius: 999,
+                    cursor: 'pointer',
+                    border: actif ? '1px solid rgba(169,140,255,.45)' : '1px solid var(--border)',
+                    background: actif ? 'var(--accent-blue-gradient)' : 'transparent',
+                    color: actif ? '#fff' : 'var(--ink-2)',
+                  }}
+                >
+                  {p.prenom} {p.nom}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+      {children(retenu)}
+    </div>
+  )
+}
+
 /* Relance d'un étudiant dont le parcours est à l'arrêt (demande client du 2026-10-19, point 7).
    Rappelle la pause et sa date de relance quand elles existent, puis le bouton d'envoi et
    l'historique — le bouton reste actif après un premier envoi, c'est précisément ce que la
    demande rend possible. */
 function BlocRelanceEtudiant({ etudiant }: { etudiant: Profile }) {
-  const relanceDue = etudiant.relance_prevue_le ? etudiant.relance_prevue_le <= new Date().toISOString().slice(0, 10) : false
+  const relanceDue = etudiant.relance_prevue_le ? etudiant.relance_prevue_le <= jourDansFuseauEtablissement() : false
 
   return (
     <GroupeSection titre="Relance">

@@ -34,7 +34,18 @@ type ServiceClient = ReturnType<typeof createClient<Database>>
  */
 export async function poserJalonsDeParcours(
   serviceClient: ServiceClient,
-  params: { etablissementId: string; cohortId: string | null; studentIds: string[] },
+  params: {
+    etablissementId: string
+    cohortId: string | null
+    studentIds: string[]
+    /* Professeur de la séance qui vient de faire franchir le jalon — c'est lui que l'enquête
+       évalue et avec lui que le suivi se mène.
+       Passé par l'appelant depuis 0138 et plus déduit ici : la déduction lisait « l'affectation
+       active de l'élève » avec un `maybeSingle()`, qui échoue dès qu'il y en a deux. L'erreur
+       n'était pas testée, le jalon partait donc avec `teacher_id` nul et l'enquête de
+       satisfaction perdait silencieusement son professeur. */
+    teacherId: string | null
+  },
 ) {
   const admins = await adminsDeLEtablissement(serviceClient, params.etablissementId)
 
@@ -42,15 +53,6 @@ export async function poserJalonsDeParcours(
     const { forfait, consommees } = await mesurerParcours(serviceClient, studentId, params.cohortId, params.etablissementId)
     const atteints = jalonsAtteints(consommees, forfait)
     if (atteints.length === 0 || forfait == null) continue
-
-    /* Professeur attitré au moment du franchissement, figé sur la ligne : c'est lui que l'enquête
-       évalue, et c'est avec lui que le suivi pédagogique se mène. */
-    const { data: affectation } = await serviceClient
-      .from('teacher_assignments')
-      .select('teacher_id')
-      .eq('student_id', studentId)
-      .is('date_fin', null)
-      .maybeSingle()
 
     for (const membreId of await avecPartenairesDuo(serviceClient, [studentId])) {
       const { data: profil } = await serviceClient.from('profiles').select('prenom, nom').eq('id', membreId).maybeSingle()
@@ -66,7 +68,8 @@ export async function poserJalonsDeParcours(
               jalon,
               total_heures_reference: forfait,
               heures_consommees_au_declenchement: consommees,
-              teacher_id: affectation?.teacher_id ?? null,
+              // Figé sur la ligne au moment du franchissement, jamais relu ensuite.
+              teacher_id: params.teacherId,
             },
             { onConflict: 'student_id,jalon,total_heures_reference', ignoreDuplicates: true },
           )

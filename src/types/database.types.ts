@@ -2212,6 +2212,18 @@ export interface Database {
           seances_collectives_desinscrites: number
         }[]
       }
+      /* Ajoute un professeur SANS clôturer les autres (0138) — là où `attribuer_professeur`
+         remplace et transfère les séances à venir. Retourne l'id de la nouvelle affectation.
+         Le retrait n'a pas d'équivalent ici : il passe par api/admin/retirer-professeur.ts,
+         qui doit aussi annuler les séances et les réunions Google. */
+      ajouter_professeur: {
+        Args: {
+          p_student_id: string
+          p_teacher_id: string
+          p_motif?: string | null
+        }
+        Returns: string
+      }
       current_etablissement_id: {
         Args: Record<string, never>
         Returns: string

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
-import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
+import { formaterDansFuseauEtablissement, jourDansFuseauEtablissement } from '../../lib/etablissement'
 import { nomVagueSeul } from '../../lib/cohortes'
 import { LABEL_NIVEAU_CLASSE, parcoursCollectifTermine } from '../../lib/classesCollectif'
 import { formaterHeures } from '../../lib/heures'
@@ -527,7 +527,7 @@ export function FicheCandidatCollectifModale({
               montant: frais.montant,
               montant_regle: frais.regle ? frais.montant : 0,
               statut: frais.regle ? 'paye' : 'attendu',
-              date_paiement: frais.regle ? new Date().toISOString().slice(0, 10) : null,
+              date_paiement: frais.regle ? jourDansFuseauEtablissement() : null,
               moyen_paiement: frais.moyenPaiement || null,
               reference: frais.reference || null,
               notes: frais.notes || "Frais d'inscription — cours collectifs",
@@ -553,7 +553,7 @@ export function FicheCandidatCollectifModale({
                   paiement: paiementOuvert,
                   personne: profilEtudiant,
                   forfait: null,
-                  professeur: null,
+                  professeurs: [],
                 } satisfies CiblePaiement)
               : /* Candidat pas encore converti (2026-10-19) : les frais d'inscription
                    encaissés avant conversion (0056) restent rattachés au PROSPECT, pas à un
