@@ -169,6 +169,11 @@ export function Connexion() {
           <div className="glow g2" />
           <div className="spot" />
           <div className="grain" />
+          {/* Illustration fournie par le client (maquette du 2026-10-27), détourée sur fond
+              transparent : elle se pose sur le dégradé du panneau, qui reste celui du CSS.
+              Purement décorative, donc `alt` vide et aucun clic capté — le logo juste en dessous
+              reste cliquable. */}
+          <img className="illus" src="/illustration-connexion.webp" alt="" aria-hidden="true" />
           <a className="logo" href="/">
             <img src="/logo-hoc-blanc.png" alt="Hari Online Club" />
           </a>

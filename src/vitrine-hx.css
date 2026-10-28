@@ -2949,9 +2949,37 @@ body.vitrine-hx {
   left: -120px;
   opacity: 0.16;
 }
-.hx .ecran-connexion .side > *:not(.glow):not(.spot):not(.grain) {
+.hx .ecran-connexion .side > *:not(.glow):not(.spot):not(.grain):not(.illus) {
   position: relative;
   z-index: 2;
+}
+/* Illustration du panneau (maquette client du 2026-10-27). Détourée sur fond transparent : le
+   dégradé reste celui du CSS, donc aucune couture quelle que soit la taille de l'écran.
+   Calée en haut à droite du panneau, exactement comme sur la maquette, où elle déborde de ces
+   deux côtés et se fait rogner par `overflow: hidden` de `.dark`. Largeur en pourcentage du
+   panneau : 90,476 % = 912 px sur les 1008 px du panneau à 1920 px de large.
+   z-index 1 comme `.spot`/`.grain`, mais posée après eux dans le DOM : elle passe donc par-dessus
+   le voile et le grain, et reste sous le logo et le titre (z-index 2). */
+.hx .ecran-connexion .side .illus {
+  position: absolute;
+  /* Collée en haut sur l'écran de la maquette, puis descendue juste ce qu'il faut sur un panneau
+     plus étroit. L'illustration se met à l'échelle du panneau, le logo garde une taille fixe
+     (52 px sous 44 px de marge) : en dessous de ~1660 px de large, le cadre londonien remontait
+     derrière le logo et le rendait illisible (constaté à 1024 px).
+     Le cadre commence à 120/912 de la largeur de l'image, elle-même à 90,476 % d'un panneau qui
+     occupe 52,5 % de la fenêtre, soit 6,25vw du haut de l'image. On ne descend donc que de ce
+     qui manque pour passer sous le logo, et de rien du tout dès que la place existe. */
+  top: max(0px, 104px - 6.25vw);
+  right: 0;
+  z-index: 1;
+  width: 90.476%;
+  /* Sur un panneau large et court, la hauteur prend le relais pour ne pas venir chevaucher le
+     titre : l'illustration rétrécit en restant collée au coin haut-droit. */
+  max-height: 68.742%;
+  object-fit: contain;
+  object-position: right top;
+  pointer-events: none;
+  user-select: none;
 }
 .hx .ecran-connexion .logo {
   color: var(--white);
@@ -3125,6 +3153,13 @@ body.vitrine-hx {
   }
   .hx .ecran-connexion .big {
     font-size: 36px;
+  }
+  /* Illustration retirée en dessous de 900 px : le panneau n'est plus une colonne mais un
+     bandeau court, où elle passait sous le logo et le titre et les rendait illisibles. La
+     maquette qui l'introduit (2026-10-27) est un écran deux colonnes ; le bandeau mobile reste
+     donc tel qu'il était. */
+  .hx .ecran-connexion .side .illus {
+    display: none;
   }
   .hx .ecran-connexion .main {
     padding: 44px 18px 60px;
