@@ -1134,6 +1134,21 @@ export function DossierEtudiantVue({
                       />
                     </>
                   )}
+                  {/* Le forfait collectif est créé automatiquement à l'inscription (0071), un par
+                      élève : mêmes compteurs que pour un forfait individuel, au même endroit. */}
+                  {forfait && (
+                    <>
+                      {/* Mêmes libellés que le forfait individuel (« Consommées », jamais « Heures
+                          suivies ») : ce dernier nomme déjà la tuile d'en-tête du dossier, deux
+                          éléments portant le même texte rendent un test par libellé ambigu. */}
+                      <LigneInfo label="Forfait de la vague" valeur={formaterHeures(forfait.total_heures)} />
+                      <LigneInfo label="Consommées" valeur={formaterHeures(heuresConsommees)} />
+                      {heuresReprises > 0 && (
+                        <LigneInfo label="dont suivies avant la mise en service" valeur={formaterHeures(heuresReprises)} />
+                      )}
+                      <LigneInfo label="Restantes" valeur={formaterHeures(heuresRestantes)} />
+                    </>
+                  )}
                 </div>
                 <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted-2)', lineHeight: 1.5 }}>
                   Vague et classe se modifient depuis Cours collectifs, par classe — jamais élève par élève.

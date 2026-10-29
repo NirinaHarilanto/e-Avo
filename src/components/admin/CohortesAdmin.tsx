@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCohortes } from '../../hooks/useCohortes'
-import { nomVagueSeul, trierVaguesParProximite } from '../../lib/cohortes'
+import { nomVagueSeul, trierVaguesChronologiquement } from '../../lib/cohortes'
 import { useCohortClasses } from '../../hooks/useCohortClasses'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useEtablissement } from '../../hooks/useEtablissement'
@@ -46,11 +46,11 @@ export function CohortesAdmin() {
   // crée une vague), seul l'écran ouvert au premier clic change.
   const [onglet, setOnglet] = useState<'vagues' | 'suivi' | 'sessionOrale' | 'quiz'>('suivi')
 
-  /* Les vagues les plus proches d'aujourd'hui en premier — demande client du 2026-10-10. La
-     requête de useCohortes() garde son tri `date_debut` brut (simple, stable) ; ce tri-ci est le
-     seul endroit qui connaît « aujourd'hui », recalculé à chaque rendu plutôt que figé au montage
-     de la page. */
-  const vaguesTriees = useMemo(() => trierVaguesParProximite(cohortes), [cohortes])
+  /* Par ordre chronologique, la plus ancienne en tête — demande client du 2026-10-10, précisée le
+     2026-10-29 devant les vraies vagues (voir le commentaire de trierVaguesChronologiquement). La
+     requête de useCohortes() garde son tri `date_debut` brut (simple, stable) ; ce tri-ci est
+     celui qui s'affiche réellement. */
+  const vaguesTriees = useMemo(() => trierVaguesChronologiquement(cohortes), [cohortes])
 
   return (
     <AdminLayout actif="Cours collectifs">
