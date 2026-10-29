@@ -53,7 +53,7 @@ export type StatutContrat = 'brouillon' | 'envoye' | 'signe' | 'resilie'
 export type StatutCohorte = 'a_venir' | 'en_cours' | 'terminee'
 /* Niveau d'une classe au sein d'une promotion (0074), dérivé automatiquement du niveau CECRL
    estimé au quiz écrit — voir src/lib/classesCollectif.ts. */
-export type NiveauClasse = 'beginner' | 'intermediate' | 'advanced'
+export type NiveauClasse = 'beginner' | 'intermediate' | 'pre_advanced' | 'advanced'
 /* Créneau horaire d'une classe (0074), réglé au niveau établissement (etablissements.creneau_*). */
 export type CreneauClasse = 'matin' | 'midi' | 'soir'
 export type StatutRendezVous = 'en_attente' | 'confirme' | 'refuse' | 'annule'

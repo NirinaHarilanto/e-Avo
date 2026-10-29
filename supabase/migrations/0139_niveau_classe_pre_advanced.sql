@@ -1,0 +1,17 @@
+-- Quatrième niveau de classe pour les cours collectifs : « Pre-Advanced ».
+--
+-- Demande client du 2026-10-29, à l'occasion de la reprise des vraies données : la promotion en
+-- cours (fichier « V1 - cours collectifs ») a trois classes — Beginner, Intermediate et
+-- Pre-Advanced — et ce dernier niveau n'existait pas dans l'application, qui n'en connaissait que
+-- trois (0074). Le ranger dans « advanced » aurait confondu deux classes que l'établissement
+-- distingue, et fait croire à un niveau plus élevé qu'il n'est.
+--
+-- `ADD VALUE ... BEFORE 'advanced'` et non en fin d'énumération : l'ordre des valeurs d'un enum
+-- Postgres est celui des comparaisons et du `order by`. Ajouté à la fin, « pre_advanced » se
+-- serait trié APRÈS « advanced », et tout écran qui range les classes du plus faible au plus
+-- avancé aurait affiché l'échelle dans le désordre.
+--
+-- Postgres interdit d'ajouter une valeur d'enum et de s'en servir dans la même transaction. Cette
+-- migration ne fait donc QUE l'ajout : aucune donnée n'y est écrite, et le code qui l'emploie
+-- arrive par le déploiement, après.
+alter type public.niveau_classe add value if not exists 'pre_advanced' before 'advanced';
