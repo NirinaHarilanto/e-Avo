@@ -21,8 +21,20 @@ export type NomIcoHX =
   | 'document'
   | 'diplome'
   | 'etoile'
+  | 'mobile'
+  | 'coche'
 
-const CHEMINS: Record<NomIcoHX, { d: string[]; cercles?: { cx: number; cy: number; r: number }[]; rect?: boolean; aplat?: boolean; epaisseur?: number }> = {
+const CHEMINS: Record<
+  NomIcoHX,
+  {
+    d: string[]
+    cercles?: { cx: number; cy: number; r: number }[]
+    rect?: boolean
+    rects?: { x: number; y: number; largeur: number; hauteur: number; rx: number }[]
+    aplat?: boolean
+    epaisseur?: number
+  }
+> = {
   'fleche-diagonale': { d: ['M7 17 17 7M8 7h9v9'], epaisseur: 2.4 },
   'fleche-gauche': { d: ['M19 12H5M11 6l-6 6 6 6'], epaisseur: 2.4 },
   'fleche-droite': { d: ['M5 12h14M13 6l6 6-6 6'], epaisseur: 2.4 },
@@ -56,6 +68,10 @@ const CHEMINS: Record<NomIcoHX, { d: string[]; cercles?: { cx: number; cy: numbe
   document: { d: ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6M12 18v-6M9 15l3-3 3 3'], epaisseur: 2 },
   /* Toque de diplômé — bouton « Devenir professeur chez HOC » dans la fenêtre Contact. */
   diplome: { d: ['M12 3 2 8l10 5 10-5-10-5z', 'M6 10.5v4.5c0 1.5 3 3 6 3s6-1.5 6-3v-4.5', 'M22 8v6'], epaisseur: 2 },
+  /* Téléphone mobile et coche — pastilles d'information du hero « Cours & tarifs »
+     (maquette client du 2026-10-29). */
+  mobile: { d: ['M11 18h2'], rects: [{ x: 5, y: 2, largeur: 14, hauteur: 20, rx: 2 }] },
+  coche: { d: ['M20 6 9 17l-5-5'] },
 }
 
 export function IcoHX({ nom }: { nom: NomIcoHX }) {
@@ -82,6 +98,9 @@ export function IcoHX({ nom }: { nom: NomIcoHX }) {
       aria-hidden="true"
     >
       {forme.rect && <rect x="2" y="4" width="20" height="16" rx="3" />}
+      {forme.rects?.map((cadre) => (
+        <rect key={`${cadre.x}-${cadre.y}`} x={cadre.x} y={cadre.y} width={cadre.largeur} height={cadre.hauteur} rx={cadre.rx} />
+      ))}
       {forme.cercles?.map((cercle) => (
         <circle key={`${cercle.cx}-${cercle.cy}-${cercle.r}`} cx={cercle.cx} cy={cercle.cy} r={cercle.r} />
       ))}

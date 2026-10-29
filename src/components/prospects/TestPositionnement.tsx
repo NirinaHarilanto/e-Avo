@@ -6,13 +6,25 @@ import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 
 /* Entrée en cours collectif : le candidat ne réserve pas un appel diagnostic mais une place au
    test oral d'une vague, et sa réservation n'est validée qu'une fois le questionnaire écrit
-   rempli (demande client du 2026-09-21). D'où les trois étapes ci-dessous, franchies dans
-   l'ordre : créneau, coordonnées, quiz.
+   rempli (demande client du 2026-09-21).
+
+   ORDRE DES ÉTAPES INVERSÉ LE 2026-10-29, à la demande du client : coordonnées, questionnaire,
+   puis session de test oral. Le parcours allait jusque-là du créneau au quiz, et la page
+   publique annonçait désormais l'inverse — le niveau écrit se situe d'abord, la session se
+   choisit ensuite.
+
+   Deux conséquences, voulues :
+   — la place n'est retenue qu'au tout dernier geste, donc le risque qu'un créneau se remplisse
+     pendant les onze minutes de questionnaire disparaît : le candidat ne choisit que parmi les
+     sessions encore ouvertes au moment où il valide ;
+   — le garde-fou « aucune session ouverte » reste en tête de composant, avant toute saisie :
+     personne ne répond à soixante-sept questions pour découvrir ensuite qu'il n'y a pas de
+     session.
 
    Les corrigés ne sont jamais chargés ici : l'API renvoie les énoncés seuls et corrige à
    l'envoi (voir api/prospects/test-positionnement et inscrire-test). */
 
-type Etape = 'creneau' | 'coordonnees' | 'quiz'
+type Etape = 'coordonnees' | 'quiz' | 'creneau'
 
 /* Compte à rebours par question — demande client du 2026-10-19 : « mettre un chronomètre de
    compte à rebours de 10 secondes pour chaque question, visible par l'utilisateur, pour toutes
@@ -78,7 +90,7 @@ export function TestPositionnement({
   const [chargement, setChargement] = useState(true)
   const [erreurChargement, setErreurChargement] = useState<string | null>(null)
 
-  const [etape, setEtape] = useState<Etape>('creneau')
+  const [etape, setEtape] = useState<Etape>('coordonnees')
   const [creneauChoisi, setCreneauChoisi] = useState<CreneauTest | null>(null)
   const [prenom, setPrenom] = useState('')
   const [nom, setNom] = useState('')
@@ -147,8 +159,9 @@ export function TestPositionnement({
     return () => window.clearTimeout(minuteur)
   }, [etape, envoi, confirmation, secondesRestantes])
 
-  /* Temps écoulé : on passe à la question suivante, ou on envoie si c'était la dernière. Une
-     question laissée sans réponse part avec `choix: null` et compte comme fausse. */
+  /* Temps écoulé : on passe à la question suivante, ou on avance vers le choix de la session si
+     c'était la dernière. Une question laissée sans réponse part avec `choix: null` et compte
+     comme fausse. */
   useEffect(() => {
     if (etape !== 'quiz' || secondesRestantes > 0 || questions.length === 0) return
     if (indexQuestion < questions.length - 1) {
@@ -156,8 +169,7 @@ export function TestPositionnement({
       setSecondesRestantes(SECONDES_PAR_QUESTION)
       return
     }
-    void envoyer()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setEtape('creneau')
   }, [etape, secondesRestantes, indexQuestion, questions.length])
 
   async function envoyer(e?: FormEvent) {
@@ -261,87 +273,61 @@ export function TestPositionnement({
       {etape === 'creneau' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: 0, lineHeight: 1.6 }}>
-            Choisissez la session de test oral qui vous arrange.
+            Dernière étape : choisissez la session de test oral qui vous arrange, puis validez.
           </p>
-          {/* Encadré plutôt qu'une ligne de texte gris : le candidat doit comprendre AVANT de
-              choisir son créneau que réserver ne suffit pas (demande client du 2026-09-23). */}
-          <p
-            style={{
-              margin: 0,
-              padding: '11px 13px',
-              borderRadius: 12,
-              border: `1px solid ${accent.accentBorder}`,
-              background: 'var(--surface-alt)',
-              fontSize: 12.5,
-              lineHeight: 1.6,
-              color: 'var(--ink-2)',
-            }}
-          >
-            <strong style={{ color: accent.accent }}>À savoir :</strong> votre demande n’est validée qu’une fois le
-            questionnaire terminé. Après avoir choisi ce créneau, vous répondrez à un court quiz écrit — sans lui, la
-            place n’est pas réservée. Chaque question est <strong>chronométrée à {SECONDES_PAR_QUESTION} secondes</strong> :
-            passé ce délai, la suivante s’affiche d’elle-même.
-          </p>
-          {creneaux.map((creneau) => (
-            <button
-              key={creneau.id}
-              type="button"
-              onClick={() => {
-                setCreneauChoisi(creneau)
-                setEtape('coordonnees')
-              }}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 3,
-                textAlign: 'left',
-                padding: '12px 14px',
-                borderRadius: 12,
-                border: `1px solid ${accent.accentBorder}`,
-                background: 'var(--surface-alt)',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
-              <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{formaterCreneau(creneau.debut)}</span>
-              <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                {creneau.dureeMinutes} min · {libelleVague(creneau.vague)}
-                {creneau.placesRestantes !== null && ` · ${creneau.placesRestantes} place(s) restante(s)`}
-              </span>
-            </button>
-          ))}
+          {creneaux.map((creneau) => {
+            const choisiCeCreneau = creneauChoisi?.id === creneau.id
+            return (
+              <button
+                key={creneau.id}
+                type="button"
+                aria-pressed={choisiCeCreneau}
+                onClick={() => setCreneauChoisi(creneau)}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 3,
+                  textAlign: 'left',
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  /* Le créneau retenu se distingue à l'œil : il n'est plus validé par le clic
+                     lui-même, c'est le bouton d'envoi ci-dessous qui engage. */
+                  border: `1px solid ${choisiCeCreneau ? accent.accent : accent.accentBorder}`,
+                  background: choisiCeCreneau ? accent.accentSoft : 'var(--surface-alt)',
+                  boxShadow: choisiCeCreneau ? `0 10px 24px -14px ${accent.accentGlow}` : 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{formaterCreneau(creneau.debut)}</span>
+                <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                  {creneau.dureeMinutes} min · {libelleVague(creneau.vague)}
+                  {creneau.placesRestantes !== null && ` · ${creneau.placesRestantes} place(s) restante(s)`}
+                </span>
+              </button>
+            )
+          })}
           <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0 }}>
             Horaires affichés dans votre fuseau : {libelleFuseau(fuseau)}.
           </p>
+          {erreur && <p style={{ fontSize: 13, color: 'var(--danger)', margin: 0 }}>{erreur}</p>}
+          <button
+            type="button"
+            disabled={!creneauChoisi || envoi}
+            onClick={() => void envoyer()}
+            className="btn-shine"
+            style={{
+              background: accent.accentGrad,
+              color: accent.accentInk,
+              opacity: creneauChoisi && !envoi ? 1 : 0.6,
+              cursor: creneauChoisi && !envoi ? 'pointer' : 'not-allowed',
+              padding: '14px 24px',
+              fontSize: 14.5,
+            }}
+          >
+            {envoi ? 'Envoi…' : creneauChoisi ? 'Valider ma réservation' : 'Choisissez une session'}
+          </button>
         </div>
-      )}
-
-      {etape !== 'creneau' && creneauChoisi && (
-        <button type="button" onClick={() => setEtape('creneau')} style={rappelCreneau(accent, etape === 'quiz')}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span
-              aria-hidden
-              style={{
-                flexShrink: 0,
-                width: 24,
-                height: 24,
-                borderRadius: 999,
-                display: 'grid',
-                placeItems: 'center',
-                background: accent.accentGrad,
-                color: accent.accentInk,
-                fontSize: 13,
-                fontWeight: 700,
-              }}
-            >
-              ✓
-            </span>
-            <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>
-              Session choisie — <strong style={{ color: accent.accent }}>{formaterCreneau(creneauChoisi.debut)}</strong>
-            </span>
-          </span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: accent.accent, whiteSpace: 'nowrap' }}>Changer ✕</span>
-        </button>
       )}
 
       {etape === 'coordonnees' && (
@@ -363,11 +349,27 @@ export function TestPositionnement({
             <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} required style={{ marginTop: 2 }} />
             J’accepte d’être recontacté(e) au sujet de ma demande.
           </label>
-          {/* Dernier rappel avant que le premier compte à rebours ne démarre : il se lance dès le
-              clic ci-dessous, le candidat doit donc savoir qu'il ne s'agit plus de se préparer. */}
-          <p style={{ margin: 0, fontSize: 12, color: 'var(--muted-2)', lineHeight: 1.6 }}>
-            Le questionnaire démarre au clic : {SECONDES_PAR_QUESTION} secondes par question, sans retour en arrière.
-            Installez-vous avant de commencer.
+          {/* Encadré plutôt qu'une ligne de texte gris : le candidat doit comprendre AVANT de
+              commencer que le questionnaire ne suffit pas à retenir sa place (demande client du
+              2026-09-23, transposée à l'ordre inversé du 2026-10-29). Dernier rappel aussi avant
+              que le premier compte à rebours ne démarre : il se lance dès le clic ci-dessous. */}
+          <p
+            style={{
+              margin: 0,
+              padding: '11px 13px',
+              borderRadius: 12,
+              border: `1px solid ${accent.accentBorder}`,
+              background: 'var(--surface-alt)',
+              fontSize: 12.5,
+              lineHeight: 1.6,
+              color: 'var(--ink-2)',
+            }}
+          >
+            <strong style={{ color: accent.accent }}>À savoir :</strong> votre place n’est réservée qu’à la toute fin.
+            Vous répondez d’abord au questionnaire écrit, puis vous choisissez votre session de test oral — sans ce
+            dernier choix, rien n’est retenu. Chaque question est{' '}
+            <strong>chronométrée à {SECONDES_PAR_QUESTION} secondes</strong> : passé ce délai, la suivante s’affiche
+            d’elle-même, sans retour en arrière. Installez-vous avant de commencer.
           </p>
           <button
             type="submit"
@@ -393,9 +395,7 @@ export function TestPositionnement({
             setIndexQuestion((i) => Math.min(questions.length - 1, i + 1))
             setSecondesRestantes(SECONDES_PAR_QUESTION)
           }}
-          onEnvoyer={envoyer}
-          envoi={envoi}
-          erreur={erreur}
+          onTerminer={() => setEtape('creneau')}
         />
       )}
     </div>
@@ -430,9 +430,7 @@ function QuestionnaireEtape({
   choisi,
   onChoisir,
   onSuivant,
-  onEnvoyer,
-  envoi,
-  erreur,
+  onTerminer,
 }: {
   question: QuestionPublique
   index: number
@@ -442,9 +440,9 @@ function QuestionnaireEtape({
   choisi: number | undefined
   onChoisir: (indexOption: number) => void
   onSuivant: () => void
-  onEnvoyer: (e: FormEvent) => void
-  envoi: boolean
-  erreur: string | null
+  /* La dernière question ne vaut plus envoi : elle conduit au choix de la session, qui est
+     désormais la dernière étape (2026-10-29). L'envoi et ses erreurs vivent donc là-bas. */
+  onTerminer: () => void
 }) {
   const { support, question: enonce } = decouperEnonce(question.enonce)
   const repondu = choisi !== undefined
@@ -452,7 +450,14 @@ function QuestionnaireEtape({
   const avancement = Math.round(((index + (repondu ? 1 : 0)) / total) * 100)
 
   return (
-    <form onSubmit={onEnvoyer} className="quiz-colonne" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        onTerminer()
+      }}
+      className="quiz-colonne"
+      style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+    >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: accent.accent }}>
@@ -566,8 +571,6 @@ function QuestionnaireEtape({
         </fieldset>
       </div>
 
-      {erreur && <p style={{ fontSize: 13, color: 'var(--danger)', margin: 0, flexShrink: 0 }}>{erreur}</p>}
-
       {/* Plus de bouton « Précédent » : avec dix secondes par question, revenir en arrière
           reviendrait à s'offrir dix secondes de plus autant de fois qu'on le veut. Le seul bouton
           restant fait gagner du temps, il ne le rend pas — il passe à la suite sans attendre la
@@ -576,19 +579,16 @@ function QuestionnaireEtape({
         {derniere ? (
           <button
             type="submit"
-            disabled={envoi}
             className="btn-shine"
             style={{
               flexGrow: 1,
               background: accent.accentGrad,
               color: accent.accentInk,
-              opacity: envoi ? 0.6 : 1,
-              cursor: envoi ? 'not-allowed' : 'pointer',
               padding: '13px 22px',
               fontSize: 14,
             }}
           >
-            {envoi ? 'Envoi…' : 'Valider ma réservation'}
+            Choisir ma session de test oral
           </button>
         ) : (
           <button
@@ -660,10 +660,11 @@ function Chronometre({ secondesRestantes, accent }: { secondesRestantes: number;
 }
 
 function Progression({ etape, accent }: { etape: Etape; accent: AccentPalette }) {
+  /* Même ordre que le parcours réel depuis le 2026-10-29 : coordonnées, questionnaire, session. */
   const etapes: { cle: Etape; libelle: string }[] = [
-    { cle: 'creneau', libelle: 'Session' },
     { cle: 'coordonnees', libelle: 'Coordonnées' },
     { cle: 'quiz', libelle: 'Questionnaire' },
+    { cle: 'creneau', libelle: 'Session' },
   ]
   const indexActif = etapes.findIndex((e) => e.cle === etape)
 
@@ -714,30 +715,6 @@ function lienBouton(accent: AccentPalette): CSSProperties {
     cursor: 'pointer',
     fontFamily: 'inherit',
     textDecoration: 'underline',
-  }
-}
-
-/* Même traitement que le rappel de créneau de ReserverAppel.tsx (demande client du 2026-10-09,
-   « plus attractive et joviale ») : fond teinté de l'accent, liseré gauche, légère lueur. */
-function rappelCreneau(accent: AccentPalette, compact = false): CSSProperties {
-  return {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    // Ne se comprime jamais : c'est la zone des propositions qui absorbe le manque de place.
-    flexShrink: 0,
-    /* Resserré pendant le questionnaire : le créneau est déjà choisi, ce rappel n'est plus là que
-       pour permettre d'en changer — la hauteur rendue sert à afficher la question entière. */
-    padding: compact ? '8px 12px 8px 10px' : '12px 14px 12px 12px',
-    borderRadius: 12,
-    border: `1px solid ${accent.accentBorder}`,
-    borderLeft: `4px solid ${accent.accent}`,
-    background: accent.accentSoft,
-    boxShadow: `0 10px 24px -14px ${accent.accentGlow}`,
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    textAlign: 'left',
   }
 }
 

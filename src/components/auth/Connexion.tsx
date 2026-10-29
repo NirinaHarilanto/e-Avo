@@ -4,6 +4,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { ChampMotDePasse } from '../shared/ChampMotDePasse'
 import { useFondVitrine } from '../vitrine/animations'
 import { FlecheBouton } from '../vitrine/IconesHX'
+import { AVIS_CONNEXION, AvatarsProfesseurs, CarteAvis, ChiffresCles } from '../vitrine/PreuveSociale'
 
 type Etape = 'email' | 'inconnu' | 'sans_mot_de_passe' | 'lien_envoye' | 'mot_de_passe'
 
@@ -18,7 +19,13 @@ const EMAIL_VALIDE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
    gauche ne bougeant jamais.
 
    L'encart « Espace réservé aux membres » passe sous le formulaire, à la place que lui donne la
-   maquette — il était au-dessus du titre depuis le 2026-10-07. */
+   maquette — il était au-dessus du titre depuis le 2026-10-07.
+
+   Panneau gauche refait le 2026-10-29 d'après une nouvelle maquette du client : l'illustration
+   dessinée de la veille cède la place aux visages de l'équipe, à un avis d'élève et aux deux
+   chiffres clés, sous la signature « Your English, your future. ». Le fichier
+   `illustration-connexion.webp` reste dans `public/` — il n'est plus référencé, mais rien ne
+   dépend de sa suppression. */
 
 /* ChampMotDePasse est écrit pour le thème sombre des espaces connectés et pose ses couleurs en
    style inline, qu'aucune règle CSS ne peut reprendre. On lui passe donc ici l'habillage clair
@@ -169,24 +176,29 @@ export function Connexion() {
           <div className="glow g2" />
           <div className="spot" />
           <div className="grain" />
-          {/* Illustration fournie par le client (maquette du 2026-10-27), détourée sur fond
-              transparent : elle se pose sur le dégradé du panneau, qui reste celui du CSS.
-              Purement décorative, donc `alt` vide et aucun clic capté — le logo juste en dessous
-              reste cliquable. */}
-          <img className="illus" src="/illustration-connexion.webp" alt="" aria-hidden="true" />
           <a className="logo" href="/">
             <img src="/logo-hoc-blanc.png" alt="Hari Online Club" />
           </a>
-          <p className="big reveal in">
-            <span className="line">
-              <span>Your English,</span>
-            </span>
-            <span className="line">
-              <span className="it" style={{ transitionDelay: '.12s' }}>
-                your future
+          {/* Réassurance du panneau gauche (maquette client du 2026-10-29), qui remplace
+              l'illustration dessinée du 2026-10-27 : visages de l'équipe et avis d'un élève,
+              mêmes briques que le hero de la page Professeurs. */}
+          <div className="preuve">
+            <AvatarsProfesseurs mention="Vos professeurs vous attendent en visio" />
+            <CarteAvis {...AVIS_CONNEXION} etoiles />
+          </div>
+          <div className="bas">
+            <p className="big reveal in">
+              <span className="line">
+                <span>Your English,</span>
               </span>
-            </span>
-          </p>
+              <span className="line">
+                <span className="it" style={{ transitionDelay: '.12s' }}>
+                  your future.
+                </span>
+              </span>
+            </p>
+            <ChiffresCles />
+          </div>
         </aside>
 
         <main className="main">

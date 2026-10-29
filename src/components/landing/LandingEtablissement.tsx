@@ -62,6 +62,15 @@ const FOND_PAR_VUE: Record<Vue, string> = {
   apropos: '#4E356F',
 }
 
+/* Date en toutes lettres, avec l'ordinal du premier jour du mois : `toLocaleDateString` rend
+   « 1 novembre », qui s'écrit « 1er novembre » en français. Les autres quantièmes n'en portent
+   pas. Seul le 1er est concerné, contrairement à l'anglais. */
+function dateEnLettres(date: Date, avecAnnee: boolean) {
+  const jour = date.getDate()
+  const reste = date.toLocaleDateString('fr-FR', avecAnnee ? { month: 'long', year: 'numeric' } : { month: 'long' })
+  return `${jour === 1 ? '1er' : jour} ${reste}`
+}
+
 export function LandingEtablissement() {
   const { slug: slugUrl } = useParams<{ slug: string }>()
   const slug = slugUrl ?? SLUG_ETABLISSEMENT_PRINCIPAL
@@ -117,10 +126,12 @@ export function LandingEtablissement() {
     window.scrollTo(0, 0)
   }, [pathname])
 
-  /* `?reserver=1` conduit directement à la formule individuelle, fenêtre ouverte — l'écran de
-     connexion y renvoie le visiteur sans compte, pour qu'il retrouve en un clic la réservation
-     qu'il cherchait. Le paramètre est retiré de l'URL une fois lu, pour qu'un rafraîchissement
-     ne rouvre pas la fenêtre tout seul. */
+  /* `?reserver=1` conduit directement à la formule individuelle, fenêtre ouverte SUR L'ONGLET
+     « Réserver » (étape 2) — l'écran de connexion y renvoie le visiteur sans compte, et le
+     bouton « Réserver mon appel diagnostic » de la page Professeurs depuis le 2026-10-29 : les
+     deux promettent une réservation, pas une page de présentation à traverser. Le paramètre est
+     retiré de l'URL une fois lu, pour qu'un rafraîchissement ne rouvre pas la fenêtre tout
+     seul. */
   useEffect(() => {
     if (parametresUrl.get('reserver') !== '1') return
     setFormuleAOuvrir('individuel')
@@ -162,13 +173,19 @@ export function LandingEtablissement() {
 
   /* Mise en forme en toutes lettres de la date renvoyée par la base (« 2026-01-12 » →
      « 12 janvier 2026 »). Le découpage manuel évite `new Date('2026-01-12')`, interprété en UTC,
-     qui reculait la date d'un jour pour un visiteur à l'ouest de Greenwich. */
-  const prochaineVague = dateVague
+     qui reculait la date d'un jour pour un visiteur à l'ouest de Greenwich.
+
+     Deux formats de la MÊME date, pour ne jamais risquer qu'ils divergent : le long pour le
+     ruban de la carte Collectif, le court (sans l'année) pour la carte de rentrée du hero, où
+     la maquette du 2026-10-29 écrit « Rentrée le / 30 novembre » en très gros corps. */
+  const dateVagueLocale = dateVague
     ? (() => {
         const [annee, mois, jour] = dateVague.split('-').map(Number)
-        return new Date(annee, mois - 1, jour).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+        return new Date(annee, mois - 1, jour)
       })()
     : null
+  const prochaineVague = dateVagueLocale ? dateEnLettres(dateVagueLocale, true) : null
+  const prochaineVagueCourte = dateVagueLocale ? dateEnLettres(dateVagueLocale, false) : null
 
   return (
     <CoquilleVitrine fond={FOND_PAR_VUE[vue]}>
@@ -177,6 +194,7 @@ export function LandingEtablissement() {
         <PageCours
           tarifs={tarifs}
           prochaineVague={prochaineVague}
+          prochaineVagueCourte={prochaineVagueCourte}
           etablissementSlug={etablissement.slug}
           etablissementNom={etablissement.nom}
           accent={accent}

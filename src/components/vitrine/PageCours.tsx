@@ -3,7 +3,7 @@ import type { AccentPalette } from '../../lib/accent'
 import type { Database, TypeProgrammeProspect } from '../../types/database.types'
 import { ReserverAppel } from '../prospects/ReserverAppel'
 import { TestPositionnement } from '../prospects/TestPositionnement'
-import { IcoHX } from './IconesHX'
+import { IcoHX, type NomIcoHX } from './IconesHX'
 
 type Tarif = Database['public']['Tables']['tarifs']['Row']
 
@@ -46,24 +46,34 @@ const PROGRAMMES: { type: TypeProgrammeProspect; badge: string; titre: string; t
   },
 ]
 
-/* Illustrations fournies par le client le 2026-10-09, détourées de leur fond noir d'origine.
-   Elles sont livrées en 4:3, le ratio exact de la zone image des cartes, et sur fond
-   transparent : c'est le dégradé de `.offer .img` qui se voit au travers, si bien que changer
-   cette couleur ne demande pas de regénérer les fichiers. */
+/* Photographies fournies par le client le 2026-10-29, en remplacement des illustrations
+   dessinées du 2026-10-09. Elles sont recadrées en 4:3, le ratio exact de la zone image des
+   cartes, et affichées en `object-fit: cover` : chacune est donc cadrée sur l'écran de visio,
+   qui est le sujet, pour qu'un rognage latéral ne le coupe jamais. */
 const PHOTOS: Record<TypeProgrammeProspect, { src: string; alt: string }> = {
   individuel: {
     src: '/programmes/individuel.webp',
-    alt: 'Illustration d’une étudiante au casque, carnet et stylo en main, en appel vidéo avec sa professeure sur son ordinateur portable',
+    alt: 'Une élève de dos suivant un cours particulier en visioconférence, sa professeure seule à l’écran de son ordinateur portable',
   },
   duo: {
     src: '/programmes/duo.webp',
-    alt: 'Illustration de deux étudiants côte à côte devant un même ordinateur portable, en appel vidéo avec leur professeure',
+    alt: 'Un cours en duo en visioconférence, les deux participants côte à côte à l’écran d’un ordinateur portable',
   },
   collectif: {
     src: '/programmes/collectif.webp',
-    alt: 'Illustration d’une étudiante au casque suivant un cours collectif, six participants affichés sur l’écran de son ordinateur portable',
+    alt: 'Un cours collectif en visioconférence, les participants affichés en mosaïque sur l’écran d’un ordinateur portable',
   },
 }
+
+/* Pastilles d'information du hero (maquette client du 2026-10-29) : ce que le visiteur cherche
+   à savoir avant même de comparer les formules — comment il peut payer, et ce que les cours
+   couvrent. Elles répètent volontairement des informations détaillées plus bas dans la page. */
+const ATOUTS_COURS: { icone: NomIcoHX; libelle: string }[] = [
+  { icone: 'mobile', libelle: 'Mvola, Orange Money ou virement' },
+  { icone: 'coche', libelle: 'Paiement en 2 fois possible' },
+  { icone: 'coche', libelle: 'Préparation TOEIC, TOEFL, IELTS' },
+  { icone: 'avion', libelle: 'Projet de migration' },
+]
 
 const DETAILS: Record<
   TypeProgrammeProspect,
@@ -99,9 +109,11 @@ const DETAILS: Record<
       'Le cours collectif réunit un petit groupe d’élèves de niveau comparable au sein d’une même vague, sur un planning fixé à l’avance par l’établissement. C’est la formule la plus accessible pour qui aime apprendre au contact des autres, dans une dynamique de groupe qui pousse à parler, se corriger et progresser ensemble — sans jamais perdre en exigence pédagogique.',
     complement:
       'Un cycle de cours collectifs dure 2 mois, à raison de 32 séances d’une heure. Nos cours collectifs n’ont rien d’élémentaire : nous avons développé une méthode interactive et communicative. Ici, pas de textes à trous pendant la séance. Les exercices se font en dehors du cours et sont remis à l’équipe pédagogique, pour que la séance en ligne reste un espace d’échange où chacun participe à des activités interactives.',
+    /* Questionnaire écrit annoncé avant la réservation du test oral (demande client du
+       2026-10-29, « inverser les informations des bullets points 1 et 2 »). */
     etapes: [
-      'Réservez une session de test oral rattachée à la prochaine vague qui vous intéresse.',
       'Répondez d’abord à un court questionnaire écrit de positionnement, qui situe un premier niveau indicatif.',
+      'Réservez une session de test oral rattachée à la prochaine vague qui vous intéresse.',
       'Passez le test oral en visioconférence : c’est lui qui confirme votre niveau définitif avec l’équipe pédagogique.',
       'Votre niveau validé, vous êtes automatiquement rattaché·e à la classe correspondante au sein de la vague.',
       'Les cours démarrent sur le planning de la vague. À la fin de chaque niveau, un test valide votre passage au niveau suivant. Un certificat vous est remis à la fin du niveau Advanced.',
@@ -116,6 +128,7 @@ function libelleReservation(type: TypeProgrammeProspect) {
 export function PageCours({
   tarifs,
   prochaineVague,
+  prochaineVagueCourte,
   etablissementSlug,
   etablissementNom,
   accent,
@@ -123,12 +136,34 @@ export function PageCours({
 }: {
   tarifs: Tarif[]
   prochaineVague: string | null
+  prochaineVagueCourte: string | null
   etablissementSlug: string
   etablissementNom: string
   accent: AccentPalette
   typeOuvertInitial?: TypeProgrammeProspect | null
 }) {
-  const [ouvert, setOuvert] = useState<TypeProgrammeProspect | null>(typeOuvertInitial ?? null)
+  const [ouvert, setOuvert] = useState<TypeProgrammeProspect | null>(null)
+  /* Onglet sur lequel la fenêtre s'ouvre. « Passer le test de niveau » (hero) et `?reserver=1`
+     mènent directement à la réservation : un visiteur qui clique sur une date de rentrée ou sur
+     « Réserver mon appel diagnostic » sait déjà ce qu'il vient faire, lui faire traverser
+     « Découvrir » puis « Tarifs » serait un détour. */
+  const [etapeInitiale, setEtapeInitiale] = useState(0)
+
+  function ouvrirFormule(type: TypeProgrammeProspect, etape = 0) {
+    setEtapeInitiale(etape)
+    setOuvert(type)
+  }
+
+  /* En effet et non en valeur initiale d'état : `typeOuvertInitial` n'arrive qu'au rendu
+     SUIVANT le montage, parce que la page parente ne lit `?reserver=1` que dans un effet, qui
+     s'exécute après celui-ci. Un `useState(typeOuvertInitial)` restait donc à `null` pour de
+     bon — la fenêtre ne s'ouvrait que si la page Cours était montée après coup (défaut
+     préexistant, visible en arrivant directement sur `/cours?reserver=1`). */
+  useEffect(() => {
+    if (!typeOuvertInitial) return
+    setEtapeInitiale(2)
+    setOuvert(typeOuvertInitial)
+  }, [typeOuvertInitial])
 
   return (
     <>
@@ -138,23 +173,68 @@ export function PageCours({
         <div className="spot" />
         <div className="grain" />
         <div className="wrap reveal">
-          <div className="eyebrow">Cours &amp; tarifs</div>
-          <h1 className="h-xl">
-            <span className="line">
-              {/* Espace insécable avant le « : » (typographie française) : sans elle, un grand
-                  écran peut couper la ligne juste avant le signe et l'isoler sur sa propre
-                  ligne (signalé par le client le 2026-10-09). */}
-              <span>Trois façons d’apprendre, un seul cap&nbsp;:</span>
-            </span>
-            <span className="line">
-              <span className="it" style={{ transitionDelay: '.12s' }}>
-                votre objectif.
+          <div className="tete-cours">
+            <div className="texte">
+              <div className="eyebrow">Cours &amp; tarifs</div>
+              <h1 className="h-xl">
+                <span className="line">
+                  {/* Espace insécable avant le « : » (typographie française) : sans elle, un grand
+                      écran peut couper la ligne juste avant le signe et l'isoler sur sa propre
+                      ligne (signalé par le client le 2026-10-09). */}
+                  <span>Trois façons d’apprendre, un seul cap&nbsp;:</span>
+                </span>
+                <span className="line">
+                  <span className="it" style={{ transitionDelay: '.12s' }}>
+                    votre objectif.
+                  </span>
+                </span>
+              </h1>
+              <p className="sub rv" style={{ transitionDelay: '.3s' }}>
+                Choisissez la formule qui correspond à votre rythme et à votre budget — prix compris.
+              </p>
+            </div>
+
+            {/* Carte de la prochaine rentrée collective (maquette client du 2026-10-29). La date
+                est celle des vagues que l'administration gère déjà, par la même source que le
+                ruban de la carte Collectif plus bas : aucune date n'est écrite ici. Sans vague
+                programmée, la carte disparaît et le titre reprend toute la largeur, plutôt que
+                d'annoncer une rentrée qui n'existe pas. */}
+            {/* `surgit` et non `rv` : la date arrive d'un appel à la base, donc APRÈS que
+                l'observateur d'apparitions a recensé les éléments de la page (il ne repasse qu'au
+                changement de page). Un `.rv` posé ici ne recevait jamais sa classe `.in` et la
+                carte restait à `opacity: 0` — invisible en production, alors qu'un rechargement à
+                chaud la faisait apparaître pendant le développement. `surgit` ne dépend d'aucun
+                observateur : c'est une animation CSS qui se joue au montage. */}
+            {prochaineVagueCourte && (
+              <aside className="carte-vague surgit">
+                <div className="t">
+                  <span className="tag">Cours collectifs</span>
+                  <span className="etat">
+                    <i aria-hidden="true" />
+                    Nouvelle vague
+                  </span>
+                </div>
+                <div className="d">
+                  <span className="l">Rentrée le</span>
+                  <span className="j">{prochaineVagueCourte}</span>
+                  <span className="trait" aria-hidden="true" />
+                </div>
+                <button type="button" className="go" onClick={() => ouvrirFormule('collectif', 2)}>
+                  Passer le test de niveau
+                  <IcoHX nom="fleche-droite" />
+                </button>
+              </aside>
+            )}
+          </div>
+
+          <div className="atouts-cours rv" style={{ transitionDelay: '.42s' }}>
+            {ATOUTS_COURS.map((atout) => (
+              <span key={atout.libelle} className="a">
+                <IcoHX nom={atout.icone} />
+                {atout.libelle}
               </span>
-            </span>
-          </h1>
-          <p className="sub rv" style={{ transitionDelay: '.3s' }}>
-            Choisissez la formule qui correspond à votre rythme et à votre budget — prix compris.
-          </p>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -167,7 +247,7 @@ export function PageCours({
                 type="button"
                 className="offer rv"
                 style={{ transitionDelay: `${index * 0.12}s` }}
-                onClick={() => setOuvert(programme.type)}
+                onClick={() => ouvrirFormule(programme.type)}
               >
                 <div className="img">
                   <img src={PHOTOS[programme.type].src} alt={PHOTOS[programme.type].alt} loading="lazy" />
@@ -198,6 +278,7 @@ export function PageCours({
       {ouvert && (
         <FenetreFormule
           type={ouvert}
+          etapeInitiale={etapeInitiale}
           tarifs={tarifs.filter((tarif) => tarif.type_programme === ouvert)}
           etablissementSlug={etablissementSlug}
           etablissementNom={etablissementNom}
@@ -211,6 +292,7 @@ export function PageCours({
 
 function FenetreFormule({
   type,
+  etapeInitiale,
   tarifs,
   etablissementSlug,
   etablissementNom,
@@ -218,13 +300,14 @@ function FenetreFormule({
   onFermer,
 }: {
   type: TypeProgrammeProspect
+  etapeInitiale: number
   tarifs: Tarif[]
   etablissementSlug: string
   etablissementNom: string
   accent: AccentPalette
   onFermer: () => void
 }) {
-  const [etape, setEtape] = useState(0)
+  const [etape, setEtape] = useState(etapeInitiale)
   /* Étape atteinte DANS le module de test de positionnement (créneau / coordonnées / quiz), pour
      dégager la place autour de lui quand le questionnaire démarre. */
   const [etapeTest, setEtapeTest] = useState<string>('creneau')
@@ -298,14 +381,16 @@ function FenetreFormule({
                     questionnaire commencé (demande client du 2026-10-13) : ils ont déjà été lus,
                     et la hauteur qu'ils occupaient permet d'afficher une question entière sans
                     défilement dans cette fenêtre. */}
+                {/* L'encadré « À savoir » qui vivait ici est passé dans le module lui-même, sur
+                    son premier écran (2026-10-29) : l'ordre des étapes ayant été inversé, il
+                    aurait répété mot pour mot celui que le module affiche juste en dessous. */}
                 {etapeTest !== 'quiz' && (
                   <>
                     <p className="rtitle">Test de positionnement</p>
-                    <p>Choisissez votre session de test oral, puis répondez au questionnaire pour valider votre place.</p>
-                    <div className="note">
-                      <b>À savoir :</b> votre demande n’est validée qu’une fois le questionnaire terminé. Après avoir
-                      choisi ce créneau, vous répondez à un court quiz écrit — sans lui, la place n’est pas réservée.
-                    </div>
+                    <p>
+                      Répondez au questionnaire écrit de positionnement, puis choisissez votre session de test oral pour
+                      valider votre place.
+                    </p>
                   </>
                 )}
                 <div className="agenda">

@@ -1,12 +1,19 @@
-import { IcoHX } from './IconesHX'
+import { Link } from 'react-router-dom'
+import { FlecheBouton, IcoHX } from './IconesHX'
+import { AVIS_PROFESSEURS, AvatarsProfesseurs, CarteAvis, ChiffresCles } from './PreuveSociale'
 
 /* Professeurs, d'après hoc-equipe.html. Deux grilles : l'équipe administrative, puis les
    professeurs, séparées par un intertitre souligné.
 
    La maquette dessine quatre personnes dans chaque grille et laisse un modèle en commentaire
    pour en ajouter ; ce sont les dix personnes réelles de l'établissement qui s'affichent ici,
-   avec leurs photos. Le hero ne porte pas de surtitre : le mot « PROFESSEURS » au-dessus de
-   « Notre équipe » répétait l'entrée de menu (demande client du 2026-10-08).
+   avec leurs photos.
+
+   Le hero a été retravaillé le 2026-10-29 d'après une nouvelle maquette du client : surtitre en
+   pastille, deux chiffres clés, bouton d'appel diagnostic et avis d'un élève à côté du titre.
+   Le surtitre « NOS PROFESSEURS » revient ainsi sur cette page, d'où il avait été retiré le
+   2026-10-08 pour éviter de répéter l'entrée de menu — la nouvelle maquette le réintroduit
+   explicitement, sous une forme différente (pastille et non ligne de texte).
 
    Toutes les cartes sont désormais identiques, fond blanc, le violet n'apparaissant qu'au
    survol (demande client du 2026-10-09) : la maquette réservait le fond sombre à la carte de
@@ -121,19 +128,43 @@ export function PageEquipe({ dossierAssets }: { dossierAssets: string }) {
         <div className="spot" />
         <div className="grain" />
         <div className="wrap reveal">
-          <h1 className="h-xl">
-            <span className="line">
-              <span>Notre</span>
-            </span>
-            <span className="line">
-              <span className="it" style={{ transitionDelay: '.12s' }}>
-                équipe
-              </span>
-            </span>
-          </h1>
-          <p className="sub rv" style={{ transitionDelay: '.3s' }}>
-            Des professeurs choisis pour leur pédagogie autant que pour leur passion des langues.
-          </p>
+          <div className="tete-equipe">
+            <div className="texte">
+              <span className="pastille">Nos professeurs</span>
+              <h1 className="h-xl">
+                <span className="line">
+                  <span>Notre</span>
+                </span>
+                <span className="line">
+                  <span className="it" style={{ transitionDelay: '.12s' }}>
+                    équipe
+                  </span>
+                </span>
+              </h1>
+              <p className="sub rv" style={{ transitionDelay: '.3s' }}>
+                Des professeurs choisis pour leur pédagogie autant que pour leur passion des langues.
+              </p>
+
+              <div className="rv" style={{ transitionDelay: '.38s' }}>
+                <ChiffresCles />
+              </div>
+
+              {/* `?reserver=1` ouvre la page Cours & tarifs sur la formule individuelle, fenêtre
+                  déjà posée sur l'onglet « Réserver » : le bouton promet une réservation, il ne
+                  doit pas déposer le visiteur sur une page de présentation. */}
+              <div className="action rv" style={{ transitionDelay: '.46s' }}>
+                <Link className="btn btn-gold" to="/cours?reserver=1">
+                  Réserver mon appel diagnostic <FlecheBouton />
+                </Link>
+                <span className="precision">Gratuit · 20 min · on vous oriente vers le bon prof</span>
+              </div>
+            </div>
+
+            <div className="preuve rv" style={{ transitionDelay: '.24s' }}>
+              <AvatarsProfesseurs mention="Ils vous accompagnent en visio, à votre rythme" />
+              <CarteAvis {...AVIS_PROFESSEURS} />
+            </div>
+          </div>
         </div>
       </section>
 

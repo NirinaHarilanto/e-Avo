@@ -224,6 +224,25 @@ body.vitrine-hx {
   background: var(--gold);
   color: var(--night);
 }
+/* Bouton de second rang, sans fond ni contour (maquette du hero d'accueil, 2026-10-29) : il
+   accompagne le bouton doré sans lui disputer l'attention. Le trait n'apparaît qu'au survol,
+   sinon deux lignes se répondraient sous les deux boutons. */
+.hx .btn-nu {
+  background: transparent;
+  color: var(--white);
+  padding: 8px 18px;
+  height: 60px;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 6px;
+  transition:
+    text-decoration-color 0.3s ease,
+    transform 0.4s var(--ease);
+}
+.hx .btn-nu:hover {
+  text-decoration-color: var(--gold);
+  transform: translateY(-2px);
+}
 
 /* ---------- Sections ---------- */
 .hx .dark {
@@ -306,6 +325,22 @@ body.vitrine-hx {
 .hx .rv.in {
   opacity: 1;
   transform: none;
+}
+/* Apparition d'un élément qui n'existe qu'une fois une donnée revenue de la base, donc après le
+   passage de l'observateur de `.rv` (voir animations.ts, qui ne réobserve qu'au changement de
+   page). Tout est porté par l'animation, rien par l'état au repos : si `prefers-reduced-motion`
+   coupe les animations, l'élément s'affiche simplement d'emblée, au lieu de rester à
+   `opacity: 0` comme le ferait un `.rv` jamais activé. */
+/* `backwards` et non `forwards`/`both` : une animation qui fige son dernier état prend le pas
+   sur les règles ordinaires, et le `:hover` de la carte ne jouerait plus. */
+.hx .surgit {
+  animation: hxsurgit 0.8s var(--ease) backwards;
+}
+@keyframes hxsurgit {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
 }
 
 /* ---------- En-tête ---------- */
@@ -601,12 +636,15 @@ body.vitrine-hx {
    contredisait le centrage vertical demandé. En padding, elle réserve la même respiration au
    ras du pied de page sans peser sur le centrage. 150 en haut / 80 en bas : le contenu tombe
    alors au centre de la zone laissée libre par la barre de navigation fixe. */
+/* Bas ramené de 80 à 36 px : le bandeau des thèmes (2026-10-29) ferme désormais le hero et
+   apporte sa propre respiration. Les 80 px d'origine, ajoutés à lui, repoussaient le bandeau
+   sous le pli dès 650 px de hauteur d'écran. */
 .hx .hero {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 150px 0 80px;
+  padding: 150px 0 36px;
 }
 .hx .hero .g1 {
   width: 620px;
@@ -734,17 +772,15 @@ body.vitrine-hx {
   background: var(--lavender);
   box-shadow: 0 0 24px 6px rgba(217, 202, 247, 0.95);
 }
+/* 108 % tant que `.art` portait l'illustration détourée, qui débordait volontairement du cercle
+   des orbites. La fenêtre de visioconférence qui l'a remplacée est un cadre plein : elle se tient
+   à l'intérieur du cercle, comme sur la maquette du 2026-10-29. */
 .hx .visual .art {
   position: relative;
   z-index: 2;
-  width: 108%;
+  width: 88%;
   transition: transform 0.5s var(--ease);
   will-change: transform;
-}
-.hx .visual .art img {
-  width: 100%;
-  filter: drop-shadow(0 40px 60px rgba(10, 4, 20, 0.6));
-  animation: hxfloat 7s ease-in-out infinite;
 }
 @keyframes hxspin {
   to {
@@ -757,13 +793,15 @@ body.vitrine-hx {
   }
 }
 
-/* Atouts : pastilles en verre */
+/* Atouts : pastilles en verre. Marge haute ramenée de 70 à 44 px le 2026-10-29 : le bandeau des
+   thèmes s'ajoute désormais sous elles, et les deux blocs cumulés poussaient le bas du hero très
+   loin sous le pli sur un écran court. */
 .hx .perks {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 14px;
-  margin-top: 70px;
+  margin-top: 44px;
 }
 .hx .perk {
   display: inline-flex;
@@ -806,6 +844,179 @@ body.vitrine-hx {
   background: var(--white);
   color: var(--purple);
 }
+
+/* ---------- Fenêtre de visioconférence du hero (maquette client du 2026-10-29) ----------
+   Elle remplace l'illustration 3D dans `.art`, et hérite donc telle quelle de l'inclinaison
+   sous la souris et du flottement — c'est le même conteneur. */
+.hx .visual .visio {
+  border-radius: 26px;
+  overflow: hidden;
+  background: var(--white);
+  box-shadow: 0 40px 70px rgba(10, 4, 20, 0.55);
+  animation: hxfloat 7s ease-in-out infinite;
+}
+.hx .visual .visio .t {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+}
+.hx .visual .visio .pts {
+  display: inline-flex;
+  gap: 5px;
+  flex: none;
+}
+.hx .visual .visio .pts i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lavender);
+}
+.hx .visual .visio .pts i:first-child {
+  background: var(--gold);
+}
+/* Le nom est centré sur la carte, pas entre ses deux voisins : `absolute` le pose au milieu
+   quelle que soit la largeur de la pastille « En direct ». */
+.hx .visual .visio .t {
+  position: relative;
+}
+.hx .visual .visio .nom {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 600 12.5px/1 var(--f-body);
+  color: var(--purple);
+  white-space: nowrap;
+}
+.hx .visual .visio .live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font: 700 11px/1 var(--f-body);
+  color: var(--purple-dark);
+  white-space: nowrap;
+}
+.hx .visual .visio .live i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+.hx .visual .visio .ecran {
+  position: relative;
+  margin: 0 12px;
+  border-radius: 16px;
+  overflow: hidden;
+  aspect-ratio: 4/3;
+  background: var(--lav-soft);
+}
+.hx .visual .visio .ecran img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* La professeure est cadrée à gauche de l'image : sans cette ancre, un rognage latéral la
+     sortirait du cadre sur les écrans où la carte s'étire. */
+  object-position: 30% center;
+}
+.hx .visual .visio .etiquette {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: rgba(46, 29, 69, 0.72);
+  backdrop-filter: blur(6px);
+  font: 600 11.5px/1 var(--f-body);
+  color: var(--white);
+}
+.hx .visual .visio .barre {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px;
+}
+.hx .visual .visio .barre .b {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--lav-soft);
+  color: var(--purple);
+}
+.hx .visual .visio .barre .b svg {
+  width: 16px;
+  height: 16px;
+}
+.hx .visual .visio .barre .fin {
+  background: #e05c4e;
+  color: var(--white);
+  /* Le combiné est dessiné raccroché : il pointe vers le bas, comme partout ailleurs. */
+  transform: rotate(135deg);
+}
+/* Les deux répliques. Posées sur `.art`, elles suivent son inclinaison : elles appartiennent à
+   la même scène que la fenêtre, pas au fond. */
+.hx .visual .bulle {
+  position: absolute;
+  z-index: 3;
+  max-width: 62%;
+  padding: 11px 16px;
+  border-radius: 18px;
+  font: 600 13px/1.4 var(--f-body);
+  box-shadow: 0 16px 32px rgba(10, 4, 20, 0.35);
+}
+/* Calées sur les bords de la fenêtre et non sur un pourcentage de sa hauteur : un décalage en
+   pourcentage dépend de la hauteur du cadre, et la bulle haute venait recouvrir la ligne
+   « Cours individuel » dès que la carte se resserrait. */
+.hx .visual .bulle.haut {
+  bottom: calc(100% + 12px);
+  right: 2%;
+  border-bottom-right-radius: 6px;
+  background: var(--gold);
+  color: var(--night);
+}
+.hx .visual .bulle.bas {
+  top: calc(100% + 12px);
+  right: -4%;
+  border-bottom-left-radius: 6px;
+  background: var(--lavender);
+  color: var(--purple-dark);
+}
+
+/* ---------- Bandeau des thèmes de cours, au ras du pied de page ---------- */
+.hx .hero .themes {
+  position: relative;
+  z-index: 2;
+  margin-top: 40px;
+  padding: 18px 0;
+  background: rgba(42, 25, 64, 0.42);
+  border-top: 1px solid rgba(217, 202, 247, 0.12);
+  border-bottom: 1px solid rgba(217, 202, 247, 0.12);
+}
+.hx .hero .themes .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 22px;
+}
+.hx .hero .themes .t {
+  display: inline-flex;
+  align-items: center;
+  gap: 22px;
+  font: 700 13px/1 var(--f-body);
+  color: var(--lavender);
+  white-space: nowrap;
+}
+/* Losange doré de séparation, dessiné et non écrit : voir PageAccueil.tsx. */
+.hx .hero .themes .sep {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  background: var(--gold);
+  transform: rotate(45deg);
+}
 /* La bande intermédiaire `.after` a disparu (demande client du 2026-10-09) : d'abord claire,
    puis passée en prune pour éviter la rupture, elle finissait par épaissir la zone sombre du
    bas de page. Plutôt que de la recolorer une troisième fois, le hero descend désormais
@@ -829,7 +1040,18 @@ body.vitrine-hx {
   .hx .hero .ghost {
     display: none;
   }
+  /* Sous 980 px la colonne visuelle passe sous le texte et se resserre : les bulles, qui
+     débordent du cadre, sortaient de l'écran à droite. Elles rentrent dans la carte. */
+  .hx .visual .bulle.haut {
+    right: 0;
+  }
+  .hx .visual .bulle.bas {
+    right: 0;
+  }
   .hx .perks {
+    justify-content: flex-start;
+  }
+  .hx .hero .themes .wrap {
     justify-content: flex-start;
   }
 }
@@ -898,6 +1120,161 @@ body.vitrine-hx {
 @media (max-width: 760px) {
   .hx .phero {
     padding: 130px 0 76px;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Hero « Cours & tarifs » : carte de la prochaine rentrée collective et
+   pastilles d'information (maquette client du 2026-10-29).
+   --------------------------------------------------------------------- */
+.hx .phero .tete-cours {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 40px;
+}
+/* `min-width: 0` : sans lui, un élément flex refuse de descendre sous la largeur de son plus
+   long mot — le titre en très gros corps repoussait alors la carte hors de la ligne. */
+.hx .phero .tete-cours .texte {
+  flex: 1 1 560px;
+  min-width: 0;
+}
+.hx .phero .tete-cours .carte-vague {
+  flex: 0 1 380px;
+  margin-left: auto;
+  background: var(--white);
+  border: 3px solid var(--gold);
+  border-radius: 28px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 24px 60px rgba(20, 10, 35, 0.45);
+  /* Légère rotation de la maquette : la carte doit paraître posée sur le hero, pas alignée
+     dessus. Reprise au survol pour que le redressement signale qu'elle est agissante. */
+  transform: rotate(-1.5deg);
+  transition: transform 0.5s var(--ease);
+}
+.hx .phero .carte-vague:hover {
+  transform: rotate(0deg) translateY(-4px);
+}
+.hx .phero .carte-vague .t {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.hx .phero .carte-vague .tag {
+  background: var(--purple);
+  color: var(--white);
+  border-radius: 99px;
+  padding: 7px 13px;
+  font: 700 11.5px/1 var(--f-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.hx .phero .carte-vague .etat {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 700 13px/1 var(--f-body);
+  color: var(--purple-dark);
+  white-space: nowrap;
+}
+.hx .phero .carte-vague .etat i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d9a83b;
+}
+.hx .phero .carte-vague .d {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* Fraunces en italique, comme la maquette. Déjà chargée pour les titres des espaces connectés
+   (voir index.html) : aucune police supplémentaire n'arrive avec cette carte. */
+.hx .phero .carte-vague .l {
+  font: italic 600 22px/1.3 Fraunces, Georgia, serif;
+  color: var(--purple);
+}
+.hx .phero .carte-vague .j {
+  font: 800 clamp(34px, 2.9vw, 46px) / 1 var(--f-display);
+  letter-spacing: -0.02em;
+  color: var(--purple-dark);
+}
+.hx .phero .carte-vague .trait {
+  width: 150px;
+  max-width: 100%;
+  height: 4px;
+  border-radius: 4px;
+  background: #d9a83b;
+  margin-top: 8px;
+}
+.hx .phero .carte-vague .go {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--gold);
+  color: var(--purple-dark);
+  border-radius: 20px;
+  padding: 15px 20px;
+  font: 700 15px/1 var(--f-body);
+  transition: background 0.3s ease;
+}
+.hx .phero .carte-vague .go:hover {
+  background: #e7a832;
+}
+.hx .phero .carte-vague .go:focus-visible {
+  outline: 3px solid var(--purple);
+  outline-offset: 3px;
+}
+.hx .phero .carte-vague .go svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.hx .phero .atouts-cours {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 36px;
+}
+.hx .phero .atouts-cours .a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(217, 202, 247, 0.14);
+  color: var(--lavender);
+  border-radius: 99px;
+  padding: 8px 13px;
+  font: 600 12.5px/1.2 var(--f-body);
+}
+.hx .phero .atouts-cours .a svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+/* 1120 px et non 980 : en dessous, le titre (560 px au minimum) et la carte (380 px) ne tiennent
+   plus côte à côte et la carte passait d'elle-même à la ligne, collée à droite sous un titre
+   pleine largeur — un escalier, pas une mise en page. Elle passe donc franchement dessous, à
+   gauche, avant d'en arriver là. */
+@media (max-width: 1120px) {
+  .hx .phero .tete-cours {
+    gap: 32px;
+  }
+  .hx .phero .tete-cours .carte-vague {
+    flex: 1 1 100%;
+    margin-left: 0;
+    max-width: 420px;
+    transform: none;
+  }
+  .hx .phero .carte-vague:hover {
+    transform: translateY(-4px);
   }
 }
 
@@ -1352,11 +1729,20 @@ body.vitrine-hx {
   letter-spacing: -0.025em;
   color: var(--purple-dark);
 }
+/* Rangées de hauteur égale (demande client du 2026-10-29 : « tous les bullets points espacés de
+   façon uniforme, même hauteur d'espacement »). Jusqu'ici chaque étape faisait la hauteur de son
+   propre texte : une étape tenant sur une ligne rapprochait sa pastille de la suivante, et
+   l'escalier des numéros avançait par marches inégales.
+   `grid-auto-rows: 1fr` dans un conteneur de hauteur libre aligne toutes les rangées sur la plus
+   haute, quel que soit le nombre de lignes de chaque texte — l'écart d'une pastille à la
+   suivante reste donc le même à toutes les largeurs d'écran, sans hauteur fixée en dur. */
 .hx-modal ol {
   list-style: none;
   margin: 0;
   padding: 0;
   counter-reset: s;
+  display: grid;
+  grid-auto-rows: 1fr;
 }
 .hx-modal ol li {
   position: relative;
@@ -1577,6 +1963,176 @@ body.vitrine-hx {
 /* =====================================================================
    ÉQUIPE
    ===================================================================== */
+
+/* ---- Hero « Notre équipe » (maquette client du 2026-10-29) ---- */
+.hx .phero .tete-equipe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 48px;
+}
+.hx .phero .tete-equipe .texte {
+  flex: 1 1 520px;
+  min-width: 0;
+}
+.hx .phero .tete-equipe .pastille {
+  display: inline-block;
+  margin-bottom: 20px;
+  padding: 9px 16px;
+  border-radius: 99px;
+  background: rgba(217, 202, 247, 0.16);
+  color: var(--lavender);
+  font: 700 11.5px/1 var(--f-body);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+/* Le titre reprend sa marge haute au surtitre, qui la porte désormais lui-même. */
+.hx .phero .tete-equipe h1 {
+  margin-top: 0;
+}
+/* Chiffres clés, partagés avec l'écran de connexion (PreuveSociale.tsx) : sur fond sombre dans
+   les deux cas, donc une seule déclaration sans scope de page. */
+.hx .chiffres-cles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 44px;
+}
+.hx .phero .tete-equipe .chiffres-cles {
+  margin-top: 34px;
+}
+.hx .chiffres-cles .c {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font: 600 12.5px/1.4 var(--f-body);
+  color: var(--lavender);
+}
+.hx .chiffres-cles b {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font: 800 25px/1 var(--f-display);
+  letter-spacing: -0.02em;
+  color: var(--white);
+}
+.hx .chiffres-cles b i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+.hx .phero .tete-equipe .action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 36px;
+}
+.hx .phero .tete-equipe .precision {
+  font: 500 12.5px/1.4 var(--f-body);
+  color: rgba(217, 202, 247, 0.78);
+}
+.hx .phero .tete-equipe .preuve {
+  flex: 0 1 400px;
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 26px;
+  border-radius: 28px;
+  background: rgba(254, 255, 250, 0.07);
+  border: 1px solid rgba(217, 202, 247, 0.18);
+  backdrop-filter: blur(6px);
+}
+@media (max-width: 980px) {
+  .hx .phero .tete-equipe {
+    gap: 36px;
+  }
+  .hx .phero .tete-equipe .preuve {
+    flex: 1 1 100%;
+    margin-left: 0;
+    max-width: 460px;
+  }
+}
+
+/* ---- Avatars et avis, partagés avec l'écran de connexion (PreuveSociale.tsx) ---- */
+.hx .avatars-profs {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.hx .avatars-profs .visages {
+  display: flex;
+  flex: none;
+}
+/* Chevauchement : chaque visage mord sur le précédent, le premier reste entier. */
+.hx .avatars-profs .visages img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--white);
+  background: var(--purple);
+}
+.hx .avatars-profs .visages img + img {
+  margin-left: -14px;
+}
+.hx .avatars-profs .mention {
+  font: 600 12.5px/1.45 var(--f-body);
+  color: var(--lavender);
+}
+.hx .carte-avis {
+  position: relative;
+  margin: 0;
+  padding: 22px 24px;
+  border-radius: 22px;
+  background: rgba(46, 29, 69, 0.42);
+  border: 1px solid rgba(217, 202, 247, 0.16);
+}
+.hx .carte-avis .etoiles {
+  display: inline-flex;
+  gap: 3px;
+  color: var(--gold);
+}
+.hx .carte-avis .etoiles svg {
+  width: 13px;
+  height: 13px;
+}
+.hx .carte-avis .guillemet {
+  position: absolute;
+  top: 12px;
+  right: 20px;
+  font: 700 38px/1 var(--f-display);
+  color: rgba(217, 202, 247, 0.32);
+}
+/* Fraunces en italique, comme les deux maquettes du 2026-10-29. Déjà chargée pour les titres
+   des espaces connectés (index.html) : la vitrine n'emporte pas de police de plus. */
+.hx .carte-avis blockquote {
+  margin: 12px 0 0;
+  font: italic 600 15.5px/1.55 Fraunces, Georgia, serif;
+  color: var(--white);
+}
+.hx .carte-avis figcaption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  font: 500 12.5px/1.4 var(--f-body);
+  color: var(--lavender);
+}
+/* Tiret doré devant la signature, comme sur les maquettes. */
+.hx .carte-avis figcaption i {
+  flex: none;
+  width: 26px;
+  height: 2px;
+  background: var(--gold);
+}
+.hx .carte-avis figcaption b {
+  font-weight: 700;
+  color: var(--white);
+}
+
 .hx .team {
   padding: 0 0 130px;
 }
@@ -2949,37 +3505,25 @@ body.vitrine-hx {
   left: -120px;
   opacity: 0.16;
 }
-.hx .ecran-connexion .side > *:not(.glow):not(.spot):not(.grain):not(.illus) {
+.hx .ecran-connexion .side > *:not(.glow):not(.spot):not(.grain) {
   position: relative;
   z-index: 2;
 }
-/* Illustration du panneau (maquette client du 2026-10-27). Détourée sur fond transparent : le
-   dégradé reste celui du CSS, donc aucune couture quelle que soit la taille de l'écran.
-   Calée en haut à droite du panneau, exactement comme sur la maquette, où elle déborde de ces
-   deux côtés et se fait rogner par `overflow: hidden` de `.dark`. Largeur en pourcentage du
-   panneau : 90,476 % = 912 px sur les 1008 px du panneau à 1920 px de large.
-   z-index 1 comme `.spot`/`.grain`, mais posée après eux dans le DOM : elle passe donc par-dessus
-   le voile et le grain, et reste sous le logo et le titre (z-index 2). */
-.hx .ecran-connexion .side .illus {
-  position: absolute;
-  /* Collée en haut sur l'écran de la maquette, puis descendue juste ce qu'il faut sur un panneau
-     plus étroit. L'illustration se met à l'échelle du panneau, le logo garde une taille fixe
-     (52 px sous 44 px de marge) : en dessous de ~1660 px de large, le cadre londonien remontait
-     derrière le logo et le rendait illisible (constaté à 1024 px).
-     Le cadre commence à 120/912 de la largeur de l'image, elle-même à 90,476 % d'un panneau qui
-     occupe 52,5 % de la fenêtre, soit 6,25vw du haut de l'image. On ne descend donc que de ce
-     qui manque pour passer sous le logo, et de rien du tout dès que la place existe. */
-  top: max(0px, 104px - 6.25vw);
-  right: 0;
-  z-index: 1;
-  width: 90.476%;
-  /* Sur un panneau large et court, la hauteur prend le relais pour ne pas venir chevaucher le
-     titre : l'illustration rétrécit en restant collée au coin haut-droit. */
-  max-height: 68.742%;
-  object-fit: contain;
-  object-position: right top;
-  pointer-events: none;
-  user-select: none;
+/* Bloc de réassurance du panneau (maquette client du 2026-10-29) : visages de l'équipe et avis
+   d'un élève, entre le logo et la signature. `justify-content: space-between` du panneau répartit
+   les trois à la hauteur que leur donne la maquette, sans position absolue — à la différence de
+   l'illustration qu'il remplace, qui devait être calée au pixel et disparaissait sous 900 px. */
+.hx .ecran-connexion .side .preuve {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 420px;
+  margin: 36px 0;
+}
+.hx .ecran-connexion .side .bas {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
 }
 .hx .ecran-connexion .logo {
   color: var(--white);
@@ -3154,12 +3698,14 @@ body.vitrine-hx {
   .hx .ecran-connexion .big {
     font-size: 36px;
   }
-  /* Illustration retirée en dessous de 900 px : le panneau n'est plus une colonne mais un
-     bandeau court, où elle passait sous le logo et le titre et les rendait illisibles. La
-     maquette qui l'introduit (2026-10-27) est un écran deux colonnes ; le bandeau mobile reste
-     donc tel qu'il était. */
-  .hx .ecran-connexion .side .illus {
-    display: none;
+  /* En bandeau, le panneau n'a plus la hauteur qui répartissait les trois blocs : les marges
+     verticales du bloc de réassurance feraient doublon avec le `gap` posé juste au-dessus. */
+  .hx .ecran-connexion .side .preuve {
+    margin: 0;
+    max-width: none;
+  }
+  .hx .ecran-connexion .side .bas {
+    gap: 26px;
   }
   .hx .ecran-connexion .main {
     padding: 44px 18px 60px;
