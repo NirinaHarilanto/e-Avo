@@ -91,7 +91,11 @@ export function PageAccueil({ nomEtablissement }: { nomEtablissement: string }) 
               </div>
             </div>
 
-            <div className="visual rv" style={{ transitionDelay: '.3s' }}>
+            {/* Plus de `rv` ici : la photo a sa propre entrée (voir `.photo-cours` dans
+                vitrine-hx.css), et le fondu global de `rv` se serait superposé au dévoilement en
+                le rendant mou. Une animation CSS ne dépend d'aucun observateur, ce qui la met
+                aussi à l'abri du défaut rencontré sur la carte de rentrée. */}
+            <div className="visual">
               <div className="halo" />
               <div className="ring" />
               <div className="orbit" />

@@ -850,6 +850,26 @@ body.vitrine-hx {
    Elle remplace l'illustration 3D dans `.art`, et hérite donc telle quelle de l'inclinaison sous
    la souris. La fenêtre de visioconférence qui était dessinée autour a été retirée : la photo en
    porte déjà une (voir PageAccueil.tsx). */
+/* ---- Entrée de la photo : « la connexion s'établit » (demande client du 2026-10-29) ----
+   Quatre mouvements qui se succèdent plutôt que de se superposer, pour que l'œil les lise l'un
+   après l'autre. Le propos de l'animation est celui du site : un appel vidéo qui s'ouvre.
+
+   1. le cadre arrive de loin, pivoté, et se présente de face (`hxarrivee`) ;
+   2. l'image est d'abord un signal instable — floue, délavée, surexposée — puis se stabilise
+      (`hxsignal`). C'est ce temps-là qui porte l'effet : on voit la vidéo « accrocher » ;
+   3. un trait de lumière doré balaie la surface au moment où elle devient nette (`hxbalayage`),
+      et le cadre lance un halo qui s'éteint aussitôt (`hxconnecte`) ;
+   4. les deux répliques entrent enfin, dans l'ordre d'une conversation.
+
+   Chaque animation est portée par un élément différent, pour qu'aucune ne dispute une propriété
+   à une autre : le cadre tient `transform`, l'image `filter`, le pseudo-élément le balayage.
+   Le flottement permanent attend la fin de l'arrivée pour démarrer.
+
+   `perspective` sur `.art` et non sur `.visual` : celle de `.visual` ne s'applique qu'à ses
+   enfants directs, et la photo est un cran plus bas. Sans elle, le pivot serait plat. */
+.hx .visual .art {
+  perspective: 1100px;
+}
 .hx .visual .photo-cours {
   position: relative;
   border-radius: 26px;
@@ -857,12 +877,106 @@ body.vitrine-hx {
   /* Liseré clair : il décolle la photo du violet du fond, qui mange sinon ses bords sombres. */
   border: 1px solid rgba(217, 202, 247, 0.35);
   box-shadow: 0 40px 70px rgba(10, 4, 20, 0.55);
-  animation: hxfloat 7s ease-in-out infinite;
+  /* `backwards` partout : une fois l'entrée jouée, ni `transform`, ni `filter`, ni ombre ne
+     restent figés par l'animation. Un `filter` ou une transformation 3D maintenus au repos
+     gardent l'image sur un calque composité, rastérisé une fois pour toutes — c'est ce qui la
+     rendait légèrement molle sur un écran haute densité. */
+  animation:
+    hxarrivee 1.05s cubic-bezier(0.16, 1, 0.3, 1) backwards,
+    hxconnecte 0.9s ease-out 0.72s backwards,
+    hxfloat 7s ease-in-out 1.05s infinite;
 }
 .hx .visual .photo-cours img {
   width: 100%;
   display: block;
+  animation: hxsignal 1.5s cubic-bezier(0.33, 1, 0.68, 1) backwards;
 }
+/* Trait de lumière, large et très incliné, qui traverse une seule fois. `::after` plutôt qu'un
+   élément de plus : il est purement décoratif et ne doit rien ajouter au DOM. */
+.hx .visual .photo-cours::after {
+  content: '';
+  position: absolute;
+  top: -60%;
+  bottom: -60%;
+  width: 42%;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    rgba(254, 255, 250, 0) 0%,
+    rgba(254, 255, 250, 0.16) 38%,
+    rgba(242, 184, 75, 0.5) 50%,
+    rgba(254, 255, 250, 0.16) 62%,
+    rgba(254, 255, 250, 0) 100%
+  );
+  transform: rotate(14deg);
+  /* Invisible au repos : c'est l'animation seule qui le fait passer. */
+  left: -60%;
+  opacity: 0;
+  animation: hxbalayage 0.95s ease-in-out 0.62s both;
+}
+/* La règle globale de mouvement réduit vise `.hx *`, qui n'atteint pas les pseudo-éléments : le
+   balayage passerait encore. */
+@media (prefers-reduced-motion: reduce) {
+  .hx .visual .photo-cours::after {
+    display: none;
+  }
+}
+@keyframes hxarrivee {
+  from {
+    opacity: 0;
+    transform: translateZ(-240px) rotateY(-24deg) rotateX(9deg) scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: translateZ(0) rotateY(0deg) rotateX(0deg) scale(1);
+  }
+}
+@keyframes hxsignal {
+  from {
+    filter: blur(24px) saturate(0.3) brightness(1.4) contrast(0.8);
+    transform: scale(1.14);
+  }
+  45% {
+    filter: blur(7px) saturate(0.75) brightness(1.12) contrast(0.95);
+  }
+  to {
+    filter: none;
+    transform: scale(1);
+  }
+}
+/* Le halo de « connexion établie » : il monte, puis retombe sur l'ombre portée normale. */
+@keyframes hxconnecte {
+  0% {
+    box-shadow: 0 40px 70px rgba(10, 4, 20, 0.55);
+  }
+  40% {
+    box-shadow:
+      0 40px 70px rgba(10, 4, 20, 0.55),
+      0 0 0 3px rgba(242, 184, 75, 0.55),
+      0 0 60px 14px rgba(242, 184, 75, 0.32);
+  }
+  100% {
+    box-shadow: 0 40px 70px rgba(10, 4, 20, 0.55);
+  }
+}
+@keyframes hxbalayage {
+  from {
+    left: -60%;
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  to {
+    left: 118%;
+    opacity: 0;
+  }
+}
+
 /* Raccord chromatique : un voile violet très doux, plus dense dans les angles, qui rapproche les
    bois chauds et le bleu marine de la photo de la palette de la page. Assez léger pour que
    l'écran du portable et le visage de la professeure restent parfaitement lisibles — vérifié en
@@ -871,13 +985,18 @@ body.vitrine-hx {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background:
-    radial-gradient(130% 110% at 50% 42%, rgba(78, 53, 111, 0) 44%, rgba(58, 37, 88, 0.3) 100%),
-    linear-gradient(160deg, rgba(123, 91, 176, 0.1), rgba(46, 29, 69, 0.12));
+  /* Allégé le 2026-10-29 (« tous les éléments bien visibles et nets ») : il n'agit plus que
+     dans les angles, et laisse intact le centre de l'image — l'écran du portable, le visage de
+     la professeure et le panneau de la leçon. */
+  background: radial-gradient(140% 120% at 55% 45%, rgba(78, 53, 111, 0) 55%, rgba(58, 37, 88, 0.26) 100%);
 }
 
 /* Les deux répliques. Posées sur `.art`, elles suivent son inclinaison : elles appartiennent à
-   la même scène que la fenêtre, pas au fond. */
+   la même scène que la photo, pas au fond.
+
+   Elles entrent APRÈS la photo, et l'une après l'autre : c'est l'ordre d'une conversation, la
+   question puis la réponse. Les faire apparaître en même temps que l'image donnait trois
+   mouvements simultanés et un hero confus. */
 .hx .visual .bulle {
   position: absolute;
   z-index: 3;
@@ -886,6 +1005,31 @@ body.vitrine-hx {
   border-radius: 18px;
   font: 600 13px/1.4 var(--f-body);
   box-shadow: 0 16px 32px rgba(10, 4, 20, 0.35);
+  animation: hxbulle 0.62s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.hx .visual .bulle.haut {
+  animation-delay: 1.32s;
+}
+.hx .visual .bulle.bas {
+  animation-delay: 1.56s;
+}
+@keyframes hxbulle {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.92);
+  }
+}
+/* Le halo seul reçoit un fondu : il n'a pas d'animation propre, contrairement à l'anneau et aux
+   orbites, qui tournent déjà et qu'il faudrait réécrire en entier pour leur ajouter une seconde
+   animation — pour un gain nul, puisqu'ils forment le décor dans lequel la photo se dévoile et
+   ont justement intérêt à être là avant elle. */
+.hx .visual .halo {
+  animation: hxfondu 1.4s ease-out both;
+}
+@keyframes hxfondu {
+  from {
+    opacity: 0;
+  }
 }
 /* Calées sur les bords de la fenêtre et non sur un pourcentage de sa hauteur : un décalage en
    pourcentage dépend de la hauteur du cadre, et la bulle haute venait recouvrir la ligne
