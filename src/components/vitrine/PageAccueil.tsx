@@ -21,8 +21,10 @@ import { FlecheBouton, IcoHX, type NomIcoHX } from './IconesHX'
    bien que la maquette ne les dessine plus : elles et le bandeau ne disent pas la même chose, les
    unes sur la manière d'apprendre, l'autre sur ce qu'on y apprend.
 
-   « Commencer maintenant » mène à la page Cours & tarifs, d'où part la réservation ; « Voir les
-   formules » y mène aussi mais sans promesse d'engagement, comme sur la maquette. */
+   « Commencer maintenant » mène à la page Cours & tarifs, d'où part la réservation. Il est de
+   nouveau seul depuis le 2026-10-29 : « Voir les formules », ajouté la veille d'après la
+   maquette, menait exactement au même endroit et faisait donc doublon — c'est la raison qui
+   avait déjà fait retirer un second bouton du hero le 2026-10-09. */
 
 const ATOUTS: { icone: NomIcoHX; libelle: string }[] = [
   { icone: 'globe', libelle: '100% en ligne' },
@@ -84,9 +86,6 @@ export function PageAccueil({ nomEtablissement }: { nomEtablissement: string }) 
               <div className="btns rv" style={{ transitionDelay: '.55s' }}>
                 <Link className="btn btn-gold" to="/cours">
                   Commencer maintenant <FlecheBouton />
-                </Link>
-                <Link className="btn btn-nu" to="/cours">
-                  Voir les formules
                 </Link>
               </div>
             </div>

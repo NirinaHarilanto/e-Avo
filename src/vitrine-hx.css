@@ -636,15 +636,22 @@ body.vitrine-hx {
    contredisait le centrage vertical demandé. En padding, elle réserve la même respiration au
    ras du pied de page sans peser sur le centrage. 150 en haut / 80 en bas : le contenu tombe
    alors au centre de la zone laissée libre par la barre de navigation fixe. */
-/* Bas ramené de 80 à 36 px : le bandeau des thèmes (2026-10-29) ferme désormais le hero et
-   apporte sa propre respiration. Les 80 px d'origine, ajoutés à lui, repoussaient le bandeau
-   sous le pli dès 650 px de hauteur d'écran. */
+/* Aucun bas : le bandeau des thèmes (2026-10-29) ferme le hero et vient au contact du pied de
+   page, sans bande violette entre les deux (demande client). Il porte lui-même sa respiration
+   intérieure, et son filet du bas sert de séparation avec le pied de page. */
 .hx .hero {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 150px 0 36px;
+  padding: 150px 0 0;
+}
+/* Les marges automatiques du contenu absorbent TOUT l'espace libre du hero, au lieu de le
+   laisser `justify-content: center` en répartir une part sous le bandeau : c'est ce reste qui
+   creusait une bande violette de quelques pixels entre le bandeau et le pied de page. Le
+   contenu reste centré, le bandeau se cale au contact du pied. */
+.hx .hero > .wrap {
+  margin-block: auto;
 }
 .hx .hero .g1 {
   width: 620px;
