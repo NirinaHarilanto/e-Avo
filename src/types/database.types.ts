@@ -950,10 +950,14 @@ export interface Database {
         Row: {
           id: string
           etablissement_id: string
-          /* Null pour une prestation externe (0131) : l'écriture porte alors
-             `prestation_externe_id`. Exactement une des deux sources est renseignée. */
+          /* Null pour une prestation externe (0131) ou une reprise d'antériorité (0140) :
+             l'écriture porte alors `prestation_externe_id` ou `package_id`. Exactement une des
+             trois sources est renseignée. */
           session_id: string | null
           prestation_externe_id: string | null
+          /* Heures suivies AVANT la mise en service, reprises sur le forfait lui-même (0140).
+             Toujours un débit d'élève, une seule reprise par forfait. */
+          package_id: string | null
           student_id: string | null
           teacher_id: string | null
           type_ecriture: LedgerType
@@ -974,6 +978,7 @@ export interface Database {
           etablissement_id: string
           session_id?: string | null
           prestation_externe_id?: string | null
+          package_id?: string | null
           student_id?: string | null
           teacher_id?: string | null
           type_ecriture: LedgerType

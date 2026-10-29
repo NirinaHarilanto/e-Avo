@@ -735,6 +735,7 @@ export function DossierEtudiantVue({
     cohortClasse,
     professeurClasse,
     heuresConsommees,
+    heuresReprises,
     prochaineSeance,
     tarifChoisi,
     duoPartenaire,
@@ -1154,6 +1155,12 @@ export function DossierEtudiantVue({
                   <LigneInfo label="Formule en cours" valeur={formaterHeures(forfait.total_heures)} />
                   <LigneInfo label="Montant" valeur={forfait.montant !== null ? `${forfait.montant.toLocaleString('fr-FR')} Ar` : '—'} />
                   <LigneInfo label="Consommées" valeur={formaterHeures(heuresConsommees)} />
+                  {/* Un dossier repris à la mise en service (0140) affiche des heures consommées
+                      sans qu'aucune séance ne figure dans son parcours : sans cette ligne, le
+                      compteur passe pour faux. */}
+                  {heuresReprises > 0 && (
+                    <LigneInfo label="dont suivies avant la mise en service" valeur={formaterHeures(heuresReprises)} />
+                  )}
                   <LigneInfo label="Restantes (tous forfaits cumulés)" valeur={formaterHeures(heuresRestantes)} />
                   <LigneInfo label="Échéance" valeur={forfait.echeance ? new Date(forfait.echeance).toLocaleDateString('fr-FR') : '—'} />
                 </div>

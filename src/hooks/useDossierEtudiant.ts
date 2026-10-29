@@ -71,6 +71,11 @@ export interface DossierEtudiant {
      professeur n'est désigné pour la classe, ou pas de classe. */
   professeurClasse: Profile | null
   heuresConsommees: number
+  /* Part de ces heures reprise du relevé du professeur à la mise en service (0140) : elles n'ont
+     donc aucune séance correspondante dans l'application. Zéro pour un dossier entièrement né
+     ici. Affichée pour qu'un parcours bien entamé mais sans séance listée ne passe pas pour un
+     compteur faux. */
+  heuresReprises: number
   prochaineSeance: SeanceDuParcours | null
   /* DUO (0054) : la personne dont le profil pointe VERS ce dossier (duo_partenaire_id = ce
      studentId), s'il y en a une — ce studentId est alors le « principal » du binôme. `null` si
@@ -98,6 +103,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
       { data: enrollments },
       { data: packages },
       { data: resume },
+      { data: reprises },
       { data: inscriptionCohorte },
       { data: tousTarifs },
     ] = await Promise.all([
@@ -116,6 +122,15 @@ export function useDossierEtudiant(studentId: string | undefined) {
       supabase.from('session_enrollments').select('*').eq('student_id', studentId as string),
       supabase.from('packages').select('*').eq('student_id', studentId as string).order('created_at', { ascending: false }),
       supabase.from('student_hours_summary').select('*').eq('student_id', studentId as string).maybeSingle(),
+      /* Les seules écritures d'heures qui ne viennent pas d'une séance : la reprise du relevé du
+         professeur à la mise en service (0140). Le résumé ci-dessus les comprend déjà — celle-ci
+         sert uniquement à dire quelle part du compteur n'a pas de séance derrière elle. */
+      supabase
+        .from('hour_ledger')
+        .select('heures')
+        .eq('student_id', studentId as string)
+        .eq('type_ecriture', 'debit_etudiant')
+        .not('package_id', 'is', null),
       supabase.from('cohort_enrollments').select('cohort_id, cohort_class_id').eq('student_id', studentId as string).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       /* Table de référence, quelques lignes : la charger ici évite l'aller-retour séparé que
          demandait le tarif choisi du prospect d'origine, qui ne pouvait partir qu'après lui. */
@@ -255,6 +270,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
       cohortClasse: cohortClasse ?? null,
       professeurClasse: professeurClasse ?? null,
       heuresConsommees: resume?.heures_consommees ?? 0,
+      heuresReprises: (reprises ?? []).reduce((total, r) => total + Number(r.heures), 0),
       prochaineSeance,
       duoPartenaire: duoPartenaire ?? null,
       tarifChoisi: tarifChoisi ?? null,
