@@ -5,10 +5,17 @@ import { FlecheBouton, IcoHX, type NomIcoHX } from './IconesHX'
 /* Accueil, d'après hoc-accueil.html, puis d'après la maquette du client du 2026-10-29 pour le
    visuel et le bandeau de thèmes.
 
-   Ce que la nouvelle maquette change : l'illustration 3D du hero devient une fenêtre de
-   visioconférence — carte blanche, professeure à l'écran, barre d'appel et deux bulles de
-   conversation — et un bandeau annonce en bas ce que les cours couvrent. Les orbites, le halo et
-   l'inclinaison sous la souris sont conservés : c'est l'habillage du hero, pas l'illustration.
+   Ce que la nouvelle maquette change : l'illustration 3D du hero devient une vraie photo de
+   cours — un élève au casque face à sa professeure en visioconférence — et un bandeau annonce en
+   bas ce que les cours couvrent. Les orbites, le halo et l'inclinaison sous la souris sont
+   conservés : c'est l'habillage du hero, pas l'illustration.
+
+   La maquette dessinait autour de la photo une fenêtre de visioconférence complète (en-tête
+   « Cours individuel », étiquette « Teacher », barre d'appel). Elle a été retirée quand le client
+   a fourni cette photo le 2026-10-29 : la photo porte DÉJÀ un écran de visioconférence, avec sa
+   propre barre d'appel et son propre badge « Live Class ». Les redoubler donnait une visio dans
+   une visio. Restent le cadre, les deux répliques et un voile violet qui raccorde les tons chauds
+   de la photo à la palette de la page.
 
    Les trois pastilles de garanties restent sous le visuel, à la demande du client (2026-10-29),
    bien que la maquette ne les dessine plus : elles et le bandeau ne disent pas la même chose, les
@@ -26,37 +33,6 @@ const ATOUTS: { icone: NomIcoHX; libelle: string }[] = [
 ]
 
 const THEMES = ['Anglais du quotidien', 'Anglais professionnel', 'TOEIC · TOEFL · IELTS', 'Projet de migration']
-
-/* Boutons de la barre d'appel. Purement décoratifs : la fenêtre illustre un cours, elle ne
-   commande rien — d'où le `aria-hidden` sur l'ensemble et aucun élément focusable. */
-function BarreAppel() {
-  return (
-    <div className="barre" aria-hidden="true">
-      <span className="b">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="9" y="2" width="6" height="12" rx="3" />
-          <path d="M5 11a7 7 0 0 0 14 0M12 18v4" />
-        </svg>
-      </span>
-      <span className="b">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="6" width="13" height="12" rx="3" />
-          <path d="m22 8-7 4 7 4z" />
-        </svg>
-      </span>
-      <span className="b">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 12a8 8 0 0 1-8 8H7l-4 3V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z" />
-        </svg>
-      </span>
-      <span className="b fin">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M3 10.5c5-3.3 13-3.3 18 0v3.2l-4 .6-.7-2.8a14 14 0 0 0-8.6 0l-.7 2.8-4-.6z" />
-        </svg>
-      </span>
-    </div>
-  )
-}
 
 export function PageAccueil({ nomEtablissement }: { nomEtablissement: string }) {
   const illustration = useRef<HTMLDivElement>(null)
@@ -121,29 +97,17 @@ export function PageAccueil({ nomEtablissement }: { nomEtablissement: string }) 
               <div className="orbit" />
               <div className="orbit o2" />
               <div className="art" ref={illustration}>
-                <div className="visio">
-                  <div className="t">
-                    <span className="pts" aria-hidden="true">
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                    <span className="nom">Cours individuel</span>
-                    <span className="live">
-                      <i aria-hidden="true" />
-                      En direct
-                    </span>
-                  </div>
-                  <div className="ecran">
-                    <img
-                      src="/hero-visio.webp"
-                      alt={`Professeure d’anglais au casque pendant un cours en visioconférence avec ${nomEtablissement}`}
-                      fetchPriority="high"
-                      draggable={false}
-                    />
-                    <span className="etiquette">Teacher</span>
-                  </div>
-                  <BarreAppel />
+                <div className="photo-cours">
+                  <img
+                    src="/hero-visio.webp"
+                    alt={`Un élève au casque suivant son cours d’anglais en visioconférence avec sa professeure ${nomEtablissement}`}
+                    fetchPriority="high"
+                    draggable={false}
+                  />
+                  {/* Voile violet : la photo est dans des tons bois et bleu marine, la page est
+                      violette. Posé en CSS et non incrusté dans le fichier, pour rester réglable
+                      sans regénérer l'image. */}
+                  <span className="voile" aria-hidden="true" />
                 </div>
                 {/* Les deux répliques de la maquette : la question du professeur, la réponse de
                     l'élève. En anglais, c'est le cours lui-même qui est montré. */}

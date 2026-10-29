@@ -772,13 +772,14 @@ body.vitrine-hx {
   background: var(--lavender);
   box-shadow: 0 0 24px 6px rgba(217, 202, 247, 0.95);
 }
-/* 108 % tant que `.art` portait l'illustration détourée, qui débordait volontairement du cercle
-   des orbites. La fenêtre de visioconférence qui l'a remplacée est un cadre plein : elle se tient
-   à l'intérieur du cercle, comme sur la maquette du 2026-10-29. */
+/* La photo du 2026-10-29 est en 3:2 : dans un `.visual` carré, elle n'occupe les deux tiers de
+   la hauteur que si elle en prend toute la largeur. 104 % la fait mordre légèrement sur le cercle
+   des orbites, comme le faisait l'illustration détourée d'origine — à 88 %, elle flottait, perdue
+   au milieu d'un grand disque vide. */
 .hx .visual .art {
   position: relative;
   z-index: 2;
-  width: 88%;
+  width: 104%;
   transition: transform 0.5s var(--ease);
   will-change: transform;
 }
@@ -845,116 +846,36 @@ body.vitrine-hx {
   color: var(--purple);
 }
 
-/* ---------- Fenêtre de visioconférence du hero (maquette client du 2026-10-29) ----------
-   Elle remplace l'illustration 3D dans `.art`, et hérite donc telle quelle de l'inclinaison
-   sous la souris et du flottement — c'est le même conteneur. */
-.hx .visual .visio {
+/* ---------- Photo du hero (fournie par le client le 2026-10-29) ----------
+   Elle remplace l'illustration 3D dans `.art`, et hérite donc telle quelle de l'inclinaison sous
+   la souris. La fenêtre de visioconférence qui était dessinée autour a été retirée : la photo en
+   porte déjà une (voir PageAccueil.tsx). */
+.hx .visual .photo-cours {
+  position: relative;
   border-radius: 26px;
   overflow: hidden;
-  background: var(--white);
+  /* Liseré clair : il décolle la photo du violet du fond, qui mange sinon ses bords sombres. */
+  border: 1px solid rgba(217, 202, 247, 0.35);
   box-shadow: 0 40px 70px rgba(10, 4, 20, 0.55);
   animation: hxfloat 7s ease-in-out infinite;
 }
-.hx .visual .visio .t {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 16px;
-}
-.hx .visual .visio .pts {
-  display: inline-flex;
-  gap: 5px;
-  flex: none;
-}
-.hx .visual .visio .pts i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--lavender);
-}
-.hx .visual .visio .pts i:first-child {
-  background: var(--gold);
-}
-/* Le nom est centré sur la carte, pas entre ses deux voisins : `absolute` le pose au milieu
-   quelle que soit la largeur de la pastille « En direct ». */
-.hx .visual .visio .t {
-  position: relative;
-}
-.hx .visual .visio .nom {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  font: 600 12.5px/1 var(--f-body);
-  color: var(--purple);
-  white-space: nowrap;
-}
-.hx .visual .visio .live {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  font: 700 11px/1 var(--f-body);
-  color: var(--purple-dark);
-  white-space: nowrap;
-}
-.hx .visual .visio .live i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--gold);
-}
-.hx .visual .visio .ecran {
-  position: relative;
-  margin: 0 12px;
-  border-radius: 16px;
-  overflow: hidden;
-  aspect-ratio: 4/3;
-  background: var(--lav-soft);
-}
-.hx .visual .visio .ecran img {
+.hx .visual .photo-cours img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  /* La professeure est cadrée à gauche de l'image : sans cette ancre, un rognage latéral la
-     sortirait du cadre sur les écrans où la carte s'étire. */
-  object-position: 30% center;
+  display: block;
 }
-.hx .visual .visio .etiquette {
+/* Raccord chromatique : un voile violet très doux, plus dense dans les angles, qui rapproche les
+   bois chauds et le bleu marine de la photo de la palette de la page. Assez léger pour que
+   l'écran du portable et le visage de la professeure restent parfaitement lisibles — vérifié en
+   capture avant d'arrêter les valeurs. */
+.hx .visual .photo-cours .voile {
   position: absolute;
-  left: 12px;
-  bottom: 12px;
-  padding: 6px 12px;
-  border-radius: 10px;
-  background: rgba(46, 29, 69, 0.72);
-  backdrop-filter: blur(6px);
-  font: 600 11.5px/1 var(--f-body);
-  color: var(--white);
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(130% 110% at 50% 42%, rgba(78, 53, 111, 0) 44%, rgba(58, 37, 88, 0.3) 100%),
+    linear-gradient(160deg, rgba(123, 91, 176, 0.1), rgba(46, 29, 69, 0.12));
 }
-.hx .visual .visio .barre {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  padding: 14px;
-}
-.hx .visual .visio .barre .b {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--lav-soft);
-  color: var(--purple);
-}
-.hx .visual .visio .barre .b svg {
-  width: 16px;
-  height: 16px;
-}
-.hx .visual .visio .barre .fin {
-  background: #e05c4e;
-  color: var(--white);
-  /* Le combiné est dessiné raccroché : il pointe vers le bas, comme partout ailleurs. */
-  transform: rotate(135deg);
-}
+
 /* Les deux répliques. Posées sur `.art`, elles suivent son inclinaison : elles appartiennent à
    la même scène que la fenêtre, pas au fond. */
 .hx .visual .bulle {
@@ -1040,11 +961,24 @@ body.vitrine-hx {
   .hx .hero .ghost {
     display: none;
   }
+  /* Le débordement de 4 % n'a de sens que face au texte, où il donne du mouvement : une fois la
+     photo seule et centrée, il la fait mordre sur la gouttière de 28 px que tout le reste de la
+     page respecte. */
+  .hx .visual .art {
+    width: 100%;
+  }
   /* Sous 980 px la colonne visuelle passe sous le texte et se resserre : les bulles, qui
-     débordent du cadre, sortaient de l'écran à droite. Elles rentrent dans la carte. */
+     débordent du cadre, sortaient de l'écran à droite. Elles rentrent dans la photo. */
   .hx .visual .bulle.haut {
     right: 0;
   }
+  .hx .visual .bulle.bas {
+    right: 0;
+  }
+}
+/* Entre 980 et 1120 px, la colonne visuelle est encore à droite mais la fenêtre s'est resserrée :
+   la bulle basse, qui déborde de 4 %, venait à deux pixels du bord. Elle s'aligne sur la photo. */
+@media (min-width: 981px) and (max-width: 1120px) {
   .hx .visual .bulle.bas {
     right: 0;
   }
