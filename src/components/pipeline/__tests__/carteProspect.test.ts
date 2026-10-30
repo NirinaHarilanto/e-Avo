@@ -44,8 +44,9 @@ describe('sousTitreCarte', () => {
     expect(sousTitreCarte(prospect())).toBe('Reçu le 16 oct.')
   })
 
-  it('annonce l’intitulé du besoin quand l’appel est planifié, la date vivant dans l’encart', () => {
-    expect(sousTitreCarte(prospect({ statut: 'diagnostic_planifie' }))).toBe('Anglais professionnel')
+  it('garde la date d’arrivée du dossier une fois l’appel planifié, la date du rendez-vous vivant dans l’encart', () => {
+    vi.setSystemTime(new Date('2026-10-16T05:00:00Z'))
+    expect(sousTitreCarte(prospect({ statut: 'diagnostic_planifie' }))).toBe("Reçu aujourd'hui")
   })
 
   it('date le diagnostic une fois celui-ci réalisé', () => {

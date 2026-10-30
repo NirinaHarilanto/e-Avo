@@ -20,7 +20,6 @@ export function EditerIdentiteProspect({ prospect, onChange }: { prospect: Prosp
   const [nom, setNom] = useState(prospect.nom)
   const [email, setEmail] = useState(prospect.email)
   const [telephone, setTelephone] = useState(prospect.telephone ?? '')
-  const [langueVisee, setLangueVisee] = useState(prospect.langue_visee ?? '')
   const [objectif, setObjectif] = useState(prospect.objectif ?? '')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -30,7 +29,6 @@ export function EditerIdentiteProspect({ prospect, onChange }: { prospect: Prosp
     setNom(prospect.nom)
     setEmail(prospect.email)
     setTelephone(prospect.telephone ?? '')
-    setLangueVisee(prospect.langue_visee ?? '')
     setObjectif(prospect.objectif ?? '')
     setErreur(null)
     setEdition(false)
@@ -50,7 +48,6 @@ export function EditerIdentiteProspect({ prospect, onChange }: { prospect: Prosp
         nom: nom.trim(),
         email: email.trim(),
         telephone: telephone.trim() || null,
-        langue_visee: langueVisee.trim() || null,
         objectif: objectif.trim() || null,
       })
       .eq('id', prospect.id)
@@ -80,7 +77,6 @@ export function EditerIdentiteProspect({ prospect, onChange }: { prospect: Prosp
           <LigneInfo label="Nom" valeur={prospect.nom} />
           <LigneInfo label="E-mail" valeur={prospect.email} />
           <LigneInfo label="Téléphone" valeur={prospect.telephone ?? '—'} />
-          <LigneInfo label="Langue visée" valeur={prospect.langue_visee ?? '—'} />
           <LigneInfo label="Objectif" valeur={prospect.objectif ?? '—'} />
         </div>
       ) : (
@@ -96,9 +92,6 @@ export function EditerIdentiteProspect({ prospect, onChange }: { prospect: Prosp
           </Champ>
           <Champ label="Téléphone">
             <input value={telephone} onChange={(e) => setTelephone(e.target.value)} style={champStyle} />
-          </Champ>
-          <Champ label="Langue visée">
-            <input value={langueVisee} onChange={(e) => setLangueVisee(e.target.value)} placeholder="Anglais, espagnol…" style={champStyle} />
           </Champ>
           <Champ label="Objectif">
             <input value={objectif} onChange={(e) => setObjectif(e.target.value)} placeholder="Entretien, expatriation…" style={champStyle} />

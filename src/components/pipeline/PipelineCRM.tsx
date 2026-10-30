@@ -502,9 +502,6 @@ export function sousTitreCarte(prospect: ProspectAvecDiagnostic): string {
   if (prospect.statut === 'diagnostic_fait' && prospect.diagnostic?.date_appel) {
     return `Diagnostic ${dateRelativeCourte(prospect.diagnostic.date_appel)}`
   }
-  if (prospect.statut === 'diagnostic_planifie') {
-    return prospect.langue_visee || 'Langue non précisée'
-  }
   return `Reçu ${dateRelativeCourte(prospect.created_at)}`
 }
 
@@ -616,7 +613,6 @@ function FormulaireNouveauProspect({
   const [prenom, setPrenom] = useState('')
   const [email, setEmail] = useState('')
   const [telephone, setTelephone] = useState('')
-  const [langueVisee, setLangueVisee] = useState('')
   const [objectif, setObjectif] = useState('')
   const [typeProgramme, setTypeProgramme] = useState<TypeProgrammeProspect>('individuel')
   const [enCours, setEnCours] = useState(false)
@@ -637,7 +633,6 @@ function FormulaireNouveauProspect({
       prenom: prenom.trim(),
       email: email.trim().toLowerCase(),
       telephone: telephone.trim() || null,
-      langue_visee: langueVisee.trim() || null,
       objectif: objectif.trim() || null,
       type_programme: typeProgramme,
     })
@@ -662,7 +657,6 @@ function FormulaireNouveauProspect({
         </div>
         <input required type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} style={champStyle} />
         <input placeholder="Téléphone (facultatif)" value={telephone} onChange={(e) => setTelephone(e.target.value)} style={champStyle} />
-        <input placeholder="Langue visée (facultatif)" value={langueVisee} onChange={(e) => setLangueVisee(e.target.value)} style={champStyle} />
         <textarea
           placeholder="Objectif (facultatif)"
           value={objectif}
@@ -1168,7 +1162,6 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
                 pour les fiches « Appel diagnostic planifié » et « Diagnostic réalisé », affichées
                 ici pour toutes les étapes puisqu'elles ne coûtent rien à montrer plus tôt. */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{prospect.langue_visee || 'Langue non précisée'}</span>
               <a href={`mailto:${prospect.email}`} style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>
                 {prospect.email}
               </a>
@@ -1657,7 +1650,6 @@ function CarteDuo({
                 <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
                   {p.prenom} {p.nom}
                 </span>
-                <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{p.langue_visee || 'Langue non précisée'}</span>
                 <a href={`mailto:${p.email}`} style={{ fontSize: 12, color: 'var(--ink-2)' }}>
                   {p.email}
                 </a>

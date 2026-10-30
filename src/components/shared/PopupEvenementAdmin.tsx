@@ -239,9 +239,6 @@ export function CarteRendezVous({
               {prospect.telephone ? ` · ${prospect.telephone}` : ''}
             </span>
           )}
-          {prospect?.langue_visee && (
-            <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Langue : {prospect.langue_visee}</span>
-          )}
           {prospect?.objectif && (
             <span style={{ fontSize: 12.5, color: 'var(--muted)' }}>Objectif : {prospect.objectif}</span>
           )}

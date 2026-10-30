@@ -149,7 +149,7 @@ export function versEvenementProspect(rdv: RendezVousAvecProspect): EvenementAge
     debut: rdv.debut,
     dureeMinutes: rdv.duree_minutes,
     titre: nomProspect,
-    sousTitre: `Appel diagnostic${converti ? ' · Étudiant' : ''}${prospect?.langue_visee ? ` · ${prospect.langue_visee}` : ''}`,
+    sousTitre: `Appel diagnostic${converti ? ' · Étudiant' : ''}`,
     ton: converti ? 'bleu' : 'or',
     attenue: rdv.statut === 'refuse' || rdv.statut === 'annule',
     statut: LIBELLE_STATUT_RDV[rdv.statut],
