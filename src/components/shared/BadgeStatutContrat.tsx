@@ -26,6 +26,20 @@ const GLYPHES: Record<StatutSignatureContrat, ReactNode> = {
   aucun: '!',
 }
 
+/* Les ÉTUDIANTS ne sont plus soumis à un contrat — décision client du 2026-10-30 : « tu peux
+   masquer les alertes et étiquettes liées à l'absence de contrat car on ne va plus les soumettre
+   à un contrat ». Seule la mention POSITIVE « Contrat signé » reste donc affichée sur leurs
+   écrans, quand un contrat existe bel et bien ; « Aucun contrat » et « Contrat en attente », qui
+   réclamaient une signature, disparaissent (avec la tuile « Contrats non signés » de
+   EtudiantsAdmin.tsx).
+
+   Règle écrite ici, à côté du badge, pour que les trois écrans élèves (liste et fiche côté admin,
+   liste côté professeur) ne puissent pas diverger. Les PROFESSEURS, eux, gardent l'indicateur
+   complet : leur contrat de collaboration, lui, reste exigé (ProfesseursAdmin.tsx). */
+export function statutContratEtudiantAffichable(statut?: StatutSignatureContrat): StatutSignatureContrat | undefined {
+  return statut === 'signe' ? statut : undefined
+}
+
 /* Petit indicateur de signature de contrat, affiché dans les listes Professeurs et Étudiants
    de l'espace admin — pour repérer d'un coup d'œil qui n'a pas encore signé avant le début des
    cours, sans avoir à ouvrir chaque fiche. `compact` réduit encore la taille pour tenir dans

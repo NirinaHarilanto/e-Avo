@@ -36,7 +36,7 @@ import { boutonPrimaireStyle, boutonNeutreStyle, boutonDangerStyle } from '../ui
 import { Icone } from '../ui/Icones'
 import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
 import { useTypesProgrammeEtudiants } from '../../hooks/useTypesProgrammeEtudiants'
-import { BadgeStatutContrat } from '../shared/BadgeStatutContrat'
+import { BadgeStatutContrat, statutContratEtudiantAffichable } from '../shared/BadgeStatutContrat'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -75,7 +75,6 @@ export function EtudiantsAdmin() {
 
   const statutsContrats = useStatutsContratsSignature(useMemo(() => etudiants.map((e) => e.id), [etudiants]))
   const programmes = useTypesProgrammeEtudiants(useMemo(() => etudiants.map((e) => e.id), [etudiants]))
-  const sansContratSigne = etudiants.filter((e) => statutsContrats[e.id] && statutsContrats[e.id] !== 'signe').length
 
   /* Forfait épuisé et absence de cours planifié, pour toute la liste d'un coup — demandes client
      6 et 7 du 2026-10-19. Calculé sur les blocs affichés (le principal d'un binôme porte le
@@ -134,13 +133,8 @@ export function EtudiantsAdmin() {
               ton={sansCoursPlanifie > 0 ? 'alerte' : 'neutre'}
               aide="Aucune séance à venir au planning"
             />
-            <Stat
-              compact
-              libelle="Contrats non signés"
-              valeur={sansContratSigne}
-              ton={sansContratSigne > 0 ? 'alerte' : 'neutre'}
-              aide={sansContratSigne > 0 ? 'À signer avant le début des cours' : 'Tous les contrats sont signés'}
-            />
+            {/* La tuile « Contrats non signés » a été retirée le 2026-10-30 : les étudiants ne
+                sont plus soumis à un contrat (voir statutContratEtudiantAffichable). */}
           </GrilleStats>
         </div>
       )}
@@ -179,7 +173,7 @@ export function EtudiantsAdmin() {
                   selectionne={etudiant.id === id}
                   onClick={() => navigate(`/admin/etudiants/${etudiant.id}`)}
                   programme={programmes[etudiant.id]}
-                  statutContrat={statutsContrats[etudiant.id]}
+                  statutContrat={statutContratEtudiantAffichable(statutsContrats[etudiant.id])}
                   etatParcours={etats[etudiant.id]}
                 />
               )
@@ -260,7 +254,7 @@ function DossierPanel({
       activite={activiteEtudiant({ status: etudiant.status, forfaitEpuise: !!etat?.forfaitEpuise })}
       badgesSupplementaires={
         <>
-          {statutsContrats[studentId] && <BadgeStatutContrat statut={statutsContrats[studentId]} />}
+          {statutContratEtudiantAffichable(statutsContrats[studentId]) && <BadgeStatutContrat statut="signe" />}
           {dossierIncomplet && <TagDossierIncomplet />}
           {etat?.sansCoursPlanifie && <TagAucunCoursPlanifie />}
         </>

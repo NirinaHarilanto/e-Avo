@@ -7,6 +7,7 @@ import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
 import { useSecondairesDuo } from '../../hooks/useSecondairesDuo'
 import { sansSecondairesDuo } from '../../lib/duo'
 import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
+import { statutContratEtudiantAffichable } from '../shared/BadgeStatutContrat'
 import { useTypesProgrammeEtudiants } from '../../hooks/useTypesProgrammeEtudiants'
 import { PlanifierSeancesForfait } from '../etudiants/PlanifierSeancesForfait'
 import { DossierEtudiantVue } from '../etudiants/DossierEtudiantVue'
@@ -108,7 +109,7 @@ export function EtudiantsProfesseur() {
                 selectionne={etudiant.id === id}
                 onClick={() => navigate(`/professeur/etudiants/${etudiant.id}`)}
                 programme={programmes[etudiant.id]}
-                statutContrat={statutsContrats[etudiant.id]}
+                statutContrat={statutContratEtudiantAffichable(statutsContrats[etudiant.id])}
               />
             )
           })}
