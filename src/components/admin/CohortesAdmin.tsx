@@ -10,7 +10,7 @@ import { useEtablissement } from '../../hooks/useEtablissement'
 import { supabase } from '../../lib/supabaseClient'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import type { Database, StatutCohorte, NiveauClasse, CreneauClasse } from '../../types/database.types'
-import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, CAPACITE_MIN_CLASSE, CAPACITE_MAX_CLASSE } from '../../lib/classesCollectif'
+import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, COULEUR_NIVEAU_CLASSE, CAPACITE_MIN_CLASSE, CAPACITE_MAX_CLASSE } from '../../lib/classesCollectif'
 import { niveauDefinitif } from '../../lib/niveauEtudiant'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -683,6 +683,7 @@ function ClassesVague({
         const prof = professeurs.find((p) => p.id === classe.teacher_id) ?? null
         const couleur =
           effectif < CAPACITE_MIN_CLASSE ? 'var(--danger)' : effectif >= CAPACITE_MAX_CLASSE ? 'var(--accent-gold, #e9cf94)' : 'var(--accent-teal)'
+        const couleurNiveau = COULEUR_NIVEAU_CLASSE[classe.niveau]
 
         if (classeEnEdition?.id === classe.id) {
           return (
@@ -703,10 +704,23 @@ function ClassesVague({
           <div key={classe.id} className="card card-lift" style={{ padding: '9px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               <div style={{ flexGrow: 1, minWidth: 170 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-                  {LABEL_NIVEAU_CLASSE[classe.niveau]}
-                  {classe.nom ? ` — ${classe.nom}` : ''}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+                  <span
+                    style={{
+                      fontSize: 11.5,
+                      fontWeight: 800,
+                      letterSpacing: 0.2,
+                      color: couleurNiveau,
+                      background: `color-mix(in srgb, ${couleurNiveau} 16%, transparent)`,
+                      border: `1px solid color-mix(in srgb, ${couleurNiveau} 42%, transparent)`,
+                      borderRadius: 999,
+                      padding: '2px 10px',
+                    }}
+                  >
+                    {LABEL_NIVEAU_CLASSE[classe.niveau]}
+                  </span>
+                  {classe.nom && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{classe.nom}</span>}
+                </div>
                 <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                   {LABEL_CRENEAU_CLASSE[classe.creneau]} · {prof ? `${prof.prenom} ${prof.nom}` : 'Aucun professeur désigné'}
                 </div>

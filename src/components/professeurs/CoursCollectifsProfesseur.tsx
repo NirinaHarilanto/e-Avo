@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { supabase } from '../../lib/supabaseClient'
-import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE } from '../../lib/classesCollectif'
+import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, COULEUR_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { PanneauPlanningClasse } from '../shared/PanneauPlanningClasse'
 import type { Database } from '../../types/database.types'
@@ -77,10 +77,27 @@ export function CoursCollectifsProfesseur() {
               <div key={c.classe.id} className="card card-lift" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
                   <div style={{ flexGrow: 1, minWidth: 200 }}>
-                    <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
-                      {LABEL_NIVEAU_CLASSE[c.classe.niveau]}
-                      {c.classe.nom ? ` — ${c.classe.nom}` : ''}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span
+                        style={{
+                          fontSize: 11.5,
+                          fontWeight: 800,
+                          letterSpacing: 0.2,
+                          color: COULEUR_NIVEAU_CLASSE[c.classe.niveau],
+                          background: `color-mix(in srgb, ${COULEUR_NIVEAU_CLASSE[c.classe.niveau]} 16%, transparent)`,
+                          border: `1px solid color-mix(in srgb, ${COULEUR_NIVEAU_CLASSE[c.classe.niveau]} 42%, transparent)`,
+                          borderRadius: 999,
+                          padding: '2px 10px',
+                        }}
+                      >
+                        {LABEL_NIVEAU_CLASSE[c.classe.niveau]}
+                      </span>
+                      {c.classe.nom && (
+                        <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
+                          {c.classe.nom}
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                       {c.cohorte?.nom ?? 'Promotion inconnue'} · {LABEL_CRENEAU_CLASSE[c.classe.creneau]} · {eleves.length} élève
                       {eleves.length > 1 ? 's' : ''}

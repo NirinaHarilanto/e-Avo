@@ -23,6 +23,18 @@ export const LABEL_CRENEAU_CLASSE: Record<CreneauClasse, string> = {
   soir: 'Soir',
 }
 
+/* Code couleur des niveaux de classe — demande client du 2026-10-30, capture à l'appui : « mets
+   un code couleur bien visible sur les intitulés [...] beginner, advance et intermediate ». Les
+   trois variables de thème choisies sont déjà redéfinies par `body.espace-clair` (seul thème que
+   rendent désormais les espaces connectés) en trois teintes bien distinctes l'une de l'autre —
+   contrairement à `--accent-blue`/`--accent-violet`, identiques en thème clair. Une seule source
+   ici pour que CohortesAdmin (admin) et CoursCollectifsProfesseur (professeur) ne divergent pas. */
+export const COULEUR_NIVEAU_CLASSE: Record<NiveauClasse, string> = {
+  beginner: 'var(--accent-teal)',
+  intermediate: 'var(--accent-blue)',
+  advanced: 'var(--accent-orange)',
+}
+
 /* En dessous de ce seuil, la classe ne doit pas démarrer ses cours (règle client) — un signal
    pour l'admin, pas un blocage d'inscription. */
 export const CAPACITE_MIN_CLASSE = 3
