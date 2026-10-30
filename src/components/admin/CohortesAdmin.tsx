@@ -436,7 +436,16 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
         <button onClick={() => setEdition(true)} style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
           Modifier
         </button>
-        <button onClick={basculerDetail} style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
+        {/* Fond doré/orange plein, texte sombre — demande client du 2026-10-30, capture à
+            l'appui : le reconnaître au premier coup d'œil parmi les boutons transparents
+            voisins. Même dégradé que les boutons principaux de l'application
+            (`boutonPrimaireStyle`), dont `--ink` (encre sombre en thème clair) garde le libellé
+            lisible sur l'or. */}
+        <button
+          onClick={basculerDetail}
+          className="btn-shine"
+          style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', background: 'var(--accent-gradient)', border: 'none', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}
+        >
           {ouverte ? 'Masquer les inscrits' : 'Voir les inscrits'}
         </button>
         <button onClick={supprimer} disabled={enCours} style={{ fontSize: 12, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: 'pointer' }}>
