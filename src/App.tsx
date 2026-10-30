@@ -1,11 +1,12 @@
-import { lazy, Suspense } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { lazy, Suspense, useEffect } from 'react'
+import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { ProfileProvider } from './context/ProfileContext'
 import { LandingEtablissement } from './components/landing/LandingEtablissement'
 import { Confidentialite } from './components/legal/Confidentialite'
 import { ConditionsUtilisation } from './components/legal/ConditionsUtilisation'
 import { Connexion } from './components/auth/Connexion'
 import { ReinitialiserMotDePasse } from './components/auth/ReinitialiserMotDePasse'
+import { signalerPageVue } from './lib/analyticsVitrine'
 
 /* Les espaces admin/professeur/étudiant sont chargés à la demande (`lazy`) plutôt
    qu'au démarrage — demande client du 2026-09-16 : « le chargement de la page Hero est très
@@ -70,10 +71,23 @@ function ChargementEspace() {
   )
 }
 
+/* Signale chaque page vue à Google Analytics (src/lib/analyticsVitrine.ts), uniquement sur les
+   pages publiques — `signalerPageVue` se charge elle-même de ne rien faire ailleurs. Un
+   composant séparé plutôt qu'un effet dans `App` : il ne rend rien, c'est un pur effet de bord
+   sur `pathname`, et `useLocation` exige d'être sous `<BrowserRouter>`. */
+function SuiviAnalyticsVitrine() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    signalerPageVue(pathname)
+  }, [pathname])
+  return null
+}
+
 export default function App() {
   return (
     <ProfileProvider>
       <BrowserRouter>
+        <SuiviAnalyticsVitrine />
         <Suspense fallback={<ChargementEspace />}>
           <Routes>
             {/* Les pages de la vitrine ont chacune leur adresse depuis la refonte du
