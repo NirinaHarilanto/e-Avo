@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { useProfileContext } from '../../context/ProfileContext'
 import { homonymeBloquant, nomComplet } from '../../lib/nomDuplique'
 import type { Database } from '../../types/database.types'
 import { GroupeSection, Section } from '../ui/Section'
@@ -15,7 +16,10 @@ type Profile = Database['public']['Tables']['profiles']['Row']
    liste des étudiants (EtudiantsAdmin.tsx) puisse signaler un dossier incomplet sans dupliquer
    cette définition — un seul endroit à mettre à jour si ces champs changent. */
 export function informationsPersonnellesCompletes(personne: Profile): boolean {
-  return Boolean(personne.telephone && personne.adresse && personne.ville)
+  /* Confirmation manuelle (0145, bouton « Complet ? » ci-dessous) : fait taire le badge même si
+     les trois champs ne sont pas tous renseignés — l'admin a vérifié et juge le dossier bon tel
+     quel pour cet élève précis. */
+  return personne.dossier_complet_confirme || Boolean(personne.telephone && personne.adresse && personne.ville)
 }
 
 interface InformationsPersonnellesProps {
@@ -45,6 +49,7 @@ interface InformationsPersonnellesProps {
    aussi l'identifiant de connexion (auth.users), le modifier ici désynchroniserait l'affichage
    du login réel sans le changer — hors périmètre de ce panneau. */
 export function InformationsPersonnelles({ personne, onChange, extra, carte = true, lectureSeule = false, masquerCoordonnees = false }: InformationsPersonnellesProps) {
+  const { profile: moi } = useProfileContext()
   const [edition, setEdition] = useState(false)
   const [nom, setNom] = useState(personne.nom ?? '')
   const [prenom, setPrenom] = useState(personne.prenom ?? '')
@@ -60,7 +65,24 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
   const [tauxChatChill, setTauxChatChill] = useState(personne.taux_horaire_chat_chill?.toString() ?? '')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  const [enCoursConfirmation, setEnCoursConfirmation] = useState(false)
   const estProfesseur = personne.role === 'professeur'
+
+  /* Bouton « Complet ? » (0145, demande client du 2026-10-30) : un simple bascule, pas une
+     action à sens unique — un clic accidentel ou un dossier qui se révèle finalement incomplet
+     doit pouvoir revenir en arrière sans contacter le support. Étudiant uniquement, et réservé à
+     l'admin (jamais au professeur, jamais à l'élève sur son propre « Mon profil » en self-service
+     — ce panneau y est monté avec `lectureSeule` à `false`, un rôle seul ne suffit donc pas à le
+     distinguer) : c'est une vérification administrative, pas une auto-déclaration. */
+  async function basculerDossierComplet() {
+    setEnCoursConfirmation(true)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ dossier_complet_confirme: !personne.dossier_complet_confirme })
+      .eq('id', personne.id)
+    setEnCoursConfirmation(false)
+    if (!error) onChange()
+  }
 
   function annuler() {
     setNom(personne.nom ?? '')
@@ -145,9 +167,24 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
       {...proprietesConteneur}
       actions={
         !edition && !lectureSeule ? (
-          <button onClick={() => setEdition(true)} style={boutonSecondaireStyle}>
-            Modifier
-          </button>
+          <>
+            {personne.role === 'etudiant' && moi?.role === 'admin_etablissement' && (
+              <button
+                onClick={basculerDossierComplet}
+                disabled={enCoursConfirmation}
+                style={
+                  personne.dossier_complet_confirme
+                    ? { ...boutonSecondaireStyle, color: '#fefffa', background: 'var(--success)', border: '1px solid var(--success)', opacity: enCoursConfirmation ? 0.6 : 1 }
+                    : { ...boutonSecondaireStyle, opacity: enCoursConfirmation ? 0.6 : 1 }
+                }
+              >
+                {enCoursConfirmation ? 'Enregistrement…' : personne.dossier_complet_confirme ? '✓ Dossier complet' : 'Complet ?'}
+              </button>
+            )}
+            <button onClick={() => setEdition(true)} style={boutonSecondaireStyle}>
+              Modifier
+            </button>
+          </>
         ) : undefined
       }
     >

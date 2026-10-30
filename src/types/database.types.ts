@@ -221,6 +221,10 @@ export interface Database {
           relance_prevue_le: string | null
           /* Professeur recruté encore en phase d'intégration (0082). */
           statut_integration: 'en_integration' | null
+          /* Confirmation manuelle par l'admin, bouton « Complet ? » (0145, demande client du
+             2026-10-30) — fait taire le badge « Dossier incomplet » même si téléphone/adresse/
+             ville ne sont pas tous les trois renseignés. Étudiant uniquement. */
+          dossier_complet_confirme: boolean
           created_at: string
         }
         Insert: {
@@ -249,6 +253,7 @@ export interface Database {
           mot_de_passe_defini?: boolean
           duo_partenaire_id?: string | null
           duo_nom_groupe?: string | null
+          dossier_complet_confirme?: boolean
           motif_pause?: string | null
           pause_le?: string | null
           pause_par?: string | null
