@@ -5,6 +5,7 @@ import {
   niveauRetenu,
   NIVEAUX_CECRL,
   parcoursCollectifTermine,
+  periodeClasse,
   rangNiveauCecrl,
 } from '../classesCollectif'
 
@@ -119,6 +120,24 @@ describe('fraisInscriptionCollectif', () => {
     expect(fraisInscriptionCollectif([], 'A2')).toBeNull()
     // Un tarif laissé à 0 dans la grille ne décrit pas des frais exploitables.
     expect(fraisInscriptionCollectif([{ type_programme: 'collectif', titre: 'Beginner', prix: 0 }], 'A2')).toBeNull()
+  })
+})
+
+describe('periodeClasse', () => {
+  it('affiche les deux dates quand les deux sont connues', () => {
+    expect(periodeClasse({ date_debut: '2026-09-14', date_fin: '2026-11-14' })).toBe('14/09/2026 → 14/11/2026')
+  })
+
+  it("se limite à « à partir du » quand seul le début est connu", () => {
+    expect(periodeClasse({ date_debut: '2026-09-14', date_fin: null })).toBe('à partir du 14/09/2026')
+  })
+
+  it("se limite à « jusqu'au » quand seule la fin est connue", () => {
+    expect(periodeClasse({ date_debut: null, date_fin: '2026-11-14' })).toBe("jusqu'au 14/11/2026")
+  })
+
+  it('rend null plutôt qu’une phrase vide quand rien n’est renseigné', () => {
+    expect(periodeClasse({ date_debut: null, date_fin: null })).toBeNull()
   })
 })
 

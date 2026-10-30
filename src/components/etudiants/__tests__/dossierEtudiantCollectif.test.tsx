@@ -91,9 +91,18 @@ describe('DossierEtudiantVue — élève en cours collectif', () => {
     render(<DossierEtudiantVue dossier={dossierCollectif()} peutModifierPlanning={false} />)
 
     fireEvent.click(screen.getByRole('tab', { name: 'Programme' }))
-    expect(screen.getByText('Vague Novembre')).toBeTruthy()
+    // Le nom de la vague apparaît maintenant deux fois : dans la tuile « Vague » (toujours
+    // visible, 0074) et dans le détail de cet onglet — les deux sont volontaires.
+    expect(screen.getAllByText('Vague Novembre').length).toBeGreaterThanOrEqual(1)
     expect(screen.queryByRole('button', { name: 'Changer' })).toBeNull()
     expect(screen.getByText(/se modifient depuis Cours collectifs/)).toBeTruthy()
+  })
+
+  it('affiche une tuile « Vague » pour un élève collectif, avec le nom et la période', () => {
+    render(<DossierEtudiantVue dossier={dossierCollectif()} peutModifierPlanning={false} />)
+
+    expect(screen.getByText('Vague')).toBeTruthy()
+    expect(screen.getAllByText('Vague Novembre').length).toBeGreaterThanOrEqual(1)
   })
 
   /* Capture client du 2026-10-19 : le dossier de bernard bensas affichait deux séances

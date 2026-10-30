@@ -772,6 +772,11 @@ export function DossierEtudiantVue({
   const [ongletDemande, setOngletDemande] = useState<OngletDossier>('parcours')
   const { evaluations: niveaux } = useNiveauxEtudiant(etudiant.id)
   const niveauActuel = niveauDefinitif(diagnostic, niveaux)
+  /* Collectif (0074) : sans diagnostic individuel, c'est le niveau de SA CLASSE qui fait foi —
+     demande client du 2026-10-30, « tu as déjà leur niveau qui correspond au niveau de leurs
+     classes respectifs ». N'intervient qu'en repli : un élève collectif avec un historique
+     individuel antérieur (diagnostic, réévaluation) garde l'affichage de celui-là. */
+  const niveauClasseActuel = cohortClasse ? LABEL_NIVEAU_CLASSE[cohortClasse.niveau] : null
   /* Pour un binôme DUO, chaque personne a son propre niveau — jamais un seul niveau fondu pour
      les deux (demande client du 2026-09-23 : « il faut afficher les deux niveaux des deux
      personnes formant le DUO »). `duoPartenaire` peut être `null` (pas de duo), d'où le hook
@@ -949,11 +954,17 @@ export function DossierEtudiantVue({
                 </span>
               </span>
             ) : (
-              (niveauActuel ?? '—')
+              (niveauActuel ?? niveauClasseActuel ?? '—')
             )
           }
           ton="violet"
-          aide={diagnostic || niveaux.length > 0 || diagnosticPartenaire || niveauxPartenaire.length > 0 ? 'Établi lors de l’appel diagnostic' : 'Pas encore de diagnostic'}
+          aide={
+            diagnostic || niveaux.length > 0 || diagnosticPartenaire || niveauxPartenaire.length > 0
+              ? 'Établi lors de l’appel diagnostic'
+              : niveauClasseActuel
+                ? 'Niveau de sa classe de cours collectif'
+                : 'Pas encore de diagnostic'
+          }
           pied={
             (diagnostic || niveaux.length > 0) && (
               <button
@@ -966,6 +977,19 @@ export function DossierEtudiantVue({
             )
           }
         />
+        {/* Élève collectif uniquement (demande client du 2026-10-30) : son programme individuel
+            n'a pas de « vague ». La classe (niveau, créneau) est déjà nommée juste en dessous
+            dans le bloc « Cours collectif » du parcours pédagogique — l'aide reprend donc la
+            PÉRIODE de la vague plutôt que de répéter la même information deux fois. */}
+        {cohorte && (
+          <Stat
+            compact
+            libelle="Vague"
+            valeur={<span style={{ fontSize: 15 }}>{cohorte.nom}</span>}
+            ton="or"
+            aide={`${new Date(cohorte.date_debut).toLocaleDateString('fr-FR')} → ${new Date(cohorte.date_fin).toLocaleDateString('fr-FR')}`}
+          />
+        )}
       </GrilleStats>
 
       {/* Tant que le dossier n'a ni professeur ni programme, ce récapitulatif occupe l'espace

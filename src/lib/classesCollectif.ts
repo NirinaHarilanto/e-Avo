@@ -35,6 +35,21 @@ export const COULEUR_NIVEAU_CLASSE: Record<NiveauClasse, string> = {
   advanced: 'var(--accent-orange)',
 }
 
+/* Période de cours d'UNE classe de niveau (0143, demande client du 2026-10-30 : « chaque classe
+   a sa propre période de cours [...] la période s'affichera à côté de l'intitulé Niveau »),
+   distincte de celle de la vague entière. Les deux dates sont optionnelles et indépendantes l'une
+   de l'autre (une classe peut n'avoir qu'une date de fin encore inconnue, par exemple) : `null`
+   quand rien n'est renseigné, pour que l'appelant décide de ne rien afficher dans ce cas plutôt
+   que d'écrire une phrase vide. */
+export function periodeClasse(classe: { date_debut: string | null; date_fin: string | null }): string | null {
+  const debut = classe.date_debut ? new Date(classe.date_debut).toLocaleDateString('fr-FR') : null
+  const fin = classe.date_fin ? new Date(classe.date_fin).toLocaleDateString('fr-FR') : null
+  if (debut && fin) return `${debut} → ${fin}`
+  if (debut) return `à partir du ${debut}`
+  if (fin) return `jusqu'au ${fin}`
+  return null
+}
+
 /* En dessous de ce seuil, la classe ne doit pas démarrer ses cours (règle client) — un signal
    pour l'admin, pas un blocage d'inscription. */
 export const CAPACITE_MIN_CLASSE = 3

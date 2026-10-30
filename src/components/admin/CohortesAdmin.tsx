@@ -10,7 +10,7 @@ import { useEtablissement } from '../../hooks/useEtablissement'
 import { supabase } from '../../lib/supabaseClient'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import type { Database, StatutCohorte, NiveauClasse, CreneauClasse } from '../../types/database.types'
-import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, COULEUR_NIVEAU_CLASSE, CAPACITE_MIN_CLASSE, CAPACITE_MAX_CLASSE } from '../../lib/classesCollectif'
+import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, COULEUR_NIVEAU_CLASSE, CAPACITE_MIN_CLASSE, CAPACITE_MAX_CLASSE, periodeClasse } from '../../lib/classesCollectif'
 import { niveauDefinitif } from '../../lib/niveauEtudiant'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -684,6 +684,7 @@ function ClassesVague({
         const couleur =
           effectif < CAPACITE_MIN_CLASSE ? 'var(--danger)' : effectif >= CAPACITE_MAX_CLASSE ? 'var(--accent-gold, #e9cf94)' : 'var(--accent-teal)'
         const couleurNiveau = COULEUR_NIVEAU_CLASSE[classe.niveau]
+        const periode = periodeClasse(classe)
 
         if (classeEnEdition?.id === classe.id) {
           return (
@@ -719,6 +720,7 @@ function ClassesVague({
                   >
                     {LABEL_NIVEAU_CLASSE[classe.niveau]}
                   </span>
+                  {periode && <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{periode}</span>}
                   {classe.nom && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{classe.nom}</span>}
                 </div>
                 <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
@@ -1124,6 +1126,8 @@ function FormulaireClasse({
   const [nom, setNom] = useState(classe?.nom ?? '')
   const [creneau, setCreneau] = useState<CreneauClasse>(classe?.creneau ?? 'soir')
   const [teacherId, setTeacherId] = useState(classe?.teacher_id ?? '')
+  const [dateDebut, setDateDebut] = useState(classe?.date_debut ?? '')
+  const [dateFin, setDateFin] = useState(classe?.date_fin ?? '')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const enModification = !!classe
@@ -1138,7 +1142,14 @@ function FormulaireClasse({
     if (!profile && !enModification) return
     setEnCours(true)
     setErreur(null)
-    const champs = { niveau, nom: nom.trim() || null, creneau, teacher_id: teacherId || null }
+    const champs = {
+      niveau,
+      nom: nom.trim() || null,
+      creneau,
+      teacher_id: teacherId || null,
+      date_debut: dateDebut || null,
+      date_fin: dateFin || null,
+    }
     const { error } = enModification
       ? await supabase.from('cohort_classes').update(champs).eq('id', classe.id)
       : await supabase.from('cohort_classes').insert({
@@ -1193,6 +1204,14 @@ function FormulaireClasse({
               </option>
             ))}
           </select>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Début de la période (optionnel)</label>
+          <ChampDate type="date" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} style={champStyle} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Fin de la période (optionnel)</label>
+          <ChampDate type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} style={champStyle} />
         </div>
       </div>
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{erreur}</p>}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { supabase } from '../../lib/supabaseClient'
-import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, COULEUR_NIVEAU_CLASSE } from '../../lib/classesCollectif'
+import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, COULEUR_NIVEAU_CLASSE, periodeClasse } from '../../lib/classesCollectif'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { PanneauPlanningClasse } from '../shared/PanneauPlanningClasse'
 import type { Database } from '../../types/database.types'
@@ -73,6 +73,7 @@ export function CoursCollectifsProfesseur() {
           {classes.map((c) => {
             const eleves = elevesParClasse.get(c.classe.id) ?? []
             const depliee = classeDepliee === c.classe.id
+            const periode = periodeClasse(c.classe)
             return (
               <div key={c.classe.id} className="card card-lift" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
@@ -92,6 +93,7 @@ export function CoursCollectifsProfesseur() {
                       >
                         {LABEL_NIVEAU_CLASSE[c.classe.niveau]}
                       </span>
+                      {periode && <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{periode}</span>}
                       {c.classe.nom && (
                         <span className="brand-font" style={{ fontSize: 15, color: 'var(--ink)' }}>
                           {c.classe.nom}

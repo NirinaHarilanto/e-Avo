@@ -821,6 +821,10 @@ export interface Database {
           teacher_id: string | null
           created_by_profile_id: string
           created_at: string
+          /* Période de cours propre à la classe (0143) : nullable, distincte de celle de la
+             vague (cohorts.date_debut/date_fin). */
+          date_debut: string | null
+          date_fin: string | null
         }
         Insert: {
           id?: string
@@ -832,6 +836,8 @@ export interface Database {
           teacher_id?: string | null
           created_by_profile_id: string
           created_at?: string
+          date_debut?: string | null
+          date_fin?: string | null
         }
         Update: Partial<Database['public']['Tables']['cohort_classes']['Insert']>
         Relationships: []
