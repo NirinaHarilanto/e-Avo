@@ -17,7 +17,8 @@ import { DossierEtudiantVue } from './DossierEtudiantVue'
 import { CarteListeEtudiant, TagAucunCoursPlanifie, TagDossierIncomplet } from './CarteListeEtudiant'
 import { useEtatsParcoursEtudiants } from '../../hooks/useEtatsParcoursEtudiants'
 import { activiteEtudiant } from '../../lib/statutProfil'
-import { FormulaireInvitation } from '../shared/FormulaireInvitation'
+import { AssistantNouvelEtudiant } from './AssistantNouvelEtudiant'
+import { useProfileContext } from '../../context/ProfileContext'
 import { PanneauInformationsDuo, informationsPersonnellesCompletes } from '../shared/InformationsPersonnelles'
 import { SupprimerCompte } from '../shared/SupprimerCompte'
 import { SyntheseComptesRendus } from '../shared/SyntheseComptesRendus'
@@ -26,6 +27,7 @@ import { MettreEnPauseCompte } from './MettreEnPauseCompte'
 import { PanneauRelances } from '../shared/Relances'
 import { EnquetesParcoursAffichage } from '../shared/EnquetesParcoursAffichage'
 import { EnTetePage } from '../ui/EnTetePage'
+import { Modale } from '../ui/Modale'
 import { GroupeSection } from '../ui/Section'
 import { LigneInfo } from '../ui/Champ'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -43,9 +45,11 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 export function EtudiantsAdmin() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { profile } = useProfileContext()
   const { etudiants: tousLesEtudiants, loading, recharger } = useEtudiants()
   const [recherche, setRecherche] = useState('')
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
+  const [listeInactifsOuverte, setListeInactifsOuverte] = useState(false)
 
   // DUO (0054) : la secondaire d'un binôme a son propre compte (son propre login), mais pas de
   // dossier à elle — le sien est celui de la principale. Demande client du 2026-09-21 : « les
@@ -87,7 +91,13 @@ export function EtudiantsAdmin() {
      celui d'un binôme DUO est partagé — compter deux fois un même forfait épuisé n'aurait aucun
      sens. Le total d'inscrits juste à côté, lui, reste bien par personne. */
   const actifs = etudiants.filter((e) => activiteEtudiant({ status: e.status, forfaitEpuise: !!etats[e.id]?.forfaitEpuise }) === 'actif').length
-  const inactifs = etudiants.filter((e) => activiteEtudiant({ status: e.status, forfaitEpuise: !!etats[e.id]?.forfaitEpuise }) === 'inactif').length
+  /* La LISTE, et plus seulement son compte : la tuile s'ouvre sur ces dossiers-là depuis le
+     2026-10-30 (demande client). Même filtre que le compte affiché juste au-dessus, jamais une
+     seconde règle recalculée à côté. */
+  const dossiersInactifs = etudiants.filter(
+    (e) => activiteEtudiant({ status: e.status, forfaitEpuise: !!etats[e.id]?.forfaitEpuise }) === 'inactif',
+  )
+  const inactifs = dossiersInactifs.length
   const sansCoursPlanifie = etudiants.filter((e) => etats[e.id]?.sansCoursPlanifie).length
 
   return (
@@ -104,9 +114,8 @@ export function EtudiantsAdmin() {
       />
 
       {formulaireOuvert && (
-        <FormulaireInvitation
-          endpoint="/api/admin/inviter-etudiant"
-          roleLabel="un étudiant"
+        <AssistantNouvelEtudiant
+          etablissementId={profile?.etablissement_id}
           onTermine={() => {
             setFormulaireOuvert(false)
             recharger()
@@ -118,13 +127,18 @@ export function EtudiantsAdmin() {
         <div style={{ marginBottom: 14 }}>
           <GrilleStats min={160} compact>
             <Stat compact libelle="Étudiants inscrits" valeur={tousLesEtudiants.length} ton="or" />
-            <Stat compact libelle="Dossiers actifs" valeur={actifs} ton="teal" aide="Parcours en cours : ni en pause, ni forfait épuisé" />
+            {/* Les deux tuiles ont perdu leur ligne d'explication le 2026-10-30, à la demande du
+                client : « enlève visuellement la petite instruction ». Pour les inactifs, elle
+                n'est pas perdue — elle est redite dans le pop-up qui s'ouvre au clic, à l'endroit
+                où l'on se demande vraiment pourquoi ces dossiers-là y figurent. */}
+            <Stat compact libelle="Dossiers actifs" valeur={actifs} ton="teal" />
             <Stat
               compact
               libelle="Dossiers inactifs"
               valeur={inactifs}
               ton={inactifs > 0 ? 'alerte' : 'neutre'}
-              aide="En pause, ou forfait d’heures entièrement consommé"
+              onClick={inactifs > 0 ? () => setListeInactifsOuverte(true) : undefined}
+              titreAction="Voir les dossiers inactifs"
             />
             <Stat
               compact
@@ -137,6 +151,54 @@ export function EtudiantsAdmin() {
                 sont plus soumis à un contrat (voir statutContratEtudiantAffichable). */}
           </GrilleStats>
         </div>
+      )}
+
+      {listeInactifsOuverte && (
+        <Modale titre="Dossiers inactifs" onFermer={() => setListeInactifsOuverte(false)} largeurMax={520}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* L’explication retirée de la tuile vit désormais ici — demande client du
+                2026-10-30 : « déplace l’instruction visible [...] dans le pop-up ». */}
+            <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6 }}>
+              En pause, ou forfait d’heures entièrement consommé.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {dossiersInactifs.map((etudiant) => {
+                const secondaire = secondaireParPrincipal.get(etudiant.id)
+                return (
+                  <button
+                    key={etudiant.id}
+                    type="button"
+                    className="row-hl"
+                    onClick={() => {
+                      setListeInactifsOuverte(false)
+                      navigate(`/admin/etudiants/${etudiant.id}`)
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '9px 12px',
+                      borderRadius: 12,
+                      border: '1px solid var(--border-soft)',
+                      background: 'var(--surface)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      font: 'inherit',
+                    }}
+                  >
+                    <span style={{ fontSize: 12.5, color: 'var(--ink)', flexGrow: 1 }}>
+                      {etudiant.prenom} {etudiant.nom}
+                      {secondaire ? ` & ${secondaire.prenom} ${secondaire.nom}` : ''}
+                    </span>
+                    <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                      {etudiant.status === 'en_pause' ? 'En pause' : 'Forfait épuisé'}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </Modale>
       )}
 
       <div className="grille-maitre-detail">
