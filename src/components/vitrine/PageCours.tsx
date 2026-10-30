@@ -20,7 +20,10 @@ type Tarif = Database['public']['Tables']['tarifs']['Row']
      quiz de positionnement pour le collectif.
 
    Les textes sont ceux de l'application, identiques à ceux de la maquette hormis quelques
-   retouches que la fondatrice y a apportées depuis. */
+   retouches que la fondatrice y a apportées depuis. Les trois courtes descriptions de
+   `PROGRAMMES` ci-dessous sont celles du brief SEO du 2026-10-30 (point 5), qui nomment chacune
+   l'intention de recherche de la formule qu'elles décrivent ; les textes longs plus bas, eux,
+   restent ceux de la fondatrice. */
 
 const PROGRAMMES: { type: TypeProgrammeProspect; badge: string; titre: string; texte: string }[] = [
   {
@@ -28,21 +31,21 @@ const PROGRAMMES: { type: TypeProgrammeProspect; badge: string; titre: string; t
     badge: 'INDIVIDUEL',
     titre: 'Cours particuliers',
     texte:
-      'Sur mesure : vous choisissez votre rythme et le sujet de chaque séance, avec un professeur rien que pour vous, calé sur votre objectif réel.',
+      'Un accompagnement personnalisé avec un professeur dédié, adapté à votre niveau, vos objectifs et votre rythme d’apprentissage.',
   },
   {
     type: 'collectif',
     badge: 'COLLECTIF',
     titre: 'Cours en petit groupe',
     texte:
-      'Par vague, sur un planning établi par l’établissement, avec des groupes de niveaux différents pour progresser ensemble au bon rythme.',
+      'Progressez en petit groupe, échangez avec d’autres apprenants et développez votre aisance à l’oral dans un environnement stimulant.',
   },
   {
     type: 'duo',
     badge: 'DUO',
     titre: 'Cours en duo',
     texte:
-      'En couple ou entre amis, apprenez à deux sur un même créneau : un accompagnement pensé pour vos deux objectifs, à la fois complice et exigeant.',
+      'Apprenez l’anglais à deux et développez vos compétences grâce à des séances interactives avec un professeur.',
   },
 ]
 

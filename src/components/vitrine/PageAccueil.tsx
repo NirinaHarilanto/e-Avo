@@ -66,6 +66,17 @@ export function PageAccueil({ nomEtablissement }: { nomEtablissement: string }) 
           <div className="grid">
             <div className="text reveal">
               <div className="eyebrow">Your English, your future</div>
+              {/* « en ligne » ajouté au titre le 2026-10-30 (brief SEO, point 4.2) : c'est
+                  l'expression la plus recherchée de toute la liste du point 8, et elle
+                  n'apparaissait nulle part dans le titre principal du site.
+
+                  QUATRE `.line` et non trois : la colonne de texte du hero fait environ 620 px,
+                  et « l'anglais en ligne, » n'y tient pas d'un seul tenant. Laissé sur une seule
+                  balise, le navigateur le coupait lui-même en deux rangées À L'INTÉRIEUR d'une
+                  `.line` — or `.line` est le volet de l'animation de révélation (overflow:hidden
+                  + translateY sur son contenu, voir vitrine-hx.css) : les deux rangées montaient
+                  alors d'un bloc, au lieu de se dévoiler l'une après l'autre. Même hauteur finale
+                  qu'avec la coupure automatique, mais le décalage rendu à chaque rangée. */}
               <h1 className="display">
                 <span className="line">
                   <span>Apprenez</span>
@@ -74,14 +85,22 @@ export function PageAccueil({ nomEtablissement }: { nomEtablissement: string }) 
                   <span style={{ transitionDelay: '.12s' }}>l’anglais</span>
                 </span>
                 <span className="line">
-                  <span className="it" style={{ transitionDelay: '.24s' }}>
+                  <span style={{ transitionDelay: '.24s' }}>en ligne,</span>
+                </span>
+                <span className="line">
+                  <span className="it" style={{ transitionDelay: '.36s' }}>
                     à votre rythme
                   </span>
                 </span>
               </h1>
+              {/* Texte d'introduction du brief (point 4.2), qui nomme les trois formules : le
+                  texte précédent n'en citait aucune, alors que « cours individuel », « cours en
+                  duo » et « cours collectif » sont trois des intentions de recherche visées. */}
               <p className="lead rv" style={{ transitionDelay: '.4s' }}>
-                Des cours interactifs, des professeurs passionnés et une expérience d’apprentissage unique. Rejoignez{' '}
-                {nomEtablissement} dès aujourd’hui !
+                {nomEtablissement} vous accompagne dans votre apprentissage de l’anglais grâce à des cours en ligne
+                adaptés à vos objectifs, votre niveau et votre disponibilité. Choisissez entre des cours individuels,
+                en duo ou en petit groupe, et développez vos compétences grâce à une approche interactive axée sur la
+                communication et la pratique réelle de l’anglais.
               </p>
               <div className="btns rv" style={{ transitionDelay: '.55s' }}>
                 <Link className="btn btn-gold" to="/cours">

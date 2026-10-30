@@ -3,6 +3,14 @@
     { "path": "/api/cron/relances-echeances", "schedule": "0 6 * * *" }
   ],
   "rewrites": [
+    { "source": "/cours", "destination": "/cours.html" },
+    { "source": "/professeurs", "destination": "/professeurs.html" },
+    { "source": "/temoignages", "destination": "/temoignages.html" },
+    { "source": "/events", "destination": "/events.html" },
+    { "source": "/a-propos", "destination": "/a-propos.html" },
+    { "source": "/rejoignez-nous", "destination": "/rejoignez-nous.html" },
+    { "source": "/confidentialite", "destination": "/confidentialite.html" },
+    { "source": "/conditions-utilisation", "destination": "/conditions-utilisation.html" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [

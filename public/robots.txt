@@ -1,0 +1,22 @@
+# Hari Online Club — https://www.harionlineclub.app
+# Ce fichier n'existait pas avant le 2026-10-30 : la règle de réécriture de vercel.json
+# ((?!api/).*) renvoyait /robots.txt vers index.html, et les robots recevaient donc une page
+# HTML à la place. Vercel sert les fichiers statiques AVANT d'appliquer les réécritures : poser
+# le fichier ici suffit à le rendre accessible.
+
+User-agent: *
+Allow: /
+
+# Les trois espaces connectés : tout y est derrière authentification, rien n'y est indexable, et
+# les y envoyer ne ferait que gaspiller le budget d'exploration de Google.
+Disallow: /admin/
+Disallow: /professeur/
+Disallow: /mon-espace
+Disallow: /connexion
+Disallow: /auth/
+
+# Même page que la racine, servie sous l'identifiant de l'établissement (route /e/:slug) : la
+# balise canonique l'indique déjà, cette ligne évite en plus de l'explorer pour rien.
+Disallow: /e/
+
+Sitemap: https://www.harionlineclub.app/sitemap.xml

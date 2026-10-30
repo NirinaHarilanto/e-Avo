@@ -133,8 +133,13 @@ export function PageEquipe({ dossierAssets }: { dossierAssets: string }) {
                   </span>
                 </span>
               </h1>
+              {/* « certifiés » ajouté le 2026-10-30 (brief SEO, point 6) : « Tous les professeurs
+                  présentés par HOC sont certifiés. Merci de conserver et valoriser cette
+                  information dans la présentation de l'équipe. » Le mot figurait déjà en pastille
+                  sur l'accueil, mais pas sur la page qui présente justement l'équipe. */}
               <p className="sub rv" style={{ transitionDelay: '.3s' }}>
-                Des professeurs choisis pour leur pédagogie autant que pour leur passion des langues.
+                Des professeurs d’anglais certifiés, choisis pour leur pédagogie, leur capacité d’adaptation et leur
+                passion des langues.
               </p>
 
               <div className="rv" style={{ transitionDelay: '.38s' }}>

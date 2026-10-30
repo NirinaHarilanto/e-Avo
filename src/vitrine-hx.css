@@ -3194,6 +3194,23 @@ body.vitrine-hx {
 .hx .carte-recit.c2 p {
   color: #3e2a5a;
 }
+/* Troisième carte, « À qui s'adressent nos cours ? » (2026-10-30, brief SEO point 7). Elle
+   occupe toute la largeur plutôt que d'ouvrir une troisième colonne : la grille est en
+   1.1fr/0.9fr, une carte de plus s'y serait rangée de travers sous la première, à une largeur qui
+   n'est celle d'aucune des deux autres. En blanc cerné plutôt qu'en aplat coloré, pour qu'elle se
+   lise comme la réponse posée après les deux convictions, sans leur disputer l'attention. */
+.hx .carte-recit.c3 {
+  grid-column: 1 / -1;
+  background: var(--white);
+  border: 1px solid rgba(78, 53, 111, 0.16);
+  color: var(--purple-dark);
+}
+.hx .carte-recit.c3 h3 {
+  color: var(--purple-dark);
+}
+.hx .carte-recit.c3 p {
+  color: #3e2a5a;
+}
 
 /* Finale */
 .hx .finale {

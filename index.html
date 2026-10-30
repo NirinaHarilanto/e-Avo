@@ -31,10 +31,15 @@
          même pour toute l'application) : un coût négligeable sur les autres pages une fois
          l'image en cache, pour un gain net sur celle qui compte le plus, la vitrine publique. -->
     <link rel="preload" as="image" href="/hero-illustration-3d.webp" fetchpriority="high" type="image/webp" />
-    <title>Hari Online Club</title>
+    <!-- Ces deux balises sont celles de l'ACCUEIL. En production elles sont retirées puis
+         réécrites page par page par le plugin `hoc-seo-pages-vitrine` (vite.config.ts), qui pose
+         en plus l'adresse canonique, les balises de partage et les données structurées — source
+         unique : src/lib/seoVitrine.ts. Elles restent ici pour le serveur de développement, qui
+         ne passe pas par ce plugin, et comme repli si le build venait à ne pas les réécrire. -->
+    <title>Cours d’anglais en ligne à Madagascar | Hari Online Club</title>
     <meta
       name="description"
-      content="Hari Online Club : cours de langues en visio avec un professeur attitré, en individuel, en duo ou en petit groupe."
+      content="Découvrez Hari Online Club : des cours d’anglais en ligne individuels, en duo ou en groupe. Développez votre expression orale et gagnez en confiance grâce à un apprentissage axé sur la pratique."
     />
   </head>
   <body>

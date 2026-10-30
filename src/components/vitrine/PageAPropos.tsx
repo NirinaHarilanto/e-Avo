@@ -98,6 +98,25 @@ export function PageAPropos({ dossierAssets }: { dossierAssets: string }) {
                 centrée sur la conversation, pensée pour tous les âges et tous les parcours.
               </p>
             </article>
+            {/* Troisième carte ajoutée le 2026-10-30 (brief SEO, point 7) : des quatre idées que
+                le client demande de faire ressortir — l'histoire, la mission, l'approche
+                pédagogique et les publics accompagnés — les trois premières étaient déjà portées
+                par le récit et les deux cartes ci-dessus. Les PUBLICS, eux, n'apparaissaient nulle
+                part, alors que « à qui s'adressent les cours » est l'une des questions que posent
+                les visiteurs comme les moteurs de recherche.
+
+                Écrite dans la voix de la page, et non recopiée du brief : le récit est celui de la
+                fondatrice, mot pour mot (demande 10 du 2026-10-08), et une carte au ton
+                administratif à sa suite aurait détonné. */}
+            <article className="carte-recit c3 rv" style={{ transitionDelay: '.3s' }}>
+              <h3 className="h-m">À qui s’adressent nos cours&nbsp;?</h3>
+              <p>
+                À celles et ceux qui veulent s’y mettre, s’y remettre, ou aller plus loin : grands débutants, niveaux
+                intermédiaires ou avancés, lycéens, étudiants, jeunes diplômés et professionnels. Pour un objectif
+                personnel, académique ou professionnel — et depuis Madagascar comme depuis l’étranger, puisque tout se
+                passe en ligne.
+              </p>
+            </article>
           </div>
         </div>
       </section>
