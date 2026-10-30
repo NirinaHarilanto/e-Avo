@@ -188,6 +188,8 @@ export interface Database {
           telephone: string | null
           adresse: string | null
           ville: string | null
+          /* Pays de résidence (0144, demande client du 2026-10-30), distinct de `ville`. */
+          pays: string | null
           date_naissance: string | null
           lieu_naissance: string | null
           whatsapp: string | null
@@ -233,6 +235,7 @@ export interface Database {
           telephone?: string | null
           adresse?: string | null
           ville?: string | null
+          pays?: string | null
           date_naissance?: string | null
           lieu_naissance?: string | null
           whatsapp?: string | null

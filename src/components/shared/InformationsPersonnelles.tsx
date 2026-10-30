@@ -52,6 +52,7 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
   const [whatsapp, setWhatsapp] = useState(personne.whatsapp ?? '')
   const [adresse, setAdresse] = useState(personne.adresse ?? '')
   const [ville, setVille] = useState(personne.ville ?? '')
+  const [pays, setPays] = useState(personne.pays ?? '')
   const [tauxIndividuel, setTauxIndividuel] = useState(personne.taux_horaire_individuel?.toString() ?? '')
   const [tauxDuo, setTauxDuo] = useState(personne.taux_horaire_duo?.toString() ?? '')
   const [tauxCollectif, setTauxCollectif] = useState(personne.taux_horaire_collectif?.toString() ?? '')
@@ -68,6 +69,7 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
     setWhatsapp(personne.whatsapp ?? '')
     setAdresse(personne.adresse ?? '')
     setVille(personne.ville ?? '')
+    setPays(personne.pays ?? '')
     setTauxIndividuel(personne.taux_horaire_individuel?.toString() ?? '')
     setTauxDuo(personne.taux_horaire_duo?.toString() ?? '')
     setTauxCollectif(personne.taux_horaire_collectif?.toString() ?? '')
@@ -115,6 +117,7 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
         whatsapp: whatsapp || null,
         adresse: adresse || null,
         ville: ville || null,
+        pays: pays || null,
         ...(estProfesseur && {
           taux_horaire_individuel: tauxIndividuel ? Number(tauxIndividuel) : null,
           taux_horaire_duo: tauxDuo ? Number(tauxDuo) : null,
@@ -167,6 +170,7 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
               <LigneInfo collee label="WhatsApp" valeur={personne.whatsapp ?? '—'} />
               <LigneInfo collee label="Adresse" valeur={personne.adresse ?? '—'} />
               <LigneInfo collee label="Ville" valeur={personne.ville ?? '—'} />
+              <LigneInfo collee label="Pays" valeur={personne.pays ?? '—'} />
             </>
           )}
           {estProfesseur && (
@@ -201,6 +205,9 @@ export function InformationsPersonnelles({ personne, onChange, extra, carte = tr
           </Champ>
           <Champ label="Ville">
             <input value={ville} onChange={(e) => setVille(e.target.value)} style={champStyle} />
+          </Champ>
+          <Champ label="Pays">
+            <input value={pays} onChange={(e) => setPays(e.target.value)} style={champStyle} />
           </Champ>
           {estProfesseur && (
             <>
