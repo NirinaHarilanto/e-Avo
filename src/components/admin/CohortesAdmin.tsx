@@ -151,7 +151,6 @@ function CreerVague({ etablissementId, onAnnuler, onEnregistre, vague }: CreerVa
   const { professeurs } = useProfesseurs()
   const etablissement = useEtablissement(etablissementId)
   const [nom, setNom] = useState(vague?.nom ?? '')
-  const [langue, setLangue] = useState(vague?.langue ?? '')
   const [dateDebut, setDateDebut] = useState(vague?.date_debut ?? '')
   const [dateFin, setDateFin] = useState(vague?.date_fin ?? '')
   const [capaciteMax, setCapaciteMax] = useState<number | ''>(vague?.capacite_max ?? '')
@@ -169,7 +168,6 @@ function CreerVague({ etablissementId, onAnnuler, onEnregistre, vague }: CreerVa
 
     const champs = {
       nom,
-      langue: langue || null,
       date_debut: dateDebut,
       date_fin: dateFin,
       capacite_max: capaciteMax === '' ? null : capaciteMax,
@@ -199,10 +197,6 @@ function CreerVague({ etablissementId, onAnnuler, onEnregistre, vague }: CreerVa
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Nom de la vague</label>
           <input placeholder="Ex. Vague Anglais A1 — Automne" value={nom} onChange={(e) => setNom(e.target.value)} style={champStyle} />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Langue</label>
-          <input placeholder="Ex. Anglais" value={langue} onChange={(e) => setLangue(e.target.value)} style={champStyle} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
           <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Date de début</label>
@@ -415,7 +409,6 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
             </button>
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-            {cohorte.langue ? `${cohorte.langue} · ` : ''}
             {new Date(cohorte.date_debut).toLocaleDateString('fr-FR')} → {new Date(cohorte.date_fin).toLocaleDateString('fr-FR')}
             {cohorte.capacite_max ? ` · capacité ${cohorte.capacite_max}` : ''}
             {` · forfait ${formaterHeures(forfaitVague)}`}

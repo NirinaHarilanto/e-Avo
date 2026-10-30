@@ -167,8 +167,10 @@ function LigneEleve({ eleveDuProfesseur }: { eleveDuProfesseur: EleveDuProfesseu
           <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
             {eleve.prenom} {eleve.nom}
           </span>
+          {/* La langue n'est plus affichée (demande client du 2026-10-30) : HOC n'enseigne que
+              l'anglais, la préciser n'apportait rien. */}
           <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-            {affectation.langue ?? 'Langue non précisée'} · depuis le {new Date(affectation.date_debut).toLocaleDateString('fr-FR')}
+            Depuis le {new Date(affectation.date_debut).toLocaleDateString('fr-FR')}
           </div>
         </div>
         <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>{formaterHeures(heuresEnseignees)} enseignées</span>

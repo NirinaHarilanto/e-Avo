@@ -284,7 +284,6 @@ function IdentiteProfesseur({ periode, taille = 46 }: { periode: PeriodeProfesse
           {periode.professeur ? `${periode.professeur.prenom} ${periode.professeur.nom}` : 'Professeur supprimé'}
           {periode.professeur?.status === 'suspended' && <BadgeProfesseurSupprime />}
         </span>
-        <span style={{ fontSize: 12, color: 'var(--muted)' }}>{periode.affectation.langue ?? 'Langue non précisée'}</span>
       </div>
     </div>
   )
@@ -380,8 +379,10 @@ function BlocPeriode({
               </span>
             )}
           </div>
+          {/* La langue n'est plus affichée (demande client du 2026-10-30) : l'établissement
+              n'enseigne que l'anglais, la préciser à chaque période n'apportait rien. */}
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-            {periode.affectation.langue ?? 'Langue non précisée'} · depuis le {new Date(periode.affectation.date_debut).toLocaleDateString('fr-FR')}
+            Depuis le {new Date(periode.affectation.date_debut).toLocaleDateString('fr-FR')}
             {periode.affectation.date_fin ? ` jusqu'au ${new Date(periode.affectation.date_fin).toLocaleDateString('fr-FR')}` : ''}
           </span>
           {periode.affectation.motif_changement && (
@@ -669,7 +670,7 @@ interface DossierEtudiantVueProps {
      selon l'espace (tout l'établissement pour l'admin, ses propres cours pour le professeur) et
      que c'est l'appelant qui la connaît. */
   panneauSynthese?: ReactNode
-  /* Badge(s) ajouté(s) à la ligne d'identité de l'en-tête, après le statut et la langue — sert au
+  /* Badge(s) ajouté(s) à la ligne d'identité de l'en-tête, après le statut — sert au
      tag « Ancien élève » côté professeur (demande client du 2026-09-30). */
   badgesSupplementaires?: ReactNode
   /* Activité du parcours (2026-10-19), quand l'appelant sait si le forfait est épuisé : elle
@@ -887,13 +888,8 @@ export function DossierEtudiantVue({
                   {libelleStatutProfil(etudiant.status)}
                 </span>
               )}
-              {/* Une seule pastille de langue, même avec plusieurs professeurs : HOC n'enseigne
-                  que l'anglais et toutes les affectations portent la même valeur (0061). */}
-              {(periodesActuelles[0] ?? periodes[0])?.affectation.langue && (
-                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-violet)', background: 'rgba(199,156,255,.12)', border: '1px solid rgba(199,156,255,.3)', borderRadius: 999, padding: '4px 11px' }}>
-                  {(periodesActuelles[0] ?? periodes[0]).affectation.langue}
-                </span>
-              )}
+              {/* La pastille de langue a été retirée (demande client du 2026-10-30) : HOC
+                  n'enseigne que l'anglais, la préciser n'apportait aucune information utile. */}
               {badgesSupplementaires}
               {!masquerEmailEnTete && etudiant.email && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{etudiant.email}</span>}
             </div>
@@ -1161,7 +1157,6 @@ export function DossierEtudiantVue({
                     cours. */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <LigneInfo collee label="Vague" valeur={cohorte.nom} />
-                  <LigneInfo collee label="Langue" valeur={cohorte.langue ?? '—'} />
                   <LigneInfo
                     collee
                     label="Dates"

@@ -15,7 +15,9 @@ import { CHEMIN_CANDIDATURE } from './candidature'
 const ENTREES = [
   { chemin: '/', libelle: 'Accueil' },
   { chemin: '/cours', libelle: 'Cours & tarifs' },
-  { chemin: '/professeurs', libelle: 'Professeurs' },
+  // Wording « Équipe » demandé par le client le 2026-10-30 — seul le libellé change, le chemin
+  // (/professeurs) et le contenu de la page (PageEquipe.tsx) restent les mêmes.
+  { chemin: '/professeurs', libelle: 'Équipe' },
   { chemin: '/temoignages', libelle: 'Témoignages' },
   { chemin: '/events', libelle: 'Events' },
   { chemin: '/a-propos', libelle: 'À propos' },
