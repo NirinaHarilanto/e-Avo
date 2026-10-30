@@ -47,11 +47,19 @@ create index if not exists packages_cohort_class_id_idx
 -- sans cela, les forfaits antérieurs au 2026-10-30 resteraient orphelins et le premier
 -- déplacement ne saurait pas lequel solder. Un élève sans classe (vague legacy, affectation en
 -- attente) reste à null, ce que la suite tolère.
+-- La PLUS RÉCENTE de ses inscriptions, et pas n'importe laquelle : un élève passé d'une vague à
+-- l'autre en porte plusieurs, et un `update ... from` sans ordre en choisirait une au hasard —
+-- le forfait se retrouverait rattaché à une classe qu'il a quittée il y a des mois.
 update public.packages p
-   set cohort_class_id = ce.cohort_class_id
-  from public.cohort_enrollments ce
- where ce.student_id = p.student_id
-   and ce.cohort_class_id is not null
+   set cohort_class_id = derniere.cohort_class_id
+  from (
+    select distinct on (ce.student_id)
+           ce.student_id, ce.cohort_class_id
+      from public.cohort_enrollments ce
+     where ce.cohort_class_id is not null
+     order by ce.student_id, ce.created_at desc
+  ) as derniere
+ where derniere.student_id = p.student_id
    and p.type_programme = 'collectif'
    and p.cohort_class_id is null;
 
