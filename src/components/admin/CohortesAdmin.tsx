@@ -22,6 +22,8 @@ import { Icone } from '../ui/Icones'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { Onglets } from '../ui/Onglets'
 import { Modale } from '../ui/Modale'
+import { ChampSelectionPersonnes } from '../ui/ChampSelectionPersonnes'
+import { useEtudiantsForfaitTermine } from '../../hooks/useEtudiantsForfaitTermine'
 import { PanneauPlanningClasse } from '../shared/PanneauPlanningClasse'
 import { formaterHeures } from '../../lib/heures'
 import { SessionsOraleAdmin } from './SessionsOraleAdmin'
@@ -1501,7 +1503,7 @@ function FormulaireClasse({
   onAnnuler: () => void
   onEnregistre: () => void
 }) {
-  const { profile } = useProfileContext()
+  const { profile, session } = useProfileContext()
   const { professeurs } = useProfesseurs()
   const etablissement = useEtablissement(cohorte.etablissement_id)
   const [niveau, setNiveau] = useState<NiveauClasse>(classe?.niveau ?? 'beginner')
@@ -1513,6 +1515,13 @@ function FormulaireClasse({
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const enModification = !!classe
+  /* Élèves à faire rejoindre la classe DÈS SA CRÉATION — demande client du 2026-10-30. Réservé à
+     la création : une classe existante se remplit par « Déplacer un étudiant » depuis la classe
+     de départ, qui sait, lui, qui il retire et d'où. */
+  const { eligibles, loading: chargementEligibles } = useEtudiantsForfaitTermine(
+    enModification ? undefined : cohorte.etablissement_id,
+  )
+  const [elevesARejoindre, setElevesARejoindre] = useState<string[]>([])
 
   const heureCreneau: Record<CreneauClasse, string> = {
     matin: etablissement?.creneau_matin?.slice(0, 5) ?? '07:00',
@@ -1532,19 +1541,53 @@ function FormulaireClasse({
       date_debut: dateDebut || null,
       date_fin: dateFin || null,
     }
-    const { error } = enModification
-      ? await supabase.from('cohort_classes').update(champs).eq('id', classe.id)
-      : await supabase.from('cohort_classes').insert({
-          ...champs,
-          cohort_id: cohorte.id,
-          etablissement_id: cohorte.etablissement_id,
-          created_by_profile_id: profile!.id,
-        })
-    setEnCours(false)
-    if (error) {
-      setErreur(error.message)
+    if (enModification) {
+      const { error } = await supabase.from('cohort_classes').update(champs).eq('id', classe.id)
+      setEnCours(false)
+      if (error) {
+        setErreur(error.message)
+        return
+      }
+      onEnregistre()
       return
     }
+
+    const { data: creee, error } = await supabase
+      .from('cohort_classes')
+      .insert({
+        ...champs,
+        cohort_id: cohorte.id,
+        etablissement_id: cohorte.etablissement_id,
+        created_by_profile_id: profile!.id,
+      })
+      .select('id')
+      .single()
+    if (error || !creee) {
+      setEnCours(false)
+      setErreur(error?.message ?? 'La création de la classe a échoué.')
+      return
+    }
+
+    /* Les élèves choisis rejoignent la classe par la MÊME route que le déplacement : elle seule
+       solde leur forfait, en ouvre un neuf sur cette classe et revérifie les deux conditions
+       posées par le client (déjà en collectif, forfait entièrement consommé). La classe, elle,
+       est bel et bien créée — un échec ici le dit sans la défaire. */
+    if (elevesARejoindre.length > 0 && session) {
+      const reponse = await fetch('/api/admin/deplacer-etudiants-classe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ classeCibleId: creee.id, studentIds: elevesARejoindre }),
+      })
+      const resultat = (await reponse.json().catch(() => ({}))) as { error?: string }
+      if (!reponse.ok) {
+        setEnCours(false)
+        setErreur(`La classe a bien été créée, mais l'ajout des étudiants a échoué : ${resultat.error ?? 'erreur inconnue'}`)
+        onEnregistre()
+        return
+      }
+    }
+
+    setEnCours(false)
     onEnregistre()
   }
 
@@ -1596,6 +1639,43 @@ function FormulaireClasse({
           <ChampDate type="date" value={dateFin} onChange={(e) => setDateFin(e.target.value)} style={champStyle} />
         </div>
       </div>
+
+      {/* Zone de recherche d'étudiants — demande client du 2026-10-30, capture à l'appui, avec
+          le mécanisme d'un destinataire d'e-mail Outlook (ChampSelectionPersonnes). L'instruction
+          est affichée telle que le client l'a demandée (« à mettre comme instruction ») : la
+          liste proposée est DÉJÀ filtrée, mais sans la dire, une absence passerait pour un bug. */}
+      {!enModification && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, borderTop: '1px solid var(--border-soft)', paddingTop: 12 }}>
+          <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>
+            Ajouter des étudiants déjà inscrits (optionnel)
+          </label>
+          <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6 }}>
+            Seuls les étudiants déjà inscrits en cours collectif <strong>et</strong> ayant consommé toutes les heures de
+            leur forfait peuvent rejoindre une nouvelle classe. Leur compteur d’heures repart de zéro et suit les séances
+            de cette classe, sur un nouveau forfait ; les heures déjà faites restent inscrites à leur dossier.
+          </p>
+          <ChampSelectionPersonnes
+            personnes={eligibles.map((e) => ({
+              id: e.profil.id,
+              libelle: `${e.profil.prenom ?? ''} ${e.profil.nom ?? ''}`.trim() || 'Sans nom',
+              detail: e.origine,
+              initiales: initiales(e.profil),
+            }))}
+            selection={elevesARejoindre}
+            onChange={setElevesARejoindre}
+            placeholder="Rechercher un étudiant…"
+            messageAucunResultat={
+              chargementEligibles
+                ? 'Chargement…'
+                : eligibles.length === 0
+                  ? 'Aucun étudiant n’a encore terminé son forfait collectif.'
+                  : 'Aucun étudiant ne correspond à cette recherche.'
+            }
+            maximum={CAPACITE_MAX_CLASSE}
+          />
+        </div>
+      )}
+
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{erreur}</p>}
       <div style={{ display: 'flex', gap: 8 }}>
         <button

@@ -2,6 +2,8 @@ import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { formaterDateSeance, notifierAdminsMouvementPlanning } from '../_lib/notifications.js'
 import { synchroniserInvitesVisio } from '../_lib/synchroniserVisio.js'
 import { signalerSynchro } from '../_lib/synchro.js'
+import { mesurerParcours } from '../_lib/finDeForfait.js'
+import { forfaitEntierementConsomme } from '../../src/lib/heures.js'
 
 export const config = { runtime: 'edge' }
 
@@ -56,11 +58,22 @@ interface Corps {
  *    salon Jitsi partagé qui n'a pas de liste d'invités, mais une séance adossée à un événement
  *    Google en a une, et elle doit suivre.
  *
- * Deux refus, formulés plutôt que laissés à Postgres :
- * - une classe cible déjà pleine (7 élèves, 0074) ;
- * - une classe cible dans une AUTRE vague — le garde-fou `verifier_pas_de_consommation_avant_
- *   changement_promotion` (0074) interdit de toute façon un changement de vague dès qu'une heure
- *   a été consommée, et le reste de cette route supposerait alors un forfait de vague différent.
+ * DEUX GESTES, pas un seul, selon que `classeSourceId` est fourni ou non :
+ *
+ * - DÉPLACER (classe de départ fournie) — demande du 2026-10-30, bouton « Déplacer un étudiant »
+ *   d'une ligne de classe. Aucune condition sur le forfait : c'est le geste de faire passer un
+ *   élève à la classe supérieure, en cours de parcours s'il le faut. La classe d'arrivée doit
+ *   être dans la MÊME vague, sans quoi le garde-fou de changement de promotion (0074) refuserait
+ *   l'écriture et le forfait de vague ne serait plus le même.
+ *
+ * - AJOUTER (pas de classe de départ) — demande du 2026-10-30, zone de recherche d'étudiants du
+ *   formulaire « Nouvelle classe » : « à condition que l'étudiant ait déjà consommé toutes ses
+ *   heures de forfait ET que l'étudiant soit déjà inscrit en cours collectif ». Ces deux
+ *   conditions sont revérifiées ICI, jamais seulement à l'écran. La vague peut changer : ces
+ *   élèves viennent justement d'une promotion qu'ils ont terminée, et 0147 lève le garde-fou
+ *   pour ce seul cas.
+ *
+ * Un refus commun aux deux : une classe cible déjà pleine (7 élèves, 0074).
  */
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
@@ -72,24 +85,25 @@ export default async function handler(request: Request): Promise<Response> {
     const body = (await request.json()) as Corps
 
     const studentIds = [...new Set(body.studentIds ?? [])]
-    if (!body.classeSourceId || !body.classeCibleId || studentIds.length === 0) {
+    if (!body.classeCibleId || studentIds.length === 0) {
       return Response.json({ error: 'Champs requis manquants.' }, { status: 400 })
     }
-    if (body.classeSourceId === body.classeCibleId) {
+    if (body.classeSourceId && body.classeSourceId === body.classeCibleId) {
       return Response.json({ error: 'La classe de destination est celle de départ.' }, { status: 400 })
     }
+    const modeAjout = !body.classeSourceId
 
     const { data: classes } = await serviceClient
       .from('cohort_classes')
       .select('id, cohort_id, etablissement_id, teacher_id')
-      .in('id', [body.classeSourceId, body.classeCibleId])
+      .in('id', [body.classeCibleId, body.classeSourceId ?? body.classeCibleId])
 
-    const source = (classes ?? []).find((c) => c.id === body.classeSourceId)
+    const source = modeAjout ? null : ((classes ?? []).find((c) => c.id === body.classeSourceId) ?? null)
     const cible = (classes ?? []).find((c) => c.id === body.classeCibleId)
-    if (!source || !cible || source.etablissement_id !== etablissementId || cible.etablissement_id !== etablissementId) {
+    if (!cible || cible.etablissement_id !== etablissementId || (!modeAjout && (!source || source.etablissement_id !== etablissementId))) {
       return Response.json({ error: 'Classe introuvable.' }, { status: 404 })
     }
-    if (source.cohort_id !== cible.cohort_id) {
+    if (source && source.cohort_id !== cible.cohort_id) {
       return Response.json(
         { error: "La classe de destination appartient à une autre vague. Un élève ne change pas de vague une fois ses heures entamées." },
         { status: 409 },
@@ -98,16 +112,59 @@ export default async function handler(request: Request): Promise<Response> {
 
     /* Les inscriptions réellement concernées, relues en base plutôt que crues sur parole : la
        liste envoyée par l'écran peut avoir vieilli (un autre admin a déplacé le même élève) et
-       un identifiant d'élève d'une autre classe ne doit pas passer par cette route. */
-    const { data: inscriptions } = await serviceClient
+       un identifiant d'élève d'une autre classe ne doit pas passer par cette route.
+       En mode AJOUT, l'absence de ligne ici EST le refus : « à condition que l'étudiant soit
+       déjà inscrit en cours collectif » — un élève individuel n'en a aucune. */
+    const requeteInscriptions = serviceClient
       .from('cohort_enrollments')
-      .select('id, student_id, cohort_id')
-      .eq('cohort_class_id', source.id)
+      .select('id, student_id, cohort_id, cohort_class_id')
       .in('student_id', studentIds)
+    const { data: inscriptions } = await (source ? requeteInscriptions.eq('cohort_class_id', source.id) : requeteInscriptions)
 
-    const aDeplacer = inscriptions ?? []
+    let aDeplacer = inscriptions ?? []
     if (aDeplacer.length === 0) {
-      return Response.json({ error: "Aucun de ces élèves n'est inscrit dans cette classe." }, { status: 409 })
+      return Response.json(
+        {
+          error: modeAjout
+            ? "Aucun de ces élèves n'est inscrit en cours collectif."
+            : "Aucun de ces élèves n'est inscrit dans cette classe.",
+        },
+        { status: 409 },
+      )
+    }
+    // Déjà dans la classe d'arrivée : rien à faire pour eux, et les compter remplirait la classe
+    // à tort dans le contrôle de capacité ci-dessous.
+    aDeplacer = aDeplacer.filter((i) => i.cohort_class_id !== cible.id)
+    if (aDeplacer.length === 0) {
+      return Response.json({ error: 'Ces élèves sont déjà dans cette classe.' }, { status: 409 })
+    }
+
+    /* La condition posée par le client pour rejoindre une NOUVELLE classe : avoir consommé tout
+       son forfait. Mesurée avec la règle partagée (`mesurerParcours` + `forfaitEntierementConsomme`),
+       jamais recalculée ici : l'écran de création de classe filtre déjà sur elle, la base la
+       reposera au changement de vague (0147), les trois doivent répondre la même chose.
+       Volontairement absente du mode DÉPLACER : y faire passer un élève à la classe supérieure
+       n'attend pas qu'il ait épuisé ses heures, le client n'a posé aucune condition. */
+    if (modeAjout) {
+      const refuses: string[] = []
+      for (const inscription of aDeplacer) {
+        const { forfait, consommees } = await mesurerParcours(
+          serviceClient,
+          inscription.student_id,
+          inscription.cohort_id,
+          etablissementId,
+          inscription.cohort_class_id,
+        )
+        if (!forfaitEntierementConsomme(consommees, forfait)) refuses.push(inscription.student_id)
+      }
+      if (refuses.length > 0) {
+        return Response.json(
+          {
+            error: `${refuses.length} élève${refuses.length > 1 ? 's n’ont' : " n’a"} pas encore consommé toutes les heures de son forfait : ${refuses.length > 1 ? 'ils ne peuvent' : 'il ne peut'} pas rejoindre une nouvelle classe.`,
+          },
+          { status: 409 },
+        )
+      }
     }
 
     const { count: effectifCible } = await serviceClient
@@ -147,13 +204,21 @@ export default async function handler(request: Request): Promise<Response> {
     const montantForfait = heuresForfait != null ? ((tarifs ?? []).find((t) => t.heures === heuresForfait)?.prix ?? null) : null
 
     const maintenant = new Date().toISOString()
+    /* Les classes QUITTÉES : une seule en mode déplacement, autant que d'élèves en mode ajout —
+       ils viennent chacun de la classe où leur parcours précédent s'est achevé. Un élève sans
+       classe (vague legacy) n'en quitte aucune. */
+    const classesQuittees = [
+      ...new Set(aDeplacer.map((i) => i.cohort_class_id).filter((id): id is string => !!id && id !== cible.id)),
+    ]
     const [{ data: seancesSource }, { data: seancesCible }] = await Promise.all([
-      serviceClient
-        .from('sessions')
-        .select('id, debut')
-        .eq('cohort_class_id', source.id)
-        .eq('statut', 'planifiee')
-        .gte('debut', maintenant),
+      classesQuittees.length > 0
+        ? serviceClient
+            .from('sessions')
+            .select('id, debut')
+            .in('cohort_class_id', classesQuittees)
+            .eq('statut', 'planifiee')
+            .gte('debut', maintenant)
+        : Promise.resolve({ data: [] as { id: string; debut: string }[] }),
       serviceClient
         .from('sessions')
         .select('id, debut')
@@ -165,10 +230,12 @@ export default async function handler(request: Request): Promise<Response> {
     const idsSeancesCible = (seancesCible ?? []).map((s) => s.id)
     const idsDeplaces = aDeplacer.map((i) => i.student_id)
 
-    // 1. L'inscription à la classe.
+    /* 1. L'inscription à la classe — et à la vague, quand l'élève en change. Le garde-fou 0074
+          refuserait l'écriture si son forfait n'était pas terminé ; il l'est, c'est la condition
+          vérifiée plus haut, et 0147 lève le garde-fou pour exactement ce cas. */
     const { error: erreurClasse } = await serviceClient
       .from('cohort_enrollments')
-      .update({ cohort_class_id: cible.id })
+      .update({ cohort_class_id: cible.id, cohort_id: cible.cohort_id })
       .in(
         'id',
         aDeplacer.map((i) => i.id),
@@ -202,7 +269,7 @@ export default async function handler(request: Request): Promise<Response> {
               // Un forfait d'avant 0146 peut ne pas savoir quelle classe il couvrait : c'est
               // celle qu'on quitte, et il faut le figer avant de le solder, sinon les heures
               // reprises à la mise en service (0140) qu'il porte se retrouveraient orphelines.
-              cohort_class_id: enCours.cohort_class_id ?? source.id,
+              cohort_class_id: enCours.cohort_class_id ?? inscription.cohort_class_id,
             })
             .eq('id', enCours.id)
         }

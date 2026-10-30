@@ -65,6 +65,14 @@ vi.mock('../../_lib/synchroniserVisio.js', () => ({
 
 vi.mock('../../_lib/synchro.js', () => ({ signalerSynchro: vi.fn(async () => {}) }))
 
+/* Le parcours mesuré par la règle partagée (`mesurerParcours`) : ce test ne rejoue pas son
+   calcul, il vérifie que la route REFUSE un forfait non terminé en mode ajout, et qu'elle ne
+   pose jamais cette condition en mode déplacement. */
+let parcoursMesure = { forfait: 32 as number | null, consommees: 32 }
+vi.mock('../../_lib/finDeForfait.js', () => ({
+  mesurerParcours: vi.fn(async (..._args: unknown[]) => parcoursMesure),
+}))
+
 /* Faux client Supabase : un constructeur de requête chaînable qui retient les filtres posés et
    se résout en `data` quand on l'attend. Reproduit postgrest-js juste assez pour que la route
    s'exécute telle quelle — même parti pris que retirer-professeur.test.ts. */
@@ -113,20 +121,17 @@ function clientFactice() {
       if (table === 'tarifs') return { select: () => requete([{ prix: 150_000, heures: 32 }]) }
 
       if (table === 'sessions') {
+        /* `.eq('cohort_class_id', x)` pour la classe d'arrivée, `.in('cohort_class_id', [...])`
+           pour les classes quittées (plusieurs en mode ajout) : les deux renvoient les séances
+           du jeu de test. Les filtres restants (statut, debut) ne changent rien ici — chaque
+           classe n'y porte que des séances à venir encore planifiées. */
         const filtres: Record<string, unknown> = {}
         const builder = requete([], filtres) as Record<string, unknown>
-        const eqOrigine = builder.eq as (c: string, v: unknown) => unknown
-        builder.eq = (colonne: string, valeur: unknown) => {
-          eqOrigine(colonne, valeur)
-          if (colonne === 'cohort_class_id') {
-            const seances = seancesParClasse[String(valeur)] ?? []
-            const remplace = requete(seances, filtres) as Record<string, unknown>
-            // Les filtres restants (statut, debut) ne changent pas le jeu de test : chaque
-            // classe n'y porte que des séances à venir encore planifiées.
-            return remplace
-          }
-          return builder
-        }
+        const pour = (ids: string[]) => requete(ids.flatMap((id) => seancesParClasse[id] ?? []), filtres)
+        builder.eq = (colonne: string, valeur: unknown) =>
+          colonne === 'cohort_class_id' ? pour([String(valeur)]) : builder
+        builder.in = (colonne: string, valeurs: unknown) =>
+          colonne === 'cohort_class_id' ? pour((valeurs as string[]) ?? []) : builder
         return { select: () => builder }
       }
 
@@ -192,7 +197,7 @@ beforeEach(() => {
     { id: 'classe-beginner', cohort_id: 'vague-1', etablissement_id: 'etab-1', teacher_id: 'prof-1' },
     { id: 'classe-intermediate', cohort_id: 'vague-1', etablissement_id: 'etab-1', teacher_id: 'prof-2' },
   ]
-  inscriptions = [{ id: 'insc-1', student_id: 'eleve-1', cohort_id: 'vague-1' }]
+  inscriptions = [{ id: 'insc-1', student_id: 'eleve-1', cohort_id: 'vague-1', cohort_class_id: 'classe-beginner' }]
   effectifCible = 2
   seancesParClasse = {
     'classe-beginner': [{ id: 'seance-b1', debut: '2026-11-04T16:00:00Z' }],
@@ -200,6 +205,7 @@ beforeEach(() => {
   }
   forfaitEnCours = { id: 'forfait-1', cohort_class_id: null }
   inscriptionsSeancesExistantes = []
+  parcoursMesure = { forfait: 32, consommees: 32 }
   journal.classesMisesAJour = []
   journal.forfaitsSoldes = []
   journal.forfaitsOuverts = []
@@ -221,7 +227,7 @@ describe('deplacer-etudiants-classe', () => {
     expect(reponse.status).toBe(200)
     expect(await reponse.json()).toMatchObject({ ok: true, deplaces: 1, forfaitsOuverts: 1 })
 
-    expect(journal.classesMisesAJour).toEqual([{ valeurs: { cohort_class_id: 'classe-intermediate' }, ids: ['insc-1'] }])
+    expect(journal.classesMisesAJour).toEqual([{ valeurs: { cohort_class_id: 'classe-intermediate', cohort_id: 'vague-1' }, ids: ['insc-1'] }])
 
     // Soldé, pas réécrit : seuls `clos_le` et la classe qu'il couvrait sont posés.
     expect(journal.forfaitsSoldes).toHaveLength(1)
@@ -268,8 +274,8 @@ describe('deplacer-etudiants-classe', () => {
   it('refuse le lot entier quand la classe d’arrivée n’a pas assez de places, sans rien déplacer', async () => {
     effectifCible = 6
     inscriptions = [
-      { id: 'insc-1', student_id: 'eleve-1', cohort_id: 'vague-1' },
-      { id: 'insc-2', student_id: 'eleve-2', cohort_id: 'vague-1' },
+      { id: 'insc-1', student_id: 'eleve-1', cohort_id: 'vague-1', cohort_class_id: 'classe-beginner' },
+      { id: 'insc-2', student_id: 'eleve-2', cohort_id: 'vague-1', cohort_class_id: 'classe-beginner' },
     ]
 
     const reponse = await appel({
@@ -279,7 +285,7 @@ describe('deplacer-etudiants-classe', () => {
     })
 
     expect(reponse.status).toBe(409)
-    expect((await reponse.json()).error).toContain('1 élève de plus')
+    expect(((await reponse.json()) as { error?: string }).error).toContain('1 élève de plus')
     expect(journal.classesMisesAJour).toEqual([])
     expect(journal.forfaitsOuverts).toEqual([])
   })
@@ -297,8 +303,63 @@ describe('deplacer-etudiants-classe', () => {
     })
 
     expect(reponse.status).toBe(409)
-    expect((await reponse.json()).error).toContain('autre vague')
+    expect(((await reponse.json()) as { error?: string }).error).toContain('autre vague')
     expect(journal.classesMisesAJour).toEqual([])
+  })
+
+  /* Mode AJOUT — zone de recherche du formulaire « Nouvelle classe », demande client du
+     2026-10-30 : « à condition que l'étudiant ait déjà consommé toutes ses heures de forfait ET
+     que l'étudiant soit déjà inscrit en cours collectif ». */
+  describe('ajout à une nouvelle classe (sans classe de départ)', () => {
+    it('accepte un élève venu d’une AUTRE vague dont le forfait est terminé, et le rattache à la nouvelle vague', async () => {
+      inscriptions = [{ id: 'insc-9', student_id: 'eleve-9', cohort_id: 'vague-0', cohort_class_id: 'classe-ancienne' }]
+      seancesParClasse['classe-ancienne'] = []
+
+      const reponse = await appel({ classeCibleId: 'classe-intermediate', studentIds: ['eleve-9'] })
+
+      expect(reponse.status).toBe(200)
+      expect(journal.classesMisesAJour).toEqual([
+        { valeurs: { cohort_class_id: 'classe-intermediate', cohort_id: 'vague-1' }, ids: ['insc-9'] },
+      ])
+      // Même règle de forfait que le déplacement : l'ancien soldé, un neuf sur la classe rejointe.
+      expect(journal.forfaitsSoldes).toHaveLength(1)
+      expect(journal.forfaitsOuverts[0]).toMatchObject({ cohort_class_id: 'classe-intermediate', total_heures: 32 })
+    })
+
+    it('refuse un élève dont le forfait n’est pas entièrement consommé', async () => {
+      inscriptions = [{ id: 'insc-9', student_id: 'eleve-9', cohort_id: 'vague-0', cohort_class_id: 'classe-ancienne' }]
+      parcoursMesure = { forfait: 32, consommees: 18 }
+
+      const reponse = await appel({ classeCibleId: 'classe-intermediate', studentIds: ['eleve-9'] })
+
+      expect(reponse.status).toBe(409)
+      expect(((await reponse.json()) as { error?: string }).error).toContain('consommé toutes les heures')
+      expect(journal.classesMisesAJour).toEqual([])
+      expect(journal.forfaitsOuverts).toEqual([])
+    })
+
+    it('refuse un élève qui n’est inscrit à aucun cours collectif', async () => {
+      inscriptions = []
+
+      const reponse = await appel({ classeCibleId: 'classe-intermediate', studentIds: ['eleve-individuel'] })
+
+      expect(reponse.status).toBe(409)
+      expect(((await reponse.json()) as { error?: string }).error).toContain('cours collectif')
+      expect(journal.classesMisesAJour).toEqual([])
+    })
+
+    it('ne pose pas la condition de forfait en mode déplacement', async () => {
+      parcoursMesure = { forfait: 32, consommees: 4 }
+
+      const reponse = await appel({
+        classeSourceId: 'classe-beginner',
+        classeCibleId: 'classe-intermediate',
+        studentIds: ['eleve-1'],
+      })
+
+      expect(reponse.status).toBe(200)
+      expect(journal.classesMisesAJour).toHaveLength(1)
+    })
   })
 
   it('refuse un élève qui n’est pas inscrit dans la classe de départ', async () => {
