@@ -37,6 +37,8 @@ const etudiant: Profile = {
   whatsapp: null,
   adresse: 'Lot II M 12, Antananarivo',
   ville: 'Antananarivo',
+  pays: null,
+  dossier_complet_confirme: false,
   date_naissance: null,
   lieu_naissance: null,
   taux_horaire_individuel: null,
