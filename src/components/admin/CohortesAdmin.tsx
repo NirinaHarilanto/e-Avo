@@ -739,10 +739,11 @@ function ClassesVague({
                   {periode && <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{periode}</span>}
                   {classe.nom && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{classe.nom}</span>}
                 </div>
-                {/* Principal et secondaire(s) sur deux lignes distinctes (demande client du
-                    2026-10-30) : la ligne unique « créneau · professeur » ne disait pas lequel
-                    des deux rôles portait le nom affiché. */}
-                <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{LABEL_CRENEAU_CLASSE[classe.creneau]}</div>
+                {/* L'étiquette Matin/Midi/Soir a été retirée le 2026-10-30 (demande client) :
+                    l'heure figure déjà dans l'intitulé de la classe (ex. « Beginner 19h30 »),
+                    la répéter sous une autre forme n'ajoutait rien. Principal et secondaire(s)
+                    restent sur deux lignes distinctes, l'un ne disant pas lequel des deux rôles
+                    portait le nom affiché. */}
                 <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                   Professeur principal :{' '}
                   <span style={{ color: prof ? 'var(--ink-2)' : 'var(--muted-2)', fontWeight: prof ? 700 : 400 }}>
