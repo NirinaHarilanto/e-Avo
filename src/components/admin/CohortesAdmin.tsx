@@ -517,7 +517,7 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
 
       {ouverte && (
         <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <ClassesVague cohorte={cohorte} classes={classes} loading={chargementClasses} recharger={rechargerClasses} />
+          <ClassesVague cohorte={cohorte} classes={classes} loading={chargementClasses} recharger={rechargerClasses} heuresForfait={forfaitVague} />
 
           {/* Planning prévisionnel de la vague ENTIÈRE (demande client du 2026-09-23, point 8) :
               chemin legacy, seulement tant qu'aucune classe de niveau n'a été créée (0074) — dès
@@ -557,11 +557,13 @@ function ClassesVague({
   classes,
   loading,
   recharger,
+  heuresForfait,
 }: {
   cohorte: Cohort
   classes: CohortClassRow[]
   loading: boolean
   recharger: () => void
+  heuresForfait: number
 }) {
   const { professeurs } = useProfesseurs()
   const [effectifs, setEffectifs] = useState<Map<string, string[]>>(new Map())
@@ -807,6 +809,7 @@ function ClassesVague({
                     cohortClassId={classe.id}
                     teacherId={classe.teacher_id}
                     dateFinParDefaut={cohorte.date_fin}
+                    heuresForfait={heuresForfait}
                     titre={`Planifier de nouveaux créneaux · ${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` — ${classe.nom}` : ''}`}
                     peutModifier
                   />

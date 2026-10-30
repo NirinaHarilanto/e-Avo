@@ -148,6 +148,7 @@ export function CoursCollectifsProfesseur() {
                       cohortClassId={c.classe.id}
                       endpoint="/api/professeur/planifier-seances-prevision"
                       dateFinParDefaut={c.cohorte?.date_fin}
+                      heuresForfait={c.cohorte?.heures_forfait ?? 32}
                       titre={`Planning prévisionnel · ${LABEL_NIVEAU_CLASSE[c.classe.niveau]}${c.classe.nom ? ` — ${c.classe.nom}` : ''}`}
                       peutModifier
                     />

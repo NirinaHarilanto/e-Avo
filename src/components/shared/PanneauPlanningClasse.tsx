@@ -65,6 +65,16 @@ export function PanneauPlanningClasse({
 }) {
   const { seances, loading, recharger } = useSeancesClasse({ cohortClassId, cohortId })
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
+  /* Séances restantes sur le forfait (0074/0140, demande client du 2026-10-30, capture à
+     l'appui) : une « planifiée » (à venir) ou une « terminée » (déjà donnée) consomme une
+     séance du forfait — c'est la même paire de statuts qui écrit des heures à la clôture
+     (api/professeur/cloturer-seance.ts). Une « annulée » n'a jamais eu lieu, et une « reportée »
+     (clôturée sans compter d'heures, absence constatée) non plus : aucune des deux n'est
+     décomptée ici, exactement comme côté heures. Un professeur de classe collective enseigne par
+     séances d'une heure (convention de l'établissement) : le compte de séances se lit donc
+     directement sur le même forfait en HEURES que `heuresForfait`, sans conversion. */
+  const seancesUtilisees = seances.filter((s) => s.session.statut === 'planifiee' || s.session.statut === 'terminee').length
+  const seancesRestantes = heuresForfait != null ? Math.max(0, heuresForfait - seancesUtilisees) : null
   /* Identifiant plutôt qu'un instantané de la séance : après une clôture, le pop-up reste ouvert
      (demande client du 2026-10-12, « proposer le compte rendu avant de fermer le pop-up ») — il
      faut donc que `seanceOuverte` se mette à jour avec la séance rechargée (statut, présence),
@@ -78,7 +88,25 @@ export function PanneauPlanningClasse({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Planning déjà posé</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Planning déjà posé</span>
+          {seancesRestantes != null && (
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: seancesRestantes <= 0 ? 'var(--danger)' : 'var(--accent-teal)',
+                background: seancesRestantes <= 0 ? 'rgba(255,138,112,.12)' : 'rgba(111,227,192,.14)',
+                border: `1px solid ${seancesRestantes <= 0 ? 'rgba(255,138,112,.3)' : 'rgba(111,227,192,.3)'}`,
+                borderRadius: 999,
+                padding: '3px 10px',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {seancesRestantes <= 0 ? 'Forfait épuisé' : `${seancesRestantes} séance${seancesRestantes > 1 ? 's' : ''} restante${seancesRestantes > 1 ? 's' : ''} sur ${heuresForfait}`}
+            </span>
+          )}
+        </div>
         {loading ? (
           <EtatChargement lignes={3} hauteur={32} />
         ) : seances.length === 0 ? (
