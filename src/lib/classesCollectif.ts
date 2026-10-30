@@ -50,6 +50,24 @@ export function periodeClasse(classe: { date_debut: string | null; date_fin: str
   return null
 }
 
+/* Séances restantes sur le forfait d'une classe collective (0074/0140, demande client du
+   2026-10-30 : « il faudrait afficher les séances restantes pour les cours collectifs »), posée
+   ici pour être lue identiquement aux deux endroits qui en ont besoin — le pop-up planning
+   (PanneauPlanningClasse.tsx) et la ligne de classe de l'espace professeur
+   (CoursCollectifsProfesseur.tsx) — sans dupliquer le calcul.
+
+   Une « planifiee » (à venir) ou une « terminee » (déjà donnée) consomme une séance du forfait —
+   c'est la même paire de statuts qui écrit des heures à la clôture
+   (api/professeur/cloturer-seance.ts). Une « annulée » n'a jamais eu lieu, et une « reportée »
+   (clôturée sans compter d'heures, absence constatée) non plus : aucune des deux n'est décomptée
+   ici, exactement comme côté heures. Un professeur de classe collective enseigne par séances
+   d'une heure (convention de l'établissement) : le compte de séances se lit donc directement sur
+   le même forfait en HEURES que `heuresForfait`, sans conversion. Jamais négatif. */
+export function seancesRestantesClasse(seancesDeLaClasse: { statut: string }[], heuresForfait: number): number {
+  const utilisees = seancesDeLaClasse.filter((s) => s.statut === 'planifiee' || s.statut === 'terminee').length
+  return Math.max(0, heuresForfait - utilisees)
+}
+
 /* En dessous de ce seuil, la classe ne doit pas démarrer ses cours (règle client) — un signal
    pour l'admin, pas un blocage d'inscription. */
 export const CAPACITE_MIN_CLASSE = 3

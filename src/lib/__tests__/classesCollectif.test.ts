@@ -7,6 +7,7 @@ import {
   parcoursCollectifTermine,
   periodeClasse,
   rangNiveauCecrl,
+  seancesRestantesClasse,
 } from '../classesCollectif'
 
 describe('categorieDepuisNiveauEstime', () => {
@@ -155,5 +156,28 @@ describe('parcoursCollectifTermine', () => {
   it('n’est jamais terminé sans forfait connu, plutôt qu’une réévaluation prématurée', () => {
     expect(parcoursCollectifTermine(100, null)).toBe(false)
     expect(parcoursCollectifTermine(100, 0)).toBe(false)
+  })
+})
+
+describe('seancesRestantesClasse', () => {
+  it('décompte les séances planifiées et terminées, jamais les annulées ni les reportées', () => {
+    const seances = [
+      { statut: 'planifiee' },
+      { statut: 'planifiee' },
+      { statut: 'terminee' },
+      { statut: 'annulee' },
+      { statut: 'reportee' },
+    ]
+    // 32 - 3 (planifiee + planifiee + terminee), les 2 autres ne comptent pas.
+    expect(seancesRestantesClasse(seances, 32)).toBe(29)
+  })
+
+  it('ne descend jamais sous zéro quand le forfait est dépassé', () => {
+    const seances = Array.from({ length: 5 }, () => ({ statut: 'terminee' }))
+    expect(seancesRestantesClasse(seances, 3)).toBe(0)
+  })
+
+  it('renvoie le forfait entier sans aucune séance', () => {
+    expect(seancesRestantesClasse([], 32)).toBe(32)
   })
 })

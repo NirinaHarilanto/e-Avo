@@ -7,6 +7,7 @@ import { EtatChargement } from '../ui/Etats'
 import { ListeRepliable } from '../ui/Repliable'
 import { Modale } from '../ui/Modale'
 import { formaterMinutes } from '../../lib/heures'
+import { seancesRestantesClasse } from '../../lib/classesCollectif'
 import type { Database } from '../../types/database.types'
 
 type Session = Database['public']['Tables']['sessions']['Row']
@@ -66,15 +67,9 @@ export function PanneauPlanningClasse({
   const { seances, loading, recharger } = useSeancesClasse({ cohortClassId, cohortId })
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
   /* Séances restantes sur le forfait (0074/0140, demande client du 2026-10-30, capture à
-     l'appui) : une « planifiée » (à venir) ou une « terminée » (déjà donnée) consomme une
-     séance du forfait — c'est la même paire de statuts qui écrit des heures à la clôture
-     (api/professeur/cloturer-seance.ts). Une « annulée » n'a jamais eu lieu, et une « reportée »
-     (clôturée sans compter d'heures, absence constatée) non plus : aucune des deux n'est
-     décomptée ici, exactement comme côté heures. Un professeur de classe collective enseigne par
-     séances d'une heure (convention de l'établissement) : le compte de séances se lit donc
-     directement sur le même forfait en HEURES que `heuresForfait`, sans conversion. */
-  const seancesUtilisees = seances.filter((s) => s.session.statut === 'planifiee' || s.session.statut === 'terminee').length
-  const seancesRestantes = heuresForfait != null ? Math.max(0, heuresForfait - seancesUtilisees) : null
+     l'appui) — calcul partagé avec la ligne de classe de l'espace professeur
+     (CoursCollectifsProfesseur.tsx), voir `seancesRestantesClasse` (lib/classesCollectif.ts). */
+  const seancesRestantes = heuresForfait != null ? seancesRestantesClasse(seances.map((s) => s.session), heuresForfait) : null
   /* Identifiant plutôt qu'un instantané de la séance : après une clôture, le pop-up reste ouvert
      (demande client du 2026-10-12, « proposer le compte rendu avant de fermer le pop-up ») — il
      faut donc que `seanceOuverte` se mette à jour avec la séance rechargée (statut, présence),

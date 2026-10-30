@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { supabase } from '../../lib/supabaseClient'
-import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, COULEUR_NIVEAU_CLASSE, periodeClasse } from '../../lib/classesCollectif'
+import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, COULEUR_NIVEAU_CLASSE, periodeClasse, seancesRestantesClasse } from '../../lib/classesCollectif'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { TagAucunCoursPlanifie } from '../etudiants/CarteListeEtudiant'
 import { PanneauPlanningClasse } from '../shared/PanneauPlanningClasse'
@@ -32,6 +32,15 @@ export function CoursCollectifsProfesseur() {
      admin (CohortesAdmin.tsx), avec le même critère : une « planifiee » déjà passée n'en est pas
      une (elle attend une clôture, voir le commentaire jumeau côté admin). */
   const [classesAvecSeanceAVenir, setClassesAvecSeanceAVenir] = useState<Set<string>>(new Set())
+  /* Séances restantes sur le forfait, par classe — demande client du 2026-10-30, capture à
+     l'appui : « il faudrait afficher les séances restantes pour les cours collectifs », visible
+     directement sur la ligne de la classe, sans avoir à ouvrir son planning. Même calcul, même
+     wording que le badge posé le même jour dans le pop-up Planning (PanneauPlanningClasse.tsx) :
+     une « planifiee » ou une « terminee » consomme une séance du forfait, une « annulée » ou une
+     « reportée » non. Un professeur de classe collective enseigne par séances d'une heure
+     (convention de l'établissement) : le compte de séances se lit directement sur le forfait en
+     HEURES, sans conversion. */
+  const [seancesRestantesParClasse, setSeancesRestantesParClasse] = useState<Map<string, number>>(new Map())
 
   useEffect(() => {
     let annule = false
@@ -39,16 +48,36 @@ export function CoursCollectifsProfesseur() {
       const classeIds = classes.map((c) => c.classe.id)
       if (classeIds.length === 0) {
         setClassesAvecSeanceAVenir(new Set())
+        setSeancesRestantesParClasse(new Map())
         return
       }
-      const { data } = await supabase
-        .from('sessions')
-        .select('cohort_class_id')
-        .in('cohort_class_id', classeIds)
-        .eq('statut', 'planifiee')
-        .gte('debut', new Date().toISOString())
+      const [{ data: aVenir }, { data: toutes }] = await Promise.all([
+        supabase
+          .from('sessions')
+          .select('cohort_class_id')
+          .in('cohort_class_id', classeIds)
+          .eq('statut', 'planifiee')
+          .gte('debut', new Date().toISOString()),
+        supabase.from('sessions').select('cohort_class_id, statut').in('cohort_class_id', classeIds),
+      ])
       if (annule) return
-      setClassesAvecSeanceAVenir(new Set((data ?? []).map((s) => s.cohort_class_id).filter((id): id is string => !!id)))
+      setClassesAvecSeanceAVenir(new Set((aVenir ?? []).map((s) => s.cohort_class_id).filter((id): id is string => !!id)))
+
+      const seancesParClasse = new Map<string, { statut: string }[]>()
+      for (const s of toutes ?? []) {
+        if (!s.cohort_class_id) continue
+        const liste = seancesParClasse.get(s.cohort_class_id) ?? []
+        liste.push(s)
+        seancesParClasse.set(s.cohort_class_id, liste)
+      }
+      const restantesParClasse = new Map<string, number>()
+      for (const c of classes) {
+        restantesParClasse.set(
+          c.classe.id,
+          seancesRestantesClasse(seancesParClasse.get(c.classe.id) ?? [], c.cohorte?.heures_forfait ?? 32),
+        )
+      }
+      setSeancesRestantesParClasse(restantesParClasse)
     }
     charger()
     return () => {
@@ -139,6 +168,27 @@ export function CoursCollectifsProfesseur() {
                       titre="Aucune séance à venir pour cette classe. Les séances déjà passées, clôturées ou non, ne comptent pas ici."
                     />
                   )}
+                  {seancesRestantesParClasse.has(c.classe.id) &&
+                    (() => {
+                      const forfait = c.cohorte?.heures_forfait ?? 32
+                      const restantes = seancesRestantesParClasse.get(c.classe.id)!
+                      return (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: restantes <= 0 ? 'var(--danger)' : 'var(--accent-teal)',
+                            background: restantes <= 0 ? 'rgba(255,138,112,.12)' : 'rgba(111,227,192,.14)',
+                            border: `1px solid ${restantes <= 0 ? 'rgba(255,138,112,.3)' : 'rgba(111,227,192,.3)'}`,
+                            borderRadius: 999,
+                            padding: '3px 10px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {restantes <= 0 ? 'Forfait épuisé' : `${restantes} séance${restantes > 1 ? 's' : ''} restante${restantes > 1 ? 's' : ''} sur ${forfait}`}
+                        </span>
+                      )
+                    })()}
                   <button onClick={() => setClasseDepliee(depliee ? null : c.classe.id)} style={boutonSecondaireStyle}>
                     {depliee ? 'Masquer le planning' : 'Planning de la classe'}
                   </button>
