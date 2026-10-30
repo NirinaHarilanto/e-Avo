@@ -18,7 +18,7 @@ import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { boutonPrimaireStyle, boutonSecondaireStyle, boutonDangerStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
-import { champStyle } from '../ui/Champ'
+import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { Onglets } from '../ui/Onglets'
 import { Modale } from '../ui/Modale'
 import { PanneauPlanningClasse } from '../shared/PanneauPlanningClasse'
@@ -571,11 +571,13 @@ function ClassesVague({
   const [classesEleveDepliees, setClassesEleveDepliees] = useState<Set<string>>(new Set())
   const [profilsEleves, setProfilsEleves] = useState<Map<string, Profile>>(new Map())
   const [classesEnChargement, setClassesEnChargement] = useState<Set<string>>(new Set())
-  /* Attribution de professeur à une classe — demande client du 2026-10-11 : « un bouton attribuer
+  /* Gestion des professeurs d'une classe — demande client du 2026-10-11 : « un bouton attribuer
      un professeur pour chaque ligne de classe », à côté de « Modifier » (qui reste le chemin
-     pour TOUS les champs de la classe) plutôt qu'à sa place — même logique que le bouton dédié
-     déjà posé pour un élève individuel (AttribuerProfesseur.tsx). */
-  const [classePourProfesseur, setClassePourProfesseur] = useState<CohortClassRow | null>(null)
+     pour TOUS les champs de la classe) plutôt qu'à sa place. Depuis le 2026-10-30, ce bouton
+     ouvre une pop-up (ProfesseursClasseModale) au lieu de déplier un formulaire dans la ligne.
+     L'IDENTIFIANT de la classe, jamais la ligne elle-même : la pop-up reste ouverte après une
+     attribution, et doit alors afficher la classe RECHARGÉE, pas l'instantané capturé au clic. */
+  const [classePourProfesseur, setClassePourProfesseur] = useState<string | null>(null)
   // Co-professeurs actifs par classe (0142, « co-enseignant actif ») : titulaire géré ci-dessus,
   // co-professeur(s) additionnel(s) gérés par CoProfesseursClasse.
   const [coProfesseurs, setCoProfesseurs] = useState<Map<string, { id: string; teacher_id: string }[]>>(new Map())
@@ -694,6 +696,11 @@ function ClassesVague({
           effectif < CAPACITE_MIN_CLASSE ? 'var(--danger)' : effectif >= CAPACITE_MAX_CLASSE ? 'var(--accent-gold, #e9cf94)' : 'var(--accent-teal)'
         const couleurNiveau = COULEUR_NIVEAU_CLASSE[classe.niveau]
         const periode = periodeClasse(classe)
+        const coProfsClasse = coProfesseurs.get(classe.id) ?? []
+        const nomsCoProfesseurs = coProfsClasse
+          .map((cp) => professeurs.find((p) => p.id === cp.teacher_id))
+          .filter((p): p is Database['public']['Tables']['profiles']['Row'] => !!p)
+          .map((p) => `${p.prenom} ${p.nom}`)
 
         if (classeEnEdition?.id === classe.id) {
           return (
@@ -732,9 +739,22 @@ function ClassesVague({
                   {periode && <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>{periode}</span>}
                   {classe.nom && <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{classe.nom}</span>}
                 </div>
+                {/* Principal et secondaire(s) sur deux lignes distinctes (demande client du
+                    2026-10-30) : la ligne unique « créneau · professeur » ne disait pas lequel
+                    des deux rôles portait le nom affiché. */}
+                <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{LABEL_CRENEAU_CLASSE[classe.creneau]}</div>
                 <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                  {LABEL_CRENEAU_CLASSE[classe.creneau]} · {prof ? `${prof.prenom} ${prof.nom}` : 'Aucun professeur désigné'}
+                  Professeur principal :{' '}
+                  <span style={{ color: prof ? 'var(--ink-2)' : 'var(--muted-2)', fontWeight: prof ? 700 : 400 }}>
+                    {prof ? `${prof.prenom} ${prof.nom}` : 'non désigné'}
+                  </span>
                 </div>
+                {nomsCoProfesseurs.length > 0 && (
+                  <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                    Professeur{nomsCoProfesseurs.length > 1 ? 's' : ''} secondaire{nomsCoProfesseurs.length > 1 ? 's' : ''} :{' '}
+                    <span style={{ color: 'var(--ink-2)', fontWeight: 700 }}>{nomsCoProfesseurs.join(', ')}</span>
+                  </div>
+                )}
               </div>
               <span style={{ fontSize: 11.5, fontWeight: 700, color: couleur }}>
                 {effectif} / {CAPACITE_MAX_CLASSE} élève{effectif > 1 ? 's' : ''}
@@ -744,11 +764,11 @@ function ClassesVague({
                 {classesEleveDepliees.has(classe.id) ? 'Masquer les élèves' : 'Voir les élèves'}
               </button>
               <button
-                onClick={() => setClassePourProfesseur(classePourProfesseur?.id === classe.id ? null : classe)}
+                onClick={() => setClassePourProfesseur(classe.id)}
                 className={prof ? undefined : 'btn-shine'}
                 style={prof ? boutonSecondaireStyle : { ...boutonPrimaireStyle, fontSize: 12.5, padding: '7px 13px' }}
               >
-                {prof ? 'Changer de professeur' : 'Attribuer un professeur'}
+                {prof || coProfsClasse.length > 0 ? 'Voir les professeurs' : 'Attribuer un professeur'}
               </button>
               <button onClick={() => setClasseEnEdition(classe)} style={boutonSecondaireStyle}>
                 Modifier
@@ -761,28 +781,16 @@ function ClassesVague({
               </button>
             </div>
 
-            {classePourProfesseur?.id === classe.id && (
-              <AttribuerProfesseurClasse
+            {classePourProfesseur === classe.id && (
+              <ProfesseursClasseModale
                 classe={classe}
                 professeurs={professeurs}
-                onAnnuler={() => setClassePourProfesseur(null)}
-                onAttribue={() => {
-                  setClassePourProfesseur(null)
+                coProfesseurs={coProfsClasse}
+                onFermer={() => setClassePourProfesseur(null)}
+                onChange={() => {
                   recharger()
+                  chargerCoProfesseurs()
                 }}
-              />
-            )}
-
-            {/* Co-professeur(s) de la classe (0142) — seulement une fois un titulaire désigné,
-                même garde que « Ajouter un second professeur » côté élève individuel
-                (AttribuerProfesseur.tsx) : sans titulaire, le bouton juste au-dessus fait déjà
-                exactement cela. */}
-            {classe.teacher_id && (
-              <CoProfesseursClasse
-                classe={classe}
-                professeurs={professeurs}
-                coProfesseurs={coProfesseurs.get(classe.id) ?? []}
-                onChange={chargerCoProfesseurs}
               />
             )}
 
@@ -852,36 +860,71 @@ function ClassesVague({
   )
 }
 
-/* Attribution du professeur d'une classe de niveau — demande client du 2026-10-11 : « pour les
-   étudiants en cours collectifs, l'attribution de professeur devrait se faire uniquement dans
-   l'admin depuis la section cours collectifs, onglet vague. Mettre un bouton attribuer un
-   professeur pour chaque ligne de classe. » Même pattern que AttribuerProfesseur.tsx (élève
-   individuel) : un bouton qui se déplie en formulaire, pas une case perdue parmi d'autres dans un
-   formulaire générique.
+/* Toute la gestion des professeurs d'une classe de niveau, dans UNE SEULE pop-up — demande
+   client du 2026-10-30 : « quand l'utilisateur clique sur le bouton [...] un pop-up devrait
+   apparaître au lieu d'un pliage/dépliage d'informations. Dans le pop-up, on doit pouvoir
+   ajouter, changer ou supprimer un professeur principal ou secondaire ». Elle remplace les deux
+   blocs qui se dépliaient l'un sous l'autre dans la ligne de classe (attribution du titulaire
+   d'un côté, co-professeurs de l'autre) : la ligne devenait illisible dès qu'un second
+   professeur était attribué, et rien n'y disait lequel des deux rôles portait quel nom.
 
-   Simple colonne `cohort_classes.teacher_id` (pas de table d'historique comme
-   `teacher_assignments` côté élève individuel) : une classe n'a qu'un seul professeur à la fois,
-   rien à transférer ou migrer au changement — un UPDATE suffit. « Instantanément pris en compte
-   dans toute l'application, y compris les étudiants » : géré par useVagueEtudiant.ts, qui résout
-   désormais le professeur depuis LA CLASSE de l'élève (teacher_id) et non plus depuis la
-   promotion entière — sans quoi deux classes d'une même vague, confiées à deux professeurs
-   différents, auraient affiché le même nom aux élèves des deux groupes. */
-function AttribuerProfesseurClasse({
+   Deux mécanismes distincts derrière les deux sections, inchangés depuis 0142 :
+     * PRINCIPAL = `cohort_classes.teacher_id` (0074). Un seul, posé, remplacé ou retiré par un
+       simple UPDATE — les séances déjà planifiées gardent leur propre `teacher_id` et ne sont
+       donc jamais touchées, exactement comme avant cette pop-up.
+     * SECONDAIRE(S) = `cohort_class_teachers` (0142), autant qu'on veut. L'ajout passe par la
+       fonction SQL `ajouter_professeur_classe` (rien à transférer) ; le retrait par
+       api/admin/retirer-professeur-classe.ts, qui ANNULE en plus les séances à venir de ce
+       professeur pour cette classe — retirer une réunion Google et prévenir les personnes
+       concernées est hors de portée de Postgres.
+   D'où une asymétrie assumée, et dite à l'écran : retirer un secondaire annule ses séances à
+   venir, retirer le principal n'annule rien. */
+function ProfesseursClasseModale({
   classe,
   professeurs,
-  onAnnuler,
-  onAttribue,
+  coProfesseurs,
+  onFermer,
+  onChange,
 }: {
   classe: CohortClassRow
   professeurs: Database['public']['Tables']['profiles']['Row'][]
-  onAnnuler: () => void
-  onAttribue: () => void
+  coProfesseurs: { id: string; teacher_id: string }[]
+  onFermer: () => void
+  onChange: () => void
 }) {
-  const [teacherId, setTeacherId] = useState(classe.teacher_id ?? '')
+  const { session } = useProfileContext()
+  /* Ouverte d'emblée sur le choix du principal quand la classe n'en a aucun : c'est la seule
+     raison d'ouvrir cette pop-up dans ce cas-là — le bouton s'appelle alors « Attribuer un
+     professeur », pas « Voir les professeurs ». */
+  const [formulaire, setFormulaire] = useState<'principal' | 'secondaire' | null>(classe.teacher_id ? null : 'principal')
+  const [teacherId, setTeacherId] = useState('')
+  const [motif, setMotif] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  const [secondaireARetirer, setSecondaireARetirer] = useState<{ id: string; teacher_id: string } | null>(null)
+  const [retraitPrincipal, setRetraitPrincipal] = useState(false)
 
-  async function attribuer() {
+  const principal = professeurs.find((p) => p.id === classe.teacher_id) ?? null
+  /* Ni le titulaire ni un co-professeur déjà actif : la base refuserait le doublon (index unique
+     de 0142) et l'admin ne l'aurait découvert qu'après avoir cliqué. */
+  const idsExclus = new Set<string | null>([classe.teacher_id, ...coProfesseurs.map((c) => c.teacher_id)])
+  const proposables = professeurs.filter((p) => !idsExclus.has(p.id))
+
+  function nommer(id: string) {
+    const prof = professeurs.find((p) => p.id === id)
+    return prof ? `${prof.prenom} ${prof.nom}` : 'Professeur inconnu'
+  }
+
+  function reinitialiser() {
+    setFormulaire(null)
+    setTeacherId('')
+    setMotif('')
+    setErreur(null)
+    setSecondaireARetirer(null)
+    setRetraitPrincipal(false)
+  }
+
+  async function enregistrerPrincipal() {
     if (!teacherId) return
     setEnCours(true)
     setErreur(null)
@@ -891,77 +934,24 @@ function AttribuerProfesseurClasse({
       setErreur(error.message)
       return
     }
-    onAttribue()
+    reinitialiser()
+    onChange()
   }
 
-  return (
-    <div className="card" style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <h4 style={{ fontSize: 13, color: 'var(--accent-gold, #e9cf94)', margin: 0 }}>
-        {classe.teacher_id ? 'Changer de professeur' : 'Attribuer un professeur'} ·{' '}
-        {LABEL_NIVEAU_CLASSE[classe.niveau]}
-        {classe.nom ? ` — ${classe.nom}` : ''}
-      </h4>
-      <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} style={champStyle}>
-        <option value="">Choisir un professeur</option>
-        {professeurs.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.prenom} {p.nom}
-          </option>
-        ))}
-      </select>
-      {erreur && <MessageErreur>{erreur}</MessageErreur>}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={onAnnuler} disabled={enCours} style={boutonSecondaireStyle}>
-          Annuler
-        </button>
-        <button
-          onClick={attribuer}
-          disabled={!teacherId || enCours}
-          className="btn-shine"
-          style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: !teacherId || enCours ? 0.6 : 1 }}
-        >
-          {enCours ? 'Enregistrement…' : 'Confirmer'}
-        </button>
-      </div>
-    </div>
-  )
-}
+  async function retirerPrincipal() {
+    setEnCours(true)
+    setErreur(null)
+    const { error } = await supabase.from('cohort_classes').update({ teacher_id: null }).eq('id', classe.id)
+    setEnCours(false)
+    if (error) {
+      setErreur(error.message)
+      return
+    }
+    reinitialiser()
+    onChange()
+  }
 
-/* Co-professeur(s) d'une classe de niveau (0142) — pendant collectif du bouton « Ajouter un
-   second professeur » de AttribuerProfesseur.tsx (0138, élève individuel), avec une différence
-   assumée : une classe collective a des séances COMMUNES à tout le groupe, pas un planning 1:1
-   par professeur. Le rôle retenu avec le client est donc « co-enseignant actif » — le titulaire
-   (`cohort_classes.teacher_id`, géré par AttribuerProfesseurClasse ci-dessus) et chaque
-   co-professeur voient la classe dans leur propre espace et peuvent CHACUN y planifier des
-   séances ; chaque séance reste attribuée à qui l'a créée (`sessions.teacher_id`), donc la
-   rémunération suit déjà la bonne personne sans rien y changer. L'ajout est une fonction SQL
-   (`ajouter_professeur_classe`, rien à transférer) ; le retrait passe par une route serveur
-   (`api/admin/retirer-professeur-classe.ts`) car il annule les séances à venir de ce
-   co-professeur pour cette classe — retirer une réunion Google et prévenir les personnes
-   concernées est hors de portée de Postgres, exactement comme pour l'élève individuel. */
-function CoProfesseursClasse({
-  classe,
-  professeurs,
-  coProfesseurs,
-  onChange,
-}: {
-  classe: CohortClassRow
-  professeurs: Database['public']['Tables']['profiles']['Row'][]
-  coProfesseurs: { id: string; teacher_id: string }[]
-  onChange: () => void
-}) {
-  const { session } = useProfileContext()
-  const [formulaireOuvert, setFormulaireOuvert] = useState(false)
-  const [teacherId, setTeacherId] = useState('')
-  const [motif, setMotif] = useState('')
-  const [enCours, setEnCours] = useState(false)
-  const [erreur, setErreur] = useState<string | null>(null)
-  const [aRetirer, setARetirer] = useState<{ id: string; teacher_id: string } | null>(null)
-
-  const idsExclus = new Set([classe.teacher_id, ...coProfesseurs.map((c) => c.teacher_id)])
-  const professeursProposables = professeurs.filter((p) => !idsExclus.has(p.id))
-
-  async function ajouter() {
+  async function ajouterSecondaire() {
     if (!teacherId) return
     setEnCours(true)
     setErreur(null)
@@ -975,20 +965,18 @@ function CoProfesseursClasse({
       setErreur(error.message)
       return
     }
-    setFormulaireOuvert(false)
-    setTeacherId('')
-    setMotif('')
+    reinitialiser()
     onChange()
   }
 
-  async function retirer() {
-    if (!aRetirer || !session) return
+  async function retirerSecondaire() {
+    if (!secondaireARetirer || !session) return
     setEnCours(true)
     setErreur(null)
     const reponse = await fetch('/api/admin/retirer-professeur-classe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-      body: JSON.stringify({ assignationId: aRetirer.id, motif: motif || null }),
+      body: JSON.stringify({ assignationId: secondaireARetirer.id, motif: motif || null }),
     })
     const resultat = (await reponse.json().catch(() => ({}))) as { error?: string }
     setEnCours(false)
@@ -996,124 +984,213 @@ function CoProfesseursClasse({
       setErreur(resultat.error ?? 'Le retrait du professeur a échoué.')
       return
     }
-    setARetirer(null)
-    setMotif('')
+    reinitialiser()
     onChange()
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {coProfesseurs.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {coProfesseurs.map((cp) => {
-            const prof = professeurs.find((p) => p.id === cp.teacher_id)
-            return (
-              <div key={cp.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5 }}>
-                <span style={{ color: 'var(--accent-teal)' }}>
-                  Co-professeur : {prof ? `${prof.prenom} ${prof.nom}` : 'Professeur inconnu'}
-                </span>
+    <Modale
+      titre={`Professeurs · ${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` — ${classe.nom}` : ''}`}
+      onFermer={onFermer}
+      largeurMax={540}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {erreur && <MessageErreur>{erreur}</MessageErreur>}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span style={{ ...etiquetteStyle, fontSize: 11 }}>Professeur principal</span>
+
+          {retraitPrincipal ? (
+            <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{ fontSize: 12.5, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6 }}>
+                Retirer <strong>{principal ? `${principal.prenom} ${principal.nom}` : 'ce professeur'}</strong> de cette
+                classe ? Les séances déjà planifiées lui restent attribuées et ne sont pas annulées. Tant qu'aucun
+                professeur principal n'est désigné, la classe ne peut plus être planifiée depuis l'administration.
+              </p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setRetraitPrincipal(false)} disabled={enCours} style={{ ...boutonSecondaireStyle, flexGrow: 1 }}>
+                  Annuler
+                </button>
+                <button
+                  onClick={retirerPrincipal}
+                  disabled={enCours}
+                  style={{ ...boutonDangerStyle, flexGrow: 1, opacity: enCours ? 0.6 : 1 }}
+                >
+                  {enCours ? 'Retrait…' : 'Retirer'}
+                </button>
+              </div>
+            </div>
+          ) : formulaire === 'principal' ? (
+            <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} style={champStyle}>
+                <option value="">Choisir un professeur</option>
+                {proposables.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.prenom} {p.nom}
+                  </option>
+                ))}
+              </select>
+              {proposables.length === 0 && (
+                <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0 }}>
+                  Tous les professeurs sont déjà attribués à cette classe.
+                </p>
+              )}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={reinitialiser} disabled={enCours} style={boutonSecondaireStyle}>
+                  Annuler
+                </button>
+                <button
+                  onClick={enregistrerPrincipal}
+                  disabled={!teacherId || enCours}
+                  className="btn-shine"
+                  style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: !teacherId || enCours ? 0.6 : 1 }}
+                >
+                  {enCours ? 'Enregistrement…' : 'Confirmer'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, color: principal ? 'var(--ink)' : 'var(--muted-2)', flexGrow: 1, minWidth: 140 }}>
+                {principal ? `${principal.prenom} ${principal.nom}` : 'Aucun professeur principal désigné'}
+              </span>
+              <button
+                onClick={() => {
+                  setErreur(null)
+                  setTeacherId('')
+                  setFormulaire('principal')
+                }}
+                style={boutonSecondaireStyle}
+              >
+                {principal ? 'Changer' : 'Attribuer'}
+              </button>
+              {principal && (
                 <button
                   onClick={() => {
                     setErreur(null)
-                    setMotif('')
-                    setARetirer(cp)
+                    setRetraitPrincipal(true)
                   }}
-                  style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+                  style={boutonDangerStyle}
                 >
                   Retirer
                 </button>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {!formulaireOuvert ? (
-        <button
-          onClick={() => {
-            setErreur(null)
-            setFormulaireOuvert(true)
-          }}
-          style={{ ...boutonSecondaireStyle, alignSelf: 'flex-start' }}
-        >
-          + Ajouter un second professeur
-        </button>
-      ) : (
-        <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} style={champStyle}>
-            <option value="">Choisir un professeur</option>
-            {professeursProposables.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.prenom} {p.nom}
-              </option>
-            ))}
-          </select>
-          {professeursProposables.length === 0 && (
-            <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0 }}>Tous les professeurs sont déjà attribués à cette classe.</p>
-          )}
-          {erreur && <MessageErreur>{erreur}</MessageErreur>}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={() => {
-                setFormulaireOuvert(false)
-                setTeacherId('')
-                setErreur(null)
-              }}
-              disabled={enCours}
-              style={boutonSecondaireStyle}
-            >
-              Annuler
-            </button>
-            <button
-              onClick={ajouter}
-              disabled={!teacherId || enCours}
-              className="btn-shine"
-              style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: !teacherId || enCours ? 0.6 : 1 }}
-            >
-              {enCours ? 'Enregistrement…' : 'Confirmer'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {aRetirer && (
-        <Modale
-          titre={`Retirer ${(() => {
-            const prof = professeurs.find((p) => p.id === aRetirer.teacher_id)
-            return prof ? `${prof.prenom} ${prof.nom}` : 'ce professeur'
-          })()} ?`}
-          onFermer={() => setARetirer(null)}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <p style={{ fontSize: 12.5, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6 }}>
-              Ses séances encore à venir pour cette classe seront <strong>annulées</strong> et sont à replanifier. Les élèves
-              et ce professeur en seront prévenus, et les réunions correspondantes retirées de leurs agendas. Les séances
-              déjà données ne sont pas touchées.
-            </p>
-            <input
-              placeholder="Motif du retrait (optionnel)"
-              value={motif}
-              onChange={(e) => setMotif(e.target.value)}
-              style={champStyle}
-            />
-            {erreur && <MessageErreur>{erreur}</MessageErreur>}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setARetirer(null)} disabled={enCours} style={{ ...boutonSecondaireStyle, flexGrow: 1 }}>
-                Annuler
-              </button>
-              <button
-                onClick={retirer}
-                disabled={enCours}
-                className="btn-shine"
-                style={{ ...boutonDangerStyle, flexGrow: 1, opacity: enCours ? 0.6 : 1 }}
-              >
-                {enCours ? 'Retrait…' : 'Retirer et annuler ses séances'}
-              </button>
+              )}
             </div>
-          </div>
-        </Modale>
-      )}
-    </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 16 }}>
+          <span style={{ ...etiquetteStyle, fontSize: 11 }}>Professeur(s) secondaire(s)</span>
+          <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0, lineHeight: 1.5 }}>
+            Co-enseignant : il voit la classe dans son espace et peut y planifier ses propres séances, au même titre
+            que le professeur principal.
+          </p>
+
+          {secondaireARetirer ? (
+            <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{ fontSize: 12.5, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6 }}>
+                Retirer <strong>{nommer(secondaireARetirer.teacher_id)}</strong> ? Ses séances encore à venir pour cette
+                classe seront <strong>annulées</strong> et sont à replanifier. Les élèves et ce professeur en seront
+                prévenus, et les réunions correspondantes retirées de leurs agendas. Les séances déjà données ne sont
+                pas touchées.
+              </p>
+              <input
+                placeholder="Motif du retrait (optionnel)"
+                value={motif}
+                onChange={(e) => setMotif(e.target.value)}
+                style={champStyle}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setSecondaireARetirer(null)} disabled={enCours} style={{ ...boutonSecondaireStyle, flexGrow: 1 }}>
+                  Annuler
+                </button>
+                <button
+                  onClick={retirerSecondaire}
+                  disabled={enCours}
+                  style={{ ...boutonDangerStyle, flexGrow: 1, opacity: enCours ? 0.6 : 1 }}
+                >
+                  {enCours ? 'Retrait…' : 'Retirer et annuler ses séances'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              {coProfesseurs.length === 0 ? (
+                <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0 }}>Aucun professeur secondaire.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {coProfesseurs.map((cp) => (
+                    <div key={cp.id} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 13, color: 'var(--ink)', flexGrow: 1, minWidth: 140 }}>
+                        {nommer(cp.teacher_id)}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setErreur(null)
+                          setMotif('')
+                          setSecondaireARetirer(cp)
+                        }}
+                        style={boutonDangerStyle}
+                      >
+                        Retirer
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {formulaire === 'secondaire' ? (
+                <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} style={champStyle}>
+                    <option value="">Choisir un professeur</option>
+                    {proposables.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.prenom} {p.nom}
+                      </option>
+                    ))}
+                  </select>
+                  {proposables.length === 0 && (
+                    <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0 }}>
+                      Tous les professeurs sont déjà attribués à cette classe.
+                    </p>
+                  )}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={reinitialiser} disabled={enCours} style={boutonSecondaireStyle}>
+                      Annuler
+                    </button>
+                    <button
+                      onClick={ajouterSecondaire}
+                      disabled={!teacherId || enCours}
+                      className="btn-shine"
+                      style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: !teacherId || enCours ? 0.6 : 1 }}
+                    >
+                      {enCours ? 'Enregistrement…' : 'Confirmer'}
+                    </button>
+                  </div>
+                </div>
+              ) : classe.teacher_id ? (
+                <button
+                  onClick={() => {
+                    setErreur(null)
+                    setTeacherId('')
+                    setFormulaire('secondaire')
+                  }}
+                  style={{ ...boutonSecondaireStyle, alignSelf: 'flex-start' }}
+                >
+                  + Ajouter un professeur secondaire
+                </button>
+              ) : (
+                /* Même garde qu'avant la pop-up : sans titulaire, « Attribuer » ci-dessus fait
+                   déjà exactement cela — un secondaire sans principal n'aurait aucun sens. */
+                <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0 }}>
+                  Désignez d'abord un professeur principal pour pouvoir lui adjoindre un secondaire.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </Modale>
   )
 }
 
