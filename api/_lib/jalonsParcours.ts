@@ -37,6 +37,9 @@ export async function poserJalonsDeParcours(
   params: {
     etablissementId: string
     cohortId: string | null
+    /* Classe de niveau de la séance (0146) : les jalons se mesurent sur le forfait de la CLASSE,
+       pas sur le cumul de la vague — un élève monté de niveau repart à zéro, ses jalons aussi. */
+    cohortClassId?: string | null
     studentIds: string[]
     /* Professeur de la séance qui vient de faire franchir le jalon — c'est lui que l'enquête
        évalue et avec lui que le suivi se mène.
@@ -50,7 +53,13 @@ export async function poserJalonsDeParcours(
   const admins = await adminsDeLEtablissement(serviceClient, params.etablissementId)
 
   for (const studentId of params.studentIds) {
-    const { forfait, consommees } = await mesurerParcours(serviceClient, studentId, params.cohortId, params.etablissementId)
+    const { forfait, consommees } = await mesurerParcours(
+      serviceClient,
+      studentId,
+      params.cohortId,
+      params.etablissementId,
+      params.cohortClassId,
+    )
     const atteints = jalonsAtteints(consommees, forfait)
     if (atteints.length === 0 || forfait == null) continue
 

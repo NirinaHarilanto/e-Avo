@@ -15,8 +15,8 @@ export interface EtatParcoursEtudiant {
      « heures suivies / forfait d'heures en cours » sur chaque ligne) — mêmes nombres que ceux qui
      décident `forfaitEpuise` ci-dessus et les jalons de mi-parcours/fin de parcours
      (lib/jalonsParcours.ts), jamais une variante recalculée ailleurs avec une autre portée. Pour
-     un élève en vague, `consommees` ne compte que les heures DANS cette vague, pas le cumul de
-     toute sa vie de dossier (voir le commentaire de la fonction). */
+     un élève en vague, `consommees` ne compte que les heures DANS SA CLASSE (à défaut dans sa
+     vague), pas le cumul de toute sa vie de dossier (voir le commentaire de la fonction). */
   forfait: number | null
   consommees: number
 }
@@ -30,7 +30,7 @@ export interface EtatParcoursEtudiant {
    (api/_lib/finDeForfait.ts) pour que l'écran et les relances automatiques ne puissent pas dire
    deux choses différentes :
    - en vague, le forfait est celui de la vague (à défaut celui de l'établissement) et seules les
-     heures consommées DANS cette vague comptent ;
+     heures consommées DANS SA CLASSE comptent — à défaut de classe, dans sa vague (0146) ;
    - sinon, tous les forfaits souscrits se cumulent (une prolongation s'ajoute, elle ne remplace
      pas) et toutes les heures consommées comptent.
 
@@ -49,7 +49,7 @@ export function useEtatsParcoursEtudiants(studentIds: string[]) {
     const [{ data: forfaits }, { data: resumes }, { data: inscriptionsVague }, { data: seancesAVenir }] = await Promise.all([
       supabase.from('packages').select('student_id, total_heures').in('student_id', studentIds),
       supabase.from('student_hours_summary').select('student_id, heures_consommees').in('student_id', studentIds),
-      supabase.from('cohort_enrollments').select('student_id, cohort_id').in('student_id', studentIds),
+      supabase.from('cohort_enrollments').select('student_id, cohort_id, cohort_class_id').in('student_id', studentIds),
       /* Seules les séances encore « planifiée » comptent comme un cours à venir : une séance
          annulée n'aura pas lieu, une séance terminée a déjà eu lieu. */
       supabase.from('sessions').select('id').eq('statut', 'planifiee').gte('debut', maintenant),
@@ -77,16 +77,24 @@ export function useEtatsParcoursEtudiants(studentIds: string[]) {
     const forfaitCollectifDefaut = (etablissements ?? [])[0]?.heures_forfait_collectif ?? null
     const forfaitParVague = new Map((vagues ?? []).map((v) => [v.id, v.heures_forfait]))
     const vagueParEtudiant = new Map((inscriptionsVague ?? []).map((i) => [i.student_id, i.cohort_id]))
+    /* La CLASSE prime sur la vague depuis le 2026-10-30 (0146, déplacement d'un élève vers une
+       classe supérieure) : son compteur d'heures repart de zéro dans sa nouvelle classe, les
+       heures faites dans la précédente restent en base mais appartiennent à une autre classe.
+       Un élève sans classe (vague legacy, affectation en attente) garde la portée vague. */
+    const classeParEtudiant = new Map(
+      (inscriptionsVague ?? []).filter((i) => i.cohort_class_id).map((i) => [i.student_id, i.cohort_class_id as string]),
+    )
 
-    /* Heures consommées dans une vague : il faut les débits rattachés aux séances de CETTE vague,
-       pas le total de la vie du dossier — un élève passé par un parcours individuel avant de
-       rejoindre une vague verrait sinon celle-ci déclarée terminée d'emblée (même précaution que
-       `heuresConsommeesDansVague`, api/_lib/finDeForfait.ts). */
+    /* Heures consommées dans une classe (à défaut dans une vague) : il faut les débits rattachés
+       aux séances de CELLE-CI, pas le total de la vie du dossier — un élève passé par un parcours
+       individuel avant de rejoindre une vague verrait sinon celle-ci déclarée terminée d'emblée
+       (même précaution que `heuresConsommeesDansVague`, api/_lib/finDeForfait.ts). */
     const etudiantsEnVague = [...vagueParEtudiant.keys()]
     const { data: seancesDesVagues } = cohortIds.length > 0 && etudiantsEnVague.length > 0
-      ? await supabase.from('sessions').select('id, cohort_id').in('cohort_id', cohortIds)
-      : { data: [] as { id: string; cohort_id: string | null }[] }
+      ? await supabase.from('sessions').select('id, cohort_id, cohort_class_id').in('cohort_id', cohortIds)
+      : { data: [] as { id: string; cohort_id: string | null; cohort_class_id: string | null }[] }
     const vagueParSeance = new Map((seancesDesVagues ?? []).map((s) => [s.id, s.cohort_id]))
+    const classeParSeance = new Map((seancesDesVagues ?? []).map((s) => [s.id, s.cohort_class_id]))
 
     const { data: debitsVague } = await selectionParLots<{ student_id: string | null; heures: number; session_id: string | null }>(
       [...vagueParSeance.keys()],
@@ -102,8 +110,13 @@ export function useEtatsParcoursEtudiants(studentIds: string[]) {
     const consommeesDansVague = new Map<string, number>()
     for (const debit of debitsVague ?? []) {
       if (!debit.student_id || !debit.session_id) continue
-      const vagueDeLEleve = vagueParEtudiant.get(debit.student_id)
-      if (!vagueDeLEleve || vagueParSeance.get(debit.session_id) !== vagueDeLEleve) continue
+      const classeDeLEleve = classeParEtudiant.get(debit.student_id)
+      if (classeDeLEleve) {
+        if (classeParSeance.get(debit.session_id) !== classeDeLEleve) continue
+      } else {
+        const vagueDeLEleve = vagueParEtudiant.get(debit.student_id)
+        if (!vagueDeLEleve || vagueParSeance.get(debit.session_id) !== vagueDeLEleve) continue
+      }
       consommeesDansVague.set(debit.student_id, (consommeesDansVague.get(debit.student_id) ?? 0) + Number(debit.heures))
     }
 

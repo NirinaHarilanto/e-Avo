@@ -138,13 +138,18 @@ export function FicheCandidatCollectifModale({
       setVagueId(inscriptionVague?.cohort_id ?? null)
       setClasseId(inscriptionVague?.cohort_class_id ?? null)
 
-      /* Heures consommées DANS CETTE VAGUE précisément : jointure manuelle sessions→hour_ledger
-         (pas de select imbriqué, piège déjà rencontré sur adopter-seances.ts) plutôt que
-         `student_hours_summary`, qui cumule TOUTE la vie du dossier — compterait aussi les heures
-         d'une vague précédente si l'élève en a déjà changé, déclarant un parcours terminé avant
-         même d'avoir commencé le nouveau. */
+      /* Heures consommées DANS SA CLASSE précisément (à défaut, dans sa vague) : jointure
+         manuelle sessions→hour_ledger (pas de select imbriqué, piège déjà rencontré sur
+         adopter-seances.ts) plutôt que `student_hours_summary`, qui cumule TOUTE la vie du
+         dossier — compterait aussi les heures d'une vague précédente si l'élève en a déjà changé,
+         déclarant un parcours terminé avant même d'avoir commencé le nouveau. Portée rétrécie de
+         la vague à la classe le 2026-10-30 (0146) : une montée de niveau fait repartir le
+         compteur de zéro, même question, même réponse qu'api/_lib/finDeForfait.ts. */
       if (inscriptionVague?.cohort_id) {
-        const { data: seancesVague } = await supabase.from('sessions').select('id').eq('cohort_id', inscriptionVague.cohort_id)
+        const requeteSeances = supabase.from('sessions').select('id')
+        const { data: seancesVague } = await (inscriptionVague.cohort_class_id
+          ? requeteSeances.eq('cohort_class_id', inscriptionVague.cohort_class_id)
+          : requeteSeances.eq('cohort_id', inscriptionVague.cohort_id))
         const sessionIds = (seancesVague ?? []).map((s) => s.id)
         const { data: debits } = sessionIds.length
           ? await supabase.from('hour_ledger').select('heures').eq('student_id', profilData.id).eq('type_ecriture', 'debit_etudiant').in('session_id', sessionIds)

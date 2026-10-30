@@ -762,6 +762,13 @@ export interface Database {
              alerté. Marqué une seule fois par forfait, sinon le cron enverrait l'alerte chaque
              matin tant que le restant reste sous le seuil. */
           email_fin_heures_le: string | null
+          /* Classe de niveau que couvre ce forfait collectif (0146). Informatif et financier :
+             les heures suivies se comptent toujours sur `sessions.cohort_class_id`, jamais ici
+             (voir lib/classesCollectif.ts). Null pour un forfait individuel/DUO. */
+          cohort_class_id: string | null
+          /* Forfait soldé parce qu'un suivant a pris le relais lors d'une montée de classe
+             (0146). Jamais remis à null : c'est un historique, pas un état. */
+          clos_le: string | null
           created_at: string
         }
         Insert: {
@@ -777,6 +784,8 @@ export interface Database {
           essai_resultat?: 'poursuivi' | 'arrete' | 'prolonge' | null
           essai_decide_le?: string | null
           email_fin_heures_le?: string | null
+          cohort_class_id?: string | null
+          clos_le?: string | null
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['packages']['Insert']>

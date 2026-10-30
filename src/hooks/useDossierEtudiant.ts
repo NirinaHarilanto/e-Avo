@@ -70,11 +70,22 @@ export interface DossierEtudiant {
   /* Professeur de `cohortClasse`, résolu séparément (voir plus bas) — null tant qu'aucun
      professeur n'est désigné pour la classe, ou pas de classe. */
   professeurClasse: Profile | null
+  /* Toutes les heures débitées depuis l'ouverture du dossier, tous programmes confondus
+     (`student_hours_summary`, 0012). C'est le chiffre à utiliser pour un élève individuel/DUO ;
+     pour un élève collectif, c'est `heuresConsommeesClasse` qui a un sens — voir ci-dessous. */
   heuresConsommees: number
+  /* Heures suivies DANS LA CLASSE de niveau actuelle (0146, demande client du 2026-10-30 :
+     « quand un étudiant est déplacé dans une autre classe, son compteur d'heures suivies repart
+     de 0 »). Rien n'est effacé en base : les débits de l'ancienne classe restent rattachés à ses
+     séances, ils appartiennent simplement à une autre classe que celle affichée. `null` quand
+     l'élève n'a pas de classe (parcours individuel/DUO, vague legacy, affectation en attente) —
+     `heuresConsommees` reprend alors la main. */
+  heuresConsommeesClasse: number | null
   /* Part de ces heures reprise du relevé du professeur à la mise en service (0140) : elles n'ont
      donc aucune séance correspondante dans l'application. Zéro pour un dossier entièrement né
      ici. Affichée pour qu'un parcours bien entamé mais sans séance listée ne passe pas pour un
-     compteur faux. */
+     compteur faux. Comptée dans la même portée que le compteur affiché à côté d'elle : une
+     reprise suit le forfait sur lequel elle a été posée, donc la classe de ce forfait. */
   heuresReprises: number
   prochaineSeance: SeanceDuParcours | null
   /* DUO (0054) : la personne dont le profil pointe VERS ce dossier (duo_partenaire_id = ce
@@ -103,7 +114,7 @@ export function useDossierEtudiant(studentId: string | undefined) {
       { data: enrollments },
       { data: packages },
       { data: resume },
-      { data: reprises },
+      { data: debits },
       { data: inscriptionCohorte },
       { data: tousTarifs },
     ] = await Promise.all([
@@ -122,15 +133,17 @@ export function useDossierEtudiant(studentId: string | undefined) {
       supabase.from('session_enrollments').select('*').eq('student_id', studentId as string),
       supabase.from('packages').select('*').eq('student_id', studentId as string).order('created_at', { ascending: false }),
       supabase.from('student_hours_summary').select('*').eq('student_id', studentId as string).maybeSingle(),
-      /* Les seules écritures d'heures qui ne viennent pas d'une séance : la reprise du relevé du
-         professeur à la mise en service (0140). Le résumé ci-dessus les comprend déjà — celle-ci
-         sert uniquement à dire quelle part du compteur n'a pas de séance derrière elle. */
+      /* Le détail des heures débitées, ligne à ligne — le résumé ci-dessus n'en donne que la
+         somme, globale à toute la vie du dossier. Deux lectures en sortent :
+         - quelle part du compteur n'a aucune séance derrière elle (reprise du relevé du
+           professeur à la mise en service, 0140, reconnaissable à son `package_id`) ;
+         - combien d'heures ont été suivies DANS LA CLASSE actuelle (0146), seul chiffre qui ait
+           un sens pour un élève collectif depuis que monter de niveau remet son compteur à zéro. */
       supabase
         .from('hour_ledger')
-        .select('heures')
+        .select('heures, session_id, package_id')
         .eq('student_id', studentId as string)
-        .eq('type_ecriture', 'debit_etudiant')
-        .not('package_id', 'is', null),
+        .eq('type_ecriture', 'debit_etudiant'),
       supabase.from('cohort_enrollments').select('cohort_id, cohort_class_id').eq('student_id', studentId as string).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       /* Table de référence, quelques lignes : la charger ici évite l'aller-retour séparé que
          demandait le tarif choisi du prospect d'origine, qui ne pouvait partir qu'après lui. */
@@ -245,6 +258,26 @@ export function useDossierEtudiant(studentId: string | undefined) {
       if (professeur) professeursDesSeances[session.teacher_id] = professeur
     }
 
+    /* Portée « classe » des heures (0146). Une écriture appartient à la classe courante si la
+       séance qu'elle décompte est une séance de cette classe, ou — pour une reprise d'antériorité
+       (0140), qui n'a pas de séance — si le forfait qu'elle alimente couvre cette classe. Un
+       débit dont la séance n'est pas dans le dossier chargé n'est jamais compté : mieux vaut un
+       compteur prudent qu'un compteur qui gonfle avec des heures d'une autre classe. */
+    const classeParPackage = new Map((packages ?? []).map((p) => [p.id, p.cohort_class_id]))
+    const heuresConsommeesClasse = cohortClasse
+      ? (debits ?? []).reduce((total, d) => {
+          const classeDuDebit = d.session_id
+            ? (sessionParId.get(d.session_id)?.cohort_class_id ?? null)
+            : (classeParPackage.get(d.package_id ?? '') ?? null)
+          return classeDuDebit === cohortClasse.id ? total + Number(d.heures) : total
+        }, 0)
+      : null
+    /* Les reprises comptées dans la même portée que le compteur affiché à côté d'elles : sur la
+       classe courante s'il y en a une, sinon sur tout le dossier. */
+    const heuresReprises = (debits ?? [])
+      .filter((d) => d.package_id != null && (!cohortClasse || classeParPackage.get(d.package_id) === cohortClasse.id))
+      .reduce((total, d) => total + Number(d.heures), 0)
+
     const maintenant = new Date().toISOString()
     const prochaineSeance =
       seancesToutes
@@ -270,7 +303,8 @@ export function useDossierEtudiant(studentId: string | undefined) {
       cohortClasse: cohortClasse ?? null,
       professeurClasse: professeurClasse ?? null,
       heuresConsommees: resume?.heures_consommees ?? 0,
-      heuresReprises: (reprises ?? []).reduce((total, r) => total + Number(r.heures), 0),
+      heuresConsommeesClasse,
+      heuresReprises,
       prochaineSeance,
       duoPartenaire: duoPartenaire ?? null,
       tarifChoisi: tarifChoisi ?? null,

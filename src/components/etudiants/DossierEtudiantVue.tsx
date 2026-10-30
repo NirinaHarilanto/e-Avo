@@ -735,6 +735,7 @@ export function DossierEtudiantVue({
     cohortClasse,
     professeurClasse,
     heuresConsommees,
+    heuresConsommeesClasse,
     heuresReprises,
     prochaineSeance,
     tarifChoisi,
@@ -746,6 +747,17 @@ export function DossierEtudiantVue({
      remplace jamais le précédent. */
   const totalHeuresCumulees = calculerTotalHeuresCumulees(packages)
   const heuresRestantes = calculerHeuresRestantes(packages, heuresConsommees)
+  /* Un élève collectif ne lit NI le compteur global NI le cumul des forfaits : son parcours se
+     mesure dans sa CLASSE, sur le forfait de la vague (0146, demande client du 2026-10-30 —
+     « quand un étudiant est déplacé dans une autre classe, son compteur d'heures suivies repart
+     de 0 »). C'est déjà la règle appliquée partout ailleurs pour lui — useEtatsParcoursEtudiants
+     (liste Étudiants et écran Heures & forfaits), api/_lib/finDeForfait.ts (relances et jalons),
+     FicheCandidatCollectifModale — seule cette fiche lisait encore le cumul de toute sa vie de
+     dossier. Sans classe (vague legacy, affectation en attente), on retombe sur l'ancien calcul. */
+  const porteeClasse = heuresConsommeesClasse !== null
+  const heuresAffichees = heuresConsommeesClasse ?? heuresConsommees
+  const totalHeuresAffiche = porteeClasse ? (cohorte?.heures_forfait ?? forfait?.total_heures ?? 0) : totalHeuresCumulees
+  const heuresRestantesAffichees = porteeClasse ? Math.max(0, totalHeuresAffiche - heuresAffichees) : heuresRestantes
   const [editionForfaitOuverte, setEditionForfaitOuverte] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
   const [historiqueNiveauOuvert, setHistoriqueNiveauOuvert] = useState(false)
@@ -899,15 +911,22 @@ export function DossierEtudiantVue({
         <Stat
           compact
           libelle="Heures suivies"
-          valeur={formaterHeures(heuresConsommees)}
-          /* `totalHeuresCumulees` (somme de TOUS les forfaits souscrits), pas `forfait.total_heures`
-             (le dernier souscrit seul) — demande client du 2026-10-10 : un forfait ajouté en
-             prolongation d'un précédent encore en cours doit s'y voir cumulé. Avant ce correctif,
-             un élève ayant consommé 18 h sur 20 puis prolongé de 10 h affichait « 18 / 10 h »
-             (plus de 100 %) au lieu de « 18 / 30 h ». */
-          unite={forfait ? `/ ${formaterHeures(totalHeuresCumulees)}` : undefined}
+          valeur={formaterHeures(heuresAffichees)}
+          /* Hors collectif : `totalHeuresCumulees` (somme de TOUS les forfaits souscrits), pas
+             `forfait.total_heures` (le dernier souscrit seul) — demande client du 2026-10-10 : un
+             forfait ajouté en prolongation d'un précédent encore en cours doit s'y voir cumulé.
+             Avant ce correctif, un élève ayant consommé 18 h sur 20 puis prolongé de 10 h
+             affichait « 18 / 10 h » (plus de 100 %) au lieu de « 18 / 30 h ».
+             En collectif, c'est le forfait de la classe en cours : voir `porteeClasse`. */
+          unite={forfait || porteeClasse ? `/ ${formaterHeures(totalHeuresAffiche)}` : undefined}
           ton="or"
-          aide={forfait ? `Forfait${packages.length > 1 ? 's cumulés' : ''} de ${formaterHeures(totalHeuresCumulees)}` : 'Aucun forfait rattaché'}
+          aide={
+            porteeClasse
+              ? `Forfait de ${formaterHeures(totalHeuresAffiche)} sur la classe en cours`
+              : forfait
+                ? `Forfait${packages.length > 1 ? 's cumulés' : ''} de ${formaterHeures(totalHeuresCumulees)}`
+                : 'Aucun forfait rattaché'
+          }
         />
         <Stat
           compact
@@ -1165,17 +1184,27 @@ export function DossierEtudiantVue({
                       {/* Mêmes libellés que le forfait individuel (« Consommées », jamais « Heures
                           suivies ») : ce dernier nomme déjà la tuile d'en-tête du dossier, deux
                           éléments portant le même texte rendent un test par libellé ambigu. */}
-                      <LigneInfo label="Forfait de la vague" valeur={formaterHeures(forfait.total_heures)} />
-                      <LigneInfo label="Consommées" valeur={formaterHeures(heuresConsommees)} />
+                      <LigneInfo label="Forfait de la vague" valeur={formaterHeures(totalHeuresAffiche)} />
+                      <LigneInfo label="Consommées" valeur={formaterHeures(heuresAffichees)} />
                       {heuresReprises > 0 && (
                         <LigneInfo label="dont suivies avant la mise en service" valeur={formaterHeures(heuresReprises)} />
                       )}
-                      <LigneInfo label="Restantes" valeur={formaterHeures(heuresRestantes)} />
+                      <LigneInfo label="Restantes" valeur={formaterHeures(heuresRestantesAffichees)} />
+                      {/* Un élève monté de niveau a derrière lui des forfaits soldés (0146) : sans
+                          cette ligne, son compteur repartant de zéro passerait pour une perte de
+                          données alors que tout est conservé. */}
+                      {porteeClasse && packages.length > 1 && (
+                        <LigneInfo
+                          label="Forfaits précédents"
+                          valeur={`${packages.length - 1} cycle${packages.length > 2 ? 's' : ''} déjà suivi${packages.length > 2 ? 's' : ''}`}
+                        />
+                      )}
                     </>
                   )}
                 </div>
                 <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted-2)', lineHeight: 1.5 }}>
-                  Vague et classe se modifient depuis Cours collectifs, par classe — jamais élève par élève.
+                  Les heures affichées sont celles suivies dans la classe en cours. Vague et classe se modifient depuis Cours
+                  collectifs, par classe — jamais élève par élève.
                 </p>
               </>
             )}

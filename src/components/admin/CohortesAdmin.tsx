@@ -581,6 +581,9 @@ function ClassesVague({
      L'IDENTIFIANT de la classe, jamais la ligne elle-même : la pop-up reste ouverte après une
      attribution, et doit alors afficher la classe RECHARGÉE, pas l'instantané capturé au clic. */
   const [classePourProfesseur, setClassePourProfesseur] = useState<string | null>(null)
+  /* Déplacement d'élèves vers une autre classe — demande client du 2026-10-30, capture à l'appui.
+     Même choix que ci-dessus : l'identifiant de la classe de départ, pas la ligne elle-même. */
+  const [classePourDeplacement, setClassePourDeplacement] = useState<string | null>(null)
   // Co-professeurs actifs par classe (0142, « co-enseignant actif ») : titulaire géré ci-dessus,
   // co-professeur(s) additionnel(s) gérés par CoProfesseursClasse.
   const [coProfesseurs, setCoProfesseurs] = useState<Map<string, { id: string; teacher_id: string }[]>>(new Map())
@@ -797,6 +800,12 @@ function ClassesVague({
               <button onClick={() => basculerVoirEleves(classe)} style={boutonSecondaireStyle}>
                 {classesEleveDepliees.has(classe.id) ? 'Masquer les élèves' : 'Voir les élèves'}
               </button>
+              {/* Sans élève, rien à déplacer : le bouton n'ouvrirait qu'une liste vide. */}
+              {effectif > 0 && (
+                <button onClick={() => setClassePourDeplacement(classe.id)} style={boutonSecondaireStyle}>
+                  Déplacer un étudiant
+                </button>
+              )}
               <button
                 onClick={() => setClassePourProfesseur(classe.id)}
                 className={prof ? undefined : 'btn-shine'}
@@ -824,6 +833,21 @@ function ClassesVague({
                 onChange={() => {
                   recharger()
                   chargerCoProfesseurs()
+                }}
+              />
+            )}
+
+            {classePourDeplacement === classe.id && (
+              <DeplacerEtudiantsModale
+                classe={classe}
+                classesCibles={classes.filter((c) => c.id !== classe.id)}
+                studentIds={ids}
+                effectifs={effectifs}
+                onFermer={() => setClassePourDeplacement(null)}
+                onChange={() => {
+                  recharger()
+                  chargerEffectifs()
+                  chargerSeancesAVenir()
                 }}
               />
             )}
@@ -892,6 +916,243 @@ function ClassesVague({
         />
       )}
     </div>
+  )
+}
+
+/* Faire passer un ou plusieurs élèves dans une autre classe — demande client du 2026-10-30,
+   capture à l'appui : « pour chaque classe, rajoute un bouton "Déplacer un étudiant". Un pop-up
+   apparaîtra [...] dans lequel on aura la liste des étudiants de la classe. Pour les étudiants
+   sélectionnés, une fonctionnalité déplacer apparaîtra [...] Indique dans le pop-up que cette
+   fonctionnalité permet de faire passer un ou plusieurs étudiants à une classe supérieure. »
+
+   C'est aussi le seul chemin pour changer la classe d'un élève depuis le 2026-10-19, date à
+   laquelle le client a tranché que vague et classe ne se modifient plus élève par élève depuis sa
+   fiche, mais toujours depuis Cours collectifs (voir le texte affiché sur la fiche étudiant).
+
+   Tout le travail est fait par api/admin/deplacer-etudiants-classe.ts, pas ici : un déplacement
+   n'est pas une écriture mais cinq, dont trois hors de portée du navigateur (ouvrir un forfait,
+   désinscrire des séances déjà planifiées, mettre à jour les invitations Google). Cet écran se
+   contente de choisir qui part et où, et de dire ce qui va se passer AVANT de le faire. */
+function DeplacerEtudiantsModale({
+  classe,
+  classesCibles,
+  studentIds,
+  effectifs,
+  onFermer,
+  onChange,
+}: {
+  classe: CohortClassRow
+  classesCibles: CohortClassRow[]
+  studentIds: string[]
+  effectifs: Map<string, string[]>
+  onFermer: () => void
+  onChange: () => void
+}) {
+  const { session } = useProfileContext()
+  const [eleves, setEleves] = useState<Profile[] | null>(null)
+  const [selection, setSelection] = useState<Set<string>>(new Set())
+  const [classeCibleId, setClasseCibleId] = useState('')
+  const [enCours, setEnCours] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  useEffect(() => {
+    let annule = false
+    async function charger() {
+      if (studentIds.length === 0) {
+        setEleves([])
+        return
+      }
+      const { data } = await supabase.from('profiles').select('*').in('id', studentIds)
+      if (annule) return
+      setEleves(
+        (data ?? []).sort((a, b) => `${a.nom ?? ''} ${a.prenom ?? ''}`.localeCompare(`${b.nom ?? ''} ${b.prenom ?? ''}`, 'fr')),
+      )
+    }
+    charger()
+    return () => {
+      annule = true
+    }
+  }, [studentIds])
+
+  const cible = classesCibles.find((c) => c.id === classeCibleId) ?? null
+  /* Places restantes dans la classe visée, affichées avant le clic : la base refuse un 8e élève
+     (trigger 0074) et la route refuse le lot entier plutôt que d'en déplacer la moitié — autant
+     que l'admin le voie pendant qu'il coche, pas après. */
+  const placesCible = cible ? CAPACITE_MAX_CLASSE - (effectifs.get(cible.id)?.length ?? 0) : null
+  const tropDEleves = placesCible !== null && selection.size > placesCible
+
+  function basculer(id: string) {
+    setSelection((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  async function deplacer() {
+    if (!session || !classeCibleId || selection.size === 0) return
+    setEnCours(true)
+    setErreur(null)
+    const reponse = await fetch('/api/admin/deplacer-etudiants-classe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ classeSourceId: classe.id, classeCibleId, studentIds: [...selection] }),
+    })
+    const resultat = (await reponse.json().catch(() => ({}))) as { error?: string }
+    setEnCours(false)
+    if (!reponse.ok) {
+      setErreur(resultat.error ?? 'Le déplacement a échoué.')
+      return
+    }
+    onChange()
+    onFermer()
+  }
+
+  return (
+    <Modale
+      titre={`Déplacer un étudiant · ${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` — ${classe.nom}` : ''}`}
+      onFermer={onFermer}
+      largeurMax={560}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.6 }}>
+          Cette fonctionnalité permet de faire passer un ou plusieurs étudiants à une classe supérieure. Cochez les
+          étudiants concernés, choisissez leur nouvelle classe, et toutes leurs informations suivront : niveau,
+          professeurs, période de cours et planning.
+        </p>
+        <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6 }}>
+          Leur compteur d’heures suivies repart de zéro dans la nouvelle classe, sur un nouveau forfait — les heures
+          déjà faites restent inscrites à leur dossier, au titre de la classe précédente.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={etiquetteStyle}>Étudiants de la classe</span>
+          {eleves === null ? (
+            <EtatChargement lignes={3} hauteur={30} />
+          ) : eleves.length === 0 ? (
+            <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun élève dans cette classe.</p>
+          ) : (
+            <div
+              style={{
+                borderRadius: 14,
+                border: '1px solid var(--border)',
+                background: 'var(--surface)',
+                maxHeight: 260,
+                overflowY: 'auto',
+              }}
+            >
+              {eleves.map((etudiant) => (
+                <label
+                  key={etudiant.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '9px 13px',
+                    borderBottom: '1px solid var(--border-soft)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selection.has(etudiant.id)}
+                    onChange={() => basculer(etudiant.id)}
+                    style={{ width: 15, height: 15, accentColor: 'var(--accent-blue)', flexShrink: 0 }}
+                  />
+                  <span
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 999,
+                      background: 'var(--voile, rgba(255,255,255,.06))',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--accent-blue)',
+                      fontSize: 10,
+                      fontWeight: 800,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {initiales(etudiant)}
+                  </span>
+                  <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>
+                    {etudiant.prenom} {etudiant.nom}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* La section de déplacement n'apparaît qu'une fois au moins un étudiant sélectionné —
+            c'est la demande, mot pour mot : « pour les étudiants sélectionnés, une fonctionnalité
+            déplacer apparaîtra dans le pop-up ». */}
+        {selection.size > 0 && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              borderTop: '1px solid var(--border-soft)',
+              paddingTop: 14,
+            }}
+          >
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>
+              {selection.size} étudiant{selection.size > 1 ? 's' : ''} sélectionné{selection.size > 1 ? 's' : ''}
+            </span>
+            {classesCibles.length === 0 ? (
+              <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0, lineHeight: 1.5 }}>
+                Cette promotion n’a pas d’autre classe. Créez la classe de destination (bouton{' '}
+                <strong>+ Nouvelle classe</strong>) avant de déplacer des étudiants.
+              </p>
+            ) : (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={etiquetteStyle}>Nouvelle classe</span>
+                  <select value={classeCibleId} onChange={(e) => setClasseCibleId(e.target.value)} style={champStyle}>
+                    <option value="">Choisir une classe…</option>
+                    {classesCibles.map((c) => {
+                      const places = CAPACITE_MAX_CLASSE - (effectifs.get(c.id)?.length ?? 0)
+                      return (
+                        <option key={c.id} value={c.id} disabled={places <= 0}>
+                          {LABEL_NIVEAU_CLASSE[c.niveau]}
+                          {c.nom ? ` — ${c.nom}` : ''} · {LABEL_CRENEAU_CLASSE[c.creneau]} ·{' '}
+                          {places <= 0 ? 'complet' : `${places} place${places > 1 ? 's' : ''}`}
+                        </option>
+                      )
+                    })}
+                  </select>
+                </div>
+                {tropDEleves && (
+                  <MessageErreur>
+                    {placesCible === 0
+                      ? 'Cette classe est complète (7 élèves maximum).'
+                      : `Cette classe ne peut accueillir que ${placesCible} élève${placesCible && placesCible > 1 ? 's' : ''} de plus.`}
+                  </MessageErreur>
+                )}
+              </>
+            )}
+            {erreur && <MessageErreur>{erreur}</MessageErreur>}
+            <button
+              onClick={deplacer}
+              disabled={enCours || !classeCibleId || tropDEleves}
+              className="btn-shine"
+              style={{
+                ...boutonPrimaireStyle,
+                alignSelf: 'flex-start',
+                opacity: enCours || !classeCibleId || tropDEleves ? 0.6 : 1,
+              }}
+            >
+              {enCours
+                ? 'Déplacement…'
+                : `Déplacer ${selection.size} étudiant${selection.size > 1 ? 's' : ''}${cible ? ` vers ${LABEL_NIVEAU_CLASSE[cible.niveau]}${cible.nom ? ` — ${cible.nom}` : ''}` : ''}`}
+            </button>
+          </div>
+        )}
+      </div>
+    </Modale>
   )
 }
 

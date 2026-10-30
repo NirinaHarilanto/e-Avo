@@ -174,6 +174,9 @@ export default async function handler(request: Request): Promise<Response> {
         await inviterAuxAvisSiForfaitTermine(serviceClient, {
           etablissementId,
           cohortId: session.cohort_id,
+          // La CLASSE de la séance (0146) : le forfait d'un élève collectif se solde classe par
+          // classe depuis le 2026-10-30, une montée de niveau rouvre un cycle de 32 heures.
+          cohortClassId: session.cohort_class_id,
           studentIds: debites,
         })
       } catch {
@@ -188,6 +191,7 @@ export default async function handler(request: Request): Promise<Response> {
         await poserJalonsDeParcours(serviceClient, {
           etablissementId,
           cohortId: session.cohort_id,
+          cohortClassId: session.cohort_class_id,
           studentIds: debites,
           // Le professeur de CETTE séance : celui avec qui l'élève vient de franchir le jalon,
           // qui n'est plus forcément son unique professeur (0138).

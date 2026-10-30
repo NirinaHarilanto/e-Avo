@@ -13,13 +13,30 @@ type ServiceClient = ReturnType<typeof createClient<Database>>
    Exporté : c'est aussi la clé qui empêche de renvoyer l'invitation à chaque séance suivante. */
 export const TYPE_NOTIFICATION_AVIS = 'avis_invitation'
 
-/* Heures consommées par un élève DANS UNE VAGUE précisément, et non sur toute la vie de son
-   dossier : un élève passé par un parcours individuel avant de rejoindre une vague ne doit pas
-   voir celle-ci déclarée terminée d'emblée. Même jointure manuelle sessions → hour_ledger que la
-   fiche candidat collectif (FicheCandidatCollectifModale.tsx) — c'est la même question posée au
-   même endroit, elle doit donner la même réponse. */
-export async function heuresConsommeesDansVague(serviceClient: ServiceClient, studentId: string, cohortId: string): Promise<number> {
-  const { data: seances } = await serviceClient.from('sessions').select('id').eq('cohort_id', cohortId)
+/* Heures consommées par un élève DANS SA CLASSE, à défaut dans sa vague, et jamais sur toute la
+   vie de son dossier : un élève passé par un parcours individuel avant de rejoindre une vague ne
+   doit pas voir celle-ci déclarée terminée d'emblée.
+
+   La portée s'est rétrécie de la vague à la classe le 2026-10-30, avec le déplacement d'élèves
+   entre classes (0146) : « quand un étudiant est déplacé dans une autre classe, son compteur
+   d'heures suivies repart de 0 ». Les débits de l'ancienne classe restent en base, intacts — ils
+   pointent simplement sur des séances d'une AUTRE classe, et ne comptent donc plus dans celle-ci.
+   `cohortClassId` à null (vague legacy sans classes, affectation en attente) retombe sur la
+   portée vague d'avant, inchangée.
+
+   Même jointure manuelle sessions → hour_ledger que la fiche candidat collectif
+   (FicheCandidatCollectifModale.tsx) et que useEtatsParcoursEtudiants.ts — c'est la même question
+   posée au même endroit, elle doit donner la même réponse partout. */
+export async function heuresConsommeesDansVague(
+  serviceClient: ServiceClient,
+  studentId: string,
+  cohortId: string,
+  cohortClassId?: string | null,
+): Promise<number> {
+  const requeteSeances = serviceClient.from('sessions').select('id')
+  const { data: seances } = await (cohortClassId
+    ? requeteSeances.eq('cohort_class_id', cohortClassId)
+    : requeteSeances.eq('cohort_id', cohortId))
   const ids = (seances ?? []).map((s) => s.id)
   if (ids.length === 0) return 0
   const { data: debits } = await serviceClient
@@ -49,6 +66,10 @@ export async function mesurerParcours(
   studentId: string,
   cohortId: string | null,
   etablissementId: string,
+  /* Classe de niveau au sein de la vague (0146) : les heures se comptent alors dans cette classe
+     seule, pour qu'une montée de niveau fasse repartir le compteur de zéro. Omis ou null, la
+     portée reste celle de la vague entière, comme avant le 2026-10-30. */
+  cohortClassId?: string | null,
 ): Promise<{ forfait: number | null; consommees: number }> {
   if (cohortId) {
     const { data: vague } = await serviceClient.from('cohorts').select('heures_forfait').eq('id', cohortId).maybeSingle()
@@ -62,7 +83,7 @@ export async function mesurerParcours(
       forfait = etab?.heures_forfait_collectif ?? null
     }
     if (forfait == null || forfait <= 0) return { forfait: null, consommees: 0 }
-    return { forfait, consommees: await heuresConsommeesDansVague(serviceClient, studentId, cohortId) }
+    return { forfait, consommees: await heuresConsommeesDansVague(serviceClient, studentId, cohortId, cohortClassId) }
   }
 
   const [{ data: forfaits }, { data: debits }] = await Promise.all([
@@ -79,8 +100,9 @@ async function parcoursTermine(
   studentId: string,
   cohortId: string | null,
   etablissementId: string,
+  cohortClassId?: string | null,
 ): Promise<boolean> {
-  const { forfait, consommees } = await mesurerParcours(serviceClient, studentId, cohortId, etablissementId)
+  const { forfait, consommees } = await mesurerParcours(serviceClient, studentId, cohortId, etablissementId, cohortClassId)
   return forfaitEntierementConsomme(consommees, forfait)
 }
 
@@ -95,10 +117,10 @@ async function parcoursTermine(
    ont suivi le même parcours, chacun a son avis à donner. */
 export async function inviterAuxAvisSiForfaitTermine(
   serviceClient: ServiceClient,
-  params: { etablissementId: string; cohortId: string | null; studentIds: string[] },
+  params: { etablissementId: string; cohortId: string | null; cohortClassId?: string | null; studentIds: string[] },
 ) {
   for (const studentId of params.studentIds) {
-    if (!(await parcoursTermine(serviceClient, studentId, params.cohortId, params.etablissementId))) continue
+    if (!(await parcoursTermine(serviceClient, studentId, params.cohortId, params.etablissementId, params.cohortClassId))) continue
 
     for (const destinataireId of await avecPartenairesDuo(serviceClient, [studentId])) {
       const [{ data: dejaInvite }, { data: dejaDepose }] = await Promise.all([
