@@ -146,43 +146,45 @@ export function EtudiantsAdmin() {
       )}
 
       <div className="grille-maitre-detail">
-        <aside style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+        <aside className="liste-maitre-sticky" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
           <ChampRecherche valeur={recherche} onChange={setRecherche} placeholder="Rechercher un étudiant…" etiquette="Rechercher un étudiant" />
 
-          {loading && <EtatChargement lignes={4} hauteur={62} />}
+          <div className="liste-maitre-defilante" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {loading && <EtatChargement lignes={4} hauteur={62} />}
 
-          {!loading && etudiants.length === 0 && (
-            <EtatVide
-              compact
-              icone="etudiants"
-              titre="Aucun étudiant"
-              description="Invitez votre premier étudiant, ou convertissez un prospect depuis la page Prospects."
-            />
-          )}
-
-          {!loading && etudiants.length > 0 && filtres.length === 0 && (
-            <EtatVide compact icone="recherche" titre="Aucun résultat" description={`Aucun étudiant ne correspond à « ${recherche} ».`} />
-          )}
-
-          {filtres.map((etudiant) => {
-            /* DUO (0058/0061) : le binôme ne fait qu'un seul bloc, les deux noms à l'intérieur —
-               demande client du 2026-09-22, « les deux étudiants doivent être contenus dans un
-               bloc ». Le dossier ouvert au clic reste celui du principal : c'est lui qui porte le
-               forfait, le planning et les heures partagés du binôme (voir migration 0054). */
-            const secondaire = secondaireParPrincipal.get(etudiant.id) ?? null
-            return (
-              <CarteListeEtudiant
-                key={etudiant.id}
-                principal={etudiant}
-                secondaire={secondaire}
-                selectionne={etudiant.id === id}
-                onClick={() => navigate(`/admin/etudiants/${etudiant.id}`)}
-                programme={programmes[etudiant.id]}
-                statutContrat={statutsContrats[etudiant.id]}
-                etatParcours={etats[etudiant.id]}
+            {!loading && etudiants.length === 0 && (
+              <EtatVide
+                compact
+                icone="etudiants"
+                titre="Aucun étudiant"
+                description="Invitez votre premier étudiant, ou convertissez un prospect depuis la page Prospects."
               />
-            )
-          })}
+            )}
+
+            {!loading && etudiants.length > 0 && filtres.length === 0 && (
+              <EtatVide compact icone="recherche" titre="Aucun résultat" description={`Aucun étudiant ne correspond à « ${recherche} ».`} />
+            )}
+
+            {filtres.map((etudiant) => {
+              /* DUO (0058/0061) : le binôme ne fait qu'un seul bloc, les deux noms à l'intérieur —
+                 demande client du 2026-09-22, « les deux étudiants doivent être contenus dans un
+                 bloc ». Le dossier ouvert au clic reste celui du principal : c'est lui qui porte le
+                 forfait, le planning et les heures partagés du binôme (voir migration 0054). */
+              const secondaire = secondaireParPrincipal.get(etudiant.id) ?? null
+              return (
+                <CarteListeEtudiant
+                  key={etudiant.id}
+                  principal={etudiant}
+                  secondaire={secondaire}
+                  selectionne={etudiant.id === id}
+                  onClick={() => navigate(`/admin/etudiants/${etudiant.id}`)}
+                  programme={programmes[etudiant.id]}
+                  statutContrat={statutsContrats[etudiant.id]}
+                  etatParcours={etats[etudiant.id]}
+                />
+              )
+            })}
+          </div>
         </aside>
 
         <div style={{ minWidth: 0 }}>

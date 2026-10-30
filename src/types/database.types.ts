@@ -53,7 +53,7 @@ export type StatutContrat = 'brouillon' | 'envoye' | 'signe' | 'resilie'
 export type StatutCohorte = 'a_venir' | 'en_cours' | 'terminee'
 /* Niveau d'une classe au sein d'une promotion (0074), dérivé automatiquement du niveau CECRL
    estimé au quiz écrit — voir src/lib/classesCollectif.ts. */
-export type NiveauClasse = 'beginner' | 'intermediate' | 'pre_advanced' | 'advanced'
+export type NiveauClasse = 'beginner' | 'intermediate' | 'advanced'
 /* Créneau horaire d'une classe (0074), réglé au niveau établissement (etablissements.creneau_*). */
 export type CreneauClasse = 'matin' | 'midi' | 'soir'
 export type StatutRendezVous = 'en_attente' | 'confirme' | 'refuse' | 'annule'
@@ -834,6 +834,36 @@ export interface Database {
           created_at?: string
         }
         Update: Partial<Database['public']['Tables']['cohort_classes']['Insert']>
+        Relationships: []
+      }
+      /* Co-professeur(s) d'une classe de niveau (0142, « co-enseignant actif ») : additionnels
+         au titulaire (cohort_classes.teacher_id), sur le modèle de teacher_assignments (0138). */
+      cohort_class_teachers: {
+        Row: {
+          id: string
+          etablissement_id: string
+          cohort_class_id: string
+          teacher_id: string
+          assigned_by_profile_id: string
+          motif: string | null
+          created_at: string
+          removed_at: string | null
+          removed_motif: string | null
+          removed_by_profile_id: string | null
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          cohort_class_id: string
+          teacher_id: string
+          assigned_by_profile_id: string
+          motif?: string | null
+          created_at?: string
+          removed_at?: string | null
+          removed_motif?: string | null
+          removed_by_profile_id?: string | null
+        }
+        Update: Partial<Database['public']['Tables']['cohort_class_teachers']['Insert']>
         Relationships: []
       }
       quiz_questions: {
@@ -2224,6 +2254,17 @@ export interface Database {
       ajouter_professeur: {
         Args: {
           p_student_id: string
+          p_teacher_id: string
+          p_motif?: string | null
+        }
+        Returns: string
+      }
+      /* Pendant collectif de `ajouter_professeur` (0142, co-enseignant d'une classe de niveau) :
+         ajoute un co-professeur SANS toucher au titulaire (cohort_classes.teacher_id). Le retrait
+         n'a pas d'équivalent ici : il passe par api/admin/retirer-professeur-classe.ts. */
+      ajouter_professeur_classe: {
+        Args: {
+          p_cohort_class_id: string
           p_teacher_id: string
           p_motif?: string | null
         }

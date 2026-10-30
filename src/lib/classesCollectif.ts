@@ -6,13 +6,14 @@
 import type { NiveauClasse, CreneauClasse } from '../types/database.types.js'
 
 /* L'ordre des clés est celui de l'échelle, du plus faible au plus avancé : c'est lui que suit
-   la liste déroulante de création d'une classe (CohortesAdmin). Il reprend l'ordre de l'enum
-   Postgres, où « pre_advanced » a été inséré AVANT « advanced » (migration 0139) pour que les
-   tris en base donnent la même échelle. */
+   la liste déroulante de création d'une classe (CohortesAdmin). « Pre-Advanced » (migration
+   0139, 2026-10-29) a été fusionné dans « Advanced » le 2026-10-30, à la demande du client :
+   les deux désignaient en pratique le même niveau. L'enum Postgres `niveau_classe` conserve la
+   valeur `pre_advanced` (Postgres ne permet pas de retirer une valeur d'enum), mais plus rien ne
+   l'écrit ni ne la propose (migration 0141 reclasse les classes existantes en `advanced`). */
 export const LABEL_NIVEAU_CLASSE: Record<NiveauClasse, string> = {
   beginner: 'Beginner',
   intermediate: 'Intermediate',
-  pre_advanced: 'Pre-Advanced',
   advanced: 'Advanced',
 }
 
@@ -47,15 +48,7 @@ export type NiveauCecrl = (typeof NIVEAUX_CECRL)[number]
 /* Barème convenu avec le client : le niveau CECRL du quiz écrit détermine automatiquement la
    classe de niveau, sans ressaisie. `null` quand le niveau n'est pas encore connu (candidat pas
    encore passé au quiz, ou test non concluant) — dans ce cas, aucune classe n'est proposée
-   automatiquement, l'admin affecte à la main.
-
-   « pre_advanced » (migration 0139, 2026-10-29) N'EST VOLONTAIREMENT PAS dans ce barème : aucun
-   niveau CECRL n'y mène automatiquement. La classe existe pour que l'administration l'ouvre et y
-   affecte elle-même, ce qui est le besoin ayant motivé son ajout — reprendre la classe
-   Pre-Advanced de la promotion en cours. Y envoyer les B2 demanderait d'abord un tarif intitulé
-   « Pre-Advanced » dans la grille : `fraisInscriptionCollectif` cherche le tarif par le libellé
-   du niveau, et sans lui ces candidats perdraient le calcul automatique de leurs frais
-   d'inscription. */
+   automatiquement, l'admin affecte à la main. */
 export function categorieDepuisNiveauEstime(niveauEstime: string | null): NiveauClasse | null {
   switch (niveauEstime) {
     /* 'A1 (débutant)' reste accepté : c'est la valeur qu'ont portée les lignes écrites avant la

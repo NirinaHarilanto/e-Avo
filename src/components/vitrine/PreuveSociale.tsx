@@ -16,9 +16,11 @@ import { IcoHX } from './IconesHX'
 
 const DOSSIER_ASSETS = `/etablissements/${SLUG_ETABLISSEMENT_PRINCIPAL}`
 
-/* Quatre professeurs, comme sur les deux maquettes. Mêmes identifiants que dans PageEquipe. */
+/* Quatre professeurs, comme sur les deux maquettes. Mêmes identifiants que dans PageEquipe.
+   Pamella retirée le 2026-10-30 (demande client), remplacée par Miangaly pour garder les quatre
+   visages prévus par la maquette. */
 const VISAGES: { id: number; nom: string }[] = [
-  { id: 9, nom: 'Pamella' },
+  { id: 18, nom: 'Miangaly' },
   { id: 14, nom: 'Patricia' },
   { id: 20, nom: 'Rado' },
   { id: 21, nom: 'Ashley' },

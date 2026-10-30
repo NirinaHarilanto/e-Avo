@@ -6,8 +6,8 @@ import { AVIS_PROFESSEURS, AvatarsProfesseurs, CarteAvis, ChiffresCles } from '.
    professeurs, séparées par un intertitre souligné.
 
    La maquette dessine quatre personnes dans chaque grille et laisse un modèle en commentaire
-   pour en ajouter ; ce sont les dix personnes réelles de l'établissement qui s'affichent ici,
-   avec leurs photos.
+   pour en ajouter ; ce sont les personnes réelles de l'établissement qui s'affichent ici, avec
+   leurs photos (Pamella retirée le 2026-10-30, à la demande du client).
 
    Le hero a été retravaillé le 2026-10-29 d'après une nouvelle maquette du client : surtitre en
    pastille, deux chiffres clés, bouton d'appel diagnostic et avis d'un élève à côté du titre.
@@ -61,14 +61,6 @@ const EQUIPE: Membre[] = [
     role: 'Community Manager',
     niveau: 3,
     slogan: 'Elle anime la communauté HOC au quotidien et veille à ce que chaque élève se sente attendu, suivi et entendu.',
-  },
-  {
-    id: 9,
-    nom: 'Pamella',
-    role: 'Professeure d’anglais',
-    niveau: 4,
-    slogan:
-      'Patiente et à l’écoute, elle crée un environnement où chaque élève peut prendre confiance et oser s’exprimer en anglais à son rythme.',
   },
   {
     id: 14,

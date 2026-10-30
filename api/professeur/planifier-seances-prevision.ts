@@ -69,8 +69,19 @@ export default async function handler(request: Request): Promise<Response> {
       if (!classe || classe.etablissement_id !== etablissementId) {
         return Response.json({ error: 'Classe invalide pour cet établissement.' }, { status: 400 })
       }
+      // Titulaire (`cohort_classes.teacher_id`) OU co-professeur actif (`cohort_class_teachers`,
+      // 0142, « co-enseignant actif » : chacun planifie ses propres séances pour le groupe).
       if (classe.teacher_id !== profileId) {
-        return Response.json({ error: "Vous n'êtes pas le professeur de cette classe." }, { status: 403 })
+        const { data: coProfesseur } = await serviceClient
+          .from('cohort_class_teachers')
+          .select('id')
+          .eq('cohort_class_id', classe.id)
+          .eq('teacher_id', profileId)
+          .is('removed_at', null)
+          .maybeSingle()
+        if (!coProfesseur) {
+          return Response.json({ error: "Vous n'êtes pas le professeur de cette classe." }, { status: 403 })
+        }
       }
       const { data: inscrits } = await serviceClient
         .from('cohort_enrollments')

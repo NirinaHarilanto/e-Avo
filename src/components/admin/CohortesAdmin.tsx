@@ -6,7 +6,6 @@ import { nomVagueSeul, trierVaguesChronologiquement } from '../../lib/cohortes'
 import { useCohortClasses } from '../../hooks/useCohortClasses'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useEtablissement } from '../../hooks/useEtablissement'
-import { useEtudiants } from '../../hooks/useEtudiants'
 import { supabase } from '../../lib/supabaseClient'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import type { Database, StatutCohorte, NiveauClasse, CreneauClasse } from '../../types/database.types'
@@ -18,10 +17,9 @@ import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { boutonPrimaireStyle, boutonSecondaireStyle, boutonDangerStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
-import { champStyle, etiquetteStyle } from '../ui/Champ'
+import { champStyle } from '../ui/Champ'
 import { Onglets } from '../ui/Onglets'
 import { Modale } from '../ui/Modale'
-import { ChampRecherche } from '../ui/BarreOutils'
 import { PanneauPlanningClasse } from '../shared/PanneauPlanningClasse'
 import { formaterHeures } from '../../lib/heures'
 import { SessionsOraleAdmin } from './SessionsOraleAdmin'
@@ -39,12 +37,9 @@ export function CohortesAdmin() {
   const { profile } = useProfileContext()
   const { cohortes, loading, erreur, recharger } = useCohortes()
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
-  // Onglet par défaut : « Suivi des candidats » (demande client du 2026-10-11, « quand on clique
-  // sur cours collectif, affiche par défaut et en premier le suivi des candidats ») — c'est la
-  // lecture par PERSONNE du parcours, celle qui répond le plus souvent à la question « où ça en
-  // est ». « Vagues » reste la première entrée visible dans les onglets eux-mêmes (c'est là que se
-  // crée une vague), seul l'écran ouvert au premier clic change.
-  const [onglet, setOnglet] = useState<'vagues' | 'suivi' | 'sessionOrale' | 'quiz'>('suivi')
+  // Onglet par défaut : « Vagues » (demande client du 2026-10-30, « quand on clique sur cours
+  // collectif, il faudrait afficher en premier l'onglet vague »).
+  const [onglet, setOnglet] = useState<'vagues' | 'suivi' | 'sessionOrale' | 'quiz'>('vagues')
 
   /* Par ordre chronologique, la plus ancienne en tête — demande client du 2026-10-10, précisée le
      2026-10-29 devant les vraies vagues (voir le commentaire de trierVaguesChronologiquement). La
@@ -278,6 +273,7 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
   const { classes, loading: chargementClasses, recharger: rechargerClasses } = useCohortClasses(cohorte.id)
   const [ouverte, setOuverte] = useState(false)
   const [edition, setEdition] = useState(false)
+  const [listeInscritsOuverte, setListeInscritsOuverte] = useState(false)
   const [inscrits, setInscrits] = useState<Profile[] | null>(null)
   // Niveau à afficher à côté de chaque inscrit (demande client du 2026-09-24) : celui déterminé
   // à l'oral (diagnostic_calls.niveau_evalue, saisi à la conversion) prime sur celui du quiz
@@ -295,6 +291,15 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
       return
     }
     setOuverte(true)
+    chargerInscrits()
+  }
+
+  async function voirTousLesEleves() {
+    setListeInscritsOuverte(true)
+    chargerInscrits()
+  }
+
+  async function chargerInscrits() {
     if (inscrits !== null) return
     const { data } = await supabase
       .from('cohort_enrollments')
@@ -393,9 +398,17 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
     <div className="card card-lift" style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ flexGrow: 1, minWidth: 200 }}>
-          <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
-            {cohorte.nom}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span className="brand-font" style={{ fontSize: 14, color: 'var(--ink)' }}>
+              {cohorte.nom}
+            </span>
+            <button
+              onClick={voirTousLesEleves}
+              style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 11px', cursor: 'pointer' }}
+            >
+              Voir tous les élèves
+            </button>
+          </div>
           <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
             {cohorte.langue ? `${cohorte.langue} · ` : ''}
             {new Date(cohorte.date_debut).toLocaleDateString('fr-FR')} → {new Date(cohorte.date_fin).toLocaleDateString('fr-FR')}
@@ -429,47 +442,52 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
         </button>
       </div>
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 11.5 }}>{erreur}</p>}
+
+      {listeInscritsOuverte && (
+        <Modale titre={`Tous les élèves · ${nomVagueSeul(cohorte.nom)}`} onFermer={() => setListeInscritsOuverte(false)} largeurMax={480}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {inscrits === null ? (
+              <EtatChargement lignes={2} hauteur={38} />
+            ) : inscrits.length === 0 ? (
+              <EtatVide
+                compact
+                icone="etudiants"
+                titre="Aucun élève inscrit"
+                description="Les inscriptions se font depuis le dossier de l’élève, page Étudiants, en choisissant le programme collectif."
+              />
+            ) : (
+              inscrits.map((etudiant) => (
+                <div key={etudiant.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ width: 26, height: 26, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
+                    {initiales(etudiant)}
+                  </span>
+                  <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>
+                    {etudiant.prenom} {etudiant.nom}
+                  </span>
+                  {niveauxInscrits.get(etudiant.id) && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: 'var(--accent-blue)',
+                        background: 'rgba(169,140,255,.14)',
+                        border: '1px solid rgba(169,140,255,.3)',
+                        borderRadius: 999,
+                        padding: '2px 9px',
+                      }}
+                    >
+                      {niveauxInscrits.get(etudiant.id)}
+                    </span>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </Modale>
+      )}
+
       {ouverte && (
         <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {inscrits === null ? (
-            <EtatChargement lignes={2} hauteur={38} />
-          ) : inscrits.length === 0 ? (
-            <EtatVide
-              compact
-              icone="etudiants"
-              titre="Aucun élève inscrit"
-              description="Les inscriptions se font depuis le dossier de l’élève, page Étudiants, en choisissant le programme collectif."
-            />
-          ) : (
-            inscrits.map((etudiant) => (
-              <div key={etudiant.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ width: 26, height: 26, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
-                  {initiales(etudiant)}
-                </span>
-                <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>
-                  {etudiant.prenom} {etudiant.nom}
-                </span>
-                {niveauxInscrits.get(etudiant.id) && (
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: 'var(--accent-blue)',
-                      background: 'rgba(169,140,255,.14)',
-                      border: '1px solid rgba(169,140,255,.3)',
-                      borderRadius: 999,
-                      padding: '2px 9px',
-                    }}
-                  >
-                    {niveauxInscrits.get(etudiant.id)}
-                  </span>
-                )}
-              </div>
-            ))
-          )}
-          </div>
-
           <ClassesVague cohorte={cohorte} classes={classes} loading={chargementClasses} recharger={rechargerClasses} />
 
           {/* Planning prévisionnel de la vague ENTIÈRE (demande client du 2026-09-23, point 8) :
@@ -521,12 +539,17 @@ function ClassesVague({
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [classeEnEdition, setClasseEnEdition] = useState<CohortClassRow | null>(null)
   const [classeDepliee, setClasseDepliee] = useState<string | null>(null)
-  const [classePourAjout, setClassePourAjout] = useState<CohortClassRow | null>(null)
+  const [classesEleveDepliees, setClassesEleveDepliees] = useState<Set<string>>(new Set())
+  const [profilsEleves, setProfilsEleves] = useState<Map<string, Profile>>(new Map())
+  const [classesEnChargement, setClassesEnChargement] = useState<Set<string>>(new Set())
   /* Attribution de professeur à une classe — demande client du 2026-10-11 : « un bouton attribuer
      un professeur pour chaque ligne de classe », à côté de « Modifier » (qui reste le chemin
      pour TOUS les champs de la classe) plutôt qu'à sa place — même logique que le bouton dédié
      déjà posé pour un élève individuel (AttribuerProfesseur.tsx). */
   const [classePourProfesseur, setClassePourProfesseur] = useState<CohortClassRow | null>(null)
+  // Co-professeurs actifs par classe (0142, « co-enseignant actif ») : titulaire géré ci-dessus,
+  // co-professeur(s) additionnel(s) gérés par CoProfesseursClasse.
+  const [coProfesseurs, setCoProfesseurs] = useState<Map<string, { id: string; teacher_id: string }[]>>(new Map())
   const [erreur, setErreur] = useState<string | null>(null)
 
   const chargerEffectifs = useCallback(async () => {
@@ -545,9 +568,57 @@ function ClassesVague({
     setEffectifs(map)
   }, [classes, cohorte.id])
 
+  const chargerCoProfesseurs = useCallback(async () => {
+    const classeIds = classes.map((c) => c.id)
+    if (classeIds.length === 0) {
+      setCoProfesseurs(new Map())
+      return
+    }
+    const { data } = await supabase
+      .from('cohort_class_teachers')
+      .select('id, cohort_class_id, teacher_id')
+      .in('cohort_class_id', classeIds)
+      .is('removed_at', null)
+    const map = new Map<string, { id: string; teacher_id: string }[]>()
+    for (const row of data ?? []) {
+      const liste = map.get(row.cohort_class_id) ?? []
+      liste.push({ id: row.id, teacher_id: row.teacher_id })
+      map.set(row.cohort_class_id, liste)
+    }
+    setCoProfesseurs(map)
+  }, [classes])
+
   useEffect(() => {
     chargerEffectifs()
-  }, [chargerEffectifs])
+    chargerCoProfesseurs()
+  }, [chargerEffectifs, chargerCoProfesseurs])
+
+  async function basculerVoirEleves(classe: CohortClassRow) {
+    const estOuverte = classesEleveDepliees.has(classe.id)
+    setClassesEleveDepliees((prev) => {
+      const next = new Set(prev)
+      if (estOuverte) next.delete(classe.id)
+      else next.add(classe.id)
+      return next
+    })
+    if (estOuverte) return
+    const ids = effectifs.get(classe.id) ?? []
+    const idsManquants = ids.filter((id) => !profilsEleves.has(id))
+    if (idsManquants.length === 0) return
+    setClassesEnChargement((prev) => new Set(prev).add(classe.id))
+    const { data } = await supabase.from('profiles').select('*').in('id', idsManquants)
+    setClassesEnChargement((prev) => {
+      const next = new Set(prev)
+      next.delete(classe.id)
+      return next
+    })
+    if (!data) return
+    setProfilsEleves((prev) => {
+      const next = new Map(prev)
+      for (const p of data) next.set(p.id, p)
+      return next
+    })
+  }
 
   async function supprimer(classe: CohortClassRow) {
     if (
@@ -624,12 +695,8 @@ function ClassesVague({
                 {effectif} / {CAPACITE_MAX_CLASSE} élève{effectif > 1 ? 's' : ''}
                 {effectif < CAPACITE_MIN_CLASSE ? ' · pas assez pour démarrer' : effectif >= CAPACITE_MAX_CLASSE ? ' · complet' : ''}
               </span>
-              <button
-                onClick={() => setClassePourAjout(classe)}
-                disabled={effectif >= CAPACITE_MAX_CLASSE}
-                style={{ ...boutonSecondaireStyle, opacity: effectif >= CAPACITE_MAX_CLASSE ? 0.5 : 1 }}
-              >
-                + Élèves
+              <button onClick={() => basculerVoirEleves(classe)} style={boutonSecondaireStyle}>
+                {classesEleveDepliees.has(classe.id) ? 'Masquer les élèves' : 'Voir les élèves'}
               </button>
               <button
                 onClick={() => setClassePourProfesseur(classePourProfesseur?.id === classe.id ? null : classe)}
@@ -661,6 +728,19 @@ function ClassesVague({
               />
             )}
 
+            {/* Co-professeur(s) de la classe (0142) — seulement une fois un titulaire désigné,
+                même garde que « Ajouter un second professeur » côté élève individuel
+                (AttribuerProfesseur.tsx) : sans titulaire, le bouton juste au-dessus fait déjà
+                exactement cela. */}
+            {classe.teacher_id && (
+              <CoProfesseursClasse
+                classe={classe}
+                professeurs={professeurs}
+                coProfesseurs={coProfesseurs.get(classe.id) ?? []}
+                onChange={chargerCoProfesseurs}
+              />
+            )}
+
             {classeDepliee === classe.id && (
               <Modale
                 titre={`Planning · ${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` — ${classe.nom}` : ''}`}
@@ -684,6 +764,31 @@ function ClassesVague({
                 )}
               </Modale>
             )}
+
+            {classesEleveDepliees.has(classe.id) && (
+              <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {ids.length === 0 ? (
+                  <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun élève dans cette classe.</p>
+                ) : classesEnChargement.has(classe.id) ? (
+                  <EtatChargement lignes={2} hauteur={28} />
+                ) : (
+                  ids.map((id) => {
+                    const etudiant = profilsEleves.get(id)
+                    if (!etudiant) return null
+                    return (
+                      <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ width: 24, height: 24, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
+                          {initiales(etudiant)}
+                        </span>
+                        <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>
+                          {etudiant.prenom} {etudiant.nom}
+                        </span>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            )}
           </div>
         )
       })}
@@ -696,16 +801,6 @@ function ClassesVague({
             setFormulaireOuvert(false)
             recharger()
           }}
-        />
-      )}
-
-      {classePourAjout && (
-        <AjouterEtudiantsClasse
-          cohorte={cohorte}
-          classe={classePourAjout}
-          idsDejaDansClasse={effectifs.get(classePourAjout.id) ?? []}
-          onFermer={() => setClassePourAjout(null)}
-          onAjoute={chargerEffectifs}
         />
       )}
     </div>
@@ -787,145 +882,192 @@ function AttribuerProfesseurClasse({
   )
 }
 
-/* Ajout d'élèves à une classe depuis sa fiche (demande client du 2026-09-24), plutôt que
-   seulement depuis le dossier de chaque élève (AssignerVague.tsx) : deux listes, les élèves déjà
-   dans la promotion mais pas encore affectés à une classe (cas courant après une conversion sans
-   classe disponible), et une recherche pour en ajouter n'importe quel autre. Le trigger de
-   capacité (migration 0074) reste la garde ultime si deux admins agissent en même temps. */
-function AjouterEtudiantsClasse({
-  cohorte,
+/* Co-professeur(s) d'une classe de niveau (0142) — pendant collectif du bouton « Ajouter un
+   second professeur » de AttribuerProfesseur.tsx (0138, élève individuel), avec une différence
+   assumée : une classe collective a des séances COMMUNES à tout le groupe, pas un planning 1:1
+   par professeur. Le rôle retenu avec le client est donc « co-enseignant actif » — le titulaire
+   (`cohort_classes.teacher_id`, géré par AttribuerProfesseurClasse ci-dessus) et chaque
+   co-professeur voient la classe dans leur propre espace et peuvent CHACUN y planifier des
+   séances ; chaque séance reste attribuée à qui l'a créée (`sessions.teacher_id`), donc la
+   rémunération suit déjà la bonne personne sans rien y changer. L'ajout est une fonction SQL
+   (`ajouter_professeur_classe`, rien à transférer) ; le retrait passe par une route serveur
+   (`api/admin/retirer-professeur-classe.ts`) car il annule les séances à venir de ce
+   co-professeur pour cette classe — retirer une réunion Google et prévenir les personnes
+   concernées est hors de portée de Postgres, exactement comme pour l'élève individuel. */
+function CoProfesseursClasse({
   classe,
-  idsDejaDansClasse,
-  onFermer,
-  onAjoute,
+  professeurs,
+  coProfesseurs,
+  onChange,
 }: {
-  cohorte: Cohort
   classe: CohortClassRow
-  idsDejaDansClasse: string[]
-  onFermer: () => void
-  onAjoute: () => void
+  professeurs: Database['public']['Tables']['profiles']['Row'][]
+  coProfesseurs: { id: string; teacher_id: string }[]
+  onChange: () => void
 }) {
-  const { etudiants } = useEtudiants()
-  const [sansClasse, setSansClasse] = useState<Profile[] | null>(null)
-  const [recherche, setRecherche] = useState('')
-  const [idEnCours, setIdEnCours] = useState<string | null>(null)
+  const { session } = useProfileContext()
+  const [formulaireOuvert, setFormulaireOuvert] = useState(false)
+  const [teacherId, setTeacherId] = useState('')
+  const [motif, setMotif] = useState('')
+  const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  const [aRetirer, setARetirer] = useState<{ id: string; teacher_id: string } | null>(null)
 
-  const chargerSansClasse = useCallback(async () => {
-    const { data: enrollments } = await supabase
-      .from('cohort_enrollments')
-      .select('student_id')
-      .eq('cohort_id', cohorte.id)
-      .is('cohort_class_id', null)
-    const ids = (enrollments ?? []).map((e) => e.student_id)
-    if (ids.length === 0) {
-      setSansClasse([])
-      return
-    }
-    const { data: profils } = await supabase.from('profiles').select('*').in('id', ids).neq('status', 'suspended')
-    setSansClasse(profils ?? [])
-  }, [cohorte.id])
+  const idsExclus = new Set([classe.teacher_id, ...coProfesseurs.map((c) => c.teacher_id)])
+  const professeursProposables = professeurs.filter((p) => !idsExclus.has(p.id))
 
-  useEffect(() => {
-    chargerSansClasse()
-  }, [chargerSansClasse])
-
-  const rechercheNormalisee = recherche.trim().toLowerCase()
-  const idsExclus = new Set([...idsDejaDansClasse, ...(sansClasse ?? []).map((e) => e.id)])
-  const resultatsRecherche =
-    rechercheNormalisee.length < 2
-      ? []
-      : etudiants
-          .filter((e) => !idsExclus.has(e.id))
-          .filter((e) => `${e.prenom ?? ''} ${e.nom ?? ''}`.toLowerCase().includes(rechercheNormalisee))
-          .slice(0, 8)
-
-  async function ajouter(etudiant: Profile) {
-    setIdEnCours(etudiant.id)
+  async function ajouter() {
+    if (!teacherId) return
+    setEnCours(true)
     setErreur(null)
-
-    // Une ligne cohort_enrollments par élève au plus : on met à jour la sienne si elle existe
-    // déjà (même logique qu'AssignerVague.tsx — l'élève peut venir d'une autre promotion, le
-    // trigger de garde bloque alors le changement s'il a déjà consommé des heures), sinon on en
-    // crée une nouvelle.
-    const { data: existant } = await supabase
-      .from('cohort_enrollments')
-      .select('cohort_id')
-      .eq('student_id', etudiant.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    const champs = { cohort_id: cohorte.id, cohort_class_id: classe.id }
-    const { error } = existant
-      ? await supabase.from('cohort_enrollments').update(champs).eq('cohort_id', existant.cohort_id).eq('student_id', etudiant.id)
-      : await supabase
-          .from('cohort_enrollments')
-          .insert({ etablissement_id: cohorte.etablissement_id, student_id: etudiant.id, ...champs })
-
-    setIdEnCours(null)
+    const { error } = await supabase.rpc('ajouter_professeur_classe', {
+      p_cohort_class_id: classe.id,
+      p_teacher_id: teacherId,
+      p_motif: motif || null,
+    })
+    setEnCours(false)
     if (error) {
-      setErreur(`${etudiant.prenom} ${etudiant.nom} : ${error.message}`)
+      setErreur(error.message)
       return
     }
-    setSansClasse((liste) => (liste ?? []).filter((e) => e.id !== etudiant.id))
-    onAjoute()
+    setFormulaireOuvert(false)
+    setTeacherId('')
+    setMotif('')
+    onChange()
+  }
+
+  async function retirer() {
+    if (!aRetirer || !session) return
+    setEnCours(true)
+    setErreur(null)
+    const reponse = await fetch('/api/admin/retirer-professeur-classe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ assignationId: aRetirer.id, motif: motif || null }),
+    })
+    const resultat = (await reponse.json().catch(() => ({}))) as { error?: string }
+    setEnCours(false)
+    if (!reponse.ok) {
+      setErreur(resultat.error ?? 'Le retrait du professeur a échoué.')
+      return
+    }
+    setARetirer(null)
+    setMotif('')
+    onChange()
   }
 
   return (
-    <Modale
-      titre={`Ajouter des élèves · ${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` — ${classe.nom}` : ''}`}
-      onFermer={onFermer}
-      largeurMax={520}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {erreur && <MessageErreur>{erreur}</MessageErreur>}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ ...etiquetteStyle, fontSize: 11 }}>Déjà dans cette promotion, sans classe</span>
-          {sansClasse === null ? (
-            <EtatChargement lignes={1} hauteur={30} />
-          ) : sansClasse.length === 0 ? (
-            <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun élève en attente d'affectation.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {sansClasse.map((etudiant) => (
-                <LigneEtudiantAAjouter key={etudiant.id} etudiant={etudiant} enCours={idEnCours === etudiant.id} onAjouter={() => ajouter(etudiant)} />
-              ))}
-            </div>
-          )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {coProfesseurs.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {coProfesseurs.map((cp) => {
+            const prof = professeurs.find((p) => p.id === cp.teacher_id)
+            return (
+              <div key={cp.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11.5 }}>
+                <span style={{ color: 'var(--accent-teal)' }}>
+                  Co-professeur : {prof ? `${prof.prenom} ${prof.nom}` : 'Professeur inconnu'}
+                </span>
+                <button
+                  onClick={() => {
+                    setErreur(null)
+                    setMotif('')
+                    setARetirer(cp)
+                  }}
+                  style={{ fontSize: 11, fontWeight: 700, color: 'var(--danger)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  Retirer
+                </button>
+              </div>
+            )
+          })}
         </div>
+      )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span style={{ ...etiquetteStyle, fontSize: 11 }}>Rechercher un autre élève</span>
-          <p style={{ fontSize: 11, color: 'var(--muted-2)', margin: 0, lineHeight: 1.5 }}>
-            S'il suit déjà une autre promotion et n'a pas encore consommé d'heures dans celle-ci, il en sera retiré
-            pour rejoindre celle-ci.
-          </p>
-          <ChampRecherche valeur={recherche} onChange={setRecherche} placeholder="Nom de l'élève…" />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {resultatsRecherche.map((etudiant) => (
-              <LigneEtudiantAAjouter key={etudiant.id} etudiant={etudiant} enCours={idEnCours === etudiant.id} onAjouter={() => ajouter(etudiant)} />
+      {!formulaireOuvert ? (
+        <button
+          onClick={() => {
+            setErreur(null)
+            setFormulaireOuvert(true)
+          }}
+          style={{ ...boutonSecondaireStyle, alignSelf: 'flex-start' }}
+        >
+          + Ajouter un second professeur
+        </button>
+      ) : (
+        <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} style={champStyle}>
+            <option value="">Choisir un professeur</option>
+            {professeursProposables.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.prenom} {p.nom}
+              </option>
             ))}
-            {rechercheNormalisee.length >= 2 && resultatsRecherche.length === 0 && (
-              <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun élève trouvé.</p>
-            )}
+          </select>
+          {professeursProposables.length === 0 && (
+            <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0 }}>Tous les professeurs sont déjà attribués à cette classe.</p>
+          )}
+          {erreur && <MessageErreur>{erreur}</MessageErreur>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => {
+                setFormulaireOuvert(false)
+                setTeacherId('')
+                setErreur(null)
+              }}
+              disabled={enCours}
+              style={boutonSecondaireStyle}
+            >
+              Annuler
+            </button>
+            <button
+              onClick={ajouter}
+              disabled={!teacherId || enCours}
+              className="btn-shine"
+              style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: !teacherId || enCours ? 0.6 : 1 }}
+            >
+              {enCours ? 'Enregistrement…' : 'Confirmer'}
+            </button>
           </div>
         </div>
-      </div>
-    </Modale>
-  )
-}
+      )}
 
-function LigneEtudiantAAjouter({ etudiant, enCours, onAjouter }: { etudiant: Profile; enCours: boolean; onAjouter: () => void }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 8, background: 'var(--voile-doux, rgba(255,255,255,.03))' }}>
-      <span style={{ fontSize: 12.5, color: 'var(--ink)', flexGrow: 1 }}>
-        {etudiant.prenom} {etudiant.nom}
-      </span>
-      <button onClick={onAjouter} disabled={enCours} style={{ ...boutonSecondaireStyle, opacity: enCours ? 0.6 : 1 }}>
-        {enCours ? 'Ajout…' : 'Ajouter'}
-      </button>
+      {aRetirer && (
+        <Modale
+          titre={`Retirer ${(() => {
+            const prof = professeurs.find((p) => p.id === aRetirer.teacher_id)
+            return prof ? `${prof.prenom} ${prof.nom}` : 'ce professeur'
+          })()} ?`}
+          onFermer={() => setARetirer(null)}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <p style={{ fontSize: 12.5, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6 }}>
+              Ses séances encore à venir pour cette classe seront <strong>annulées</strong> et sont à replanifier. Les élèves
+              et ce professeur en seront prévenus, et les réunions correspondantes retirées de leurs agendas. Les séances
+              déjà données ne sont pas touchées.
+            </p>
+            <input
+              placeholder="Motif du retrait (optionnel)"
+              value={motif}
+              onChange={(e) => setMotif(e.target.value)}
+              style={champStyle}
+            />
+            {erreur && <MessageErreur>{erreur}</MessageErreur>}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setARetirer(null)} disabled={enCours} style={{ ...boutonSecondaireStyle, flexGrow: 1 }}>
+                Annuler
+              </button>
+              <button
+                onClick={retirer}
+                disabled={enCours}
+                className="btn-shine"
+                style={{ ...boutonDangerStyle, flexGrow: 1, opacity: enCours ? 0.6 : 1 }}
+              >
+                {enCours ? 'Retrait…' : 'Retirer et annuler ses séances'}
+              </button>
+            </div>
+          </div>
+        </Modale>
+      )}
     </div>
   )
 }

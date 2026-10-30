@@ -16,7 +16,7 @@
    les lisent : ce sont des rôles, pas des couleurs — le renommer n'apporterait rien et ferait
    diverger ce thème de celui de la vitrine, qui redéfinit les mêmes noms. */
 :root {
-  color-scheme: dark;
+  color-scheme: dark only;
   --bg-page:
     radial-gradient(1100px 550px at 10% -10%, rgba(118, 87, 230, 0.28), transparent),
     radial-gradient(900px 500px at 100% 0%, rgba(169, 140, 255, 0.14), transparent),
@@ -621,11 +621,21 @@ a:hover {
    une variable plutôt qu'une valeur fixe : posé en dur à `dark` sur `select`, il l'emportait
    jusqu'ici sur le `color-scheme: light` pourtant hérité de `.page-claire` (une déclaration
    explicite bat toujours un héritage, quelle que soit la spécificité) — un `<select>` de la
-   vitrine ouvrait donc un popup sombre dans une page claire. */
-:root { --scheme-formulaire: dark; }
+   vitrine ouvrait donc un popup sombre dans une page claire.
+
+   Rechute signalée le 2026-10-30 (capture à l'appui, espace admin « cours collectifs ») : le
+   popup natif s'ouvrait de nouveau avec un texte quasi invisible, alors que les variables
+   (`--surface-alt`/`--ink`) et `color-scheme` calculés pour ce `<select>` étaient, eux, corrects
+   (vérifié en lisant les styles calculés). La cause tient à `only`, mot-clé ABSENT jusqu'ici :
+   sans lui, `color-scheme: light` (ou `dark`) n'est qu'une PRÉFÉRENCE que Windows peut encore
+   écraser par son propre thème système (le popup natif d'un <select> est un contrôle Windows, pas
+   une boîte dessinée par Chromium) — si le système est en mode sombre, Windows repeint le popup
+   dans SA palette sombre par-dessus la nôtre, quels que soient `background-color`/`color` posés
+   sur chaque `<option>`. `only` rend la préférence OBLIGATOIRE et empêche ce repli système. */
+:root { --scheme-formulaire: dark only; }
 .page-claire,
 .page-connexion-hoc {
-  --scheme-formulaire: light;
+  --scheme-formulaire: light only;
 }
 select {
   color-scheme: var(--scheme-formulaire);
@@ -956,6 +966,29 @@ input[type='search']::-webkit-search-cancel-button {
   gap: 18px;
   align-items: start;
 }
+/* Liste de gauche d'un écran maître-détail (page Étudiants, EtudiantsAdmin.tsx) : demande client
+   du 2026-10-30, capture à l'appui — la liste grandissait avec son contenu et poussait toute la
+   page à défiler, obligeant à remonter en haut de l'écran pour choisir un autre nom pendant la
+   lecture d'un dossier long. Pliée dans sa propre hauteur, calée sur le bas de l'écran, avec son
+   propre défilement : la liste reste accessible en permanence.
+   `position: sticky`, jamais `fixed` : reste dans le flux de `.grille-maitre-detail` (largeur de
+   colonne, marge gauche de la zone de contenu via `.zone-contenu`) sans qu'il faille recalculer
+   ces valeurs à la main. `dvh`, comme `.barre-laterale` plus haut dans ce fichier : le zoom de
+   <body> (0,74 côté admin) s'applique déjà aux unités `vh`/`dvh` dans Chrome récent.
+   Seulement au-delà de 860 px, où les deux colonnes coexistent (le seuil de repli de
+   `.grille-maitre-detail` juste en dessous) : en une seule colonne, liste et dossier se lisent
+   l'un après l'autre, une hauteur figée gênerait plus qu'elle n'aiderait. */
+@media (min-width: 861px) {
+  .liste-maitre-sticky {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100dvh - 32px);
+  }
+  .liste-maitre-defilante {
+    overflow-y: auto;
+    min-height: 0;
+  }
+}
 .grille-deux {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -1071,7 +1104,7 @@ input[type='search']::-webkit-search-cancel-button {
      lavandes #EDE5FB / #D9CAF7 / #B9A6E0 · or #F2B84B (fond) #D9A83B (repère) #FBEFD2 (bandeau)
    ───────────────────────────────────────────────────────────────────────────── */
 body.espace-clair {
-  color-scheme: light;
+  color-scheme: light only;
   --bg-page: #f7f4ff;
   --surface: #fefffa;
   --surface-alt: #f7f4ff;
@@ -1470,9 +1503,10 @@ body.espace-clair [tabindex]:focus-visible {
   outline: 2px solid var(--accent-blue);
 }
 /* `--scheme-formulaire` pilote le thème des listes déroulantes natives (voir le bloc `select`
-   plus haut) : les espaces passent en clair comme la vitrine. */
+   plus haut) : les espaces passent en clair comme la vitrine. `only` : voir le commentaire du
+   2026-10-30 sur ce même bloc, plus haut dans ce fichier. */
 body.espace-clair {
-  --scheme-formulaire: light;
+  --scheme-formulaire: light only;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -1486,7 +1520,7 @@ body.espace-clair {
    élève) restent volontairement sur le thème sombre : ils ne descendent pas de ce conteneur.
    ───────────────────────────────────────────────────────────────────────────── */
 .page-claire {
-  color-scheme: light;
+  color-scheme: light only;
   --bg-page:
     radial-gradient(900px 480px at 8% -6%, rgba(160, 120, 255, 0.20), transparent),
     radial-gradient(760px 420px at 96% 4%, rgba(125, 90, 235, 0.16), transparent),
