@@ -409,7 +409,7 @@ export function SessionsOraleAdmin() {
                 ? resultat.classeAssignee
                   ? `Niveau retenu : ${LABEL_NIVEAU_CLASSE[resultat.niveauDetecte]} · classe assignée automatiquement. ${fraisDit}`
                   : `Niveau retenu : ${LABEL_NIVEAU_CLASSE[resultat.niveauDetecte]} · aucune classe disponible (complète ou inexistante), à créer ou compléter depuis l'onglet Vagues. ${fraisDit}`
-                : `Niveau non déterminé : affectez la classe à la main depuis le dossier de l'élève. ${fraisDit}`,
+                : `Niveau non déterminé : affectez la classe à la main depuis le dossier de l'étudiant. ${fraisDit}`,
             )
             setConvertirPour(null)
             charger()

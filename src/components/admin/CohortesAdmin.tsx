@@ -112,7 +112,7 @@ export function CohortesAdmin() {
         <EtatVide
           icone="vagues"
           titre="Aucune vague paramétrée"
-          description="Créez une première vague pour pouvoir y inscrire des élèves en cours collectif. Sans vague, seuls les programmes individuels et en duo sont proposés dans les dossiers étudiants."
+          description="Créez une première vague pour pouvoir y inscrire des étudiants en cours collectif. Sans vague, seuls les programmes individuels et en duo sont proposés dans les dossiers étudiants."
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -232,7 +232,7 @@ function CreerVague({ etablissementId, onAnnuler, onEnregistre, vague }: CreerVa
           </span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Forfait d’heures par élève</label>
+          <label style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)' }}>Forfait d’heures par étudiant</label>
           <input
             type="number"
             min={1}
@@ -243,7 +243,7 @@ function CreerVague({ etablissementId, onAnnuler, onEnregistre, vague }: CreerVa
           />
           <span style={{ fontSize: 11, color: 'var(--muted-2)', lineHeight: 1.45 }}>
             Laissez vide pour reprendre les {forfaitParDefaut} h paramétrées pour l’établissement. La dernière heure est
-            consacrée à l’évaluation de l’élève.
+            consacrée à l’évaluation de l’étudiant.
           </span>
         </div>
       </div>
@@ -405,7 +405,7 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
               onClick={voirTousLesEleves}
               style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 11px', cursor: 'pointer' }}
             >
-              Voir tous les élèves
+              Voir tous les étudiants
             </button>
           </div>
           <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
@@ -451,7 +451,7 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 11.5 }}>{erreur}</p>}
 
       {listeInscritsOuverte && (
-        <Modale titre={`Tous les élèves · ${nomVagueSeul(cohorte.nom)}`} onFermer={() => setListeInscritsOuverte(false)} largeurMax={560}>
+        <Modale titre={`Tous les étudiants · ${nomVagueSeul(cohorte.nom)}`} onFermer={() => setListeInscritsOuverte(false)} largeurMax={560}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {inscrits === null ? (
               <EtatChargement lignes={2} hauteur={38} />
@@ -459,8 +459,8 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
               <EtatVide
                 compact
                 icone="etudiants"
-                titre="Aucun élève inscrit"
-                description="Les inscriptions se font depuis le dossier de l’élève, page Étudiants, en choisissant le programme collectif."
+                titre="Aucun étudiant inscrit"
+                description="Les inscriptions se font depuis le dossier de l’étudiant, page Étudiants, en choisissant le programme collectif."
               />
             ) : (
               inscrits.map((etudiant) => (
@@ -678,7 +678,7 @@ function ClassesVague({
   async function supprimer(classe: CohortClassRow) {
     if (
       !window.confirm(
-        `Supprimer la classe ${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` « ${classe.nom} »` : ''} ? Les élèves inscrits resteront dans la promotion, sans classe.`,
+        `Supprimer la classe ${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` « ${classe.nom} »` : ''} ? Les étudiants inscrits resteront dans la promotion, sans classe.`,
       )
     ) {
       return
@@ -783,7 +783,7 @@ function ClassesVague({
                 )}
               </div>
               <span style={{ fontSize: 11.5, fontWeight: 700, color: couleur }}>
-                {effectif} / {CAPACITE_MAX_CLASSE} élève{effectif > 1 ? 's' : ''}
+                {effectif} / {CAPACITE_MAX_CLASSE} étudiant{effectif > 1 ? 's' : ''}
                 {effectif < CAPACITE_MIN_CLASSE ? ' · pas assez pour démarrer' : effectif >= CAPACITE_MAX_CLASSE ? ' · complet' : ''}
               </span>
               {sansSeanceAVenir && (
@@ -793,7 +793,7 @@ function ClassesVague({
                 />
               )}
               <button onClick={() => basculerVoirEleves(classe)} style={boutonSecondaireStyle}>
-                {classesEleveDepliees.has(classe.id) ? 'Masquer les élèves' : 'Voir les élèves'}
+                {classesEleveDepliees.has(classe.id) ? 'Masquer les étudiants' : 'Voir les étudiants'}
               </button>
               {/* Sans élève, rien à déplacer : le bouton n'ouvrirait qu'une liste vide. */}
               {effectif > 0 && (
@@ -875,7 +875,7 @@ function ClassesVague({
             {classesEleveDepliees.has(classe.id) && (
               <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {ids.length === 0 ? (
-                  <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun élève dans cette classe.</p>
+                  <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun étudiant dans cette classe.</p>
                 ) : classesEnChargement.has(classe.id) ? (
                   <EtatChargement lignes={2} hauteur={28} />
                 ) : (
@@ -1026,7 +1026,7 @@ function DeplacerEtudiantsModale({
           {eleves === null ? (
             <EtatChargement lignes={3} hauteur={30} />
           ) : eleves.length === 0 ? (
-            <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun élève dans cette classe.</p>
+            <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun étudiant dans cette classe.</p>
           ) : (
             <div
               style={{
@@ -1123,8 +1123,8 @@ function DeplacerEtudiantsModale({
                 {tropDEleves && (
                   <MessageErreur>
                     {placesCible === 0
-                      ? 'Cette classe est complète (7 élèves maximum).'
-                      : `Cette classe ne peut accueillir que ${placesCible} élève${placesCible && placesCible > 1 ? 's' : ''} de plus.`}
+                      ? 'Cette classe est complète (7 étudiants maximum).'
+                      : `Cette classe ne peut accueillir que ${placesCible} étudiant${placesCible && placesCible > 1 ? 's' : ''} de plus.`}
                   </MessageErreur>
                 )}
               </>
@@ -1381,7 +1381,7 @@ function ProfesseursClasseModale({
             <div className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               <p style={{ fontSize: 12.5, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6 }}>
                 Retirer <strong>{nommer(secondaireARetirer.teacher_id)}</strong> ? Ses séances encore à venir pour cette
-                classe seront <strong>annulées</strong> et sont à replanifier. Les élèves et ce professeur en seront
+                classe seront <strong>annulées</strong> et sont à replanifier. Les étudiants et ce professeur en seront
                 prévenus, et les réunions correspondantes retirées de leurs agendas. Les séances déjà données ne sont
                 pas touchées.
               </p>

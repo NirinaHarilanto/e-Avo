@@ -129,7 +129,7 @@ export function CoursCollectifsProfesseur() {
                       )}
                     </div>
                     <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                      {c.cohorte?.nom ?? 'Promotion inconnue'} · {LABEL_CRENEAU_CLASSE[c.classe.creneau]} · {eleves.length} élève
+                      {c.cohorte?.nom ?? 'Promotion inconnue'} · {LABEL_CRENEAU_CLASSE[c.classe.creneau]} · {eleves.length} étudiant
                       {eleves.length > 1 ? 's' : ''}
                     </div>
                   </div>
@@ -146,7 +146,7 @@ export function CoursCollectifsProfesseur() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {eleves.length === 0 ? (
-                    <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun élève inscrit pour l'instant.</p>
+                    <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun étudiant inscrit pour l'instant.</p>
                   ) : (
                     eleves.map((etudiant) => (
                       <div key={etudiant.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -187,7 +187,7 @@ export function CoursCollectifsProfesseur() {
                       peutModifier
                     />
                   ) : (
-                    <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun élève à planifier pour l'instant.</p>
+                    <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0 }}>Aucun étudiant à planifier pour l'instant.</p>
                   ))}
               </div>
             )
