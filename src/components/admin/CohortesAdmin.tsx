@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCohortes } from '../../hooks/useCohortes'
@@ -281,6 +282,7 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
   const [niveauxInscrits, setNiveauxInscrits] = useState<Map<string, string>>(new Map())
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   const professeurVague = professeurs.find((p) => p.id === cohorte.teacher_id) ?? null
   const forfaitVague = cohorte.heures_forfait ?? etablissement?.heures_forfait_collectif ?? 32
@@ -444,7 +446,7 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
       {erreur && <p style={{ color: 'var(--danger)', fontSize: 11.5 }}>{erreur}</p>}
 
       {listeInscritsOuverte && (
-        <Modale titre={`Tous les élèves · ${nomVagueSeul(cohorte.nom)}`} onFermer={() => setListeInscritsOuverte(false)} largeurMax={480}>
+        <Modale titre={`Tous les élèves · ${nomVagueSeul(cohorte.nom)}`} onFermer={() => setListeInscritsOuverte(false)} largeurMax={560}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {inscrits === null ? (
               <EtatChargement lignes={2} hauteur={38} />
@@ -461,7 +463,7 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
                   <span style={{ width: 26, height: 26, borderRadius: 999, background: 'var(--voile, rgba(255,255,255,.06))', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>
                     {initiales(etudiant)}
                   </span>
-                  <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--ink)', flexGrow: 1, minWidth: 0 }}>
                     {etudiant.prenom} {etudiant.nom}
                   </span>
                   {niveauxInscrits.get(etudiant.id) && (
@@ -474,11 +476,29 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
                         border: '1px solid rgba(169,140,255,.3)',
                         borderRadius: 999,
                         padding: '2px 9px',
+                        flexShrink: 0,
                       }}
                     >
                       {niveauxInscrits.get(etudiant.id)}
                     </span>
                   )}
+                  <button
+                    onClick={() => navigate(`/admin/etudiants/${etudiant.id}`)}
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: 'var(--accent-blue)',
+                      background: 'transparent',
+                      border: '1px solid var(--border)',
+                      borderRadius: 999,
+                      padding: '4px 10px',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    Voir fiche étudiant
+                  </button>
                 </div>
               ))
             )}
