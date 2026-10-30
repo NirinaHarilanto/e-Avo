@@ -30,6 +30,11 @@ interface ParamsEmail {
      comme modèles de la base), plutôt que recopiées dans chaque texte : un modèle que l'admin
      réécrit depuis son écran ne doit pas pouvoir perdre le moyen de nous joindre. */
   contact?: { telephone?: string | null; email?: string | null }
+  /* Remplace l'adresse de réponse par défaut (toujours HOC, voir plus bas) — seul cas d'usage
+     actuel : le formulaire de contact de la vitrine, où le message part VERS l'administration et
+     doit permettre à l'admin de répondre directement au visiteur en un clic « Répondre », plutôt
+     que de se répondre à elle-même. */
+  replyTo?: string
 }
 
 /* Pied de page de contact. Rend une chaîne vide si le Profil HOC n'a ni téléphone ni e-mail :
@@ -59,7 +64,7 @@ export async function envoyerEmail(params: ParamsEmail): Promise<{ envoye: boole
      refuser l'envoi, un `reply_to` n'a lui aucune contrainte de domaine. Le jour où
      `harionlineclub.com` est vérifié, il suffit de poser `RESEND_FROM` sur l'adresse officielle —
      ce `reply_to` devient alors redondant, sans rien casser. */
-  const adresseDeReponse = process.env.RESEND_REPLY_TO || EMAIL_OFFICIEL_HOC
+  const adresseDeReponse = params.replyTo || process.env.RESEND_REPLY_TO || EMAIL_OFFICIEL_HOC
 
   const destinataires = (Array.isArray(params.destinataire) ? params.destinataire : [params.destinataire]).filter(Boolean)
   if (destinataires.length === 0) {
@@ -94,11 +99,11 @@ export async function envoyerEmail(params: ParamsEmail): Promise<{ envoye: boole
 
 /* Gabarits en HTML inline : les clients de messagerie ignorent les feuilles de style externes,
    et la moitié d'entre eux retirent aussi les balises <style> en en-tête. */
-function coquille(contenu: string): string {
+function coquille(contenu: string, piedDePage = 'Ce message vous est envoyé par Hari Online Club suite à votre demande sur notre site.'): string {
   return `<div style="font-family:Segoe UI,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;padding:28px;color:#1b1630">
   <div style="font-size:20px;font-weight:700;letter-spacing:1px;color:#4A306D;margin-bottom:22px">HARI Online Club</div>
   ${contenu}
-  <p style="margin-top:28px;font-size:12px;color:#8b8698">Ce message vous est envoyé par Hari Online Club suite à votre demande sur notre site.</p>
+  <p style="margin-top:28px;font-size:12px;color:#8b8698">${piedDePage}</p>
 </div>`
 }
 
@@ -267,4 +272,25 @@ export function modeleCandidatureRecue(params: { prenom: string; etablissement: 
     Merci pour votre intérêt : ${echapper(params.etablissement)} a bien reçu votre dossier de candidature formateur.
     Notre équipe l'examine et revient vers vous pour un premier appel si votre profil correspond à nos besoins.
   </p>`)
+}
+
+/* Seul gabarit actuel adressé à l'ADMINISTRATION plutôt qu'à un visiteur ou un étudiant — d'où le
+   pied de page dédié : « suite à votre demande sur notre site » n'aurait aucun sens pour l'admin,
+   qui n'a rien demandé. `replyTo` (voir envoyerEmail) permet de répondre directement au visiteur
+   depuis ce message, sans ressaisir son adresse. */
+export function modeleMessageContact(params: { nom: string; telephone: string | null; email: string | null; projet: string }): string {
+  const coordonnees = [
+    `<p style="font-size:14px;line-height:1.65;margin:0 0 6px"><strong>Nom :</strong> ${echapper(params.nom)}</p>`,
+    params.telephone
+      ? `<p style="font-size:14px;line-height:1.65;margin:0 0 6px"><strong>Téléphone :</strong> ${echapper(params.telephone)}</p>`
+      : '',
+    params.email ? `<p style="font-size:14px;line-height:1.65;margin:0 0 6px"><strong>E-mail :</strong> ${echapper(params.email)}</p>` : '',
+  ].join('')
+  return coquille(
+    `
+  <h1 style="font-size:19px;margin:0 0 14px">Nouveau message depuis le site</h1>
+  ${coordonnees}
+  <p style="font-size:14px;line-height:1.75;margin:18px 0 0;white-space:pre-wrap">${echapper(params.projet)}</p>`,
+    'Message transmis automatiquement depuis le formulaire « Nous contacter » du site.',
+  )
 }

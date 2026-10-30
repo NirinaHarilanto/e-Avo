@@ -3986,6 +3986,24 @@ body.vitrine-hx {
 .hx-ct .b.ghost:hover {
   background: var(--lav-soft);
 }
+.hx-ct .confirmation {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding-top: 8px;
+}
+.hx-ct .confirmation h3 {
+  margin: 0;
+  font: 700 20px/1.3 var(--f-display);
+  color: var(--purple);
+}
+.hx-ct .confirmation p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink);
+}
 @media (max-width: 780px) {
   .hx-ct {
     padding: 0;
