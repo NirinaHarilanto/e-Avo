@@ -9,6 +9,7 @@ import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useEtablissement } from '../../hooks/useEtablissement'
 import { supabase } from '../../lib/supabaseClient'
 import { initiales } from '../etudiants/DossierEtudiantVue'
+import { TagAucunCoursPlanifie } from '../etudiants/CarteListeEtudiant'
 import type { Database, StatutCohorte, NiveauClasse, CreneauClasse } from '../../types/database.types'
 import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, COULEUR_NIVEAU_CLASSE, CAPACITE_MIN_CLASSE, CAPACITE_MAX_CLASSE, periodeClasse } from '../../lib/classesCollectif'
 import { niveauDefinitif } from '../../lib/niveauEtudiant'
@@ -621,10 +622,33 @@ function ClassesVague({
     setCoProfesseurs(map)
   }, [classes])
 
+  /* Classes sans aucun cours à venir — demande client du 2026-10-30, capture à l'appui : même
+     anomalie que `TagAucunCoursPlanifie` côté élève (CarteListeEtudiant.tsx), à l'échelle de la
+     classe entière cette fois. Une séance « planifiee » dont la date est déjà passée ne compte
+     plus : elle attend une clôture, ce n'est pas la même alerte (voir le commentaire jumeau côté
+     élève). */
+  const [classesAvecSeanceAVenir, setClassesAvecSeanceAVenir] = useState<Set<string>>(new Set())
+
+  const chargerSeancesAVenir = useCallback(async () => {
+    const classeIds = classes.map((c) => c.id)
+    if (classeIds.length === 0) {
+      setClassesAvecSeanceAVenir(new Set())
+      return
+    }
+    const { data } = await supabase
+      .from('sessions')
+      .select('cohort_class_id')
+      .in('cohort_class_id', classeIds)
+      .eq('statut', 'planifiee')
+      .gte('debut', new Date().toISOString())
+    setClassesAvecSeanceAVenir(new Set((data ?? []).map((s) => s.cohort_class_id).filter((id): id is string => !!id)))
+  }, [classes])
+
   useEffect(() => {
     chargerEffectifs()
     chargerCoProfesseurs()
-  }, [chargerEffectifs, chargerCoProfesseurs])
+    chargerSeancesAVenir()
+  }, [chargerEffectifs, chargerCoProfesseurs, chargerSeancesAVenir])
 
   async function basculerVoirEleves(classe: CohortClassRow) {
     const estOuverte = classesEleveDepliees.has(classe.id)
@@ -703,6 +727,7 @@ function ClassesVague({
           .map((cp) => professeurs.find((p) => p.id === cp.teacher_id))
           .filter((p): p is Database['public']['Tables']['profiles']['Row'] => !!p)
           .map((p) => `${p.prenom} ${p.nom}`)
+        const sansSeanceAVenir = !classesAvecSeanceAVenir.has(classe.id)
 
         if (classeEnEdition?.id === classe.id) {
           return (
@@ -763,6 +788,12 @@ function ClassesVague({
                 {effectif} / {CAPACITE_MAX_CLASSE} élève{effectif > 1 ? 's' : ''}
                 {effectif < CAPACITE_MIN_CLASSE ? ' · pas assez pour démarrer' : effectif >= CAPACITE_MAX_CLASSE ? ' · complet' : ''}
               </span>
+              {sansSeanceAVenir && (
+                <TagAucunCoursPlanifie
+                  texte={false}
+                  titre="Aucune séance à venir pour cette classe. Les séances déjà passées, clôturées ou non, ne comptent pas ici."
+                />
+              )}
               <button onClick={() => basculerVoirEleves(classe)} style={boutonSecondaireStyle}>
                 {classesEleveDepliees.has(classe.id) ? 'Masquer les élèves' : 'Voir les élèves'}
               </button>

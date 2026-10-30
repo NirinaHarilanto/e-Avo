@@ -4,6 +4,7 @@ import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { supabase } from '../../lib/supabaseClient'
 import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, COULEUR_NIVEAU_CLASSE, periodeClasse } from '../../lib/classesCollectif'
 import { initiales } from '../etudiants/DossierEtudiantVue'
+import { TagAucunCoursPlanifie } from '../etudiants/CarteListeEtudiant'
 import { PanneauPlanningClasse } from '../shared/PanneauPlanningClasse'
 import type { Database } from '../../types/database.types'
 import { EnTetePage } from '../ui/EnTetePage'
@@ -27,6 +28,33 @@ export function CoursCollectifsProfesseur() {
   const { classes, loading } = useClassesAvecMembres()
   const [elevesParClasse, setElevesParClasse] = useState<Map<string, Profile[]>>(new Map())
   const [classeDepliee, setClasseDepliee] = useState<string | null>(null)
+  /* Classes sans aucun cours à venir (0074, demande client du 2026-10-30) — même alerte que côté
+     admin (CohortesAdmin.tsx), avec le même critère : une « planifiee » déjà passée n'en est pas
+     une (elle attend une clôture, voir le commentaire jumeau côté admin). */
+  const [classesAvecSeanceAVenir, setClassesAvecSeanceAVenir] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    let annule = false
+    async function charger() {
+      const classeIds = classes.map((c) => c.classe.id)
+      if (classeIds.length === 0) {
+        setClassesAvecSeanceAVenir(new Set())
+        return
+      }
+      const { data } = await supabase
+        .from('sessions')
+        .select('cohort_class_id')
+        .in('cohort_class_id', classeIds)
+        .eq('statut', 'planifiee')
+        .gte('debut', new Date().toISOString())
+      if (annule) return
+      setClassesAvecSeanceAVenir(new Set((data ?? []).map((s) => s.cohort_class_id).filter((id): id is string => !!id)))
+    }
+    charger()
+    return () => {
+      annule = true
+    }
+  }, [classes])
 
   useEffect(() => {
     let annule = false
@@ -105,6 +133,12 @@ export function CoursCollectifsProfesseur() {
                       {eleves.length > 1 ? 's' : ''}
                     </div>
                   </div>
+                  {!classesAvecSeanceAVenir.has(c.classe.id) && (
+                    <TagAucunCoursPlanifie
+                      texte={false}
+                      titre="Aucune séance à venir pour cette classe. Les séances déjà passées, clôturées ou non, ne comptent pas ici."
+                    />
+                  )}
                   <button onClick={() => setClasseDepliee(depliee ? null : c.classe.id)} style={boutonSecondaireStyle}>
                     {depliee ? 'Masquer le planning' : 'Planning de la classe'}
                   </button>

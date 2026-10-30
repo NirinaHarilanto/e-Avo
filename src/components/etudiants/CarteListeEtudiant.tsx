@@ -73,10 +73,14 @@ export function TagDossierIncomplet() {
    Même ambre que les autres signaux non bloquants de la liste (`TagDossierIncomplet`), pas du
    rouge : c'est à surveiller, ce n'est pas une erreur — et c'est aussi ce qui la distingue du
    point d'exclamation rouge de `BadgeStatutContrat` (« aucun contrat »), bloquant lui. */
-export function TagAucunCoursPlanifie({ texte = true }: { texte?: boolean } = {}) {
+export function TagAucunCoursPlanifie({
+  texte = true,
+  titre = 'Aucune séance à venir pour cet étudiant. Les séances déjà passées, clôturées ou non, ne comptent pas ici.',
+  libelle = 'Aucun cours à venir',
+}: { texte?: boolean; titre?: string; libelle?: string } = {}) {
   return (
     <span
-      title="Aucune séance à venir pour cet étudiant. Les séances déjà passées, clôturées ou non, ne comptent pas ici."
+      title={titre}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -104,7 +108,7 @@ export function TagAucunCoursPlanifie({ texte = true }: { texte?: boolean } = {}
           planifié ». Ce qu'elle compte, et a toujours compté, ce sont les séances À VENIR ; elle
           le dit maintenant. Les séances passées jamais clôturées, elles, portent désormais leur
           propre libellé (« À clôturer », voir lib/seances.ts). */}
-      {texte && 'Aucun cours à venir'}
+      {texte && libelle}
     </span>
   )
 }
