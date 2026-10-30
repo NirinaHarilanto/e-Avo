@@ -2,6 +2,16 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
+    <!-- Propriété Search Console du 2026-10-30 (brief SEO), vérification par balise HTML —
+         propriété « Préfixe d'URL » sur https://www.harionlineclub.app, au nom du compte Google
+         professionnel de la fondatrice (pas du prestataire, demande explicite du brief, point 3).
+         Le plugin de build qui réécrit le titre et la description page par page
+         (`hoc-seo-pages-vitrine`, vite.config.ts) ne touche pas cette ligne : elle se retrouve
+         donc telle quelle dans les neuf pages générées. Ne jamais la retirer : Google revérifie
+         périodiquement sa présence et peut retirer la propriété si elle disparaît. Et ne jamais
+         nommer les deux balises que ce plugin réécrit, dans AUCUN commentaire de ce fichier — voir
+         le commentaire de `sansSeo` dans vite.config.ts pour la raison, instructive. -->
+    <meta name="google-site-verification" content="uy6rz3Uh5CDBtUzRIA1lxkj3U6Lsg4Fwow-3Rzz7v58" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

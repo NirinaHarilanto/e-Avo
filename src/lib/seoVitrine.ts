@@ -188,6 +188,28 @@ export function planDuSite(jour = new Date().toISOString().slice(0, 10)): string
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`
 }
 
+/* Retire le `<title>` et la `<meta name="description">` du gabarit `index.html`, AVANT que
+   `baliseSeo` n'en pose une nouvelle paire propre à chaque page — sans quoi chacune des neuf
+   pages en porterait deux, et un robot retiendrait la première : celle du gabarit, identique
+   partout, le défaut même qu'on corrige. Extrait de `vite.config.ts` pour être testé ici, comme
+   le reste de ce module.
+
+   `[^<]*`/`[^>]*`, jamais `[\s\S]*?` — incident du 2026-10-30, reproduit par le premier test
+   ci-dessous : un `[\s\S]*?` ne s'arrête qu'au PREMIER `</title>` ou `/>` rencontré dans tout le
+   document, d'où qu'il vienne, y compris le texte d'un commentaire HTML qui nommerait ces balises
+   en passant. Un commentaire de `index.html` expliquant ce mécanisme citait justement `<title>`
+   et `<meta name="description">` ; le second motif a dévoré tout le texte du commentaire jusqu'au
+   PROCHAIN `/>` du document — celui de la balise de vérification Search Console juste après —
+   effaçant titre, description et balise de vérification des neuf pages, en silence. Le contenu
+   réel d'un `<title>` ne contient jamais `<`, et les attributs d'un `<meta ... />` jamais `>` :
+   borner les motifs à ces caractères les empêche de franchir la limite de la vraie balise,
+   commentaire ou pas. */
+export function sansBaliseSeoGabarit(html: string): string {
+  return html
+    .replace(/[ \t]*<title>[^<]*<\/title>\r?\n?/i, '')
+    .replace(/[ \t]*<meta\s+name="description"[^>]*\/>\r?\n?/i, '')
+}
+
 function echapper(texte: string): string {
   return texte.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }

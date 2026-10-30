@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PAGES_VITRINE, SITE, baliseSeo, donneesStructureesCours, planDuSite } from '../seoVitrine'
+import { PAGES_VITRINE, SITE, baliseSeo, donneesStructureesCours, planDuSite, sansBaliseSeoGabarit } from '../seoVitrine'
 
 /* Brief SEO du client du 2026-10-30. Ce que ces tests tiennent, et qu'aucun écran ne montre :
    le défaut d'origine était SIX pages partageant le même titre et la même description. Une
@@ -33,6 +33,46 @@ describe('PAGES_VITRINE', () => {
     expect(accueil.description).toBe(
       'Découvrez Hari Online Club : des cours d’anglais en ligne individuels, en duo ou en groupe. Développez votre expression orale et gagnez en confiance grâce à un apprentissage axé sur la pratique.',
     )
+  })
+})
+
+describe('sansBaliseSeoGabarit', () => {
+  it('retire le titre et la description du gabarit', () => {
+    const html = '<head>\n    <title>Hari Online Club</title>\n    <meta name="description" content="Vieux texte" />\n  </head>'
+    const resultat = sansBaliseSeoGabarit(html)
+    expect(resultat).not.toContain('<title>')
+    expect(resultat).not.toContain('name="description"')
+  })
+
+  it('ne touche pas à une balise de vérification qui suit, même citée en commentaire juste avant — incident du 2026-10-30', () => {
+    /* Reproduction exacte de l'incident réel : un commentaire HTML nommant `<title>` et
+       `<meta name="description">` en prose, suivi de la vraie balise de vérification Search
+       Console, elle-même suivie des vraies balises de titre et de description. Avant le
+       correctif, le second `.replace` dévorait tout depuis son texte dans le commentaire
+       jusqu'au PREMIER `/>` du document — celui de la balise de vérification — l'effaçant avec
+       le reste. */
+    const html = [
+      '<head>',
+      '    <!-- Un commentaire qui nomme <title> et <meta name="description"> en passant. -->',
+      '    <meta name="google-site-verification" content="abc123" />',
+      '    <title>Cours d’anglais en ligne à Madagascar | Hari Online Club</title>',
+      '    <meta name="description" content="Vieux texte" />',
+      '  </head>',
+    ].join('\n')
+
+    const resultat = sansBaliseSeoGabarit(html)
+
+    // Le commentaire reste (on ne le touche pas) : il contient légitimement « <title> » en
+    // prose. C'est la VRAIE balise, avec son VRAI contenu, qui doit avoir disparu.
+    expect(resultat).toContain('<!-- Un commentaire qui nomme')
+    expect(resultat).toContain('<meta name="google-site-verification" content="abc123" />')
+    expect(resultat).not.toContain('Cours d’anglais en ligne à Madagascar | Hari Online Club')
+    expect(resultat).not.toContain('content="Vieux texte"')
+  })
+
+  it('ne retire qu’une seule occurrence de chaque, la première', () => {
+    const html = '<title>Un</title><title>Deux</title>'
+    expect(sansBaliseSeoGabarit(html)).toBe('<title>Deux</title>')
   })
 })
 

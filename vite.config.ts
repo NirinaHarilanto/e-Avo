@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
-import { PAGES_VITRINE, baliseSeo, planDuSite } from './src/lib/seoVitrine.js'
+import { PAGES_VITRINE, baliseSeo, planDuSite, sansBaliseSeoGabarit } from './src/lib/seoVitrine.js'
 
 /* Une page HTML par adresse publique — brief SEO du client du 2026-10-30.
  *
@@ -35,13 +35,10 @@ function seoPagesVitrine(): Plugin {
       const source = join(dossier, 'index.html')
       const html = await readFile(source, 'utf8')
 
-      /* Le gabarit porte déjà un `<title>` et une `<meta name="description">` (index.html, à la
-         racine du dépôt). Les retirer d'abord, sinon chaque page en aurait deux et le robot
-         retiendrait la première — celle du gabarit, identique partout, c'est-à-dire le défaut
-         qu'on corrige. */
-      const sansSeo = html
-        .replace(/[ \t]*<title>[\s\S]*?<\/title>\r?\n?/i, '')
-        .replace(/[ \t]*<meta\s+name="description"[\s\S]*?\/>\r?\n?/i, '')
+      /* Le gabarit porte déjà un titre et une description (index.html, à la racine du dépôt) :
+         les retirer avant d'écrire ceux de chaque page — voir `sansBaliseSeoGabarit`
+         (seoVitrine.ts) pour la raison d'être de ce motif, et l'incident qu'il corrige. */
+      const sansSeo = sansBaliseSeoGabarit(html)
 
       for (const page of PAGES_VITRINE) {
         const avecSeo = sansSeo.replace('</head>', `  ${baliseSeo(page)}\n  </head>`)
