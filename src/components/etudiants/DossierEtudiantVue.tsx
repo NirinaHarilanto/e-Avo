@@ -1127,10 +1127,12 @@ export function DossierEtudiantVue({
             {periodesActuelles.length === 0 && cohorte && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <LigneInfo
+                  collee
                   label="Professeur de la classe"
                   valeur={professeurClasse ? `${professeurClasse.prenom} ${professeurClasse.nom}` : 'Non désigné'}
                 />
                 <LigneInfo
+                  collee
                   label="Classe"
                   valeur={
                     cohortClasse
@@ -1158,20 +1160,23 @@ export function DossierEtudiantVue({
                     évite de déplacer un élève seul hors du groupe avec lequel il suit ses
                     cours. */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <LigneInfo label="Vague" valeur={cohorte.nom} />
-                  <LigneInfo label="Langue" valeur={cohorte.langue ?? '—'} />
+                  <LigneInfo collee label="Vague" valeur={cohorte.nom} />
+                  <LigneInfo collee label="Langue" valeur={cohorte.langue ?? '—'} />
                   <LigneInfo
+                    collee
                     label="Dates"
                     valeur={`${new Date(cohorte.date_debut).toLocaleDateString('fr-FR')} → ${new Date(cohorte.date_fin).toLocaleDateString('fr-FR')}`}
                   />
                   {cohortClasse && (
                     <>
                       <LigneInfo
+                        collee
                         label="Classe"
                         valeur={`${LABEL_NIVEAU_CLASSE[cohortClasse.niveau]}${cohortClasse.nom ? ` — ${cohortClasse.nom}` : ''}`}
                       />
-                      <LigneInfo label="Créneau" valeur={LABEL_CRENEAU_CLASSE[cohortClasse.creneau]} />
+                      <LigneInfo collee label="Créneau" valeur={LABEL_CRENEAU_CLASSE[cohortClasse.creneau]} />
                       <LigneInfo
+                        collee
                         label="Professeur de la classe"
                         valeur={professeurClasse ? `${professeurClasse.prenom} ${professeurClasse.nom}` : 'Non désigné'}
                       />
@@ -1184,17 +1189,18 @@ export function DossierEtudiantVue({
                       {/* Mêmes libellés que le forfait individuel (« Consommées », jamais « Heures
                           suivies ») : ce dernier nomme déjà la tuile d'en-tête du dossier, deux
                           éléments portant le même texte rendent un test par libellé ambigu. */}
-                      <LigneInfo label="Forfait de la vague" valeur={formaterHeures(totalHeuresAffiche)} />
-                      <LigneInfo label="Consommées" valeur={formaterHeures(heuresAffichees)} />
+                      <LigneInfo collee label="Forfait de la vague" valeur={formaterHeures(totalHeuresAffiche)} />
+                      <LigneInfo collee label="Consommées" valeur={formaterHeures(heuresAffichees)} />
                       {heuresReprises > 0 && (
-                        <LigneInfo label="dont suivies avant la mise en service" valeur={formaterHeures(heuresReprises)} />
+                        <LigneInfo collee label="dont suivies avant la mise en service" valeur={formaterHeures(heuresReprises)} />
                       )}
-                      <LigneInfo label="Restantes" valeur={formaterHeures(heuresRestantesAffichees)} />
+                      <LigneInfo collee label="Restantes" valeur={formaterHeures(heuresRestantesAffichees)} />
                       {/* Un élève monté de niveau a derrière lui des forfaits soldés (0146) : sans
                           cette ligne, son compteur repartant de zéro passerait pour une perte de
                           données alors que tout est conservé. */}
                       {porteeClasse && packages.length > 1 && (
                         <LigneInfo
+                          collee
                           label="Forfaits précédents"
                           valeur={`${packages.length - 1} cycle${packages.length > 2 ? 's' : ''} déjà suivi${packages.length > 2 ? 's' : ''}`}
                         />
@@ -1219,21 +1225,25 @@ export function DossierEtudiantVue({
                   </div>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <LigneInfo label="Programme" valeur={LABEL_TYPE_PROGRAMME[forfait.type_programme]} />
-                  <LigneInfo label="Formule en cours" valeur={formaterHeures(forfait.total_heures)} />
-                  <LigneInfo label="Montant" valeur={forfait.montant !== null ? `${forfait.montant.toLocaleString('fr-FR')} Ar` : '—'} />
-                  <LigneInfo label="Consommées" valeur={formaterHeures(heuresConsommees)} />
+                  <LigneInfo collee label="Programme" valeur={LABEL_TYPE_PROGRAMME[forfait.type_programme]} />
+                  <LigneInfo collee label="Formule en cours" valeur={formaterHeures(forfait.total_heures)} />
+                  <LigneInfo collee label="Montant" valeur={forfait.montant !== null ? `${forfait.montant.toLocaleString('fr-FR')} Ar` : '—'} />
+                  <LigneInfo collee label="Consommées" valeur={formaterHeures(heuresConsommees)} />
                   {/* Un dossier repris à la mise en service (0140) affiche des heures consommées
                       sans qu'aucune séance ne figure dans son parcours : sans cette ligne, le
                       compteur passe pour faux. */}
                   {heuresReprises > 0 && (
-                    <LigneInfo label="dont suivies avant la mise en service" valeur={formaterHeures(heuresReprises)} />
+                    <LigneInfo collee label="dont suivies avant la mise en service" valeur={formaterHeures(heuresReprises)} />
                   )}
-                  <LigneInfo label="Restantes (tous forfaits cumulés)" valeur={formaterHeures(heuresRestantes)} />
-                  <LigneInfo label="Échéance" valeur={forfait.echeance ? new Date(forfait.echeance).toLocaleDateString('fr-FR') : '—'} />
+                  <LigneInfo collee label="Restantes (tous forfaits cumulés)" valeur={formaterHeures(heuresRestantes)} />
+                  <LigneInfo collee label="Échéance" valeur={forfait.echeance ? new Date(forfait.echeance).toLocaleDateString('fr-FR') : '—'} />
                 </div>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+                  {/* Le pourcentage suit son intitulé au lieu d'aller au bout de la barre —
+                      demande client du 2026-10-30, capture à l'appui : « il faudrait faire
+                      rapprocher les informations de droite à côté de leurs intitulés à gauche ».
+                      Même geste que `collee` sur les lignes au-dessus. */}
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap', marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Progression (cumul des forfaits)</span>
                     <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>
                       {Math.round(Math.min(100, (heuresConsommees / totalHeuresCumulees) * 100))} %
