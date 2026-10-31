@@ -199,6 +199,33 @@ export function AgendaHebdo({
     zoneDefilement.current?.scrollTo({ top: Math.max(0, (8 - plage.debut) * hauteurHeure) })
   }, [plage.debut, hauteurHeure])
 
+  /* L'en-tête des jours vit HORS de la zone défilante : sa grille occupe donc toute la largeur,
+     tandis que celle du corps perd dessous la place prise par la barre de défilement. Les sept
+     colonnes du corps étaient d'autant plus étroites, et leurs traits dérivaient vers la gauche
+     en s'écartant de ceux de l'en-tête — décalage croissant d'un jour à l'autre, signalé par le
+     client le 2026-10-31. On réserve ici la largeur réelle de cette barre en marge de l'en-tête,
+     pour que les deux grilles partagent exactement la même largeur utile.
+     `offsetWidth` et `clientWidth` se lisent dans le même repère que le `paddingRight` qu'on en
+     tire : leur différence n'a pas à être corrigée du zoom de l'espace, contrairement aux mesures
+     tirées de `getBoundingClientRect()` plus haut. Vaut 0 tant qu'aucune barre n'est nécessaire,
+     et dans l'environnement de test où les éléments n'ont aucune dimension. */
+  const [largeurBarreDefilement, setLargeurBarreDefilement] = useState(0)
+  useEffect(() => {
+    function mesurer() {
+      const zone = zoneDefilement.current
+      if (!zone) return
+      setLargeurBarreDefilement(Math.max(0, zone.offsetWidth - zone.clientWidth))
+    }
+    mesurer()
+    window.addEventListener('resize', mesurer)
+    const observateur = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(mesurer) : null
+    if (zoneDefilement.current) observateur?.observe(zoneDefilement.current)
+    return () => {
+      window.removeEventListener('resize', mesurer)
+      observateur?.disconnect()
+    }
+  }, [compact, hauteurDisponible, hauteurGrille, joursVisibles.length])
+
   const minutesMaintenant = minutesDepuisMinuit(maintenant)
   const traitMaintenant = (minutesMaintenant - plage.debut * 60) * (hauteurHeure / 60)
   const traitVisible = minutesMaintenant >= plage.debut * 60 && minutesMaintenant <= plage.fin * 60
@@ -288,6 +315,7 @@ export function AgendaHebdo({
             display: 'grid',
             gridTemplateColumns: `${LARGEUR_GOUTTIERE}px repeat(${joursVisibles.length}, minmax(0, 1fr))`,
             borderBottom: '1px solid var(--border-soft)',
+            paddingRight: largeurBarreDefilement,
           }}
         >
           <div />
