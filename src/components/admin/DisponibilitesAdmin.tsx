@@ -35,6 +35,11 @@ export function DisponibilitesAdmin() {
   const [horizon, setHorizon] = useState('21')
   const [pause, setPause] = useState('15')
 
+  /* Lues depuis la saisie en cours et non depuis la base : l'aide doit suivre ce que l'admin
+     est en train de taper, avant même d'avoir enregistré. */
+  const delaiHeures = Number(delai) || 0
+  const horizonJours = Number(horizon) || 0
+
   const [nouveauJour, setNouveauJour] = useState(1)
   const [nouveauDebut, setNouveauDebut] = useState('09:00')
   const [nouveauFin, setNouveauFin] = useState('12:00')
@@ -56,13 +61,24 @@ export function DisponibilitesAdmin() {
     setApercu(reponse && !reponse.error ? (reponse as ApercuCreneaux) : null)
   }, [])
 
-  /* Signature plutôt que le tableau lui-même : `useDisponibilites` rend `valeur?.plages ?? []`,
+  /* Signature plutôt que les objets eux-mêmes : `useDisponibilites` rend `valeur?.plages ?? []`,
      donc un tableau d'identité neuve à chaque rendu tant que la requête n'a pas répondu — en
-     dépendance directe, l'effet se relancerait en boucle. */
-  const signaturePlages = plages.map((p) => `${p.id}:${p.actif}:${p.heure_debut}:${p.heure_fin}`).join(',')
+     dépendance directe, l'effet se relancerait en boucle.
+
+     Les RÉGLAGES en font partie depuis le 2026-10-31 : ils n'y étaient pas, et l'aperçu continuait
+     d'annoncer « 72 créneaux sur les 21 prochains jours » après être passé à 31 jours. Le client
+     l'a signalé, capture à l'appui — le réglage était bel et bien enregistré et le site public
+     servait déjà 96 créneaux, seul cet écran-ci racontait l'ancien monde. */
+  const signatureReglages = [
+    plages.map((p) => `${p.id}:${p.actif}:${p.heure_debut}:${p.heure_fin}`).join(','),
+    parametres?.duree_minutes,
+    parametres?.delai_minimum_heures,
+    parametres?.horizon_jours,
+    parametres?.pause_minutes,
+  ].join('|')
   useEffect(() => {
     chargerApercu()
-  }, [chargerApercu, signaturePlages])
+  }, [chargerApercu, signatureReglages])
 
   useEffect(() => {
     if (!parametres) return
@@ -90,6 +106,10 @@ export function DisponibilitesAdmin() {
     else {
       setMessage('Réglages enregistrés.')
       recharger()
+      /* En plus de `recharger()` : celui-ci relit les réglages, mais l'aperçu se recalcule côté
+         serveur et doit être redemandé explicitement pour que le décompte affiché corresponde
+         aux réglages qu'on vient de poser. */
+      chargerApercu()
     }
   }
 
@@ -162,10 +182,25 @@ export function DisponibilitesAdmin() {
         <Champ label="Durée de l’appel (min)">
           <input type="number" min={5} max={240} value={duree} onChange={(e) => setDuree(e.target.value)} style={champStyle} />
         </Champ>
-        <Champ label="Délai minimum (h)" aide="Temps dont vous disposez pour valider avant le rendez-vous">
+        {/* Les deux aides sont réécrites du point de vue du VISITEUR autant que du vôtre — le
+            client a lu « Réservable jusqu'à : 31 » comme une date (« jusqu'au 31 novembre »)
+            plutôt que comme un nombre de jours, et demandait ce que valait au juste un délai
+            minimum d'une heure. Le texte dit désormais la règle, et la date calculée lève
+            l'ambiguïté une bonne fois. */}
+        <Champ
+          label="Délai minimum (h)"
+          aide={
+            delaiHeures > 0
+              ? `Un visiteur ne peut pas réserver à moins de ${delaiHeures} h. C'est le temps dont vous disposez au minimum pour valider avant le début du rendez-vous.`
+              : 'Aucun délai : un visiteur peut réserver le créneau qui commence dans la minute.'
+          }
+        >
           <input type="number" min={0} max={720} value={delai} onChange={(e) => setDelai(e.target.value)} style={champStyle} />
         </Champ>
-        <Champ label="Réservable jusqu’à (jours)">
+        <Champ
+          label="Réservable combien de jours à l’avance"
+          aide={horizonJours > 0 ? `${horizonJours} jours, soit jusqu’au ${dernierJourReservable(horizonJours)}.` : undefined}
+        >
           <input type="number" min={1} max={180} value={horizon} onChange={(e) => setHorizon(e.target.value)} style={champStyle} />
         </Champ>
         <Champ label="Pause entre appels (min)">
@@ -288,6 +323,20 @@ export function DisponibilitesAdmin() {
       </div>
     </Section>
   )
+}
+
+/* Dernier jour réservable, en toutes lettres — c'est tout l'objet de cette aide : le client a lu
+   « Réservable jusqu'à : 31 » comme une date (« jusqu'au 31 novembre », qui n'existe pas) alors
+   que le champ compte des JOURS à partir d'aujourd'hui.
+
+   Accesseurs locaux et non `toISOString()` : extraire le jour après passage en UTC le recule d'un
+   cran à Madagascar (UTC+3), comme partout ailleurs dans HOC. Le fuseau de l'établissement n'est
+   pas forcé ici — cette phrase s'adresse à l'admin qui lit son écran, et la différence ne porte
+   que sur les trois premières heures de la journée malgache. */
+function dernierJourReservable(jours: number): string {
+  const limite = new Date()
+  limite.setDate(limite.getDate() + jours)
+  return limite.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 }
 
 interface ApercuCreneaux {
