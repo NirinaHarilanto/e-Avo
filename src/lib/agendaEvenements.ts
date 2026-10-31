@@ -234,6 +234,11 @@ export interface EvenementGoogle {
   recurrent: boolean
   serieId: string | null
   modifiable: boolean
+  /* Nom de la personne dont c'est l'agenda, quand ce n'est pas celui de qui regarde : l'écran
+     « Séances & visio » superpose les agendas Google de PLUSIEURS professeurs cochés à la fois
+     (2026-10-31), et une indisponibilité sans nom n'apprend rien à l'admin. Absent partout
+     ailleurs — chacun sait que son propre agenda est le sien. */
+  proprietaire?: string | null
 }
 
 /* Converti au même format que le reste de l'agenda HOC — ton neutre et discret, jamais confondu
@@ -245,7 +250,7 @@ export function versEvenementGooglePersonnel(evenement: EvenementGoogle): Evenem
     debut: evenement.debut,
     dureeMinutes,
     titre: evenement.titre,
-    sousTitre: 'Agenda Google',
+    sousTitre: evenement.proprietaire ? `Agenda Google · ${evenement.proprietaire}` : 'Agenda Google',
     ton: 'neutre',
     /* L'événement garde la couleur qu'il a dans Google Agenda : c'est par elle que le client
        reconnaît ses catégories d'un coup d'œil, et la perdre reviendrait à aplatir tout son

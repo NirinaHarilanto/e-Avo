@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { jetonAcces } from '../lib/jetonAcces'
 import { supabase } from '../lib/supabaseClient'
 import { useProfileContext } from '../context/ProfileContext'
 import { ajouterJours } from '../lib/agenda'
@@ -45,7 +46,7 @@ export function useEvenementsGoogleCalendarPersonnel(semaineDebut: Date) {
       const fin = ajouterJours(semaineDebut, 7)
       const parametres = new URLSearchParams({ debut: debut.toISOString(), fin: fin.toISOString() })
       const reponse = await fetch(`/api/google-personnel/evenements?${parametres}`, {
-        headers: { Authorization: `Bearer ${session!.access_token}` },
+        headers: { Authorization: `Bearer ${await jetonAcces()}` },
       }).catch(() => null)
       if (!reponse?.ok) return []
       const corps = (await reponse.json().catch(() => null)) as { evenements?: EvenementGoogle[] } | null
@@ -63,6 +64,47 @@ export function useEvenementsGoogleCalendarPersonnel(semaineDebut: Date) {
   const bruts = useMemo<EvenementGoogle[]>(() => valeur ?? [], [valeur])
   /* Les deux formes sont rendues : celui que l'agenda place dans sa grille, et l'événement complet
      que sa fiche affiche au clic (description, invités, droit de modification). */
+  const evenements = useMemo(() => bruts.map(versEvenementGooglePersonnel), [bruts])
+  const parId = useMemo(() => new Map(bruts.map((e) => [e.id, e])), [bruts])
+
+  return { evenements, parId, recharger }
+}
+
+/* Agendas Google personnels des professeurs COCHÉS dans « Séances & visio » (demande client du
+   2026-10-31 : « les agendas ne sont toujours pas synchronisés, regarde pour oelimanda »).
+   L'admin voyait les séances HOC du professeur, jamais ses indisponibilités Google — alors que le
+   professeur, lui, les a sous les yeux dans son propre espace. Les deux écrans montrent désormais
+   la même semaine.
+
+   Lecture seule de bout en bout : la route rend `modifiable: false` pour ces événements, l'agenda
+   restant celui du professeur. Vide tant qu'aucun professeur n'est coché — aucun appel réseau. */
+export function useEvenementsGoogleProfesseurs(semaineDebut: Date, professeurIds: string[]) {
+  const { profile } = useProfileContext()
+  // Triés : deux sélections identiques dans un ordre différent partagent la même entrée de cache.
+  const ids = useMemo(() => [...professeurIds].sort(), [professeurIds])
+  const cle = profile && ids.length > 0 ? `google-professeurs-${semaineDebut.toISOString().slice(0, 10)}-${ids.join('.')}` : null
+
+  const { valeur, recharger } = useCacheRequete(
+    cle,
+    async () => {
+      const parametres = new URLSearchParams({
+        debut: semaineDebut.toISOString(),
+        fin: ajouterJours(semaineDebut, 7).toISOString(),
+        profileIds: ids.join(','),
+      })
+      const reponse = await fetch(`/api/google-personnel/evenements?${parametres}`, {
+        headers: { Authorization: `Bearer ${await jetonAcces()}` },
+      }).catch(() => null)
+      if (!reponse?.ok) return []
+      const corps = (await reponse.json().catch(() => null)) as { evenements?: EvenementGoogle[] } | null
+      return corps?.evenements ?? []
+    },
+    // Même battement que l'agenda personnel ci-dessus : Google ne prévient jamais HOC d'un
+    // changement, et un créneau bloqué depuis un téléphone doit finir par apparaître ici.
+    { intervalleSondageMs: 60_000 },
+  )
+
+  const bruts = useMemo<EvenementGoogle[]>(() => valeur ?? [], [valeur])
   const evenements = useMemo(() => bruts.map(versEvenementGooglePersonnel), [bruts])
   const parId = useMemo(() => new Map(bruts.map((e) => [e.id, e])), [bruts])
 

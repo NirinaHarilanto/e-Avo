@@ -17,7 +17,7 @@ import {
   versEvenementPrestation,
   versEvenementSeance,
 } from '../../lib/agendaEvenements'
-import { useEvenementsGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
+import { useEvenementsGoogleCalendarPersonnel, useEvenementsGoogleProfesseurs } from '../../hooks/useGoogleCalendarPersonnel'
 import { libelleTypeSeance, nomsElevesInscrits } from '../../lib/seances'
 import { BadgeStatutSeance } from '../shared/BadgeStatutSeance'
 import { EditerSeancePlanifieeModale } from '../shared/EditerSeancePlanifieeModale'
@@ -113,6 +113,15 @@ export function SeancesAdmin() {
     [personnesSelectionnees, etudiantIds],
   )
 
+  /* Agendas Google des professeurs cochés (demande client du 2026-10-31) : sans eux, cocher un
+     professeur montrait une semaine vide alors que son propre espace affichait ses
+     indisponibilités Google — « les agendas ne sont toujours pas synchronisés ». */
+  const idsProfsSelectionnes = useMemo(() => [...profsSelectionnes], [profsSelectionnes])
+  const { evenements: evenementsGoogleProfesseurs, parId: googleProfesseursParId } = useEvenementsGoogleProfesseurs(
+    semaineDebut,
+    idsProfsSelectionnes,
+  )
+
   const evenements = useMemo(() => {
     // Rien coché : comportement d'origine, toutes les séances de la semaine, aucun agenda admin.
     const visibles =
@@ -157,7 +166,9 @@ export function SeancesAdmin() {
       )
       .map(versEvenementAdmin)
 
-    if (!adminSelectionne) return [...seancesEvenements, ...prestationsEvenements, ...evenementsDesPersonnes]
+    if (!adminSelectionne) {
+      return [...seancesEvenements, ...prestationsEvenements, ...evenementsDesPersonnes, ...evenementsGoogleProfesseurs]
+    }
 
     const evenementsAgendaAdmin = agendaAdminComplet(rendezVous, evenementsAdmin).filter((e) => {
       const debutIso = e.debut
@@ -174,6 +185,7 @@ export function SeancesAdmin() {
       ...evenementsDesPersonnes,
       ...evenementsAgendaAdmin.filter((e) => !dejaPoses.has(e.id)),
       ...evenementsGooglePersonnel,
+      ...evenementsGoogleProfesseurs,
     ]
   }, [
     seancesSemaine,
@@ -188,6 +200,7 @@ export function SeancesAdmin() {
     semaineDebut,
     semaineFin,
     evenementsGooglePersonnel,
+    evenementsGoogleProfesseurs,
   ])
 
   /* Toute séance s'ouvre, quel que soit son statut — demande client du 2026-09-23 (point 4) :
@@ -210,7 +223,11 @@ export function SeancesAdmin() {
     ? (professeurs.find((p) => p.id === prestationOuverte.teacher_id) ?? null)
     : null
   const evenementGoogleOuvert =
-    clicEstEvenementGoogle && seanceOuverteId ? (googleParId.get(idGoogleDepuisEvenement(seanceOuverteId)) ?? null) : null
+    clicEstEvenementGoogle && seanceOuverteId
+      ? (googleParId.get(idGoogleDepuisEvenement(seanceOuverteId)) ??
+        googleProfesseursParId.get(idGoogleDepuisEvenement(seanceOuverteId)) ??
+        null)
+      : null
 
   const maintenant = new Date().toISOString()
   const aVenir = seances

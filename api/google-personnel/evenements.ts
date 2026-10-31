@@ -42,6 +42,65 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'Fenêtre de dates invalide.' }, { status: 400 })
     }
 
+    /* Agendas Google de PROFESSEURS désignés — superposition de l'écran « Séances & visio »
+       (demande client du 2026-10-31 : « synchroniser les agendas des professeurs sélectionnés
+       avec les agendas des professeurs »). Un professeur voit ses propres indisponibilités Google
+       dans son espace ; l'admin, lui, ne voyait que les séances HOC et posait donc des cours sur
+       des créneaux déjà pris.
+       Réservé aux admins, et borné à LEUR établissement : sans ce second filtre, un identifiant
+       saisi à la main ouvrirait l'agenda d'un professeur d'ailleurs. Toujours rendu en lecture
+       seule (`modifiable: false`) — l'agenda appartient au professeur, l'admin le consulte. */
+    const profileIdsParam = url.searchParams.get('profileIds')
+    if (profileIdsParam) {
+      if (!roles.includes('admin_etablissement')) {
+        return Response.json({ error: 'Réservé à un administrateur.' }, { status: 403 })
+      }
+      const demandes = [...new Set(profileIdsParam.split(',').map((v) => v.trim()).filter(Boolean))].slice(0, 40)
+      if (demandes.length === 0) {
+        return Response.json({ evenements: [] })
+      }
+      const { data: professeurs } = await serviceClient
+        .from('profiles')
+        .select('id, prenom, nom')
+        .eq('etablissement_id', etablissementId)
+        .eq('role', 'professeur')
+        .in('id', demandes)
+      if (!professeurs?.length) {
+        return Response.json({ evenements: [] })
+      }
+
+      const posesParHOCPourProfs = await empreintesEvenementsHOC(serviceClient, etablissementId, debut, fin)
+      const parProfesseur = await Promise.all(
+        professeurs.map(async (professeur) => {
+          const integrationProfesseur = await integrationPersonnelleDeLaPersonne(serviceClient, professeur.id).catch(() => null)
+          if (!integrationProfesseur) return []
+          try {
+            const evenements = await evenementsPersonnels(integrationProfesseur, debut, fin)
+            await noterErreurGooglePersonnelle(serviceClient, professeur.id, null)
+            /* Mêmes retraits que pour son propre agenda : les séances posées par HOC y figurent
+               déjà en tant que séances, elles feraient doublon dans la grille. */
+            return evenements
+              .filter((e) => !estPoseParHOC(e, posesParHOCPourProfs))
+              .map((e) => ({
+                ...e,
+                modifiable: false,
+                proprietaire: [professeur.prenom, professeur.nom].filter(Boolean).join(' '),
+              }))
+          } catch (erreurGoogle) {
+            /* L'incident est noté sur la ligne du professeur, pour son écran de connexion, mais
+               ne fait jamais échouer la lecture des autres agendas demandés. */
+            await noterErreurGooglePersonnelle(
+              serviceClient,
+              professeur.id,
+              erreurGoogle instanceof Error ? erreurGoogle.message : 'Lecture de l’agenda personnel impossible.',
+            )
+            return []
+          }
+        }),
+      )
+      return Response.json({ evenements: parProfesseur.flat() })
+    }
+
     const integration = await integrationPersonnelleDeLaPersonne(serviceClient, profileId)
     if (integration) {
       try {
