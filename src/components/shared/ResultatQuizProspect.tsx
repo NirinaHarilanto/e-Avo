@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { LigneInfo } from '../ui/Champ'
+import { categorieDepuisNiveauEstime, COULEUR_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 
 /* Résultat du quiz écrit d'un prospect, affiché là où l'admin décide de sa demande — précision
    client du 2026-10-31 : « l'admin verra également son résultat du quiz et son niveau provisoire
@@ -36,6 +37,11 @@ export function BlocResultatQuiz({ diagnostic }: { diagnostic: DiagnosticAvecBil
   const premiereLigne = diagnostic?.notes?.split('\n')[0]?.trim() ?? null
   const score = premiereLigne?.match(/:\s*(\d+\s*\/\s*\d+)/)?.[1]?.replace(/\s+/g, '') ?? null
   const niveau = diagnostic?.niveau_evalue ?? null
+  /* Repli sur l'accent ordinaire quand le niveau n'est pas reconnu : un dossier ancien peut
+     porter une valeur saisie en texte libre, avant la liste déroulante et avant l'échelle unique
+     (0153). Mieux vaut une pastille neutre qu'un niveau sans mise en valeur. */
+  const categorie = categorieDepuisNiveauEstime(niveau)
+  const couleurNiveau = categorie ? COULEUR_NIVEAU_CLASSE[categorie] : 'var(--accent-blue)'
   if (!diagnostic || (!score && !niveau)) return null
 
   return (
@@ -69,13 +75,39 @@ export function BlocResultatQuiz({ diagnostic }: { diagnostic: DiagnosticAvecBil
       >
         Test de niveau (quiz écrit)
       </span>
-      {score && <LigneInfo collee label="Résultat" valeur={score} />}
+      {/* Intitulés volontairement en retrait, valeurs en avant — demande client du 2026-10-31 :
+          « mets les intitulés [...] différents des valeurs ». L'étiquette garde donc le gris
+          discret de `LigneInfo`, et c'est la valeur qui porte le gras et la couleur. L'ancienne
+          version faisait l'inverse pour le niveau (intitulé en accent, valeur en gris), ce qui
+          mettait en avant le mot « Niveau » plutôt que le niveau lui-même. */}
+      {score && <LigneInfo collee label="Résultat" valeur={<strong style={{ color: 'var(--ink)' }}>{score}</strong>} />}
       {niveau && (
         <LigneInfo
           collee
-          accent
           label="Niveau estimé provisoire"
-          valeur={<strong style={{ color: 'var(--ink)' }}>{niveau}</strong>}
+          valeur={
+            /* Pastille au CODE COULEUR DES NIVEAUX déjà en place (Beginner, Intermediate,
+               Advanced — demande client du 2026-10-30, `COULEUR_NIVEAU_CLASSE`), dessinée comme
+               celle des classes dans Cours collectifs : même teinte, même fond à 16 %, même
+               liseré à 42 %. Réutilisée plutôt qu'une couleur inventée pour ce seul bloc — un
+               niveau porte la même couleur partout dans l'application, et c'est ce qui le rend
+               reconnaissable d'un coup d'œil. */
+            <span
+              style={{
+                display: 'inline-block',
+                fontSize: 12,
+                fontWeight: 800,
+                letterSpacing: 0.2,
+                color: couleurNiveau,
+                background: `color-mix(in srgb, ${couleurNiveau} 16%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${couleurNiveau} 42%, transparent)`,
+                borderRadius: 999,
+                padding: '2px 10px',
+              }}
+            >
+              {niveau}
+            </span>
+          }
         />
       )}
       {diagnostic.notes && diagnostic.notes.includes('\n') && (
