@@ -26,23 +26,30 @@ export default async function handler(request: Request): Promise<Response> {
 
   try {
     const { serviceClient, etablissementId } = await requireAdmin(request)
+    /* Seul appelant à demander l'agenda Google : il ne bloque plus aucun créneau (2026-10-31),
+       mais l'administration doit pouvoir repérer ceux qui le recouvrent avant de valider une
+       demande. */
     const { detail, dureeMinutes, fuseau, horizonJours, plages, agendaGoogleLu } = await detailCreneaux(
       serviceClient,
       etablissementId,
+      { avecAgendaGoogle: true },
     )
 
     /* Regroupement par jour de la semaine et non par ligne de plage : deux plages du même jour
        peuvent se recouvrir (« 09:00–12:00 » et « 10:00–13:00 » existent toutes deux dans les
        réglages), et un créneau dédoublonné n'appartient plus à l'une plutôt qu'à l'autre. Le
        jour, lui, est ce que l'admin lit dans sa liste. */
-    const parJour = new Map<number, { libres: number; occupesGoogle: number; occupesBase: number; horsDelai: number }>()
+    const parJour = new Map<number, { libres: number; chevauchentGoogle: number; occupesBase: number; horsDelai: number }>()
     for (const creneau of detail) {
       const jour = new Date(creneau.debut).toLocaleDateString('en-US', { timeZone: fuseau, weekday: 'short' })
       const index = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(jour)
-      const compteur = parJour.get(index) ?? { libres: 0, occupesGoogle: 0, occupesBase: 0, horsDelai: 0 }
-      if (creneau.etat === 'libre') compteur.libres += 1
-      else if (creneau.etat === 'delai') compteur.horsDelai += 1
-      else if (creneau.source === 'google') compteur.occupesGoogle += 1
+      const compteur = parJour.get(index) ?? { libres: 0, chevauchentGoogle: 0, occupesBase: 0, horsDelai: 0 }
+      if (creneau.etat === 'libre') {
+        compteur.libres += 1
+        /* Compte les créneaux PROPOSÉS qui recouvrent l'agenda, et non plus ceux qui en étaient
+           exclus : depuis le 2026-10-31 l'agenda n'écarte plus rien, il se signale. */
+        if (creneau.chevauchements?.includes('google')) compteur.chevauchentGoogle += 1
+      } else if (creneau.etat === 'delai') compteur.horsDelai += 1
       else compteur.occupesBase += 1
       parJour.set(index, compteur)
     }

@@ -19,12 +19,20 @@ export interface PlageHebdomadaire {
 export interface Occupation {
   debut: string | Date
   fin: string | Date
-  /* D'où vient l'empêchement. Sans effet sur le calcul — un créneau occupé l'est, quelle qu'en
-     soit la raison — mais indispensable pour l'EXPLIQUER à l'administration : une plage ouverte
+  /* D'où vient l'empêchement, pour pouvoir l'EXPLIQUER à l'administration : une plage ouverte
      dans les réglages qui ne produit aucun créneau public est autrement indiscernable d'une plage
      oubliée (signalé le 2026-10-31 : « je ne vois pas les créneaux de jeudis et vendredis qui
      sont paramétrés pour être disponibles »). */
   source?: SourceOccupation
+  /* Une occupation NON bloquante n'enlève pas le créneau : elle s'y signale seulement.
+     Introduit le 2026-10-31 à la demande du client — « quand un réglage est paramétré, il faut
+     que les créneaux rendus disponibles soient disponibles au public même s'il y a des events
+     définis dans l'agenda de l'admin ». Des événements personnels dans l'agenda de
+     l'établissement annulaient en silence des plages explicitement ouvertes : un réglage doit
+     l'emporter sur un agenda. Les engagements de HOC, eux, restent bloquants — un rendez-vous
+     déjà pris ou un cours planifié ne se double pas. Défaut `true` : une occupation bloque, sauf
+     mention contraire. */
+  bloquante?: boolean
 }
 
 export type SourceOccupation = 'base' | 'google'
@@ -37,6 +45,10 @@ export interface CreneauDetaille {
   etat: EtatCreneau
   /* Renseigné seulement pour `occupe` : qui occupe la place. */
   source?: SourceOccupation
+  /* Occupations NON bloquantes que ce créneau recouvre. Il reste proposé au visiteur ; c'est
+     l'administration qui doit pouvoir le savoir, pour reconnaître un chevauchement avec son
+     propre agenda avant de valider la demande. */
+  chevauchements?: SourceOccupation[]
 }
 
 export interface ParametresCreneaux {
@@ -127,9 +139,11 @@ function versDate(valeur: string | Date): Date {
  * Créneaux libres, en instants ISO, sur l'horizon de réservation.
  *
  * Un créneau est retenu s'il tient entièrement dans une plage d'ouverture, s'il commence après le
- * délai minimum, et s'il ne chevauche aucune occupation (rendez-vous déjà pris ou événement de
- * l'agenda Google). La pause configurée élargit chaque occupation des deux côtés : deux appels
- * ne peuvent pas se toucher.
+ * délai minimum, et s'il ne chevauche aucune occupation BLOQUANTE — un rendez-vous déjà pris ou un
+ * cours planifié. L'agenda Google de l'établissement, lui, ne bloque plus depuis le 2026-10-31
+ * (voir `Occupation.bloquante`) : une plage ouverte dans les réglages est proposée au public même
+ * si l'admin y a un événement personnel. La pause configurée élargit chaque occupation des deux
+ * côtés : deux appels ne peuvent pas se toucher.
  */
 export function calculerCreneauxLibres(
   plages: PlageHebdomadaire[],
@@ -168,11 +182,17 @@ export function detaillerCreneaux(
      plus). Seul le délai minimum, lui, reste une vraie durée. */
   const debutAutorise = new Date(maintenant.getTime() + delaiMinimumHeures * 3_600_000)
 
-  const occupees = occupations.map((o) => ({
+  /* Deux listes et non une seule marquée : le parcours ci-dessous cherche d'abord un empêchement
+     réel, et ne collecte les simples chevauchements que pour un créneau qui reste libre. La pause
+     élargit les deux de la même façon — un chevauchement « à la minute près » avec l'agenda vaut
+     la peine d'être signalé autant qu'un vrai recouvrement. */
+  const elargir = (o: Occupation) => ({
     debut: versDate(o.debut).getTime() - pauseMinutes * 60_000,
     fin: versDate(o.fin).getTime() + pauseMinutes * 60_000,
     source: o.source,
-  }))
+  })
+  const occupees = occupations.filter((o) => o.bloquante !== false).map(elargir)
+  const signalees = occupations.filter((o) => o.bloquante === false).map(elargir)
 
   const detail: CreneauDetaille[] = []
   const depart = partiesLocales(maintenant, fuseau)
@@ -205,13 +225,19 @@ export function detaillerCreneaux(
           detail.push({ debut: debut.toISOString(), etat: 'delai' })
           continue
         }
-        const occupation = occupees.find((o) => debut.getTime() < o.fin && fin.getTime() > o.debut)
+        const recouvre = (o: { debut: number; fin: number }) => debut.getTime() < o.fin && fin.getTime() > o.debut
+        const occupation = occupees.find(recouvre)
         if (occupation) {
           detail.push({ debut: debut.toISOString(), etat: 'occupe', source: occupation.source })
           continue
         }
 
-        detail.push({ debut: debut.toISOString(), etat: 'libre' })
+        const chevauchements = [...new Set(signalees.filter(recouvre).map((o) => o.source ?? 'base'))]
+        detail.push({
+          debut: debut.toISOString(),
+          etat: 'libre',
+          ...(chevauchements.length > 0 ? { chevauchements } : {}),
+        })
       }
     }
   }
@@ -224,7 +250,16 @@ export function detaillerCreneaux(
   const rang: Record<EtatCreneau, number> = { libre: 0, occupe: 1, delai: 2 }
   for (const creneau of detail) {
     const existant = parDebut.get(creneau.debut)
-    if (!existant || rang[creneau.etat] < rang[existant.etat]) parDebut.set(creneau.debut, creneau)
+    if (!existant || rang[creneau.etat] < rang[existant.etat]) {
+      /* Les chevauchements se cumulent d'une plage à l'autre : ils décrivent l'instant, pas la
+         plage qui l'a produit, et en perdre un parce que l'autre plage a gagné le départage
+         cacherait un recouvrement réel à l'administration. */
+      const fusion = [...new Set([...(existant?.chevauchements ?? []), ...(creneau.chevauchements ?? [])])]
+      parDebut.set(creneau.debut, { ...creneau, ...(fusion.length > 0 ? { chevauchements: fusion } : {}) })
+    } else if (creneau.chevauchements?.length) {
+      const fusion = [...new Set([...(existant.chevauchements ?? []), ...creneau.chevauchements])]
+      parDebut.set(creneau.debut, { ...existant, chevauchements: fusion })
+    }
   }
   return [...parDebut.values()].sort((a, b) => a.debut.localeCompare(b.debut))
 }

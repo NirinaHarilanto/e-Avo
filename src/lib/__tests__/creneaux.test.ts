@@ -131,12 +131,12 @@ describe('detaillerCreneaux', () => {
   it('dit « occupé » et par qui, là où la liste publique se contente de retirer', () => {
     const detail = detaillerCreneaux(
       PLAGE_LUNDI_MATIN,
-      [{ debut: '2026-09-14T06:00:00.000Z', fin: '2026-09-14T07:00:00.000Z', source: 'google' }],
+      [{ debut: '2026-09-14T06:00:00.000Z', fin: '2026-09-14T07:00:00.000Z', source: 'base' }],
       { ...PARAMETRES, delaiMinimumHeures: 0, horizonJours: 0 },
       LUNDI_6H,
     )
     expect(detail).toHaveLength(4)
-    expect(detail.every((c) => c.etat === 'occupe' && c.source === 'google')).toBe(true)
+    expect(detail.every((c) => c.etat === 'occupe' && c.source === 'base')).toBe(true)
   })
 
   it('distingue le délai minimum d’une occupation', () => {
@@ -172,5 +172,50 @@ describe('detaillerCreneaux', () => {
     )
     expect(new Set(detail.map((c) => c.debut)).size).toBe(detail.length)
     expect(detail).toHaveLength(6)
+  })
+})
+
+/* Demande client du 2026-10-31, capture à l'appui de l'écran Paramètres : « quand un réglage est
+   paramétré, il faut que les créneaux rendus disponibles soient disponibles au public même s'il y
+   a des events définis dans l'agenda de l'admin ». Trois plages étaient ouvertes, une seule
+   sortait : des événements personnels de l'agenda de l'établissement mangeaient le jeudi (12
+   créneaux) et le vendredi (24). Un réglage explicite doit l'emporter sur un agenda. */
+describe('occupation non bloquante', () => {
+  const AGENDA_PERSONNEL = [
+    { debut: '2026-09-14T06:00:00.000Z', fin: '2026-09-14T07:00:00.000Z', source: 'google' as const, bloquante: false },
+  ]
+  const SANS_DELAI = { ...PARAMETRES, delaiMinimumHeures: 0, horizonJours: 0 }
+
+  it('laisse le créneau proposé au public', () => {
+    const creneaux = calculerCreneauxLibres(PLAGE_LUNDI_MATIN, AGENDA_PERSONNEL, SANS_DELAI, LUNDI_6H)
+    expect(creneaux).toHaveLength(4)
+  })
+
+  it('le signale quand même à l’administration', () => {
+    const detail = detaillerCreneaux(PLAGE_LUNDI_MATIN, AGENDA_PERSONNEL, SANS_DELAI, LUNDI_6H)
+    expect(detail.every((c) => c.etat === 'libre')).toBe(true)
+    expect(detail.every((c) => c.chevauchements?.includes('google'))).toBe(true)
+  })
+
+  /* Un rendez-vous déjà pris ou un cours planifié reste bloquant : c'est tout ce qui empêche
+     encore une double réservation, et rien dans la demande du client n'y touche. */
+  it('ne désarme pas les occupations bloquantes', () => {
+    const detail = detaillerCreneaux(
+      PLAGE_LUNDI_MATIN,
+      [...AGENDA_PERSONNEL, { debut: '2026-09-14T06:00:00.000Z', fin: '2026-09-14T06:30:00.000Z', source: 'base' as const }],
+      SANS_DELAI,
+      LUNDI_6H,
+    )
+    const [premier, second, troisieme] = detail
+    expect(premier.etat).toBe('occupe')
+    expect(second.etat).toBe('occupe')
+    // Au-delà de l'occupation bloquante, le créneau repasse libre malgré l'agenda.
+    expect(troisieme.etat).toBe('libre')
+    expect(troisieme.chevauchements).toEqual(['google'])
+  })
+
+  it('n’annote rien quand aucune occupation ne recouvre le créneau', () => {
+    const detail = detaillerCreneaux(PLAGE_LUNDI_MATIN, [], SANS_DELAI, LUNDI_6H)
+    expect(detail.every((c) => c.chevauchements === undefined)).toBe(true)
   })
 })

@@ -18,6 +18,10 @@ export async function creneauxLibres(
   serviceClient: ServiceClient,
   etablissementId: string,
 ): Promise<{ creneaux: string[]; dureeMinutes: number; fuseau: string }> {
+  /* Sans l'agenda Google : il ne bloque plus aucun créneau depuis le 2026-10-31, donc l'appeler
+     ici ne serait qu'un aller-retour réseau par requête non mise en cache, pour un résultat sans
+     effet sur la liste. La page publique y gagne de ne plus dépendre de la disponibilité de
+     Google ni de ses quotas (le `rateLimitExceeded` déjà rencontré). */
   const { detail, dureeMinutes, fuseau } = await detailCreneaux(serviceClient, etablissementId)
   return { creneaux: detail.filter((c) => c.etat === 'libre').map((c) => c.debut), dureeMinutes, fuseau }
 }
@@ -34,6 +38,11 @@ export async function creneauxLibres(
 export async function detailCreneaux(
   serviceClient: ServiceClient,
   etablissementId: string,
+  options: {
+    /* Lire l'agenda Google de l'établissement. Faux par défaut : il ne décide plus de rien, seul
+       l'aperçu de l'écran Paramètres a besoin de savoir quels créneaux le recouvrent. */
+    avecAgendaGoogle?: boolean
+  } = {},
 ): Promise<{
   detail: CreneauDetaille[]
   dureeMinutes: number
@@ -93,15 +102,28 @@ export async function detailCreneaux(
      pour autant jamais bloquer la réservation — on continue alors avec les seules occupations
      connues en base, quitte à ce que l'admin refuse le rendez-vous. */
   let agendaGoogleLu = true
-  try {
-    const integration = await integrationDeLEtablissement(serviceClient, etablissementId)
-    if (integration) {
-      const evenements = await occupationsAgenda(integration, maintenant, finHorizon)
-      occupations.push(...evenements.map((e) => ({ ...e, source: 'google' as const })))
+  if (options.avecAgendaGoogle) {
+    try {
+      const integration = await integrationDeLEtablissement(serviceClient, etablissementId)
+      if (integration) {
+        const evenements = await occupationsAgenda(integration, maintenant, finHorizon)
+        /* `bloquante: false` — demande client du 2026-10-31 : « quand un réglage est paramétré, il
+           faut que les créneaux rendus disponibles soient disponibles au public même s'il y a des
+           events définis dans l'agenda de l'admin ». Des événements personnels de
+           admin@harionlineclub.com mangeaient des plages explicitement ouvertes (jeudi 12h-13h et
+           vendredi 14h-16h n'apparaissaient nulle part) ; un réglage doit l'emporter sur un
+           agenda. Ces événements ne font donc plus que SE SIGNALER sur le créneau.
+
+           Rien n'est perdu côté double réservation : un appel diagnostic confirmé est déjà dans
+           `rendez_vous` et un cours dans `sessions`, tous deux bloquants ci-dessus. Et chaque
+           demande passe encore par la validation de l'admin
+           (`reservation_parametres.validation_requise`). */
+        occupations.push(...evenements.map((e) => ({ ...e, source: 'google' as const, bloquante: false })))
+      }
+    } catch {
+      // Silencieux volontairement : l'incident est déjà tracé par les autres appels Google.
+      agendaGoogleLu = false
     }
-  } catch {
-    // Silencieux volontairement : l'incident est déjà tracé par les autres appels Google.
-    agendaGoogleLu = false
   }
 
   const detail = detaillerCreneaux(

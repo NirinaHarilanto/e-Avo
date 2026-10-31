@@ -297,41 +297,49 @@ interface ApercuCreneaux {
   agendaGoogleLu: boolean
   nbPlagesActives: number
   creneauxLibres: string[]
-  jours: { jourSemaine: number; libres: number; occupesGoogle: number; occupesBase: number; horsDelai: number }[]
+  jours: { jourSemaine: number; libres: number; chevauchentGoogle: number; occupesBase: number; horsDelai: number }[]
 }
 
 /* Une phrase, pas un tableau de chiffres : l'admin veut savoir si sa plage « marche », et sinon
-   pourquoi. L'ordre des cas suit ce qui explique le plus de créneaux manquants. */
+   pourquoi. L'ordre des cas suit ce qui explique le plus de créneaux manquants.
+
+   L'agenda Google n'est plus une raison d'absence depuis le 2026-10-31 : il ne bloque plus rien
+   (demande client, « les créneaux rendus disponibles doivent l'être au public même s'il y a des
+   events dans l'agenda de l'admin »). Il devient un simple avertissement SOUS le décompte des
+   créneaux proposés — l'admin reste averti qu'il a un rendez-vous personnel à cette heure-là
+   avant de valider une demande, mais le public, lui, voit le créneau. */
 function LigneApercuJour({ apercu, jourSemaine }: { apercu: ApercuCreneaux | null; jourSemaine: number }) {
   if (!apercu) return null
   const jour = apercu.jours.find((j) => j.jourSemaine === jourSemaine)
   const libres = jour?.libres ?? 0
 
   if (libres > 0) {
+    const chevauchent = jour?.chevauchentGoogle ?? 0
     return (
-      <span style={{ fontSize: 11.5, color: 'var(--accent-teal)' }}>
-        {libres} créneau{libres > 1 ? 'x' : ''} proposé{libres > 1 ? 's' : ''} au public sur les {apercu.horizonJours}{' '}
-        prochains jours
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <span style={{ fontSize: 11.5, color: 'var(--accent-teal)' }}>
+          {libres} créneau{libres > 1 ? 'x' : ''} proposé{libres > 1 ? 's' : ''} au public sur les {apercu.horizonJours}{' '}
+          prochains jours
+        </span>
+        {chevauchent > 0 && (
+          <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+            dont {chevauchent} pendant un événement de votre agenda Google — proposé{chevauchent > 1 ? 's' : ''} quand
+            même, à vous de refuser la demande si cela ne vous arrange pas
+          </span>
+        )}
       </span>
     )
   }
 
   const raison = !jour
     ? `aucune date de ce jour ne tombe dans les ${apercu.horizonJours} prochains jours`
-    : jour.occupesGoogle > 0
-      ? `l’agenda Google de l’établissement les occupe déjà (${jour.occupesGoogle} créneau${jour.occupesGoogle > 1 ? 'x' : ''})`
-      : jour.occupesBase > 0
-        ? `des rendez-vous ou des cours y sont déjà planifiés (${jour.occupesBase} créneau${jour.occupesBase > 1 ? 'x' : ''})`
-        : jour.horsDelai > 0
-          ? 'ils tombent tous sous le délai minimum de réservation'
-          : 'la plage est plus courte que la durée d’un appel'
+    : jour.occupesBase > 0
+      ? `des rendez-vous ou des cours y sont déjà planifiés (${jour.occupesBase} créneau${jour.occupesBase > 1 ? 'x' : ''})`
+      : jour.horsDelai > 0
+        ? 'ils tombent tous sous le délai minimum de réservation'
+        : 'la plage est plus courte que la durée d’un appel'
 
-  return (
-    <span style={{ fontSize: 11.5, color: 'var(--danger)' }}>
-      Aucun créneau proposé au public : {raison}.
-      {!apercu.agendaGoogleLu && ' (agenda Google illisible pour l’instant)'}
-    </span>
-  )
+  return <span style={{ fontSize: 11.5, color: 'var(--danger)' }}>Aucun créneau proposé au public : {raison}.</span>
 }
 
 const boutonDiscret = {
