@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { normaliserNom } from '../../lib/nomDuplique'
-import type { PersonneSelectionnable } from '../../lib/invitations'
+import { adresseDepuisId, estAdresseLibre, idDAdresseLibre, ressembleAUneAdresse, type PersonneSelectionnable } from '../../lib/invitations'
 
 interface SelecteurPersonnesProps {
   etiquette: string
@@ -12,6 +12,10 @@ interface SelecteurPersonnesProps {
      empêcher qu'une même personne soit choisie à la fois dans la zone « obligatoire » et la zone
      « optionnelle » d'un même formulaire (voir FormulaireCreerEvenement). */
   exclure?: string[]
+  /* Autorise à convier une adresse e-mail qui n'appartient à personne d'inscrit — un prospect,
+     typiquement. La suggestion n'apparaît que si la saisie ressemble à une adresse ET qu'aucune
+     personne ne correspond : tant qu'un nom est proposé, c'est lui qu'on veut choisir. */
+  autoriserAdresseLibre?: boolean
 }
 
 const LIMITE_SUGGESTIONS = 8
@@ -26,7 +30,7 @@ function nomComplet(p: PersonneSelectionnable): string {
    personnes passées en `candidats` sont retrouvables, quel que soit leur rôle : c'est l'appelant
    qui décide du vivier (tous les inscrits de l'établissement pour l'admin, les seuls élèves
    attribués pour un professeur — voir CalendrierProfesseur.tsx). */
-export function SelecteurPersonnes({ etiquette, placeholder, candidats, selectionnes, onChange, exclure = [] }: SelecteurPersonnesProps) {
+export function SelecteurPersonnes({ etiquette, placeholder, candidats, selectionnes, onChange, exclure = [], autoriserAdresseLibre = false }: SelecteurPersonnesProps) {
   const [saisie, setSaisie] = useState('')
   const [ouvert, setOuvert] = useState(false)
   const [surligne, setSurligne] = useState(0)
@@ -36,7 +40,7 @@ export function SelecteurPersonnes({ etiquette, placeholder, candidats, selectio
   const recherche = normaliserNom(saisie)
   const suggestions = useMemo(() => {
     if (!recherche) return []
-    return candidats
+    const trouvees = candidats
       .filter((c) => {
         /* Le nom OU l'adresse e-mail, quand l'appelant la fournit : coller l'adresse d'un
            destinataire est un réflexe au moins aussi courant que taper son nom, et ne rien
@@ -49,7 +53,18 @@ export function SelecteurPersonnes({ etiquette, placeholder, candidats, selectio
         return !selectionnes.includes(c.id)
       })
       .slice(0, LIMITE_SUGGESTIONS)
-  }, [candidats, recherche, selectionnes, exclure])
+    if (trouvees.length > 0 || !autoriserAdresseLibre) return trouvees
+
+    /* Personne ne correspond, et la saisie est une adresse : on propose d'écrire à cette adresse
+       telle quelle. Le `role` affiché dit clairement que ce destinataire n'est pas inscrit — ce
+       qui décide de ce que l'appelant pourra en faire (un e-mail, oui ; un message déposé dans un
+       espace personnel qui n'existe pas, non). */
+    const adresse = saisie.trim().toLowerCase()
+    if (!ressembleAUneAdresse(adresse)) return trouvees
+    const id = idDAdresseLibre(adresse)
+    if (selectionnes.includes(id) || exclure.includes(id)) return trouvees
+    return [{ id, nom: null, prenom: adresse, role: 'Adresse externe' }]
+  }, [candidats, recherche, saisie, selectionnes, exclure, autoriserAdresseLibre])
 
   /* Binômes dont un seul membre est pour l'instant convié. Recalculé à chaque rendu plutôt que
      mémorisé au moment du clic : retirer une pastille doit faire réapparaître la proposition. */
@@ -115,6 +130,7 @@ export function SelecteurPersonnes({ etiquette, placeholder, candidats, selectio
       >
         {selectionnes.map((id) => {
           const personne = candidatParId.get(id)
+          const libelle = estAdresseLibre(id) ? adresseDepuisId(id) : personne ? nomComplet(personne) : 'Personne introuvable'
           return (
             <span
               key={id}
@@ -131,14 +147,14 @@ export function SelecteurPersonnes({ etiquette, placeholder, candidats, selectio
                 padding: '3px 6px 3px 10px',
               }}
             >
-              {personne ? nomComplet(personne) : 'Personne introuvable'}
+              {libelle}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
                   retirer(id)
                 }}
-                aria-label={`Retirer ${personne ? nomComplet(personne) : ''}`}
+                aria-label={`Retirer ${libelle}`}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',

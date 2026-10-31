@@ -6,6 +6,31 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 type Cohort = Database['public']['Tables']['cohorts']['Row']
 type CohortClass = Database['public']['Tables']['cohort_classes']['Row']
 
+/* Adresse e-mail saisie à la main, pour écrire à quelqu'un qui n'a pas de compte HOC — un
+   prospect, le plus souvent (demande client du 2026-10-31 : « quand une adresse mail externe à HOC
+   est indiqué, il faut que le bouton s'active également »). Elle voyage dans la sélection comme un
+   identifiant ordinaire, mais PRÉFIXÉE : les colonnes de destinataires de la base n'acceptent que
+   des `uuid` (0091), une adresse ne peut donc jamais s'y glisser par mégarde. */
+const PREFIXE_ADRESSE_LIBRE = 'adresse:'
+
+export function idDAdresseLibre(email: string): string {
+  return PREFIXE_ADRESSE_LIBRE + email.trim().toLowerCase()
+}
+
+export function estAdresseLibre(id: string): boolean {
+  return id.startsWith(PREFIXE_ADRESSE_LIBRE)
+}
+
+export function adresseDepuisId(id: string): string {
+  return id.slice(PREFIXE_ADRESSE_LIBRE.length)
+}
+
+/* Volontairement permissif : il ne s'agit pas de valider une adresse à la place du serveur de
+   messagerie, seulement de distinguer « un nom à chercher » de « une adresse à écrire ». */
+export function ressembleAUneAdresse(valeur: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valeur.trim())
+}
+
 export interface PersonneSelectionnable {
   id: string
   nom: string | null

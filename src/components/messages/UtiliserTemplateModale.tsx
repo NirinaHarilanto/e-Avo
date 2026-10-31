@@ -13,6 +13,7 @@ import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { EMAIL_OFFICIEL_HOC } from '../../lib/etablissement'
 import { lienCompositionGmail, LONGUEUR_MAX_LIEN } from '../../lib/compositionEmail'
+import { adresseDepuisId, estAdresseLibre } from '../../lib/invitations'
 
 /* Valeurs déduites du PREMIER destinataire obligatoire : un modèle du parcours apprenant
    s'adresse à une personne (« Bonjour {{prenom}} »), et l'envoyer à plusieurs reste l'exception
@@ -112,6 +113,16 @@ export function UtiliserTemplateModale({
     setLignesRetirees(prepare.lignesRetirees)
   }, [template, brouillon, constantes, obligatoires, etudiants, professeurs, personnes, texteRetouche])
 
+  /* Une sélection peut désormais mêler des personnes INSCRITES (un uuid de profil) et des
+     adresses e-mail LIBRES, pour écrire à quelqu'un qui n'a pas de compte — un prospect, le plus
+     souvent (demande client du 2026-10-31). Les deux ne vont pas aux mêmes endroits : seules les
+     premières peuvent recevoir un message interne ou figurer dans les colonnes `uuid[]` de la
+     base, alors que Gmail se moque de savoir qui est inscrit. */
+  const profilsObligatoires = useMemo(() => obligatoires.filter((id) => !estAdresseLibre(id)), [obligatoires])
+  const profilsOptionnels = useMemo(() => optionnels.filter((id) => !estAdresseLibre(id)), [optionnels])
+  const adressesObligatoires = useMemo(() => obligatoires.filter(estAdresseLibre).map(adresseDepuisId), [obligatoires])
+  const adressesOptionnelles = useMemo(() => optionnels.filter(estAdresseLibre).map(adresseDepuisId), [optionnels])
+
   /* Adresses des personnes choisies, lues au moment du clic plutôt que gardées en mémoire : la
      policy `profiles_admin_select_etablissement` (0004) autorise l'admin à lire les profils de
      son établissement, e-mail compris — l'annuaire utilisé par le sélecteur, lui, ne porte que
@@ -186,7 +197,7 @@ export function UtiliserTemplateModale({
            `messages_expediteur_insert` (0090) les refuse, et comme l'insert part en un seul lot,
            un seul destinataire suspendu ferait échouer l'envoi pour tout le monde, sur un message
            d'erreur RLS incompréhensible. */
-        const demandes = [...new Set([...obligatoires, ...optionnels])]
+        const demandes = [...new Set([...profilsObligatoires, ...profilsOptionnels])]
         const { data: joignables, error: erreurProfils } = await supabase
           .from('profiles')
           .select('id')
@@ -246,7 +257,7 @@ export function UtiliserTemplateModale({
       /* Le message n'est plus POSTÉ par l'application : il est PRÉPARÉ dans la boîte Gmail de
          l'établissement, et c'est l'admin qui l'envoie après relecture (demande client du
          2026-10-11). Voir lib/compositionEmail.ts pour les conséquences de ce choix. */
-      const [principaux, copies] = await Promise.all([adressesDe(obligatoires), adressesDe(optionnels)])
+      const [principaux, copies] = await Promise.all([adressesDe(profilsObligatoires), adressesDe(profilsOptionnels)])
       const sansAdresse = [...principaux.sansAdresse, ...copies.sansAdresse]
       if (sansAdresse.length > 0) {
         setErreur(`Aucune adresse e-mail enregistrée pour : ${sansAdresse.join(', ')}. Complétez sa fiche avant d'envoyer.`)
@@ -286,7 +297,7 @@ export function UtiliserTemplateModale({
         template_id: template?.id ?? brouillon?.template_id ?? null,
         destinataires_profile_ids: obligatoires,
         copies_profile_ids: optionnels,
-        destinataires_emails: [...principaux.emails, ...copies.emails],
+        destinataires_emails: [...principaux.emails, ...adressesObligatoires, ...copies.emails, ...adressesOptionnelles],
         objet: objet.trim(),
         corps: corps.trim(),
         piece_jointe_nom: template?.piece_jointe_attendue ?? brouillon?.piece_jointe_nom ?? null,
@@ -319,13 +330,20 @@ export function UtiliserTemplateModale({
      qui ne réagissait pas, sans jamais savoir pourquoi — signalé le 2026-10-31, alors qu'une
      adresse avait bien été TAPÉE dans le champ des destinataires sans être SÉLECTIONNÉE dans la
      liste, laissant la sélection vide. */
+  /* « Envoyer » dépose le message dans l'espace personnel du destinataire, et « Enregistrer »
+     écrit un brouillon dont les colonnes de destinataires sont des `uuid[]` (0091) : les deux
+     exigent donc un compte HOC. Gmail, lui, écrit à n'importe quelle adresse — c'est tout l'objet
+     de la demande du 2026-10-31. */
+  const pretInterne = pret && profilsObligatoires.length > 0
   const raisonBlocage = !pret
     ? obligatoires.length === 0
-      ? 'Choisissez au moins un destinataire obligatoire : tapez son nom ou son adresse, puis cliquez sur la personne proposée — une adresse saisie sans être sélectionnée ne compte pas.'
+      ? 'Choisissez au moins un destinataire obligatoire : tapez son nom, ou une adresse e-mail complète pour quelqu’un qui n’est pas inscrit — puis cliquez sur la proposition.'
       : !objet.trim()
         ? 'Renseignez l’objet du message.'
         : 'Le message est vide.'
-    : null
+    : !pretInterne
+      ? 'Destinataire externe à HOC : seul « Envoyer via gmail » peut l’atteindre. « Envoyer » dépose le message dans un espace personnel, et « Enregistrer » garde un brouillon — ni l’un ni l’autre n’existe pour une adresse sans compte.'
+      : null
 
   return (
     <Modale titre={titre} onFermer={onFermer} largeurMax={720} fermetureExterieureDesactivee>
@@ -354,6 +372,7 @@ export function UtiliserTemplateModale({
               selectionnes={obligatoires}
               onChange={setObligatoires}
               exclure={optionnels}
+              autoriserAdresseLibre
             />
             <SelecteurPersonnes
               etiquette="Destinataires optionnels (en copie)"
@@ -362,6 +381,7 @@ export function UtiliserTemplateModale({
               selectionnes={optionnels}
               onChange={setOptionnels}
               exclure={obligatoires}
+              autoriserAdresseLibre
             />
           </>
         )}
@@ -444,8 +464,8 @@ export function UtiliserTemplateModale({
             <button
               type="button"
               onClick={() => appeler('enregistrement')}
-              disabled={enCours !== null || !pret}
-              style={{ ...boutonSecondaireStyle, opacity: enCours !== null || !pret ? 0.6 : 1 }}
+              disabled={enCours !== null || !pretInterne}
+              style={{ ...boutonSecondaireStyle, opacity: enCours !== null || !pretInterne ? 0.6 : 1 }}
             >
               {enCours === 'enregistrement' ? 'Enregistrement…' : 'Enregistrer'}
             </button>
@@ -454,8 +474,8 @@ export function UtiliserTemplateModale({
             <button
               type="button"
               onClick={() => appeler('interne')}
-              disabled={enCours !== null || !pret}
-              style={{ ...boutonSecondaireStyle, opacity: enCours !== null || !pret ? 0.6 : 1 }}
+              disabled={enCours !== null || !pretInterne}
+              style={{ ...boutonSecondaireStyle, opacity: enCours !== null || !pretInterne ? 0.6 : 1 }}
             >
               {enCours === 'interne' ? 'Envoi…' : 'Envoyer'}
             </button>

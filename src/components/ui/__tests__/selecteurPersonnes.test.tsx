@@ -17,7 +17,7 @@ const PERSONNES: PersonneSelectionnable[] = [
   { id: 'c', prenom: 'Chloé', nom: 'BETUM', role: 'Étudiante' },
 ]
 
-function Harnais() {
+function Harnais({ autoriserAdresseLibre = false }: { autoriserAdresseLibre?: boolean } = {}) {
   const [selection, setSelection] = useState<string[]>([])
   return (
     <SelecteurPersonnes
@@ -26,12 +26,15 @@ function Harnais() {
       candidats={PERSONNES}
       selectionnes={selection}
       onChange={setSelection}
+      autoriserAdresseLibre={autoriserAdresseLibre}
     />
   )
 }
 
+/* Le champ perd son placeholder dès qu'une pastille est posée (voir SelecteurPersonnes) : on le
+   vise par son rôle, pour pouvoir chercher aussi après une première sélection. */
 function chercher(texte: string) {
-  fireEvent.change(screen.getByPlaceholderText('Rechercher une personne…'), { target: { value: texte } })
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: texte } })
 }
 
 describe('SelecteurPersonnes — recherche par adresse e-mail', () => {
@@ -59,6 +62,12 @@ describe('SelecteurPersonnes — recherche par adresse e-mail', () => {
     expect(screen.queryAllByRole('option')).toHaveLength(0)
   })
 
+  it('ne propose aucune adresse externe quand l’appelant ne l’autorise pas', () => {
+    render(<Harnais />)
+    chercher('prospect@gmail.com')
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
+  })
+
   it('sélectionne la personne au clic sur la suggestion trouvée par son adresse', () => {
     render(<Harnais />)
     chercher('anael@harionlineclub.com')
@@ -67,5 +76,45 @@ describe('SelecteurPersonnes — recherche par adresse e-mail', () => {
     fireEvent.mouseDown(screen.getByRole('option', { name: /Anael/ }))
     // La personne devient une pastille portant son bouton de retrait.
     expect(screen.getByLabelText(/Retirer Anael/)).toBeTruthy()
+  })
+})
+
+/* Demande client du 2026-10-31 : « quand une adresse mail externe à HOC est indiqué, il faut que
+   le bouton s'active également ». Écrire à un prospect, qui n'a pas de compte, suppose de pouvoir
+   le convier par son adresse seule — sans jamais la confondre avec une personne inscrite. */
+describe('SelecteurPersonnes — adresse externe à l’établissement', () => {
+  it('propose d’écrire à une adresse que personne ne porte', () => {
+    render(<Harnais autoriserAdresseLibre />)
+    chercher('prospect@gmail.com')
+    expect(screen.getByRole('option', { name: /prospect@gmail\.com/ })).toBeTruthy()
+  })
+
+  it('préfère la personne inscrite à l’adresse libre quand les deux pourraient convenir', () => {
+    render(<Harnais autoriserAdresseLibre />)
+    chercher('anael@harionlineclub.com')
+    const options = screen.getAllByRole('option')
+    expect(options).toHaveLength(1)
+    expect(options[0].textContent).toContain('Anael')
+  })
+
+  it('ne propose rien pour une saisie qui n’est pas une adresse', () => {
+    render(<Harnais autoriserAdresseLibre />)
+    chercher('zzz inconnu')
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
+  })
+
+  it('affiche l’adresse retenue comme pastille, retirable', () => {
+    render(<Harnais autoriserAdresseLibre />)
+    chercher('prospect@gmail.com')
+    fireEvent.mouseDown(screen.getByRole('option', { name: /prospect@gmail\.com/ }))
+    expect(screen.getByLabelText('Retirer prospect@gmail.com')).toBeTruthy()
+  })
+
+  it('ne propose plus une adresse déjà retenue', () => {
+    render(<Harnais autoriserAdresseLibre />)
+    chercher('prospect@gmail.com')
+    fireEvent.mouseDown(screen.getByRole('option', { name: /prospect@gmail\.com/ }))
+    chercher('prospect@gmail.com')
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
   })
 })
