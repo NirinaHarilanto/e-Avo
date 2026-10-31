@@ -28,6 +28,7 @@ import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { LigneInfo } from '../ui/Champ'
 import { Icone } from '../ui/Icones'
+import { boutonSecondaireStyle } from '../ui/Boutons'
 import { Onglets, type Onglet } from '../ui/Onglets'
 import { ListeRepliable, TexteRepliable } from '../ui/Repliable'
 import { HistoriqueNiveauModale } from './HistoriqueNiveauModale'
@@ -40,16 +41,12 @@ export function initiales(profile: Pick<Profile, 'nom' | 'prenom'>) {
   return `${(profile.prenom?.[0] ?? '').toUpperCase()}${(profile.nom?.[0] ?? '').toUpperCase()}`
 }
 
-const boutonPanneauStyle: React.CSSProperties = {
-  fontSize: 11.5,
-  fontWeight: 700,
-  color: 'var(--accent-blue)',
-  background: 'transparent',
-  border: '1px solid var(--border)',
-  borderRadius: 999,
-  padding: '6px 12px',
-  cursor: 'pointer',
-}
+/* Le bouton d'action d'un panneau, aligné sur celui du reste de l'application — demande client
+   du 2026-10-31 : « il faut que tout soit visuellement uniforme ». C'était jusqu'ici une pilule
+   locale (11,5 px, fond transparent, arrondi 999) qui n'existait que dans ce fichier, à côté de
+   boutons qui suivaient, eux, le gabarit partagé des maquettes du 2026-10-16. Un alias plutôt
+   qu'un remplacement dans les six appels : le nom reste parlant à l'endroit où il sert. */
+const boutonPanneauStyle: React.CSSProperties = boutonSecondaireStyle
 
 /* Fusionne l'ancien résumé compact (une ligne dans le parcours) et l'ancienne carte « Appel
    diagnostic » détaillée (rythme convenu, notes) : un seul affichage, dans l'onglet Parcours

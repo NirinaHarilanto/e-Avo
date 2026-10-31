@@ -1,33 +1,37 @@
 import { useState } from 'react'
-import { jetonAcces } from '../../lib/jetonAcces'
-import { Modale } from '../ui/Modale'
-import { Champ, champStyle } from '../ui/Champ'
-import { ChampDate } from '../ui/ChampDate'
-import { MessageErreur } from '../ui/Etats'
-import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
+import { FormulaireCreerEvenement } from '../shared/FormulaireCreerEvenement'
+import { boutonSecondaireStyle } from '../ui/Boutons'
+import { Icone } from '../ui/Icones'
 
-/* Prochain quart d'heure à venir, au format attendu par `<input type="datetime-local">` : l'heure
-   LOCALE du navigateur, sans « Z » ni décalage. Passer par `toISOString()` reculerait la date d'un
-   jour en début de soirée à Madagascar (UTC+3), comme partout ailleurs dans HOC. */
-function prochainQuartDHeure(): string {
+/* Prochain quart d'heure à venir. Passer par `toISOString()` reculerait la date d'un jour en début
+   de soirée à Madagascar (UTC+3), comme partout ailleurs dans HOC — on reste donc sur les
+   accesseurs locaux. */
+function prochainQuartDHeure(): Date {
   const date = new Date()
   date.setMinutes(Math.ceil((date.getMinutes() + 1) / 15) * 15, 0, 0)
-  const deuxChiffres = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${deuxChiffres(date.getMonth() + 1)}-${deuxChiffres(date.getDate())}T${deuxChiffres(date.getHours())}:${deuxChiffres(date.getMinutes())}`
+  return date
 }
 
 /**
- * Ajout d'UN créneau à l'élève depuis son onglet Forfait (demande client du 2026-10-31).
+ * Planification d'une séance ou d'une réunion depuis la fiche d'un élève (demande client du
+ * 2026-10-31), dans les onglets Forfait et Planning.
  *
- * Complète le planning prévisionnel (PlanifierSeancesForfait), qui génère une série entière selon
- * un rythme : il fallait jusqu'ici rouvrir ce générateur — et donc toucher à toute la série — pour
- * ajouter une seule séance, ou passer par l'agenda et y resaisir l'élève et son professeur. Ici,
- * les deux sont déjà connus : il ne reste que la date, l'heure et la durée à donner.
+ * Ouvre la MÊME fenêtre que l'agenda — « Créer un rendez-vous »
+ * (shared/FormulaireCreerEvenement.tsx) — et non plus un petit formulaire à part comme dans la
+ * première version du 2026-10-31. Le client l'a demandé explicitement, capture à l'appui : « un
+ * pop-up similaire à la figure apparaîtra avec le nom de ou des professeurs et étudiants associés
+ * qui s'afficheront par défaut. Ce pop-up permettra de planifier des séances de cours ou séance
+ * d'information. »
  *
- * Même route que l'agenda admin (`planifier-seance`), donc mêmes règles : la séance naît
- * « planifiée », son lien de visioconférence est créé dans la foulée, et le professeur comme
- * l'élève la voient aussitôt dans leur agenda. Type « individuel » — un binôme DUO suit sur la
- * séance du principal, il n'est jamais passé en second `studentId` (voir les règles DUO).
+ * Deux conséquences voulues :
+ * — l'admin retrouve ici tout ce que l'agenda lui offre (séance de cours OU rendez-vous « autre »
+ *   pour une réunion ou une séance d'information, répétition, participants optionnels, notes),
+ *   au lieu du seul couple date + durée ;
+ * — le professeur et l'élève sont déjà dans la zone « Professeur et élèves » à l'ouverture : c'est
+ *   tout ce que cet écran sait de plus que l'agenda, et le seul intérêt d'y avoir un bouton.
+ *
+ * Ils restent retirables et on peut en ajouter : un point de suivi peut réunir l'élève et deux
+ * professeurs, ou l'élève seul avec l'administration.
  */
 export function NouveauCreneauEtudiant({
   studentIds,
@@ -41,77 +45,44 @@ export function NouveauCreneauEtudiant({
   onCree: () => void
 }) {
   const [ouverte, setOuverte] = useState(false)
-  const [debut, setDebut] = useState(prochainQuartDHeure)
-  const [dureeMinutes, setDureeMinutes] = useState(dureeParDefaut)
-  const [enCours, setEnCours] = useState(false)
-  const [erreur, setErreur] = useState<string | null>(null)
-
-  function ouvrir() {
-    setDebut(prochainQuartDHeure())
-    setDureeMinutes(dureeParDefaut)
-    setErreur(null)
-    setOuverte(true)
-  }
-
-  async function creer() {
-    const instant = new Date(debut)
-    if (Number.isNaN(instant.getTime())) {
-      setErreur('Indiquez une date et une heure valides.')
-      return
-    }
-    setEnCours(true)
-    setErreur(null)
-    const jeton = await jetonAcces()
-    const reponse = await fetch('/api/professeur/planifier-seance', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jeton}` },
-      body: JSON.stringify({
-        teacherId,
-        studentIds,
-        type: 'individuel',
-        debut: instant.toISOString(),
-        dureeMinutes,
-      }),
-    })
-      .then((r) => r.json())
-      .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
-    setEnCours(false)
-    if (reponse.error) {
-      setErreur(reponse.error)
-      return
-    }
-    setOuverte(false)
-    onCree()
-  }
+  /* Figé à l'ouverture : recalculer à chaque rendu remettrait le champ à l'heure courante pendant
+     que l'admin le remplit. */
+  const [debutInitial, setDebutInitial] = useState(prochainQuartDHeure)
 
   return (
     <>
-      <button type="button" onClick={ouvrir} style={boutonPrimaireStyle}>
+      {/* Même style que les autres boutons de l'application (`boutonSecondaireStyle`) — signalé
+          par le client le 2026-10-31 : « il faut qu'il ressemble en police, taille et couleur de
+          fond aux autres boutons […] il faut que tout soit visuellement uniforme ». La première
+          version posait `boutonPrimaireStyle` SANS la classe `btn-shine` qui lui donne sa police,
+          son rembourrage et son arrondi (voir ui/Boutons.tsx) : le bouton sortait donc en or sur
+          un gabarit de navigateur, différent de tout le reste. */}
+      <button
+        type="button"
+        onClick={() => {
+          setDebutInitial(prochainQuartDHeure())
+          setOuverte(true)
+        }}
+        style={boutonSecondaireStyle}
+      >
+        <Icone nom="plus" taille={14} />
         Nouveau créneau
       </button>
 
       {ouverte && (
-        <Modale titre="Nouveau créneau" onFermer={() => setOuverte(false)} largeurMax={460}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <Champ label="Date et heure de début" obligatoire>
-              <ChampDate type="datetime-local" value={debut} onChange={(e) => setDebut(e.target.value)} style={champStyle} />
-            </Champ>
-            <Champ label="Durée (minutes)" obligatoire>
-              <input type="number" min={15} step={15} value={dureeMinutes} onChange={(e) => setDureeMinutes(Number(e.target.value))} style={champStyle} />
-            </Champ>
-
-            {erreur && <MessageErreur>{erreur}</MessageErreur>}
-
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button type="button" onClick={() => setOuverte(false)} style={boutonNeutreStyle}>
-                Annuler
-              </button>
-              <button type="button" onClick={creer} disabled={enCours} style={boutonPrimaireStyle}>
-                {enCours ? 'Création…' : 'Créer le créneau'}
-              </button>
-            </div>
-          </div>
-        </Modale>
+        <FormulaireCreerEvenement
+          debutInitial={debutInitial}
+          /* Le professeur d'abord : la fenêtre exige « exactement un professeur et au moins un
+             élève » pour une séance de cours, et c'est dans cet ordre que l'admin les relit. */
+          participantsInitiaux={[teacherId, ...studentIds]}
+          natureInitiale="seance_cours"
+          dureeInitiale={dureeParDefaut}
+          onFermer={() => setOuverte(false)}
+          onCree={() => {
+            setOuverte(false)
+            onCree()
+          }}
+        />
       )}
     </>
   )
