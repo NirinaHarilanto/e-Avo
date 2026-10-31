@@ -4,6 +4,7 @@ import type { Database, TypeProgrammeProspect } from '../../types/database.types
 import { ReserverAppel } from '../prospects/ReserverAppel'
 import { TestPositionnement } from '../prospects/TestPositionnement'
 import { IcoHX, type NomIcoHX } from './IconesHX'
+import { MOIS_CYCLE_COLLECTIF, totalCycleCollectif } from '../../lib/paiementCollectif'
 
 type Tarif = Database['public']['Tables']['tarifs']['Row']
 
@@ -467,6 +468,15 @@ function GrilleTarifs({ tarifs, parNiveaux }: { tarifs: Tarif[]; parNiveaux: boo
           <div className="v">
             {tarif.prix.toLocaleString('fr-FR')} {tarif.unite}
           </div>
+          {/* Le prix d'un niveau collectif est MENSUEL, sur un cycle de deux mois : afficher le
+              total et les deux façons de le régler évite que le visiteur ne retienne la moitié
+              de ce qu'il devra (demande client du 2026-10-31). */}
+          {parNiveaux && (
+            <div className="d">
+              Soit <strong>{totalCycleCollectif(tarif.prix).toLocaleString('fr-FR')} Ar</strong> pour le cycle de{' '}
+              {MOIS_CYCLE_COLLECTIF} mois, réglables en une fois ou en {MOIS_CYCLE_COLLECTIF} mensualités.
+            </div>
+          )}
           {tarif.description && <div className="d">{tarif.description}</div>}
         </div>
       ))}

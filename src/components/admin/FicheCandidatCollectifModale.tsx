@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
-import { formaterDansFuseauEtablissement, jourDansFuseauEtablissement } from '../../lib/etablissement'
+import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { nomVagueSeul } from '../../lib/cohortes'
 import { LABEL_NIVEAU_CLASSE, parcoursCollectifTermine } from '../../lib/classesCollectif'
 import { formaterHeures } from '../../lib/heures'
@@ -15,6 +15,7 @@ import { SupprimerProspect } from '../prospects/SupprimerProspect'
 import { ConvertirCandidatCollectif } from '../prospects/ConvertirCandidatCollectif'
 import { ReevaluerEtudiantCollectif } from '../prospects/ReevaluerEtudiantCollectif'
 import { FraisInscriptionCollectifModale, type FraisInscription } from '../prospects/FraisInscriptionCollectifModale'
+import { enregistrerFraisCollectif } from '../../lib/enregistrerFraisCollectif'
 import { DetailPaiementModale, type CiblePaiement } from '../paiements/DetailPaiementModale'
 import { SupprimerCompte } from '../shared/SupprimerCompte'
 import { AssignerVague } from '../etudiants/AssignerVague'
@@ -525,22 +526,17 @@ export function FicheCandidatCollectifModale({
             if (!profile || !profilEtudiant) return
             setEnCoursFrais(true)
             setErreurFrais(null)
-            const { error } = await supabase.from('student_payments').insert({
-              etablissement_id: etablissementId,
-              student_id: profilEtudiant.id,
-              prospect_id: ligne.prospectId,
-              montant: frais.montant,
-              montant_regle: frais.regle ? frais.montant : 0,
-              statut: frais.regle ? 'paye' : 'attendu',
-              date_paiement: frais.regle ? jourDansFuseauEtablissement() : null,
-              moyen_paiement: frais.moyenPaiement || null,
-              reference: frais.reference || null,
-              notes: frais.notes || "Frais d'inscription — cours collectifs",
-              created_by_profile_id: profile.id,
+            const { error } = await enregistrerFraisCollectif({
+              etablissementId,
+              studentId: profilEtudiant.id,
+              prospectId: ligne.prospectId,
+              frais,
+              creeParProfileId: profile.id,
+              notesParDefaut: "Frais d'inscription — cours collectifs",
             })
             setEnCoursFrais(false)
             if (error) {
-              setErreurFrais(error.message)
+              setErreurFrais(error)
               return
             }
             setCreerFraisOuvert(false)

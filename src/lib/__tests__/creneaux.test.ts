@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculerCreneauxLibres, grouperParJour, instantDepuisLocal, partiesLocales } from '../creneaux'
+import { calculerCreneauxLibres, detaillerCreneaux, grouperParJour, instantDepuisLocal, partiesLocales } from '../creneaux'
 
 const FUSEAU = 'Indian/Antananarivo'
 
@@ -120,5 +120,57 @@ describe('grouperParJour', () => {
     // 22h UTC = 1h du matin le lendemain à Antananarivo : les deux créneaux sont deux jours différents.
     const groupes = grouperParJour(['2026-09-14T20:00:00.000Z', '2026-09-14T22:00:00.000Z'], FUSEAU)
     expect(groupes.map((g) => g.date)).toEqual(['2026-09-14', '2026-09-15'])
+  })
+})
+
+/* Demande client du 2026-10-31 : « je ne vois pas les créneaux de jeudis et vendredis qui sont
+   paramétrés pour être disponibles ». Une plage ouverte peut ne rien produire pour trois raisons
+   distinctes, et l'écran Paramètres doit pouvoir dire laquelle — sans jamais calculer autre chose
+   que ce que voit le visiteur, d'où un seul parcours pour les deux. */
+describe('detaillerCreneaux', () => {
+  it('dit « occupé » et par qui, là où la liste publique se contente de retirer', () => {
+    const detail = detaillerCreneaux(
+      PLAGE_LUNDI_MATIN,
+      [{ debut: '2026-09-14T06:00:00.000Z', fin: '2026-09-14T07:00:00.000Z', source: 'google' }],
+      { ...PARAMETRES, delaiMinimumHeures: 0, horizonJours: 0 },
+      LUNDI_6H,
+    )
+    expect(detail).toHaveLength(4)
+    expect(detail.every((c) => c.etat === 'occupe' && c.source === 'google')).toBe(true)
+  })
+
+  it('distingue le délai minimum d’une occupation', () => {
+    const detail = detaillerCreneaux(
+      PLAGE_LUNDI_MATIN,
+      [],
+      { ...PARAMETRES, delaiMinimumHeures: 12, horizonJours: 0 },
+      LUNDI_6H,
+    )
+    expect(detail.every((c) => c.etat === 'delai')).toBe(true)
+  })
+
+  it('rend exactement les créneaux que la liste publique propose', () => {
+    const occupations = [{ debut: '2026-09-14T06:00:00.000Z', fin: '2026-09-14T06:30:00.000Z', source: 'base' as const }]
+    const parametres = { ...PARAMETRES, delaiMinimumHeures: 0 }
+    const libres = calculerCreneauxLibres(PLAGE_LUNDI_MATIN, occupations, parametres, LUNDI_6H)
+    const detail = detaillerCreneaux(PLAGE_LUNDI_MATIN, occupations, parametres, LUNDI_6H)
+    expect(detail.filter((c) => c.etat === 'libre').map((c) => c.debut)).toEqual(libres)
+  })
+
+  /* Deux plages du même jour qui se recouvrent existent bel et bien dans les réglages
+     (« 09:00–12:00 » et « 10:00–13:00 » le mercredi). Le même instant ne doit sortir qu'une fois,
+     et libre s'il l'est par l'une des deux. */
+  it('ne rend qu’une fois un créneau couvert par deux plages', () => {
+    const detail = detaillerCreneaux(
+      [
+        { jour_semaine: 1, heure_debut: '09:00:00', heure_fin: '10:00:00' },
+        { jour_semaine: 1, heure_debut: '09:30:00', heure_fin: '10:30:00' },
+      ],
+      [],
+      { ...PARAMETRES, delaiMinimumHeures: 0, horizonJours: 0 },
+      LUNDI_6H,
+    )
+    expect(new Set(detail.map((c) => c.debut)).size).toBe(detail.length)
+    expect(detail).toHaveLength(6)
   })
 })

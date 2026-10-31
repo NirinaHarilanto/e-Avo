@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { AdminAuthError, requireAdmin } from '../_lib/adminAuth.js'
 import { creerEvenementVisio, integrationDeLEtablissement, noterErreurGoogle, supprimerEvenement } from '../_lib/google.js'
+import { NOM_ETABLISSEMENT } from '../../src/lib/etablissement.js'
 import { envoyerEmail, modeleRendezVousConfirme, modeleRendezVousRefuse } from '../_lib/email.js'
 
 export const config = { runtime: 'edge' }
@@ -124,7 +125,7 @@ export default async function handler(request: Request): Promise<Response> {
         ].filter(Boolean)
 
         const evenement = await creerEvenementVisio(integration, {
-          titre: `Appel diagnostic — ${prospect.prenom} ${prospect.nom}`,
+          titre: `${NOM_ETABLISSEMENT} · Appel diagnostic — ${prospect.prenom} ${prospect.nom}`,
           description: details.join('\n') || undefined,
           debut: rendezVous.debut,
           dureeMinutes: rendezVous.duree_minutes,

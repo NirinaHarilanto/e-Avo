@@ -4,7 +4,8 @@ import { supabase } from '../../lib/supabaseClient'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCohortes } from '../../hooks/useCohortes'
 import { useCohortClasses } from '../../hooks/useCohortClasses'
-import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE } from '../../lib/classesCollectif'
+import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, libelleCreneau } from '../../lib/classesCollectif'
+import { useCreneauxClasses } from '../../hooks/useCreneauxClasses'
 import type { Database, NiveauClasse } from '../../types/database.types'
 
 type Cohort = Database['public']['Tables']['cohorts']['Row']
@@ -51,6 +52,7 @@ function useNiveauDetecte(studentId: string): NiveauClasse | null {
 export function AssignerVague({ studentId, etablissementId, vagueActuelle, ouvertParDefaut, onTermine }: AssignerVagueProps) {
   const { session } = useProfileContext()
   const { cohortes, loading: chargementCohortes } = useCohortes()
+  const { creneaux: creneauxClasses } = useCreneauxClasses()
   const [ouvert, setOuvert] = useState(!!ouvertParDefaut)
   const [cohortId, setCohortId] = useState('')
   const [cohortClassId, setCohortClassId] = useState('')
@@ -150,7 +152,7 @@ export function AssignerVague({ studentId, etablissementId, vagueActuelle, ouver
           {classes.map((c) => (
             <option key={c.id} value={c.id}>
               {LABEL_NIVEAU_CLASSE[c.niveau]}
-              {c.nom ? ` — ${c.nom}` : ''} · {LABEL_CRENEAU_CLASSE[c.creneau]}
+              {c.nom ? ` — ${c.nom}` : ''} · {libelleCreneau(creneauxClasses, c.creneau)}
               {niveauDetecte === c.niveau ? ' (niveau détecté)' : ''}
             </option>
           ))}

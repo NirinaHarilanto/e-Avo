@@ -1,15 +1,16 @@
-import { jourDansFuseauEtablissement } from '../../lib/etablissement'
 import { useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { useCohortes } from '../../hooks/useCohortes'
 import { useCohortClasses } from '../../hooks/useCohortClasses'
-import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, NIVEAUX_CECRL } from '../../lib/classesCollectif'
+import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, libelleCreneau, NIVEAUX_CECRL } from '../../lib/classesCollectif'
+import { useCreneauxClasses } from '../../hooks/useCreneauxClasses'
 import type { NiveauClasse } from '../../types/database.types'
 import { Champ, champStyle } from '../ui/Champ'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { Modale } from '../ui/Modale'
 import { FraisInscriptionCollectifModale, type FraisInscription } from './FraisInscriptionCollectifModale'
+import { enregistrerFraisCollectif } from '../../lib/enregistrerFraisCollectif'
 
 /* Réévaluation de fin de parcours collectif — demande client du 2026-10-11 : « à la fin de
    chaque parcours collectif d'une classe, chaque étudiant [...] sera réévalué et réattribué à
@@ -54,22 +55,17 @@ export function ReevaluerEtudiantCollectif({
 
     // 1) Les frais d'abord — invariant explicitement demandé par le client : le paiement ne doit
     //    jamais rester silencieusement perdu si la suite échoue.
-    const { error: erreurFrais } = await supabase.from('student_payments').insert({
-      etablissement_id: etudiant.etablissementId,
-      student_id: etudiant.profilId,
-      prospect_id: etudiant.prospectId,
-      montant: frais.montant,
-      montant_regle: frais.regle ? frais.montant : 0,
-      statut: frais.regle ? 'paye' : 'attendu',
-      date_paiement: frais.regle ? jourDansFuseauEtablissement() : null,
-      moyen_paiement: frais.moyenPaiement || null,
-      reference: frais.reference || null,
-      notes: frais.notes || "Frais d'inscription — réévaluation de fin de parcours collectif",
-      created_by_profile_id: profile.id,
+    const { error: erreurFrais } = await enregistrerFraisCollectif({
+      etablissementId: etudiant.etablissementId,
+      studentId: etudiant.profilId,
+      prospectId: etudiant.prospectId,
+      frais,
+      creeParProfileId: profile.id,
+      notesParDefaut: "Frais d'inscription — réévaluation de fin de parcours collectif",
     })
     if (erreurFrais) {
       setEnCours(false)
-      setErreur(erreurFrais.message)
+      setErreur(erreurFrais)
       return
     }
 
@@ -164,6 +160,7 @@ function ModalePlacement({
   onValider: (choix: { niveau: string; cohortId: string; cohortClassId: string | null }) => void
 }) {
   const { cohortes, loading: chargementCohortes } = useCohortes()
+  const { creneaux: creneauxClasses } = useCreneauxClasses()
   const [niveau, setNiveau] = useState<string>(
     valeursInitiales?.niveau ?? NIVEAUX_CECRL.find((n) => n === niveauActuel) ?? NIVEAUX_CECRL[0],
   )
@@ -228,7 +225,7 @@ function ModalePlacement({
               {classes.map((c) => (
                 <option key={c.id} value={c.id}>
                   {LABEL_NIVEAU_CLASSE[c.niveau]}
-                  {c.nom ? ` — ${c.nom}` : ''} · {LABEL_CRENEAU_CLASSE[c.creneau]}
+                  {c.nom ? ` — ${c.nom}` : ''} · {libelleCreneau(creneauxClasses, c.creneau)}
                   {categorieNiveau === c.niveau ? ' (niveau retenu)' : ''}
                 </option>
               ))}

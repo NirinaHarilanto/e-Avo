@@ -12,7 +12,8 @@ import { supabase } from '../../lib/supabaseClient'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { TagAucunCoursPlanifie } from '../etudiants/CarteListeEtudiant'
 import type { Database, StatutCohorte, NiveauClasse, CreneauClasse } from '../../types/database.types'
-import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, COULEUR_NIVEAU_CLASSE, CAPACITE_MIN_CLASSE, CAPACITE_MAX_CLASSE, periodeClasse } from '../../lib/classesCollectif'
+import { LABEL_NIVEAU_CLASSE, libelleCreneau, COULEUR_NIVEAU_CLASSE, CAPACITE_MIN_CLASSE, CAPACITE_MAX_CLASSE, periodeClasse } from '../../lib/classesCollectif'
+import { useCreneauxClasses } from '../../hooks/useCreneauxClasses'
 import { niveauDefinitif } from '../../lib/niveauEtudiant'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -970,6 +971,7 @@ function DeplacerEtudiantsModale({
     }
   }, [studentIds])
 
+  const { creneaux: creneauxClasses } = useCreneauxClasses()
   const cible = classesCibles.find((c) => c.id === classeCibleId) ?? null
   /* Places restantes dans la classe visée, affichées avant le clic : la base refuse un 8e élève
      (trigger 0074) et la route refuse le lot entier plutôt que d'en déplacer la moitié — autant
@@ -1114,7 +1116,7 @@ function DeplacerEtudiantsModale({
                       return (
                         <option key={c.id} value={c.id} disabled={places <= 0}>
                           {LABEL_NIVEAU_CLASSE[c.niveau]}
-                          {c.nom ? ` — ${c.nom}` : ''} · {LABEL_CRENEAU_CLASSE[c.creneau]} ·{' '}
+                          {c.nom ? ` — ${c.nom}` : ''} · {libelleCreneau(creneauxClasses, c.creneau)} ·{' '}
                           {places <= 0 ? 'complet' : `${places} place${places > 1 ? 's' : ''}`}
                         </option>
                       )
@@ -1499,7 +1501,7 @@ function FormulaireClasse({
 }) {
   const { profile, session } = useProfileContext()
   const { professeurs } = useProfesseurs()
-  const etablissement = useEtablissement(cohorte.etablissement_id)
+  const { creneaux: creneauxClasses } = useCreneauxClasses()
   const [niveau, setNiveau] = useState<NiveauClasse>(classe?.niveau ?? 'beginner')
   const [nom, setNom] = useState(classe?.nom ?? '')
   const [creneau, setCreneau] = useState<CreneauClasse>(classe?.creneau ?? 'soir')
@@ -1517,11 +1519,10 @@ function FormulaireClasse({
   )
   const [elevesARejoindre, setElevesARejoindre] = useState<string[]>([])
 
-  const heureCreneau: Record<CreneauClasse, string> = {
-    matin: etablissement?.creneau_matin?.slice(0, 5) ?? '07:00',
-    midi: etablissement?.creneau_midi?.slice(0, 5) ?? '12:00',
-    soir: etablissement?.creneau_soir?.slice(0, 5) ?? '19:00',
-  }
+  /* Les créneaux encore proposés, plus celui que la classe porte déjà même s'il a été retiré
+     de l'offre depuis (0150) : sans lui, rouvrir une classe ancienne changerait son horaire en
+     silence au premier enregistrement. */
+  const creneauxProposes = creneauxClasses.filter((c) => c.actif || c.cle === classe?.creneau)
 
   async function enregistrer() {
     if (!profile && !enModification) return
@@ -1605,10 +1606,12 @@ function FormulaireClasse({
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-2)' }}>Créneau</label>
-          <select value={creneau} onChange={(e) => setCreneau(e.target.value as CreneauClasse)} style={champStyle}>
-            {(Object.keys(LABEL_CRENEAU_CLASSE) as CreneauClasse[]).map((c) => (
-              <option key={c} value={c}>
-                {LABEL_CRENEAU_CLASSE[c]} · {heureCreneau[c]}
+          <select value={creneau} onChange={(e) => setCreneau(e.target.value)} style={champStyle}>
+            {creneauxProposes.length === 0 && <option value={creneau}>{libelleCreneau(creneauxClasses, creneau)}</option>}
+            {creneauxProposes.map((c) => (
+              <option key={c.cle} value={c.cle}>
+                {c.libelle} · {c.heure.slice(0, 5)}
+                {c.actif ? '' : ' (retiré)'}
               </option>
             ))}
           </select>

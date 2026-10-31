@@ -1,19 +1,26 @@
 import { useState } from 'react'
 import { fraisInscriptionCollectif, LABEL_NIVEAU_CLASSE, categorieDepuisNiveauEstime } from '../../lib/classesCollectif'
+import {
+  MOIS_CYCLE_COLLECTIF,
+  echeancierCollectif,
+  montantEncaisseALInscription,
+  premiereMensualite,
+  totalCycleCollectif,
+  type FraisInscription,
+  type ModalitePaiementCollectif,
+} from '../../lib/paiementCollectif'
+
+/* `FraisInscription` vit dans lib/paiementCollectif.ts et non ici : trois écrans et une route
+   serveur le manipulent, et `lib/enregistrerFraisCollectif.ts` en dépendait — une bibliothèque
+   qui importe un type depuis un composant inverse la dépendance. Réexporté pour ne pas toucher
+   aux imports existants. */
+export type { FraisInscription }
 import { useTarifs } from '../../hooks/useTarifs'
 import { Modale } from '../ui/Modale'
 import { Champ, champStyle } from '../ui/Champ'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { MessageErreur, MessageInfo } from '../ui/Etats'
 import { SelectMoyenPaiement } from '../paiements/SelectMoyenPaiement'
-
-export interface FraisInscription {
-  montant: number
-  regle: boolean
-  moyenPaiement: string
-  reference: string
-  notes: string
-}
 
 /* Trois situations réutilisent cette même fenêtre, chacune avec un sens différent pour « valider »
    — repéré en vérifiant à l'écran le 2026-10-11 : le texte « avant que [...] ne devienne
@@ -67,16 +74,23 @@ export function FraisInscriptionCollectifModale({
 }) {
   const { tarifs, loading } = useTarifs(etablissementId)
   const categorie = categorieDepuisNiveauEstime(niveau)
-  const montantSuggere = fraisInscriptionCollectif(tarifs, niveau)
+  /* La grille donne un prix MENSUEL (« 150 000 Ar/mois · 2 mois ») : le montant à réclamer est
+     celui du cycle entier — demande client du 2026-10-31. La fenêtre proposait jusqu'ici le prix
+     mensuel tel quel, donc la moitié de ce qui est dû. */
+  const prixMensuel = fraisInscriptionCollectif(tarifs, niveau)
+  const montantSuggere = prixMensuel != null ? totalCycleCollectif(prixMensuel) : null
   /* `montantSuggere` arrive après le chargement de la grille : le champ se laisse initialiser
      une fois celle-ci connue, sans écraser une saisie déjà faite par l'admin. */
   const [montantSaisi, setMontantSaisi] = useState<string | null>(null)
   const montant = montantSaisi ?? (montantSuggere != null ? String(montantSuggere) : '')
+  const [modalite, setModalite] = useState<ModalitePaiementCollectif>('integral')
   const [regle, setRegle] = useState(true)
   const [moyenPaiement, setMoyenPaiement] = useState('')
   const [moyenValide, setMoyenValide] = useState(true)
   const [reference, setReference] = useState('')
-  const pret = !!montant && Number(montant) > 0 && (!regle || moyenValide)
+  const total = Number(montant) || 0
+  const echeances = echeancierCollectif(total, new Date())
+  const pret = !!montant && total > 0 && (!regle || moyenValide)
 
   return (
     <Modale titre={`Frais d'inscription · ${nomCandidat}`} onFermer={onFermer} largeurMax={450}>
@@ -92,9 +106,17 @@ export function FraisInscriptionCollectifModale({
         )}
 
         <Champ
-          label="Montant des frais (Ar)"
+          label={`Montant total du cycle (${MOIS_CYCLE_COLLECTIF} mois, en Ar)`}
           obligatoire
-          aide={categorie ? `Niveau ${LABEL_NIVEAU_CLASSE[categorie]}${montantSuggere != null ? ' — montant de la grille' : ''}` : undefined}
+          aide={
+            categorie
+              ? `Niveau ${LABEL_NIVEAU_CLASSE[categorie]}${
+                  prixMensuel != null
+                    ? ` — ${prixMensuel.toLocaleString('fr-FR')} Ar par mois × ${MOIS_CYCLE_COLLECTIF} mois, d'après la grille`
+                    : ''
+                }`
+              : undefined
+          }
         >
           <input
             type="number"
@@ -106,11 +128,39 @@ export function FraisInscriptionCollectifModale({
           />
         </Champ>
 
+        {/* Deux manières de régler le cycle, et deux seulement (demande client du 2026-10-31) :
+            tout d'un coup, ou mois par mois. La mensualisation ne change pas le montant dû —
+            elle crée un échéancier, que les relances automatiques suivent déjà (0070). */}
+        <Champ label="Modalité de paiement">
+          <select
+            value={modalite}
+            onChange={(e) => setModalite(e.target.value as ModalitePaiementCollectif)}
+            style={champStyle}
+          >
+            <option value="integral">En une fois — {total > 0 ? `${total.toLocaleString('fr-FR')} Ar` : 'montant total'}</option>
+            <option value="mensuel">
+              Par mois — {MOIS_CYCLE_COLLECTIF} × {total > 0 ? `${premiereMensualite(total).toLocaleString('fr-FR')} Ar` : 'mensualité'}
+            </option>
+          </select>
+        </Champ>
+
+        {modalite === 'mensuel' && total > 0 && (
+          <MessageInfo>
+            Échéancier créé automatiquement :{' '}
+            {echeances
+              .map((e) => `${e.montant.toLocaleString('fr-FR')} Ar le ${new Date(`${e.date_echeance}T12:00:00`).toLocaleDateString('fr-FR')}`)
+              .join(', puis ')}
+            . L’élève est relancé avant chaque échéance.
+          </MessageInfo>
+        )}
+
         {/* Un candidat peut rejoindre la vague sans avoir encore payé : la ligne existe alors
             comme montant à encaisser, au lieu de ne pas exister du tout. */}
         <Champ label="État du paiement">
           <select value={regle ? 'paye' : 'attendu'} onChange={(e) => setRegle(e.target.value === 'paye')} style={champStyle}>
-            <option value="paye">Réglé — encaissé aujourd’hui</option>
+            <option value="paye">
+              {modalite === 'mensuel' ? '1re mensualité réglée — encaissée aujourd’hui' : 'Réglé — encaissé aujourd’hui'}
+            </option>
             <option value="attendu">Attendu — pas encore payé</option>
           </select>
         </Champ>
@@ -136,7 +186,9 @@ export function FraisInscriptionCollectifModale({
             type="button"
             onClick={() =>
               onValider({
-                montant: Number(montant),
+                montant: total,
+                montantRegle: montantEncaisseALInscription(total, modalite, regle),
+                modalite,
                 regle,
                 moyenPaiement: regle ? moyenPaiement : '',
                 reference: regle ? reference : '',

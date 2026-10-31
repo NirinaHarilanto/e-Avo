@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { preparerEmail } from '../../lib/templatesEmail'
 import { LIBELLE_ROLE, useAnnuaire } from '../../hooks/useMessagerie'
@@ -53,7 +54,7 @@ export function UtiliserTemplateModale({
      ne laisse rien voir. */
   /* Le canal effectivement utilisé : l'appelant n'annonce pas « ouvert dans Gmail » quand le
      message vient d'être déposé dans les espaces personnels, et inversement. */
-  onEnvoye: (canal: 'gmail' | 'interne') => void
+  onEnvoye: (canal: 'gmail' | 'interne' | 'email') => void
   onEnregistre: () => void
 }) {
   const { session, profile } = useProfileContext()
@@ -68,7 +69,7 @@ export function UtiliserTemplateModale({
   const [corps, setCorps] = useState('')
   const [manquantes, setManquantes] = useState<string[]>([])
   const [lignesRetirees, setLignesRetirees] = useState<string[]>([])
-  const [enCours, setEnCours] = useState<'envoi' | 'enregistrement' | 'interne' | null>(null)
+  const [enCours, setEnCours] = useState<'envoi' | 'enregistrement' | 'interne' | 'email' | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [succes, setSucces] = useState<string | null>(null)
   /* Vrai dès que l'admin a touché au texte : l'aperçu ne doit plus être recalculé derrière lui
@@ -146,7 +147,7 @@ export function UtiliserTemplateModale({
     return { emails, sansAdresse }
   }
 
-  async function appeler(action: 'envoi' | 'enregistrement' | 'interne') {
+  async function appeler(action: 'envoi' | 'enregistrement' | 'interne' | 'email') {
     /* Avant correctif (signalé par le client le 2026-10-10) : une session absente sortait
        silencieusement ici, sans la moindre trace à l'écran — le bouton redevenait cliquable, et
        rien n'indiquait que rien ne s'était passé. Le même filet (try/catch/finally) couvre aussi
@@ -184,6 +185,39 @@ export function UtiliserTemplateModale({
         }
         setSucces('Brouillon enregistré. Vous le retrouverez dans « Brouillons ».')
         onEnregistre()
+        return
+      }
+
+      /* Envoi par E-MAIL depuis la boîte de HOC (0152, demande client du 2026-10-31). Seul
+         chemin capable de joindre un fichier : Gmail n'accepte pas qu'on lui passe une pièce
+         jointe par son URL de composition, et le modèle 2.1 annonce pourtant « la procédure en
+         pièce jointe » depuis 0091. Il atteint aussi bien les inscrits que les adresses
+         extérieures, et le serveur sait, lui, si l'envoi a abouti. */
+      if (action === 'email') {
+        const reponse = await fetch('/api/admin/envoyer-modele', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
+          body: JSON.stringify({
+            templateId: template?.id ?? brouillon?.template_id ?? null,
+            objet: objet.trim(),
+            corps: corps.trim(),
+            destinatairesProfileIds: profilsObligatoires,
+            copiesProfileIds: profilsOptionnels,
+            adresses: adressesObligatoires,
+            adressesCopies: adressesOptionnelles,
+          }),
+        })
+          .then((r) => r.json())
+          .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
+
+        if (reponse.error) {
+          setErreur(`L'envoi a échoué : ${reponse.error}`)
+          return
+        }
+        const combien = `${reponse.destinataires} destinataire${reponse.destinataires > 1 ? 's' : ''}`
+        const jointe = reponse.pieceJointe ? ` La pièce jointe « ${reponse.pieceJointe} » est partie avec.` : ''
+        setSucces(`Message envoyé par e-mail à ${combien}.${jointe}`)
+        onEnvoye('email')
         return
       }
 
@@ -390,11 +424,22 @@ export function UtiliserTemplateModale({
             pré-attachée par un lien, quel qu'il soit (voir lib/compositionEmail.ts). Demander un
             fichier ici laisserait croire qu'il partira avec le message. On rappelle donc
             simplement ce que ce modèle attend, pour que l'admin le joigne dans Gmail. */}
-        {template?.piece_jointe_attendue && (
+        {/* Depuis 0152, un modèle peut porter un VRAI document (Documents › Partageables) :
+            « Envoyer par e-mail » le joint lui-même. Gmail, lui, ne le peut toujours pas —
+            aucun navigateur n'autorise une pièce jointe à être pré-attachée par un lien (voir
+            lib/compositionEmail.ts) — d'où deux messages distincts. */}
+        {template?.piece_jointe_document_id ? (
           <MessageInfo>
-            Pièce jointe attendue : <strong>{template.piece_jointe_attendue}</strong>. À joindre vous-même dans Gmail,
-            avant d’envoyer.
+            Pièce jointe{template.piece_jointe_attendue ? ` « ${template.piece_jointe_attendue} »` : ''} : jointe
+            automatiquement par <strong>Envoyer par e-mail</strong>. Par Gmail, joignez-la vous-même avant d’envoyer.
           </MessageInfo>
+        ) : (
+          template?.piece_jointe_attendue && (
+            <MessageInfo>
+              Pièce jointe attendue : <strong>{template.piece_jointe_attendue}</strong>. À joindre vous-même dans Gmail,
+              avant d’envoyer.
+            </MessageInfo>
+          )
         )}
 
         {manquantes.length > 0 && (
@@ -479,12 +524,23 @@ export function UtiliserTemplateModale({
             >
               {enCours === 'interne' ? 'Envoi…' : 'Envoyer'}
             </button>
+            {/* Envoi réel depuis la boîte de HOC. Mêmes destinataires acceptés que Gmail —
+                inscrits comme adresses extérieures — mais c'est le serveur qui expédie, donc il
+                peut joindre la pièce du modèle et savoir si c'est parti. */}
+            <button
+              type="button"
+              onClick={() => appeler('email')}
+              disabled={enCours !== null || !pret}
+              className="btn-shine"
+              style={{ ...boutonPrimaireStyle, fontSize: 12.5, padding: '9px 18px', opacity: enCours !== null || !pret ? 0.6 : 1 }}
+            >
+              {enCours === 'email' ? 'Envoi…' : 'Envoyer par e-mail'}
+            </button>
             <button
               type="button"
               onClick={() => appeler('envoi')}
               disabled={enCours !== null || !pret}
-              className="btn-shine"
-              style={{ ...boutonPrimaireStyle, fontSize: 12.5, padding: '9px 18px', opacity: enCours !== null || !pret ? 0.6 : 1 }}
+              style={{ ...boutonSecondaireStyle, opacity: enCours !== null || !pret ? 0.6 : 1 }}
             >
               {enCours === 'envoi' ? 'Ouverture…' : 'Envoyer via gmail'}
             </button>
@@ -495,6 +551,8 @@ export function UtiliserTemplateModale({
           <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.55, textAlign: 'right' }}>
             <strong style={{ color: 'var(--ink-2)' }}>Envoyer</strong> dépose le message dans l’application, section
             Messages de l’espace personnel de chaque destinataire — il ne part pas par e-mail.{' '}
+            <strong style={{ color: 'var(--ink-2)' }}>Envoyer par e-mail</strong> l’expédie depuis la boîte de Hari
+            Online Club, pièce jointe comprise.{' '}
             <strong style={{ color: 'var(--ink-2)' }}>Envoyer via gmail</strong> ouvre le message dans Gmail, où vous le
             relisez et l’envoyez vous-même.
           </span>

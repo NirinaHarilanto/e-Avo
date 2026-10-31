@@ -55,7 +55,10 @@ export type StatutCohorte = 'a_venir' | 'en_cours' | 'terminee'
    estimé au quiz écrit — voir src/lib/classesCollectif.ts. */
 export type NiveauClasse = 'beginner' | 'intermediate' | 'advanced'
 /* Créneau horaire d'une classe (0074), réglé au niveau établissement (etablissements.creneau_*). */
-export type CreneauClasse = 'matin' | 'midi' | 'soir'
+/* Clé d'un créneau horaire de classe. Simple texte depuis 0150 : la liste n'est plus figée à
+   matin/midi/soir, l'administration l'allonge depuis l'écran Paramètres. Les trois clés
+   d'origine restent celles des classes déjà créées. */
+export type CreneauClasse = string
 export type StatutRendezVous = 'en_attente' | 'confirme' | 'refuse' | 'annule'
 
 /* Pièce déposée par un candidat formateur (0082), dans le bucket privé `candidatures`. */
@@ -1284,6 +1287,33 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['documents']['Insert']>
         Relationships: []
       }
+      /* Créneaux horaires proposés aux classes de niveau (0150) : liste libre, tenue par
+         l'administration depuis l'écran Paramètres. `cle` est ce que porte
+         `cohort_classes.creneau`. */
+      creneaux_classes: {
+        Row: {
+          id: string
+          etablissement_id: string
+          cle: string
+          libelle: string
+          heure: string
+          ordre: number
+          actif: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          cle: string
+          libelle: string
+          heure: string
+          ordre?: number
+          actif?: boolean
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['creneaux_classes']['Insert']>
+        Relationships: []
+      }
       document_dossiers: {
         Row: {
           id: string
@@ -1726,6 +1756,9 @@ export interface Database {
           corps: string
           quand: string | null
           piece_jointe_attendue: string | null
+          /* Document de la bibliothèque commune attaché à chaque envoi (0152) — distinct de
+             `piece_jointe_attendue`, qui n'est qu'un rappel écrit pour l'administration. */
+          piece_jointe_document_id: string | null
           ordre: number
           actif: boolean
           created_at: string
@@ -1741,6 +1774,7 @@ export interface Database {
           corps: string
           quand?: string | null
           piece_jointe_attendue?: string | null
+          piece_jointe_document_id?: string | null
           ordre?: number
           actif?: boolean
           created_at?: string

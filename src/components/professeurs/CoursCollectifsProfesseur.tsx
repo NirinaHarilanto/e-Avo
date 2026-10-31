@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { supabase } from '../../lib/supabaseClient'
-import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE, COULEUR_NIVEAU_CLASSE, periodeClasse, seancesRestantesClasse } from '../../lib/classesCollectif'
+import { LABEL_NIVEAU_CLASSE, libelleCreneau, COULEUR_NIVEAU_CLASSE, periodeClasse, seancesRestantesClasse } from '../../lib/classesCollectif'
+import { useCreneauxClasses } from '../../hooks/useCreneauxClasses'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { TagAucunCoursPlanifie } from '../etudiants/CarteListeEtudiant'
 import { PanneauPlanningClasse } from '../shared/PanneauPlanningClasse'
@@ -26,6 +27,7 @@ type Profile = Database['public']['Tables']['profiles']['Row']
    `teacher_id` — comme `useVagues()` le fait pour les vagues legacy. */
 export function CoursCollectifsProfesseur() {
   const { classes, loading } = useClassesAvecMembres()
+  const { creneaux: creneauxClasses } = useCreneauxClasses()
   const [elevesParClasse, setElevesParClasse] = useState<Map<string, Profile[]>>(new Map())
   const [classeDepliee, setClasseDepliee] = useState<string | null>(null)
   /* Classes sans aucun cours à venir (0074, demande client du 2026-10-30) — même alerte que côté
@@ -158,7 +160,7 @@ export function CoursCollectifsProfesseur() {
                       )}
                     </div>
                     <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                      {c.cohorte?.nom ?? 'Promotion inconnue'} · {LABEL_CRENEAU_CLASSE[c.classe.creneau]} · {eleves.length} étudiant
+                      {c.cohorte?.nom ?? 'Promotion inconnue'} · {libelleCreneau(creneauxClasses, c.classe.creneau)} · {eleves.length} étudiant
                       {eleves.length > 1 ? 's' : ''}
                     </div>
                   </div>

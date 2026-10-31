@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { useDocumentsEtablissement } from '../../hooks/useDocumentsEtablissement'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useEmailEnvois, useEmailTemplates, useEmailVariables, type EmailEnvoi, type EmailTemplate } from '../../hooks/useEmailTemplates'
 import { UtiliserTemplateModale } from './UtiliserTemplateModale'
@@ -31,6 +32,11 @@ function EditerTemplateModale({
   const [corps, setCorps] = useState(template?.corps ?? '')
   const [quand, setQuand] = useState(template?.quand ?? '')
   const [pieceJointe, setPieceJointe] = useState(template?.piece_jointe_attendue ?? '')
+  /* Le fichier RÉELLEMENT joint par « Envoyer par e-mail » (0152), choisi dans la bibliothèque
+     commune : l'administration remplace sa procédure depuis Documents › Partageables, et le
+     modèle suit sans déploiement. */
+  const { documents } = useDocumentsEtablissement()
+  const [pieceJointeDocumentId, setPieceJointeDocumentId] = useState(template?.piece_jointe_document_id ?? '')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -46,6 +52,7 @@ function EditerTemplateModale({
       corps: corps.trim(),
       quand: quand.trim() || null,
       piece_jointe_attendue: pieceJointe.trim() || null,
+      piece_jointe_document_id: pieceJointeDocumentId || null,
     }
     const { error } = template
       ? await supabase.from('email_templates').update(ligne).eq('id', template.id)
@@ -101,6 +108,21 @@ function EditerTemplateModale({
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={etiquetteStyle}>Pièce jointe attendue (facultatif)</span>
             <input value={pieceJointe} onChange={(e) => setPieceJointe(e.target.value)} style={champStyle} placeholder="Ex. La brochure" />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span style={etiquetteStyle}>Fichier joint automatiquement (facultatif)</span>
+            <select value={pieceJointeDocumentId} onChange={(e) => setPieceJointeDocumentId(e.target.value)} style={champStyle}>
+              <option value="">Aucun — à joindre à la main</option>
+              {documents.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.nom_original}
+                </option>
+              ))}
+            </select>
+            <span style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>
+              Parmi les documents de <strong>Documents › Partageables</strong>. Joint par « Envoyer par e-mail » ; Gmail,
+              lui, ne peut pas recevoir de pièce jointe par un lien.
+            </span>
           </label>
         </div>
 
@@ -340,7 +362,9 @@ export function TemplatesEmails() {
             annoncer(
               canal === 'interne'
                 ? 'Message envoyé dans les espaces personnels des destinataires.'
-                : 'Message ouvert dans Gmail — envoyez-le depuis Gmail après relecture.',
+                : canal === 'email'
+                  ? 'Message envoyé par e-mail depuis la boîte de Hari Online Club.'
+                  : 'Message ouvert dans Gmail — envoyez-le depuis Gmail après relecture.',
             )
             rechargerEnvois()
           }}

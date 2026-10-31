@@ -3,6 +3,7 @@ import type { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
 import { creerEvenementVisio, integrationHoteReunion, noterErreurGoogle, noterErreurHote } from './google.js'
 import { avecPartenairesDuo, estBinomeDuo } from './duo.js'
+import { NOM_ETABLISSEMENT } from '../../src/lib/etablissement.js'
 
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
@@ -235,6 +236,10 @@ export async function emailsParticipants(
 
   return {
     emails: [professeur?.email, ...eleves.map((e) => e.email)].filter((e): e is string => Boolean(e)),
-    titreCours: `Cours${nomsEleves.length ? ` · ${nomsEleves.join(', ')}` : ''}${nomProfesseur ? ` · ${nomProfesseur}` : ''}`,
+    /* Le nom de l'établissement EN TÊTE du titre (2026-10-31) : c'est ce titre que Google Meet
+       affiche en haut de la réunion, et il est tronqué par la fin. Il ne change pas qui est
+       l'organisateur — Google ne laisse pas écrire `organizer` — mais au moins la réunion porte
+       le nom du club et non le seul nom du professeur. */
+    titreCours: `${NOM_ETABLISSEMENT} · Cours${nomsEleves.length ? ` · ${nomsEleves.join(', ')}` : ''}${nomProfesseur ? ` · ${nomProfesseur}` : ''}`,
   }
 }

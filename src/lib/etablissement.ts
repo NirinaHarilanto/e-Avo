@@ -13,6 +13,20 @@ export const SLUG_ETABLISSEMENT_PRINCIPAL = 'hari-online-course'
    publique, et adresse de réponse des e-mails transactionnels. */
 export const EMAIL_OFFICIEL_HOC = 'admin@harionlineclub.com'
 
+/* Nom de l'établissement tel qu'il doit APPARAÎTRE aux participants d'une réunion — demande
+   client du 2026-10-31 : « quand les utilisateurs cliquent sur les liens Google Meet et Jitsi,
+   le nom et la photo de Harinjo apparaissent comme organisateur ; est-il possible d'afficher
+   "Hari Online Club" et le logo à la place ? »
+
+   L'identité de l'ORGANISATEUR, elle, ne se change pas depuis l'application : Google Calendar
+   refuse d'écrire `organizer` (c'est la garantie qu'un événement ne peut pas être signé au nom
+   de quelqu'un d'autre), et Meet affiche le nom et la photo du compte Google qui héberge. Seul
+   le compte Google lui-même peut les changer, depuis la console Workspace.
+   Ce qui RELÈVE de l'application, c'est le TITRE de la réunion : Meet l'affiche en haut de
+   l'écran et Jitsi le reprend dans l'invitation. Il porte donc le nom de l'établissement, en
+   tête pour survivre à la troncature des titres longs. */
+export const NOM_ETABLISSEMENT = 'Hari Online Club'
+
 /* Fuseau de référence de l'établissement, à Antananarivo. Les écrans d'administration
    affichent toujours les horaires dedans, jamais dans celui du navigateur (demande client du
    2026-09-21) : un admin en déplacement doit continuer à lire les heures telles que l'équipe

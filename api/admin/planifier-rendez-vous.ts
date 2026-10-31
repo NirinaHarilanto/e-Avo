@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { AdminAuthError, requireAdmin } from '../_lib/adminAuth.js'
 import { creerEvenementVisio, deplacerEvenement, integrationDeLEtablissement, noterErreurGoogle } from '../_lib/google.js'
+import { NOM_ETABLISSEMENT } from '../../src/lib/etablissement.js'
 import { envoyerEmail, modeleRendezVousConfirme, modeleRendezVousDeplace } from '../_lib/email.js'
 import { creerNotification } from '../_lib/notifications.js'
 
@@ -91,7 +92,7 @@ export default async function handler(request: Request): Promise<Response> {
       } else if (integration && !eventId) {
         try {
           const evenement = await creerEvenementVisio(integration, {
-            titre: `Appel diagnostic — ${prospect.prenom} ${prospect.nom}`,
+            titre: `${NOM_ETABLISSEMENT} · Appel diagnostic — ${prospect.prenom} ${prospect.nom}`,
             debut,
             dureeMinutes,
             emailsInvites: [prospect.email],

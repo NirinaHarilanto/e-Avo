@@ -15,6 +15,7 @@ import { MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonPrimaireStyle } from '../ui/Boutons'
 import { ChampDate } from '../ui/ChampDate'
 import { BoutonRejoindreVisio } from './BoutonRejoindreVisio'
+import { ResultatQuizProspect } from './ResultatQuizProspect'
 
 /* Fiche affichée au clic d'un créneau sur N'IMPORTE QUEL agenda de l'espace admin (page Agenda
    elle-même, fenêtre « Planifier un appel diagnostic », filtre « Admin » de Séances & visio) —
@@ -249,6 +250,10 @@ export function CarteRendezVous({
           {rdv.motif_refus && (
             <span style={{ fontSize: 12.5, color: 'var(--danger)' }}>Motif du refus : {rdv.motif_refus}</span>
           )}
+          {/* Résultat du quiz écrit passé par le prospect juste avant d'envoyer sa demande
+              (précision client du 2026-10-31) : l'admin le lit ici, au moment même où il décide
+              de confirmer ou non, sans avoir à ouvrir une autre fiche. */}
+          {rdv.prospect_id && <ResultatQuizProspect prospectId={rdv.prospect_id} />}
           {/* Appel diagnostic : toujours hébergé par le compte Google de l'établissement, jamais
               Jitsi (réservé aux cours). */}
           {rdv.lien_meet && <BoutonRejoindreVisio lien={rdv.lien_meet} fournisseur="google_meet" />}

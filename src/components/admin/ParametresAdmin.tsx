@@ -9,8 +9,8 @@ import { supabase } from '../../lib/supabaseClient'
 import { IntegrationGoogleMeet } from './IntegrationGoogleMeet'
 import { AgendasProfesseursAdmin } from './AgendasProfesseursAdmin'
 import { DisponibilitesAdmin } from './DisponibilitesAdmin'
+import { CreneauxClassesAdmin } from './CreneauxClassesAdmin'
 import type { Database } from '../../types/database.types'
-import { ChampDate } from '../ui/ChampDate'
 
 type Etablissement = Database['public']['Tables']['etablissements']['Row']
 
@@ -20,9 +20,6 @@ export function ParametresAdmin() {
   const [etablissement, setEtablissement] = useState<Etablissement | null>(null)
   const [loading, setLoading] = useState(true)
   const [heuresForfaitCollectif, setHeuresForfaitCollectif] = useState(32)
-  const [creneauMatin, setCreneauMatin] = useState('07:00')
-  const [creneauMidi, setCreneauMidi] = useState('12:00')
-  const [creneauSoir, setCreneauSoir] = useState('19:00')
   const [relanceEcheanceJours, setRelanceEcheanceJours] = useState(3)
   const [enregistrement, setEnregistrement] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -38,9 +35,6 @@ export function ParametresAdmin() {
       .then(({ data }) => {
         setEtablissement(data)
         setHeuresForfaitCollectif(data?.heures_forfait_collectif ?? 32)
-        setCreneauMatin(data?.creneau_matin?.slice(0, 5) ?? '07:00')
-        setCreneauMidi(data?.creneau_midi?.slice(0, 5) ?? '12:00')
-        setCreneauSoir(data?.creneau_soir?.slice(0, 5) ?? '19:00')
         setRelanceEcheanceJours(data?.relance_echeance_jours ?? 3)
         setLoading(false)
       })
@@ -56,9 +50,6 @@ export function ParametresAdmin() {
       .from('etablissements')
       .update({
         heures_forfait_collectif: heuresForfaitCollectif,
-        creneau_matin: creneauMatin,
-        creneau_midi: creneauMidi,
-        creneau_soir: creneauSoir,
         relance_echeance_jours: relanceEcheanceJours,
       })
       .eq('id', etablissement.id)
@@ -96,23 +87,6 @@ export function ParametresAdmin() {
             />
           </Champ>
 
-          <Champ label="Créneaux horaires des classes" aide="Heures par défaut des classes de niveau matin/midi/soir des cours collectifs.">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Matin</span>
-                <ChampDate type="time" value={creneauMatin} onChange={(e) => setCreneauMatin(e.target.value)} style={champStyle} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Midi</span>
-                <ChampDate type="time" value={creneauMidi} onChange={(e) => setCreneauMidi(e.target.value)} style={champStyle} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 11, color: 'var(--muted-2)' }}>Soir</span>
-                <ChampDate type="time" value={creneauSoir} onChange={(e) => setCreneauSoir(e.target.value)} style={champStyle} />
-              </div>
-            </div>
-          </Champ>
-
           <h2 style={{ fontSize: 16, color: 'var(--accent-gold, #e9cf94)', margin: '8px 0 0' }}>Relances de paiement</h2>
 
           <Champ
@@ -144,6 +118,12 @@ export function ParametresAdmin() {
       )}
 
       <div style={{ marginTop: 20 }}>
+        {/* Les trois créneaux matin/midi/soir vivaient dans le formulaire ci-dessus, en trois
+            champs figés. Ils forment désormais une liste que l'administration allonge elle-même
+            (0150, demande client du 2026-10-31) — d'où un bloc à part, qui enregistre ligne par
+            ligne au lieu d'attendre le bouton « Enregistrer » du formulaire. */}
+        <CreneauxClassesAdmin />
+
         <IntegrationGoogleMeet />
 
         {/* Juste après l'agenda de l'établissement : les deux se lisent ensemble depuis 0107 — ce

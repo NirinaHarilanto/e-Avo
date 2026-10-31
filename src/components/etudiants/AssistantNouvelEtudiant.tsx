@@ -5,7 +5,8 @@ import { useTarifs } from '../../hooks/useTarifs'
 import { useCohortes } from '../../hooks/useCohortes'
 import { useCohortClasses } from '../../hooks/useCohortClasses'
 import { trierVaguesChronologiquement } from '../../lib/cohortes'
-import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE } from '../../lib/classesCollectif'
+import { LABEL_NIVEAU_CLASSE, libelleCreneau } from '../../lib/classesCollectif'
+import { useCreneauxClasses } from '../../hooks/useCreneauxClasses'
 import { nomGroupeDuo } from '../../lib/duo'
 import { formaterHeures } from '../../lib/heures'
 import { Champ, champStyle } from '../ui/Champ'
@@ -54,6 +55,7 @@ export function AssistantNouvelEtudiant({ etablissementId, onTermine }: { etabli
   const { session } = useProfileContext()
   const { tarifs } = useTarifs(etablissementId)
   const { cohortes } = useCohortes()
+  const { creneaux: creneauxClasses } = useCreneauxClasses()
 
   const [type, setType] = useState<TypeProgramme | null>(null)
   const [eleve, setEleve] = useState<Personne>(PERSONNE_VIDE)
@@ -285,7 +287,7 @@ export function AssistantNouvelEtudiant({ etablissementId, onTermine }: { etabli
                     {classes.map((c) => (
                       <option key={c.id} value={c.id}>
                         {LABEL_NIVEAU_CLASSE[c.niveau]}
-                        {c.nom ? ` — ${c.nom}` : ''} · {LABEL_CRENEAU_CLASSE[c.creneau]}
+                        {c.nom ? ` — ${c.nom}` : ''} · {libelleCreneau(creneauxClasses, c.creneau)}
                       </option>
                     ))}
                   </select>

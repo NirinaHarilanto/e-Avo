@@ -17,10 +17,29 @@ export const LABEL_NIVEAU_CLASSE: Record<NiveauClasse, string> = {
   advanced: 'Advanced',
 }
 
-export const LABEL_CRENEAU_CLASSE: Record<CreneauClasse, string> = {
+/* Un créneau horaire de classe, tel que l'administration le tient depuis l'écran Paramètres
+   (0150). Les trois d'origine — matin, midi, soir — ne sont plus qu'un point de départ. */
+export interface CreneauClasseDefini {
+  cle: string
+  libelle: string
+  heure: string
+  actif: boolean
+}
+
+/* Libellés des trois créneaux historiques, conservés comme REPLI seulement : un écran qui n'a
+   pas (encore) chargé la liste, ou une classe rattachée à un créneau supprimé depuis, doit
+   continuer d'afficher quelque chose de lisible plutôt qu'une case vide. */
+const LABEL_CRENEAU_HISTORIQUE: Record<string, string> = {
   matin: 'Matin',
   midi: 'Midi',
   soir: 'Soir',
+}
+
+/* Libellé d'un créneau à partir de la liste de l'établissement. L'ordre des replis va du plus
+   exact au plus approximatif : le libellé choisi par l'administration, puis celui des trois
+   créneaux d'origine, puis la clé elle-même — jamais rien. */
+export function libelleCreneau(creneaux: CreneauClasseDefini[], cle: CreneauClasse): string {
+  return creneaux.find((c) => c.cle === cle)?.libelle ?? LABEL_CRENEAU_HISTORIQUE[cle] ?? cle
 }
 
 /* Code couleur des niveaux de classe — demande client du 2026-10-30, capture à l'appui : « mets

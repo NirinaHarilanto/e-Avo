@@ -5,6 +5,7 @@ import { trouverProfilHomonyme, messageHomonyme } from '../_lib/nomDuplique.js'
 import { nomGroupeDuo } from '../../src/lib/duo.js'
 import { jourDansFuseauEtablissement } from '../../src/lib/etablissement.js'
 import { categorieDepuisNiveauEstime, CAPACITE_MAX_CLASSE, niveauRetenu } from '../../src/lib/classesCollectif.js'
+import { echeancierCollectif, premiereMensualite, type ModalitePaiementCollectif } from '../../src/lib/paiementCollectif.js'
 
 export const config = { runtime: 'edge' }
 
@@ -30,6 +31,13 @@ export default async function handler(request: Request): Promise<Response> {
          `fraisRegles` distingue un encaissement effectif d'un montant seulement attendu. */
       montantFrais?: number
       fraisRegles?: boolean
+      /* Montant réellement encaissé aujourd'hui, et modalité choisie — demande client du
+         2026-10-31 : un élève collectif règle le cycle de deux mois en une fois, ou en deux
+         mensualités. `montantFrais` reste le TOTAL dû dans les deux cas (c'est l'engagement
+         signé) ; seul celui-ci dit ce qui est entré en caisse. Absents d'un appelant antérieur :
+         on retombe alors sur l'ancien comportement, tout ou rien. */
+      fraisMontantRegle?: number
+      fraisModalite?: ModalitePaiementCollectif
       moyenPaiement?: string
       referencePaiement?: string
       notesPaiement?: string
@@ -250,19 +258,50 @@ export default async function handler(request: Request): Promise<Response> {
        recalcule le statut depuis `montant_regle`, d'où le 0 explicite dans ce cas. */
     if (body.montantFrais != null && body.montantFrais > 0) {
       const regle = body.fraisRegles !== false
-      const { error: erreurFrais } = await serviceClient.from('student_payments').insert({
-        etablissement_id: etablissementId,
-        student_id: invited.user.id,
-        prospect_id: prospect.id,
-        montant: body.montantFrais,
-        montant_regle: regle ? body.montantFrais : 0,
-        statut: regle ? 'paye' : 'attendu',
-        date_paiement: regle ? jourDansFuseauEtablissement() : null,
-        moyen_paiement: body.moyenPaiement?.trim() || null,
-        reference: body.referencePaiement?.trim() || null,
-        notes: body.notesPaiement?.trim() || "Frais d'inscription — cours collectifs",
-        created_by_profile_id: profileId,
-      })
+      /* Le total engagé reste `montantFrais` ; `montantRegle` est ce qui entre en caisse
+         aujourd'hui — la totalité, la seule première mensualité, ou rien. Le repli sur l'ancien
+         « tout ou rien » couvre un appelant qui n'enverrait pas encore ces champs. */
+      const montantRegle = body.fraisMontantRegle ?? (regle ? body.montantFrais : 0)
+      const { data: ligneFrais, error: erreurFrais } = await serviceClient
+        .from('student_payments')
+        .insert({
+          etablissement_id: etablissementId,
+          student_id: invited.user.id,
+          prospect_id: prospect.id,
+          montant: body.montantFrais,
+          montant_regle: montantRegle,
+          /* Pas de statut 'partiel' dans l'enum (choix assumé de 0049) : le règlement partiel se
+             lit de `montant_regle`, et l'affichage en déduit « Payé partiellement ». */
+          statut: montantRegle >= body.montantFrais ? 'paye' : 'attendu',
+          date_paiement: montantRegle > 0 ? jourDansFuseauEtablissement() : null,
+          moyen_paiement: body.moyenPaiement?.trim() || null,
+          reference: body.referencePaiement?.trim() || null,
+          notes: body.notesPaiement?.trim() || "Frais d'inscription — cours collectifs",
+          created_by_profile_id: profileId,
+        })
+        .select('id')
+        .single()
+
+      /* Échéancier des mensualités (0070), créé dans la foulée : c'est lui que suit le cron de
+         relance, et sans lui « payer par mois » ne serait qu'un montant encaissé à moitié, sans
+         rien pour réclamer le reste. La première échéance est marquée réglée quand elle vient
+         d'être encaissée, sinon la relance du lendemain écrirait à un élève à jour. */
+      if (!erreurFrais && ligneFrais && body.fraisModalite === 'mensuel') {
+        const echeances = echeancierCollectif(body.montantFrais, new Date())
+        const premiereReglee = montantRegle >= premiereMensualite(body.montantFrais)
+        await serviceClient.from('paiement_echeances').insert(
+          echeances.map((echeance, index) => ({
+            etablissement_id: etablissementId,
+            student_payment_id: ligneFrais.id,
+            libelle: echeance.libelle,
+            montant: echeance.montant,
+            date_echeance: echeance.date_echeance,
+            reglee_le: index === 0 && premiereReglee ? echeance.date_echeance : null,
+            created_by_profile_id: profileId,
+          })),
+        )
+      }
+
       if (erreurFrais) {
         /* Le compte étudiant existe déjà à ce stade : le signaler plutôt que de le défaire en
            silence (même choix que decider-essai.ts et ajouter-forfait.ts). L'admin régularise le

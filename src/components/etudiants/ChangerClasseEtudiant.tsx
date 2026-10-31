@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useCohortClasses } from '../../hooks/useCohortClasses'
-import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE } from '../../lib/classesCollectif'
+import { LABEL_NIVEAU_CLASSE, libelleCreneau } from '../../lib/classesCollectif'
+import { useCreneauxClasses } from '../../hooks/useCreneauxClasses'
 import { Champ, champStyle } from '../ui/Champ'
 import { boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { MessageErreur } from '../ui/Etats'
@@ -24,6 +25,7 @@ export function ChangerClasseEtudiant({
   onTermine: () => void
 }) {
   const { classes, loading } = useCohortClasses(cohortId)
+  const { creneaux: creneauxClasses } = useCreneauxClasses()
   const [ouvert, setOuvert] = useState(false)
   const [classeId, setClasseId] = useState(classeActuelleId ?? '')
   const [enCours, setEnCours] = useState(false)
@@ -65,7 +67,7 @@ export function ChangerClasseEtudiant({
           {classes.map((c) => (
             <option key={c.id} value={c.id}>
               {LABEL_NIVEAU_CLASSE[c.niveau]}
-              {c.nom ? ` — ${c.nom}` : ''} · {LABEL_CRENEAU_CLASSE[c.creneau]}
+              {c.nom ? ` — ${c.nom}` : ''} · {libelleCreneau(creneauxClasses, c.creneau)}
             </option>
           ))}
         </select>

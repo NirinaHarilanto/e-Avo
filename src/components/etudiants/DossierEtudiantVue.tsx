@@ -18,7 +18,8 @@ import {
 } from '../../lib/heures'
 import { RecapitulatifDiagnostic } from '../prospects/FormulaireDiagnosticCall'
 import type { Database } from '../../types/database.types'
-import { LABEL_NIVEAU_CLASSE, LABEL_CRENEAU_CLASSE } from '../../lib/classesCollectif'
+import { LABEL_NIVEAU_CLASSE, libelleCreneau } from '../../lib/classesCollectif'
+import { useCreneauxClasses } from '../../hooks/useCreneauxClasses'
 import { LABEL_TYPE_PROGRAMME } from '../../lib/paiements'
 import { niveauDefinitif } from '../../lib/niveauEtudiant'
 import { seancePasseeNonCloturee } from '../../lib/seances'
@@ -605,6 +606,7 @@ function BlocClasseCollective({
   classe: Database['public']['Tables']['cohort_classes']['Row'] | null
   onClickSeance: (seance: SeanceDuParcours) => void
 }) {
+  const { creneaux: creneauxClasses } = useCreneauxClasses()
   const heures = seances.filter((s) => s.session.statut === 'terminee').reduce((total, s) => total + s.session.duree_minutes / 60, 0)
   return (
     <div style={{ borderRadius: 16, border: '1px solid rgba(169,140,255,.3)', background: 'var(--hoc-pastille, rgba(42,26,82,.6))', overflow: 'hidden' }}>
@@ -637,7 +639,7 @@ function BlocClasseCollective({
           </div>
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>
             {classe
-              ? `${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` — ${classe.nom}` : ''} · ${LABEL_CRENEAU_CLASSE[classe.creneau]}`
+              ? `${LABEL_NIVEAU_CLASSE[classe.niveau]}${classe.nom ? ` — ${classe.nom}` : ''} · ${libelleCreneau(creneauxClasses, classe.creneau)}`
               : 'Classe de niveau non attribuée'}
           </span>
         </div>
@@ -783,6 +785,7 @@ export function DossierEtudiantVue({
     tarifChoisi,
     duoPartenaire,
   } = dossier
+  const { creneaux: creneauxClasses } = useCreneauxClasses()
   const forfait = packages[0] ?? null
   /* Restant et progression se calculent sur le CUMUL des forfaits, pas seulement le dernier
      souscrit — un ajout de forfait (0061) additionne des heures à un total déjà entamé, il ne
@@ -1210,7 +1213,7 @@ export function DossierEtudiantVue({
                         label="Classe"
                         valeur={`${LABEL_NIVEAU_CLASSE[cohortClasse.niveau]}${cohortClasse.nom ? ` — ${cohortClasse.nom}` : ''}`}
                       />
-                      <LigneInfo collee label="Créneau" valeur={LABEL_CRENEAU_CLASSE[cohortClasse.creneau]} />
+                      <LigneInfo collee label="Créneau" valeur={libelleCreneau(creneauxClasses, cohortClasse.creneau)} />
                       <LigneInfo
                         collee
                         label="Professeur de la classe"

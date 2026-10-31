@@ -121,6 +121,8 @@ export function ConvertirCandidatCollectif({
         ? {
             montantFrais: frais.montant,
             fraisRegles: frais.regle,
+            fraisMontantRegle: frais.montantRegle,
+            fraisModalite: frais.modalite,
             moyenPaiement: frais.moyenPaiement || undefined,
             referencePaiement: frais.reference || undefined,
             notesPaiement: frais.notes || undefined,

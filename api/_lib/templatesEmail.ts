@@ -34,7 +34,7 @@ export async function envoyerDepuisModele(
 ): Promise<{ envoye: boolean; erreur?: string; manquantes?: string[] }> {
   const { data: modele } = await serviceClient
     .from('email_templates')
-    .select('objet, corps, actif')
+    .select('objet, corps, actif, piece_jointe_document_id')
     .eq('etablissement_id', params.etablissementId)
     .eq('reference', params.reference)
     .maybeSingle()
@@ -60,17 +60,58 @@ export async function envoyerDepuisModele(
     .eq('id', params.etablissementId)
     .maybeSingle()
 
+  /* Pièce jointe attachée au MODÈLE (0152) : la procédure HOC pour le modèle 2.1, qui l'annonce
+     dans son texte depuis 0091 sans qu'elle ait jamais été jointe. Elle s'ajoute à celles que
+     l'appelant fournit déjà, elle ne les remplace pas. */
+  const duModele = await pieceJointeDuModele(serviceClient, modele.piece_jointe_document_id)
+
   return {
     ...(await envoyerEmail({
       destinataire: params.destinataires,
       copies: params.copies,
       sujet: prepare.objet,
       html: corpsEnHtml(prepare.corps),
-      piecesJointes: params.piecesJointes,
+      piecesJointes: [...(params.piecesJointes ?? []), ...(duModele ? [duModele] : [])],
       contact: etablissement ?? undefined,
     })),
     manquantes: prepare.manquantes,
   }
+}
+
+/**
+ * Le fichier attaché à un modèle, téléchargé depuis le bucket privé `documents` et encodé en
+ * base64 pour Resend.
+ *
+ * Rend `null` à la moindre difficulté — document supprimé, objet absent du bucket, lecture
+ * refusée — plutôt que de lever : le message part alors sans sa pièce jointe. Un envoi
+ * silencieusement empêché par un fichier manquant serait pire que le message seul, et
+ * l'administration voit tout de suite qu'il manque quelque chose.
+ */
+export async function pieceJointeDuModele(
+  serviceClient: ServiceClient,
+  documentId: string | null | undefined,
+): Promise<{ nom: string; contenuBase64: string } | null> {
+  if (!documentId) return null
+  const { data: document } = await serviceClient
+    .from('documents')
+    .select('nom_original, storage_path')
+    .eq('id', documentId)
+    .maybeSingle()
+  if (!document) return null
+
+  const { data: fichier, error } = await serviceClient.storage.from('documents').download(document.storage_path)
+  if (error || !fichier) return null
+
+  const octets = new Uint8Array(await fichier.arrayBuffer())
+  /* Encodage par tranches : `String.fromCharCode(...octets)` dépasse la taille maximale d'appel
+     de fonction au-delà de quelques dizaines de milliers d'octets, et une procédure PDF en fait
+     plus de cent mille. */
+  let binaire = ''
+  const TRANCHE = 8192
+  for (let i = 0; i < octets.length; i += TRANCHE) {
+    binaire += String.fromCharCode(...octets.subarray(i, i + TRANCHE))
+  }
+  return { nom: document.nom_original, contenuBase64: btoa(binaire) }
 }
 
 export async function chargerConstantes(
