@@ -644,6 +644,10 @@ interface DossierEtudiantVueProps {
   panneauChoixInitial?: ReactNode
   /* Formulaire d'édition du forfait existant, replié derrière le bouton « Modifier ». */
   panneauForfaitEdition?: ReactNode
+  /* Bouton « Nouveau créneau » de l'onglet Forfait — admin uniquement, et seulement pour un
+     élève hors cohorte : le planning d'un élève collectif se décide par classe, dans Cours
+     collectifs (règle du 2026-10-19), jamais depuis son dossier. */
+  panneauNouveauCreneau?: ReactNode
   /* Formulaire de planning prévisionnel (individuel/duo), replié derrière un bouton dédié.
      Fonction plutôt que nœud direct : elle reçoit `fermer`, à appeler par l'appelant une fois la
      création réussie, pour que ce composant puisse replier le formulaire et révéler aussitôt le
@@ -709,6 +713,7 @@ export function DossierEtudiantVue({
   panneauEnquetes,
   panneauChoixInitial,
   panneauForfaitEdition,
+  panneauNouveauCreneau,
   panneauPlanification,
   panneauDecisionEssai,
   panneauAjoutForfait,
@@ -1212,11 +1217,17 @@ export function DossierEtudiantVue({
 
             {!cohorte && forfait && (
               <>
-                {panneauForfaitEdition && (
+                {(panneauForfaitEdition || panneauNouveauCreneau) && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                    <button onClick={() => setEditionForfaitOuverte((v) => !v)} style={boutonPanneauStyle}>
-                      {editionForfaitOuverte ? 'Annuler' : 'Modifier'}
-                    </button>
+                    {/* Ajout d'une séance isolée, sans rouvrir le générateur de série — demande
+                        client du 2026-10-31. Ici parce que l'élève et son professeur sont déjà
+                        connus de cet onglet : il ne reste que l'horaire à saisir. */}
+                    {panneauNouveauCreneau}
+                    {panneauForfaitEdition && (
+                      <button onClick={() => setEditionForfaitOuverte((v) => !v)} style={boutonPanneauStyle}>
+                        {editionForfaitOuverte ? 'Annuler' : 'Modifier'}
+                      </button>
+                    )}
                   </div>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

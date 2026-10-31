@@ -13,6 +13,7 @@ import { DecisionHeureEssai } from './DecisionHeureEssai'
 import { AjouterForfaitModale } from './AjouterForfaitModale'
 import { useDemandesForfait } from '../../hooks/useDemandesForfait'
 import { PlanifierSeancesForfait } from './PlanifierSeancesForfait'
+import { NouveauCreneauEtudiant } from './NouveauCreneauEtudiant'
 import { DossierEtudiantVue } from './DossierEtudiantVue'
 import { CarteListeEtudiant, TagAucunCoursPlanifie, TagDossierIncomplet } from './CarteListeEtudiant'
 import { useEtatsParcoursEtudiants } from '../../hooks/useEtatsParcoursEtudiants'
@@ -370,6 +371,25 @@ function DossierPanel({
       }
       panneauForfaitEdition={
         forfait ? <CreerForfait studentId={etudiant.id} etablissementId={etudiant.etablissement_id} forfaitExistant={forfait} onCree={recharger} /> : undefined
+      }
+      panneauNouveauCreneau={
+        /* Même garde que la planification de série juste en dessous : sans professeur attribué,
+           il n'y a personne à qui attacher la séance. Quand l'élève en a plusieurs (0138),
+           l'admin choisit lequel, plutôt que de remplir en silence l'agenda du premier venu. */
+        forfait && professeursAttribues.length > 0 ? (
+          <ChoixProfesseurPlanification professeurs={professeursAttribues}>
+            {(teacherId) => (
+              <NouveauCreneauEtudiant
+                studentIds={[etudiant.id]}
+                teacherId={teacherId}
+                onCree={() => {
+                  recharger()
+                  rechargerParcours()
+                }}
+              />
+            )}
+          </ChoixProfesseurPlanification>
+        ) : undefined
       }
       panneauPlanification={
         forfait && professeursAttribues.length > 0

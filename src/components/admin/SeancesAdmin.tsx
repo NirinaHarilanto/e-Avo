@@ -13,6 +13,7 @@ import {
   idGoogleDepuisEvenement,
   idPrestationDepuisEvenement,
   seanceSansEffet,
+  versEvenementAdmin,
   versEvenementPrestation,
   versEvenementSeance,
 } from '../../lib/agendaEvenements'
@@ -142,15 +143,38 @@ export function SeancesAdmin() {
       .filter((p) => personnesSelectionnees.size === 0 || profsSelectionnes.has(p.teacher_id))
       .map(versEvenementPrestation)
 
-    if (!adminSelectionne) return [...seancesEvenements, ...prestationsEvenements]
+    /* Rendez-vous « autre » dont une personne COCHÉE est participante — demande client du
+       2026-10-31 : « synchroniser les agendas des professeurs sélectionnés avec les agendas des
+       professeurs ». Un professeur voit ces rendez-vous dans son propre agenda (policy
+       `evenements_admin_teacher_select`, 0073) ; ici ils n'apparaissaient qu'avec la case Admin,
+       et sans lien avec le professeur coché — cocher un professeur montrait donc une semaine
+       différente de la sienne, exactement comme pour ses prestations avant le 2026-10-20. */
+    const evenementsDesPersonnes = evenementsAdmin
+      .filter((e) => !e.annule)
+      .filter((e) => e.debut >= semaineDebut.toISOString() && e.debut < semaineFin.toISOString())
+      .filter((e) =>
+        [...e.obligatoires, ...e.optionnels].some((p) => profsSelectionnes.has(p.id) || etudiantsSelectionnes.has(p.id)),
+      )
+      .map(versEvenementAdmin)
+
+    if (!adminSelectionne) return [...seancesEvenements, ...prestationsEvenements, ...evenementsDesPersonnes]
 
     const evenementsAgendaAdmin = agendaAdminComplet(rendezVous, evenementsAdmin).filter((e) => {
       const debutIso = e.debut
       return debutIso >= semaineDebut.toISOString() && debutIso < semaineFin.toISOString()
     })
+    /* Admin ET professeur cochés : le même rendez-vous figure des deux côtés (l'agenda admin les
+       porte tous), il ne doit apparaître qu'une fois dans la grille. */
+    const dejaPoses = new Set(evenementsDesPersonnes.map((e) => e.id))
     // `evenementsGooglePersonnel` est déjà borné à la semaine affichée par le hook lui-même
     // (paramètre `semaineDebut`), aucun filtrage de date à refaire ici.
-    return [...seancesEvenements, ...prestationsEvenements, ...evenementsAgendaAdmin, ...evenementsGooglePersonnel]
+    return [
+      ...seancesEvenements,
+      ...prestationsEvenements,
+      ...evenementsDesPersonnes,
+      ...evenementsAgendaAdmin.filter((e) => !dejaPoses.has(e.id)),
+      ...evenementsGooglePersonnel,
+    ]
   }, [
     seancesSemaine,
     prestations,
