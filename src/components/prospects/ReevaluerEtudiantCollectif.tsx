@@ -3,7 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { useCohortes } from '../../hooks/useCohortes'
 import { useCohortClasses } from '../../hooks/useCohortClasses'
-import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, libelleCreneau, NIVEAUX_CECRL } from '../../lib/classesCollectif'
+import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, libelleCreneau, NIVEAUX_ANGLAIS } from '../../lib/classesCollectif'
 import { useCreneauxClasses } from '../../hooks/useCreneauxClasses'
 import type { NiveauClasse } from '../../types/database.types'
 import { Champ, champStyle } from '../ui/Champ'
@@ -162,7 +162,7 @@ function ModalePlacement({
   const { cohortes, loading: chargementCohortes } = useCohortes()
   const { creneaux: creneauxClasses } = useCreneauxClasses()
   const [niveau, setNiveau] = useState<string>(
-    valeursInitiales?.niveau ?? NIVEAUX_CECRL.find((n) => n === niveauActuel) ?? NIVEAUX_CECRL[0],
+    valeursInitiales?.niveau ?? NIVEAUX_ANGLAIS.find((n) => n === niveauActuel) ?? NIVEAUX_ANGLAIS[0],
   )
   const [cohortId, setCohortId] = useState(valeursInitiales?.cohortId ?? '')
   const [cohortClassId, setCohortClassId] = useState(valeursInitiales?.cohortClassId ?? '')
@@ -197,7 +197,7 @@ function ModalePlacement({
 
         <Champ label="Niveau d'anglais retenu" obligatoire aide={niveauActuel ? `Niveau actuel : ${niveauActuel}.` : undefined}>
           <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={champStyle}>
-            {NIVEAUX_CECRL.map((n) => (
+            {NIVEAUX_ANGLAIS.map((n) => (
               <option key={n} value={n}>
                 {n} · classe {LABEL_NIVEAU_CLASSE[categorieDepuisNiveauEstime(n)!]}
               </option>

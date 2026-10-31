@@ -251,7 +251,7 @@ const RUBRIQUES: Record<EspaceGuide, Rubrique[]> = {
       titre: 'Pédagogie : professeurs et séances',
       lien: '/admin/professeurs',
       points: [
-        <><strong>Recrutement</strong> : candidatures reçues depuis le bouton « Rejoignez-nous » de la vitrine. Faites avancer chaque candidat : pré-sélection, tests (C1 minimum), simulation de cours, puis intégration. Le compte professeur est créé automatiquement à l’entrée en intégration.</>,
+        <><strong>Recrutement</strong> : candidatures reçues depuis le bouton « Rejoignez-nous » de la vitrine. Faites avancer chaque candidat : pré-sélection, tests (niveau Advanced minimum), simulation de cours, puis intégration. Le compte professeur est créé automatiquement à l’entrée en intégration.</>,
         <><strong>Professeurs</strong> : équipe enseignante, taux horaire, élèves et satisfaction. Un professeur en intégration porte ce statut jusqu’à la fin de sa checklist.</>,
         <>
           Sa fiche porte un bloc <strong>Cours corporate & chat & chill</strong> : des prestations données hors cursus

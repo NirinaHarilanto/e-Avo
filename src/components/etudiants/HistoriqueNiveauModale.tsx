@@ -3,7 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useNiveauxEtudiant } from '../../hooks/useNiveauxEtudiant'
 import { supabase } from '../../lib/supabaseClient'
 import type { DossierEtudiant } from '../../hooks/useDossierEtudiant'
-import { NIVEAUX_CECRL } from '../../lib/classesCollectif'
+import { NIVEAUX_ANGLAIS } from '../../lib/classesCollectif'
 import { Modale } from '../ui/Modale'
 import { Champ, champStyle } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
@@ -38,7 +38,7 @@ export function HistoriqueNiveauModale({ studentId, etablissementId, diagnostic,
   // pour le niveau retenu au test oral collectif (ConvertirCandidatCollectif.tsx) : une valeur
   // tapée à la main (« Intermédiaire+ », qu'illustrait l'ancien placeholder) n'est reconnue par
   // aucun des barèmes qui comparent ensuite ce niveau (categorieDepuisNiveauEstime, etc.).
-  const [niveau, setNiveau] = useState<string>(NIVEAUX_CECRL[0])
+  const [niveau, setNiveau] = useState<string>(NIVEAUX_ANGLAIS[0])
   const [notes, setNotes] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
@@ -120,7 +120,7 @@ export function HistoriqueNiveauModale({ studentId, etablissementId, diagnostic,
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <Champ label="Nouveau niveau" obligatoire>
                   <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={champStyle}>
-                    {NIVEAUX_CECRL.map((n) => (
+                    {NIVEAUX_ANGLAIS.map((n) => (
                       <option key={n} value={n}>
                         {n}
                       </option>

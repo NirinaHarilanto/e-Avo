@@ -28,7 +28,10 @@ describe('Hero « Notre équipe »', () => {
         <PageEquipe dossierAssets="/etablissements/hari-online-course" />
       </MemoryRouter>,
     )
-    expect(screen.getByText('A1 → C1')).toBeTruthy()
+    /* L'échelle des maquettes était le CECRL ; HOC n'en emploie plus qu'une depuis le
+       2026-10-31, celle de ses classes — le visiteur lit les mêmes mots que l'élève
+       retrouvera sur son dossier. */
+    expect(screen.getByText('Beginner → Advanced')).toBeTruthy()
     expect(screen.getByText('+ de 500')).toBeTruthy()
     expect(screen.getByText(AVIS_PROFESSEURS.citation)).toBeTruthy()
     expect(screen.getByText('Ils vous accompagnent en visio, à votre rythme')).toBeTruthy()

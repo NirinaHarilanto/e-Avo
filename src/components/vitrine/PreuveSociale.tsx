@@ -88,7 +88,10 @@ export function ChiffresCles() {
       <span className="c">
         <b>
           <i aria-hidden="true" />
-          A1 → C1
+          {/* L'échelle des maquettes du 2026-10-29 était le CECRL ; HOC n'en emploie plus qu'une
+              depuis le 2026-10-31, celle de ses classes. Le visiteur lit donc les mêmes mots que
+              l'élève retrouvera ensuite sur son dossier. */}
+          Beginner → Advanced
         </b>
         tous les niveaux
       </span>

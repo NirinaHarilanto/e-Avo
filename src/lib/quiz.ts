@@ -24,17 +24,21 @@ export interface ResultatQuiz {
   bilan: string
 }
 
-/* Barème convenu avec le client : le quiz situe un candidat sur l'échelle CECRL pour former des
-   groupes homogènes, il ne certifie rien. Les bornes restent larges à dessein — c'est l'oral
-   qui tranche ensuite. */
+/* Barème convenu avec le client : le quiz situe un candidat pour former des groupes homogènes,
+   il ne certifie rien. Les bornes restent larges à dessein — c'est l'oral qui tranche ensuite.
+
+   Rendu dans l'échelle unique de HOC — Beginner / Intermediate / Advanced — depuis le
+   2026-10-31 : le quiz rendait jusque-là un niveau CECRL (A1 → C1) que l'application devait
+   retraduire en classe, et qui s'affichait tel quel à côté de dossiers déjà libellés
+   « Intermediate ». Les SEUILS n'ont pas bougé : ils sont le report exact des anciens à travers
+   la correspondance du client (A1/A2 → Beginner sous 0,6 ; B1/B2 → Intermediate de 0,6 à 0,95 ;
+   C1 → Advanced au-delà). Aucun candidat déjà corrigé ne change donc de classe. */
 export function niveauEstime(score: number, total: number): string {
   if (total === 0) return 'Non évalué'
   const part = score / total
-  if (part >= 0.95) return 'C1'
-  if (part >= 0.8) return 'B2'
-  if (part >= 0.6) return 'B1'
-  if (part >= 0.4) return 'A2'
-  return 'A1'
+  if (part >= 0.95) return 'Advanced'
+  if (part >= 0.6) return 'Intermediate'
+  return 'Beginner'
 }
 
 export function corriger(questions: QuestionCorrigee[], reponses: ReponseCandidat[]): ResultatQuiz {

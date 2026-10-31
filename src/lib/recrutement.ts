@@ -60,9 +60,21 @@ export const CHECKLIST_PRESELECTION: ChampChecklist[] = [
   { cle: 'impression', libelle: 'Impression générale / notes de l’appel', type: 'texte' },
 ]
 
-export const NIVEAUX_CECRL = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const
-export type NiveauCecrl = (typeof NIVEAUX_CECRL)[number]
-export const NIVEAU_MINIMUM: NiveauCecrl = 'C1'
+/* La même échelle que pour les apprenants (src/lib/classesCollectif.ts) depuis le 2026-10-31,
+   à la demande du client : « uniformiser les niveaux dans TOUTE l'application HOC ». Le
+   recrutement tenait jusque-là sa propre échelle CECRL, qui montait à C2.
+
+   La règle d'embauche est préservée à l'identique : le minimum exigé était C1, que la
+   correspondance posée par le client (C1 et C2 → Advanced, B1/B2 → Intermediate, A1/A2 →
+   Beginner) traduit en « Advanced ». Un candidat B2, hier refusé, devient Intermediate et reste
+   donc refusé — aucun seuil ne bouge.
+
+   Ce que cela coûte, à signaler : le recruteur ne distingue plus un C1 d'un C2. Un seul dossier
+   de test portait des niveaux à cette date, tous C1 — le coût réel est nul aujourd'hui, mais la
+   granularité manquera si HOC veut un jour départager deux très bons candidats. */
+export { NIVEAUX_ANGLAIS, type NiveauAnglais } from './classesCollectif.js'
+import { NIVEAUX_ANGLAIS, niveauNormalise, type NiveauAnglais } from './classesCollectif.js'
+export const NIVEAU_MINIMUM: NiveauAnglais = 'Advanced'
 
 export const TESTS_ANGLAIS: { cle: string; libelle: string }[] = [
   { cle: 'reading', libelle: 'Reading' },
@@ -73,32 +85,39 @@ export const TESTS_ANGLAIS: { cle: string; libelle: string }[] = [
 export interface ResultatTest {
   fait?: boolean
   note?: number | null
-  niveau?: NiveauCecrl | null
+  niveau?: NiveauAnglais | null
 }
 export interface ValeursTests {
-  [cle: string]: ResultatTest | NiveauCecrl | string | null | undefined
-  niveau_global?: NiveauCecrl | null
+  [cle: string]: ResultatTest | NiveauAnglais | string | null | undefined
+  niveau_global?: NiveauAnglais | null
   commentaire?: string | null
 }
 
+/* Passe par `niveauNormalise` plutôt que de chercher la valeur telle quelle : un dossier de
+   recrutement écrit avant l'uniformisation du 2026-10-31 porte encore un niveau CECRL, et il
+   doit continuer de se comparer au minimum exigé au lieu de tomber à -1 (donc sous tout seuil,
+   donc refusé à tort). */
 function rang(niveau: string | null | undefined): number {
-  return niveau ? NIVEAUX_CECRL.indexOf(niveau as NiveauCecrl) : -1
+  const normalise = niveauNormalise(niveau)
+  return normalise ? NIVEAUX_ANGLAIS.indexOf(normalise) : -1
 }
 
-export function niveauAuMoins(niveau: string | null | undefined, minimum: NiveauCecrl = NIVEAU_MINIMUM): boolean {
+export function niveauAuMoins(niveau: string | null | undefined, minimum: NiveauAnglais = NIVEAU_MINIMUM): boolean {
   return rang(niveau) >= rang(minimum)
 }
 
 /* Niveau global proposé par défaut : le plus faible des trois tests — on ne recrute pas un
-   formateur C1 à l'écrit mais B2 à l'oral. `null` tant que les trois ne sont pas renseignés. */
-export function niveauGlobalPropose(tests: ValeursTests): NiveauCecrl | null {
-  const niveaux = TESTS_ANGLAIS.map((t) => (tests[t.cle] as ResultatTest | undefined)?.niveau ?? null)
+   formateur Advanced à l'écrit mais Intermediate à l'oral. `null` tant que les trois ne sont pas
+   renseignés. Les niveaux sont normalisés au passage, pour qu'un dossier encore en CECRL soit
+   comparé sur la même échelle que les autres. */
+export function niveauGlobalPropose(tests: ValeursTests): NiveauAnglais | null {
+  const niveaux = TESTS_ANGLAIS.map((t) => niveauNormalise((tests[t.cle] as ResultatTest | undefined)?.niveau))
   if (niveaux.some((n) => !n)) return null
-  return niveaux.reduce<NiveauCecrl>((min, n) => (rang(n) < rang(min) ? (n as NiveauCecrl) : min), 'C2')
+  return (niveaux as NiveauAnglais[]).reduce((min, n) => (rang(n) < rang(min) ? n : min))
 }
 
-export function niveauGlobal(tests: ValeursTests): NiveauCecrl | null {
-  return (tests.niveau_global as NiveauCecrl | null | undefined) ?? niveauGlobalPropose(tests)
+export function niveauGlobal(tests: ValeursTests): NiveauAnglais | null {
+  return (tests.niveau_global as NiveauAnglais | null | undefined) ?? niveauGlobalPropose(tests)
 }
 
 export function testsReussis(tests: ValeursTests): boolean {

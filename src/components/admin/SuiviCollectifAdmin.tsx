@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { FicheCandidatCollectifModale } from './FicheCandidatCollectifModale'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { nomVagueSeul } from '../../lib/cohortes'
-import { rangNiveauCecrl } from '../../lib/classesCollectif'
+import { rangNiveau } from '../../lib/classesCollectif'
 import {
   classePrevue,
   construireSuiviCollectif,
@@ -150,8 +150,8 @@ export function SuiviCollectifAdmin() {
         ligne,
         nomVague: ligne.vagueId ? (nomVagueParId.get(ligne.vagueId) ?? null) : null,
         classePrevueAffichee: ligne.etape !== 'etudiant' ? classePrevue(ligne) : null,
-        rangNiveauEcrit: rangNiveauCecrl(ligne.niveauTest),
-        rangNiveauOral: rangNiveauCecrl(ligne.niveauFinal),
+        rangNiveauEcrit: rangNiveau(ligne.niveauTest),
+        rangNiveauOral: rangNiveau(ligne.niveauFinal),
       }))
   }, [lignes, filtreVague, filtreEtape, recherche, nomVagueParId])
 

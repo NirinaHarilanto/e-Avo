@@ -1,6 +1,7 @@
-/* Classes de niveau des cours collectifs (0074) : mapping pur entre le niveau CECRL estimé au
-   quiz écrit (voir quiz.ts) et le niveau de classe (Beginner/Intermediate/Advanced) demandé par
-   le client, et constantes de capacité d'une classe. Aucune requête, aucune horloge — testable
+/* Classes de niveau des cours collectifs (0074) : échelle de niveau de HOC, mapping pur entre
+   le niveau estimé au quiz écrit (voir quiz.ts) et la classe correspondante, et constantes de
+   capacité d'une classe. Depuis l'uniformisation du 2026-10-31, les deux portent le même mot —
+   Beginner, Intermediate, Advanced — à la casse près. Aucune requête, aucune horloge — testable
    isolément, comme quiz.ts. */
 
 import type { NiveauClasse, CreneauClasse } from '../types/database.types.js'
@@ -94,42 +95,67 @@ export const CAPACITE_MIN_CLASSE = 3
    (migration 0074) : il faut ouvrir une seconde classe du même niveau. */
 export const CAPACITE_MAX_CLASSE = 7
 
-/* Les cinq niveaux que rend le quiz écrit (`niveauEstime`, quiz.ts), dans l'ordre croissant.
-   **Ce sont aussi les seules valeurs que `categorieDepuisNiveauEstime` sait traduire en classe**,
-   d'où la liste partagée : le niveau final du test oral se choisit dans cette liste (demande
-   client du 2026-10-11, « mets le niveau d'anglais en liste déroulante ») et non plus en texte
-   libre. Une saisie libre laissait écrire « Intermédiaire », que le barème ci-dessous ne reconnaît
-   pas — le candidat était alors converti sans classe, à affecter à la main. */
-/* « A1 » tout court, et non « A1 (débutant) » — demande client du 2026-10-11, après un premier
-   raccourcissement limité à l'affichage le même jour : c'est désormais la VALEUR elle-même qui
-   change, en code comme en base (migration 0122). Un seul libellé partout évite d'avoir à
-   traduire d'un côté ce qu'on compare de l'autre, et aligne ce barème sur celui du recrutement
-   (recrutement.ts), qui écrivait déjà « A1 ». */
-export const NIVEAUX_CECRL = ['A1', 'A2', 'B1', 'B2', 'C1'] as const
+/* Les TROIS niveaux d'anglais de HOC, dans l'ordre croissant — demande client du 2026-10-31 :
+   « il faudrait uniformiser les niveaux dans toute l'application HOC : Beginner, Intermediate,
+   Advanced ».
 
-export type NiveauCecrl = (typeof NIVEAUX_CECRL)[number]
+   Avant cette date, deux échelles cohabitaient pour désigner LA MÊME CHOSE, le niveau d'un
+   apprenant : le CECRL (A1 → C1) pour le quiz écrit, le niveau évalué et le test oral, et
+   Beginner/Intermediate/Advanced pour les classes de niveau (0074). Le client voyait donc
+   « A1 » sur un dossier et « Intermediate » sur un autre, pour un même champ « Niveau évalué » —
+   constaté en base le 2026-10-31 : 20 dossiers en CECRL, 54 dans l'échelle anglaise.
 
-/* Barème convenu avec le client : le niveau CECRL du quiz écrit détermine automatiquement la
-   classe de niveau, sans ressaisie. `null` quand le niveau n'est pas encore connu (candidat pas
-   encore passé au quiz, ou test non concluant) — dans ce cas, aucune classe n'est proposée
-   automatiquement, l'admin affecte à la main. */
+   C'est l'échelle ANGLAISE qui l'emporte, parce que c'est elle que porte déjà la classe de
+   niveau, qu'elle est celle du vocabulaire du client, et qu'elle a la majorité des dossiers.
+   Les valeurs sont EXACTEMENT les libellés de `LABEL_NIVEAU_CLASSE` : un niveau évalué se lit
+   désormais tel quel comme une classe, sans traduction.
+
+   Les anciennes valeurs CECRL restent reconnues en lecture (voir `categorieDepuisNiveauEstime`)
+   le temps que la migration 0153 ait converti l'existant, et pour qu'un dossier d'archive ne
+   perde jamais sa classe. Plus rien ne les écrit. */
+export const NIVEAUX_ANGLAIS = ['Beginner', 'Intermediate', 'Advanced'] as const
+
+export type NiveauAnglais = (typeof NIVEAUX_ANGLAIS)[number]
+
+/* Correspondance CECRL → échelle HOC, telle que le client l'a fixée le 2026-10-11 et que ce
+   fichier l'appliquait déjà pour choisir une classe. Conservée pour relire les dossiers écrits
+   avant l'uniformisation, jamais pour en écrire de nouveaux. */
+const NIVEAU_DEPUIS_CECRL: Record<string, NiveauAnglais> = {
+  A1: 'Beginner',
+  /* Valeur portée par les lignes écrites avant la migration 0122. */
+  'A1 (débutant)': 'Beginner',
+  A2: 'Beginner',
+  B1: 'Intermediate',
+  B2: 'Intermediate',
+  C1: 'Advanced',
+  /* Le recrutement allait jusqu'à C2 (recrutement.ts) : même sommet d'échelle. */
+  C2: 'Advanced',
+  /* Niveau de classe introduit par 0139 puis fusionné dans « Advanced » par 0141, à la demande
+     du client — il désignait en pratique le même niveau. Des dossiers le portent encore. */
+  'Pre advanced': 'Advanced',
+  'Pre-Advanced': 'Advanced',
+}
+
+/* Ramène n'importe quelle valeur de niveau déjà écrite à l'échelle en vigueur. Rend `null` pour
+   une valeur inconnue (un niveau saisi en texte libre avant l'introduction de la liste
+   déroulante) plutôt que de deviner : l'appelant décide quoi en faire. */
+export function niveauNormalise(niveau: string | null | undefined): NiveauAnglais | null {
+  const valeur = niveau?.trim()
+  if (!valeur) return null
+  const direct = NIVEAUX_ANGLAIS.find((n) => n.toLowerCase() === valeur.toLowerCase())
+  if (direct) return direct
+  return NIVEAU_DEPUIS_CECRL[valeur] ?? null
+}
+
+/* Le niveau d'un apprenant détermine automatiquement sa classe de niveau, sans ressaisie. Depuis
+   l'uniformisation du 2026-10-31 les deux portent le même mot, à la casse près : la clé de l'enum
+   Postgres reste en minuscules (`beginner`), le niveau affiché en capitale initiale
+   (`Beginner`). `null` quand le niveau n'est pas encore connu — aucune classe n'est alors
+   proposée, l'admin affecte à la main. */
 export function categorieDepuisNiveauEstime(niveauEstime: string | null): NiveauClasse | null {
-  switch (niveauEstime) {
-    /* 'A1 (débutant)' reste accepté : c'est la valeur qu'ont portée les lignes écrites avant la
-       migration 0122, et un dossier d'archive ne doit pas perdre sa classe parce que le libellé a
-       changé. Plus rien ne l'écrit. */
-    case 'A1':
-    case 'A1 (débutant)':
-    case 'A2':
-      return 'beginner'
-    case 'B1':
-    case 'B2':
-      return 'intermediate'
-    case 'C1':
-      return 'advanced'
-    default:
-      return null
-  }
+  const niveau = niveauNormalise(niveauEstime)
+  if (!niveau) return null
+  return niveau.toLowerCase() as NiveauClasse
 }
 
 /* Le niveau qui fait foi pour un candidat au collectif : celui que l'admin arrête à l'issue du
@@ -141,14 +167,16 @@ export function niveauRetenu(niveauFinal: string | null | undefined, niveauEstim
   return niveauFinal?.trim() || niveauEstime?.trim() || null
 }
 
-/* Position d'un niveau CECRL dans l'échelle, pour trier une colonne « Niveau » du plus faible au
-   plus avancé (tableau de suivi, 2026-10-11) — un tri alphabétique rangerait B1 avant B2 mais
-   aussi avant A2, faux. `null` pour une valeur absente ou non reconnue (ex. un niveau saisi en
-   texte libre avant l'introduction de la liste déroulante) : l'appelant décide où la ranger plutôt
-   que de la mélanger arbitrairement avec un niveau réel. */
-export function rangNiveauCecrl(niveau: string | null): number | null {
-  const position = NIVEAUX_CECRL.indexOf((niveau ?? '') as NiveauCecrl)
-  return position === -1 ? null : position
+/* Position d'un niveau dans l'échelle, pour trier une colonne « Niveau » du plus faible au plus
+   avancé (tableau de suivi, 2026-10-11) — un tri alphabétique rangerait « Advanced » avant
+   « Beginner ». Les anciennes valeurs CECRL sont ramenées à l'échelle en vigueur avant d'être
+   classées, pour qu'un dossier non encore converti se range au bon endroit et non à la fin.
+   `null` pour une valeur absente ou non reconnue : l'appelant décide où la ranger plutôt que de
+   la mélanger arbitrairement avec un niveau réel. */
+export function rangNiveau(niveau: string | null): number | null {
+  const normalise = niveauNormalise(niveau)
+  if (!normalise) return null
+  return NIVEAUX_ANGLAIS.indexOf(normalise)
 }
 
 /* Fin de parcours d'une vague — demande client du 2026-10-11 : « à la fin de chaque parcours

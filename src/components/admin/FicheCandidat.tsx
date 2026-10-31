@@ -12,7 +12,7 @@ import {
   DIPLOMES_DECLARES,
   ETAPES,
   NIVEAU_MINIMUM,
-  NIVEAUX_CECRL,
+  NIVEAUX_ANGLAIS,
   TESTS_ANGLAIS,
   integrationComplete,
   resultatSimulation,
@@ -592,7 +592,7 @@ function FormulaireTests({ tests, onChange, lectureSeule }: { tests: ValeursTest
             <Champ label="Niveau">
               <select value={r.niveau ?? ''} disabled={lectureSeule} onChange={(e) => majTest(t.cle, { niveau: (e.target.value || null) as ResultatTest['niveau'] })} style={champStyle}>
                 <option value="">—</option>
-                {NIVEAUX_CECRL.map((n) => (
+                {NIVEAUX_ANGLAIS.map((n) => (
                   <option key={n} value={n}>
                     {n}
                   </option>
@@ -612,7 +612,7 @@ function FormulaireTests({ tests, onChange, lectureSeule }: { tests: ValeursTest
               style={{ ...champStyle, minWidth: 160 }}
             >
               <option value="">{propose ? `Automatique (${propose})` : '—'}</option>
-              {NIVEAUX_CECRL.map((n) => (
+              {NIVEAUX_ANGLAIS.map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>

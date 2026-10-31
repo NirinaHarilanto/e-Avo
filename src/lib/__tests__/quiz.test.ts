@@ -46,12 +46,23 @@ describe('corriger', () => {
 })
 
 describe('niveauEstime', () => {
+  /* Échelle unique de HOC depuis le 2026-10-31 (Beginner / Intermediate / Advanced). Les SEUILS
+     sont le report exact des anciens paliers CECRL à travers la correspondance du client :
+     A1/A2 → Beginner sous 0,6 ; B1/B2 → Intermediate de 0,6 à 0,95 ; C1 → Advanced au-delà.
+     Aucun candidat déjà corrigé ne change donc de classe. */
   it('place les paliers du barème convenu', () => {
-    expect(niveauEstime(10, 10)).toBe('C1')
-    expect(niveauEstime(8, 10)).toBe('B2')
-    expect(niveauEstime(6, 10)).toBe('B1')
-    expect(niveauEstime(4, 10)).toBe('A2')
-    expect(niveauEstime(3, 10)).toBe('A1')
+    expect(niveauEstime(10, 10)).toBe('Advanced')
+    expect(niveauEstime(8, 10)).toBe('Intermediate')
+    expect(niveauEstime(6, 10)).toBe('Intermediate')
+    expect(niveauEstime(4, 10)).toBe('Beginner')
+    expect(niveauEstime(3, 10)).toBe('Beginner')
+  })
+
+  /* La borne haute est à 0,95 et non à 1 : 19 bonnes réponses sur 20 restent Advanced, comme
+     l'ancien barème donnait C1. */
+  it('reste Advanced à une erreur près sur vingt questions', () => {
+    expect(niveauEstime(19, 20)).toBe('Advanced')
+    expect(niveauEstime(18, 20)).toBe('Intermediate')
   })
 
   it('ne divise pas par zéro quand aucune question n’est active', () => {

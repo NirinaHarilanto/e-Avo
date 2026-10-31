@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
-import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, NIVEAUX_CECRL } from '../../lib/classesCollectif'
+import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, NIVEAUX_ANGLAIS } from '../../lib/classesCollectif'
 import type { NiveauClasse } from '../../types/database.types'
 import { Champ, champStyle } from '../ui/Champ'
 import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
@@ -226,7 +226,7 @@ function ModaleResultatsTestOral({
      niveau de la liste plutôt que sur un choix vide — le champ est obligatoire, et un « — » à
      sélectionner n'apporterait rien de plus qu'un clic. */
   const [niveau, setNiveau] = useState<string>(
-    valeursInitiales?.niveau ?? NIVEAUX_CECRL.find((n) => n === niveauEstimeParDefaut) ?? NIVEAUX_CECRL[0],
+    valeursInitiales?.niveau ?? NIVEAUX_ANGLAIS.find((n) => n === niveauEstimeParDefaut) ?? NIVEAUX_ANGLAIS[0],
   )
   const [profilDetaille, setProfilDetaille] = useState(valeursInitiales?.profilDetaille ?? '')
   const [objectifs, setObjectifs] = useState(valeursInitiales?.objectifs ?? '')
@@ -259,7 +259,7 @@ function ModaleResultatsTestOral({
           }
         >
           <select value={niveau} onChange={(e) => setNiveau(e.target.value)} style={champStyle}>
-            {NIVEAUX_CECRL.map((n) => (
+            {NIVEAUX_ANGLAIS.map((n) => (
               <option key={n} value={n}>
                 {n} · classe {LABEL_NIVEAU_CLASSE[categorieDepuisNiveauEstime(n)!]}
               </option>

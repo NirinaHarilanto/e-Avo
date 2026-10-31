@@ -2,15 +2,26 @@ import { describe, expect, it } from 'vitest'
 import {
   categorieDepuisNiveauEstime,
   fraisInscriptionCollectif,
+  LABEL_NIVEAU_CLASSE,
+  niveauNormalise,
   niveauRetenu,
-  NIVEAUX_CECRL,
+  NIVEAUX_ANGLAIS,
   parcoursCollectifTermine,
   periodeClasse,
-  rangNiveauCecrl,
+  rangNiveau,
   seancesRestantesClasse,
 } from '../classesCollectif'
 
 describe('categorieDepuisNiveauEstime', () => {
+  /* Depuis l'uniformisation du 2026-10-31, niveau et classe portent le même mot : la fonction
+     n'est plus qu'un changement de casse pour un niveau à l'échelle. Elle continue néanmoins de
+     traduire les anciennes valeurs CECRL, que des dossiers portent encore. */
+  it('classe un niveau de l’échelle sur la classe du même nom', () => {
+    expect(categorieDepuisNiveauEstime('Beginner')).toBe('beginner')
+    expect(categorieDepuisNiveauEstime('Intermediate')).toBe('intermediate')
+    expect(categorieDepuisNiveauEstime('Advanced')).toBe('advanced')
+  })
+
   it('classe A1 et A2 en beginner', () => {
     expect(categorieDepuisNiveauEstime('A1')).toBe('beginner')
     expect(categorieDepuisNiveauEstime('A2')).toBe('beginner')
@@ -42,7 +53,7 @@ describe('categorieDepuisNiveauEstime', () => {
      niveau que le barème ci-dessus ne saurait pas traduire en classe : c'était tout l'intérêt de
      remplacer la saisie libre. */
   it('ne propose que des niveaux qui donnent une classe', () => {
-    for (const niveau of NIVEAUX_CECRL) {
+    for (const niveau of NIVEAUX_ANGLAIS) {
       expect(categorieDepuisNiveauEstime(niveau)).not.toBeNull()
     }
   })
@@ -50,14 +61,14 @@ describe('categorieDepuisNiveauEstime', () => {
 
 describe('niveauRetenu', () => {
   it('fait primer le niveau du test oral sur celui du quiz écrit', () => {
-    expect(niveauRetenu('A2', 'A1')).toBe('A2')
+    expect(niveauRetenu('Intermediate', 'Beginner')).toBe('Intermediate')
   })
 
   it('retombe sur le quiz écrit tant que l’oral n’a rien arrêté', () => {
-    expect(niveauRetenu(null, 'B1')).toBe('B1')
-    expect(niveauRetenu('', 'B1')).toBe('B1')
-    expect(niveauRetenu('   ', 'B1')).toBe('B1')
-    expect(niveauRetenu(undefined, 'B1')).toBe('B1')
+    expect(niveauRetenu(null, 'Intermediate')).toBe('Intermediate')
+    expect(niveauRetenu('', 'Intermediate')).toBe('Intermediate')
+    expect(niveauRetenu('   ', 'Intermediate')).toBe('Intermediate')
+    expect(niveauRetenu(undefined, 'Intermediate')).toBe('Intermediate')
   })
 
   it('rend null quand aucun des deux n’est connu', () => {
@@ -66,27 +77,67 @@ describe('niveauRetenu', () => {
   })
 })
 
-describe('rangNiveauCecrl', () => {
+describe('rangNiveau', () => {
   it('ordonne les niveaux du plus faible au plus avancé', () => {
-    const rangs = NIVEAUX_CECRL.map(rangNiveauCecrl)
-    expect(rangs).toEqual([0, 1, 2, 3, 4])
-    expect(rangNiveauCecrl('B1')).toBeLessThan(rangNiveauCecrl('B2')!)
-    expect(rangNiveauCecrl('A2')).toBeLessThan(rangNiveauCecrl('B1')!)
+    expect(NIVEAUX_ANGLAIS.map(rangNiveau)).toEqual([0, 1, 2])
+    expect(rangNiveau('Beginner')).toBeLessThan(rangNiveau('Intermediate')!)
+    expect(rangNiveau('Intermediate')).toBeLessThan(rangNiveau('Advanced')!)
+  })
+
+  /* Un dossier écrit avant l'uniformisation du 2026-10-31 porte encore un niveau CECRL : il doit
+     se ranger au bon endroit de l'échelle, pas à la fin du tableau. */
+  it('range un ancien niveau CECRL à sa place', () => {
+    expect(rangNiveau('A2')).toBe(rangNiveau('Beginner'))
+    expect(rangNiveau('B2')).toBe(rangNiveau('Intermediate'))
+    expect(rangNiveau('C1')).toBe(rangNiveau('Advanced'))
   })
 
   it('rend null pour une valeur absente ou non reconnue, plutôt qu’un rang arbitraire', () => {
-    expect(rangNiveauCecrl(null)).toBeNull()
-    expect(rangNiveauCecrl('Intermédiaire')).toBeNull()
+    expect(rangNiveau(null)).toBeNull()
+    expect(rangNiveau('Intermédiaire')).toBeNull()
   })
 })
 
-describe('NIVEAUX_CECRL', () => {
-  /* Demande client du 2026-10-11 : « remplace tous les "A1 (débutant)" par "A1" dans toute
-     l'application ». La valeur elle-même a changé (migration 0122), pas seulement son affichage —
-     ce test est le garde-fou qui empêche la parenthèse de revenir par une retouche ultérieure. */
-  it('écrit A1 sans mention « débutant »', () => {
-    expect(NIVEAUX_CECRL).toEqual(['A1', 'A2', 'B1', 'B2', 'C1'])
-    expect(NIVEAUX_CECRL.some((n) => n.includes('débutant'))).toBe(false)
+/* Demande client du 2026-10-31 : « il faudrait uniformiser les niveaux dans toute l'application
+   HOC : Beginner, Intermediate, Advanced ». Deux échelles désignaient jusque-là la même chose —
+   le CECRL pour le quiz et le niveau évalué, l'échelle anglaise pour les classes — et le même
+   champ affichait « A1 » sur un dossier, « Intermediate » sur un autre. */
+describe('NIVEAUX_ANGLAIS', () => {
+  it('ne propose que les trois niveaux de l’échelle HOC', () => {
+    expect(NIVEAUX_ANGLAIS).toEqual(['Beginner', 'Intermediate', 'Advanced'])
+  })
+
+  it('porte exactement les libellés des classes de niveau', () => {
+    expect([...NIVEAUX_ANGLAIS]).toEqual(Object.values(LABEL_NIVEAU_CLASSE))
+  })
+})
+
+describe('niveauNormalise', () => {
+  it('traduit les anciens niveaux CECRL dans l’échelle en vigueur', () => {
+    expect(niveauNormalise('A1')).toBe('Beginner')
+    expect(niveauNormalise('A1 (débutant)')).toBe('Beginner')
+    expect(niveauNormalise('A2')).toBe('Beginner')
+    expect(niveauNormalise('B1')).toBe('Intermediate')
+    expect(niveauNormalise('B2')).toBe('Intermediate')
+    expect(niveauNormalise('C1')).toBe('Advanced')
+    expect(niveauNormalise('C2')).toBe('Advanced')
+  })
+
+  /* Niveau de classe introduit par 0139, fusionné dans « Advanced » par 0141 — des dossiers le
+     portent encore, dont un relevé en base le 2026-10-31. */
+  it('ramène « Pre advanced » à Advanced', () => {
+    expect(niveauNormalise('Pre advanced')).toBe('Advanced')
+  })
+
+  it('laisse passer un niveau déjà à l’échelle, quelle que soit la casse', () => {
+    expect(niveauNormalise('Intermediate')).toBe('Intermediate')
+    expect(niveauNormalise('intermediate')).toBe('Intermediate')
+  })
+
+  it('rend null plutôt que de deviner, pour une valeur inconnue', () => {
+    expect(niveauNormalise('Intermédiaire')).toBeNull()
+    expect(niveauNormalise(null)).toBeNull()
+    expect(niveauNormalise('  ')).toBeNull()
   })
 })
 

@@ -11,43 +11,43 @@ import {
 
 describe('tests d’anglais des formateurs', () => {
   it('exige C1 au minimum', () => {
-    expect(niveauAuMoins('C1')).toBe(true)
-    expect(niveauAuMoins('C2')).toBe(true)
-    expect(niveauAuMoins('B2')).toBe(false)
+    expect(niveauAuMoins('Advanced')).toBe(true)
+    expect(niveauAuMoins('Advanced')).toBe(true)
+    expect(niveauAuMoins('Intermediate')).toBe(false)
     expect(niveauAuMoins(null)).toBe(false)
   })
 
   it('propose le plus faible des trois niveaux comme niveau global', () => {
     const tests = {
-      reading: { fait: true, niveau: 'C2' as const },
-      listening: { fait: true, niveau: 'B2' as const },
-      grammar_vocabulary: { fait: true, niveau: 'C1' as const },
+      reading: { fait: true, niveau: 'Advanced' as const },
+      listening: { fait: true, niveau: 'Intermediate' as const },
+      grammar_vocabulary: { fait: true, niveau: 'Advanced' as const },
     }
-    expect(niveauGlobalPropose(tests)).toBe('B2')
+    expect(niveauGlobalPropose(tests)).toBe('Intermediate')
     expect(testsReussis(tests)).toBe(false)
   })
 
   it('attend les trois tests avant de proposer un niveau global', () => {
-    expect(niveauGlobalPropose({ reading: { fait: true, niveau: 'C1' } })).toBeNull()
+    expect(niveauGlobalPropose({ reading: { fait: true, niveau: 'Advanced' } })).toBeNull()
   })
 
   it('laisse l’admin trancher le niveau global', () => {
     const tests = {
-      reading: { fait: true, niveau: 'C1' as const },
-      listening: { fait: true, niveau: 'B2' as const },
-      grammar_vocabulary: { fait: true, niveau: 'C1' as const },
-      niveau_global: 'C1' as const,
+      reading: { fait: true, niveau: 'Advanced' as const },
+      listening: { fait: true, niveau: 'Intermediate' as const },
+      grammar_vocabulary: { fait: true, niveau: 'Advanced' as const },
+      niveau_global: 'Advanced' as const,
     }
-    expect(niveauGlobal(tests)).toBe('C1')
+    expect(niveauGlobal(tests)).toBe('Advanced')
     expect(testsReussis(tests)).toBe(true)
   })
 
   it('ne valide pas des tests non passés même avec un niveau saisi', () => {
     expect(
       testsReussis({
-        reading: { fait: false, niveau: 'C2' },
-        listening: { fait: true, niveau: 'C2' },
-        grammar_vocabulary: { fait: true, niveau: 'C2' },
+        reading: { fait: false, niveau: 'Advanced' },
+        listening: { fait: true, niveau: 'Advanced' },
+        grammar_vocabulary: { fait: true, niveau: 'Advanced' },
       }),
     ).toBe(false)
   })
