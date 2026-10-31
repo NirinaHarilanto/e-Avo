@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database } from '../../types/database.types'
@@ -118,7 +119,7 @@ export function DetailDocumentModale({
     setErreur(null)
     const reponse = await fetch('/api/documents/supprimer', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ documentId: document.id }),
     })
     setEnCours(false)
@@ -163,7 +164,7 @@ export function DetailDocumentModale({
     setErreur(null)
     const reponse = await fetch('/api/documents/supprimer', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ documentId: document.id }),
     })
     setEnCours(false)

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import type { TimesheetAvecProfesseur } from '../../hooks/useTimesheets'
 import { formaterHeures } from '../../lib/heures'
+import { jetonAcces, MESSAGE_SESSION_EXPIREE } from '../../lib/jetonAcces'
 import { Modale } from '../ui/Modale'
 import { Champ, champStyle } from '../ui/Champ'
 import { EtatVide } from '../ui/EtatVide'
@@ -130,9 +131,17 @@ function FenetreTimesheet({
     if (!session) return
     setEnCours(true)
     setErreur(null)
+    /* Jeton redemandé ici, et non lu dans le contexte : celui qui y dort peut avoir expiré pendant
+       que la fenêtre restait ouverte — voir lib/jetonAcces.ts. */
+    const jeton = await jetonAcces()
+    if (!jeton) {
+      setEnCours(false)
+      setErreur(MESSAGE_SESSION_EXPIREE)
+      return
+    }
     const reponse = await fetch('/api/admin/traiter-timesheet', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jeton}` },
       body: JSON.stringify({
         timesheetId: t.id,
         decision,

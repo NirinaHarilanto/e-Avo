@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { Link } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
@@ -120,7 +121,7 @@ export function FicheCandidat({
     setEnCours(true)
     const reponse = await fetch('/api/admin/integrer-candidat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ candidatureId: c.id }),
     })
       .then((r) => r.json())

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useTarifs } from '../../hooks/useTarifs'
 import type { Database } from '../../types/database.types'
@@ -137,7 +138,7 @@ export function DecisionHeureEssai({
     setMessage(null)
     const reponse = await fetch('/api/admin/decider-essai', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({
         packageId: essai.id,
         decision,
@@ -175,7 +176,7 @@ export function DecisionHeureEssai({
     setErreurPaiement(null)
     const reponse = await fetch('/api/admin/decider-essai', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({
         packageId: essai.id,
         decision: 'prolonge',

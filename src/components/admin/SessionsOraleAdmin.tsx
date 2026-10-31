@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCohortes } from '../../hooks/useCohortes'
 import { supabase } from '../../lib/supabaseClient'
@@ -118,7 +119,7 @@ export function SessionsOraleAdmin() {
     if (!session) return { error: 'Session expirée.' }
     const reponse = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify(corps),
     })
     const resultat = await reponse.json().catch(() => null)

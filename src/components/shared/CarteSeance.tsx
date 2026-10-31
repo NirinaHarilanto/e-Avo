@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { type SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { getJoinUrl } from '../../lib/visio'
@@ -76,7 +77,7 @@ export function CarteSeance({
     // l'événement Google Calendar et prévenir les invités, ce que seul le serveur peut faire.
     const reponse = await fetch('/api/professeur/annuler-seance', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ sessionId: seance.session.id }),
     })
     setEnCours(false)
@@ -94,7 +95,7 @@ export function CarteSeance({
     setErreur(null)
     const reponse = await fetch('/api/professeur/cloturer-seance', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({
         sessionId: seance.session.id,
         presences: Object.entries(presences).map(([studentId, present]) => ({ studentId, present })),

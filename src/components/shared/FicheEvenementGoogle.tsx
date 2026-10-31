@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import type { EvenementGoogle, InviteGoogle } from '../../lib/agendaEvenements'
 import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
@@ -87,7 +88,7 @@ export function FicheEvenementGoogle({
     setErreur(null)
     const reponse = await fetch(url, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${await jetonAcces()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ eventId: evenement.id, ...corps }),
     }).catch(() => null)
     setEnCours(false)

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useHistoriqueSeance } from '../../hooks/useHistoriqueSeance'
 import type { Database } from '../../types/database.types'
@@ -72,7 +73,7 @@ export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre, e
     setErreur(null)
     const reponse = await fetch('/api/professeur/modifier-seance', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ sessionId: session.id, debut: new Date(debut).toISOString(), dureeMinutes, justificatif, portee }),
     })
     setEnCours(false)
@@ -95,7 +96,7 @@ export function EditerSeancePlanifieeModale({ session, onFermer, onEnregistre, e
     // au changement d'horaire, il n'y a pas de nouvelle valeur à faire approuver.
     const reponse = await fetch('/api/professeur/annuler-seance', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ sessionId: session.id, portee }),
     })
     setSuppressionEnCours(false)

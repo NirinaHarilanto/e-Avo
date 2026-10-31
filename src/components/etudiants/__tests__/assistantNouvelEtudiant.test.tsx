@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { AssistantNouvelEtudiant } from '../AssistantNouvelEtudiant'
 
 /* Demande client du 2026-10-30 : « il faut suivre ces étapes qui s'affichent DYNAMIQUEMENT étape
@@ -132,6 +132,9 @@ describe('AssistantNouvelEtudiant', () => {
     fireEvent.click(screen.getByText('Valider ces informations'))
     fireEvent.click(screen.getByText('Créer l’espace personnel'))
 
+    /* La requête part après la demande d'un jeton frais (lib/jetonAcces.ts) : elle n'est donc
+       plus émise dans le même tour de boucle que le clic. */
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
     const appel = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
     expect(appel[0]).toBe('/api/admin/inviter-etudiant')
     expect(JSON.parse((appel[1] as RequestInit).body as string)).toMatchObject({

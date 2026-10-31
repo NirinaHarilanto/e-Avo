@@ -1,4 +1,5 @@
 import { jourDansFuseauEtablissement } from '../../lib/etablissement'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { Modale } from '../ui/Modale'
@@ -36,7 +37,7 @@ export function MettreEnPauseCompte({ personne, onChange }: MettreEnPauseCompteP
     setErreur(null)
     const { ok, error } = await fetch('/api/admin/pause-etudiant', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({
         profileId: personne.id,
         decision,

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { supabase } from '../../lib/supabaseClient'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCacheRequete } from '../../hooks/useCacheRequete'
@@ -205,7 +206,7 @@ function CarteDemande({ demande, onDecide }: { demande: DemandeAdmin; onDecide: 
     setErreur(null)
     const reponse = await fetch('/api/admin/decider-demande-agenda', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ demandeId: demande.id, decision, motifRefus: motifRefus.trim() || undefined }),
     })
     setEnCours(false)

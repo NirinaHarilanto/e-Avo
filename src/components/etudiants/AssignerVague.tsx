@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { supabase } from '../../lib/supabaseClient'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCohortes } from '../../hooks/useCohortes'
@@ -104,7 +105,7 @@ export function AssignerVague({ studentId, etablissementId, vagueActuelle, ouver
     if (session) {
       fetch('/api/admin/email-demarrage', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
         body: JSON.stringify({ studentId }),
       }).catch(() => undefined)
     }

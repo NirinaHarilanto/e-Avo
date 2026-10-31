@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useRendezVous } from '../../hooks/useRendezVous'
@@ -201,7 +202,6 @@ export function RendezVousAdmin() {
       {creationOuverte && session && (
         <FormulaireCreerEvenement
           debutInitial={creationOuverte}
-          session={session}
           onFermer={() => setCreationOuverte(null)}
           onCree={() => {
             setCreationOuverte(null)
@@ -237,12 +237,10 @@ function PastilleLegende({ couleur, libelle }: { couleur: string; libelle: strin
    dans la grille. */
 function FormulaireCreerEvenement({
   debutInitial,
-  session,
   onFermer,
   onCree,
 }: {
   debutInitial: Date
-  session: { access_token: string }
   onFermer: () => void
   onCree: () => void
 }) {
@@ -334,7 +332,7 @@ function FormulaireCreerEvenement({
     if (nature === 'autre' && regleRecurrence) {
       const reponseSerie = await fetch('/api/admin/google-evenement', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
         body: JSON.stringify({
           action: 'creer',
           titre: titre.trim(),
@@ -363,7 +361,7 @@ function FormulaireCreerEvenement({
       const debuts = genererOccurrences(regleRecurrence, new Date(debut)).map((d) => d.toISOString())
       const reponseSerie = await fetch('/api/admin/planifier-seances-prevision', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
         body: JSON.stringify({
           teacherId: professeursConvies[0],
           studentIds: etudiantsConvies,
@@ -388,7 +386,7 @@ function FormulaireCreerEvenement({
       nature === 'seance_cours' ? '/api/professeur/planifier-seance' : '/api/admin/creer-evenement',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
         body: JSON.stringify(
           nature === 'seance_cours'
             ? {

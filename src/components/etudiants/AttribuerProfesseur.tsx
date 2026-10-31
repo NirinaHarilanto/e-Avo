@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { supabase } from '../../lib/supabaseClient'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
@@ -121,7 +122,7 @@ export function AttribuerProfesseur({ studentId, periodesActuelles, estCollectif
     if (session) {
       fetch('/api/admin/email-demarrage', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
         body: JSON.stringify({ studentId, teacherId }),
       }).catch(() => undefined)
     }
@@ -137,7 +138,7 @@ export function AttribuerProfesseur({ studentId, periodesActuelles, estCollectif
        concernées. Voir api/admin/retirer-professeur.ts. */
     const reponse = await fetch('/api/admin/retirer-professeur', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ affectationId: aRetirer.affectation.id, motif: motif || null }),
     })
     const resultat = (await reponse.json().catch(() => ({}))) as { error?: string; seancesAnnulees?: number }

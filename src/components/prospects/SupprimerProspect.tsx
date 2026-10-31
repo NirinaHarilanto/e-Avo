@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { ModaleConfirmation } from '../ui/ModaleConfirmation'
 import { boutonDangerStyle } from '../ui/Boutons'
@@ -61,7 +62,7 @@ export function SupprimerProspect({ prospects, onSupprime }: SupprimerProspectPr
     setErreur(null)
     const reponse = await fetch('/api/admin/supprimer-prospect', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({
         prospectIds: prospects.map((p) => p.id),
         /* Envoyé seulement au deuxième passage, celui qui suit l'affichage des montants. */

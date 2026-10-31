@@ -1,4 +1,5 @@
 import { useState, type DragEvent, type FormEvent } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
@@ -99,7 +100,7 @@ export function PipelineCRM() {
 
       const reponse = await fetch('/api/admin/convert-prospect', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
         body: JSON.stringify({ prospectId: prospect.id }),
       })
       if (!reponse.ok) {
@@ -186,7 +187,7 @@ export function PipelineCRM() {
     setErreurFrais(null)
     const reponse = await fetch('/api/admin/convert-prospect', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({
         prospectId: prospect.id,
         montantFrais: frais.montant,
@@ -947,7 +948,7 @@ function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => vo
     setErreur(null)
     const reponse = await fetch('/api/admin/valider-rendez-vous', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ rendezVousId: prospect.rendezVous.id, decision: 'confirmer' }),
     })
       .then((r) => r.json())

@@ -1,4 +1,5 @@
 import { useState, type CSSProperties } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import type { Database, TypePrestationExterne } from '../../types/database.types'
@@ -259,7 +260,7 @@ function CompteRenduPrestation({
     setErreur(null)
     const reponse = await fetch('/api/prestations/enregistrer-compte-rendu', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ prestationId: prestation.id, compteRendu: texte.trim() }),
     }).catch(() => null)
     setEnCours(false)
@@ -363,7 +364,7 @@ export function LignePrestation({
     setErreur(null)
     const reponse = await fetch('/api/prestations/cloturer', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ prestationId: prestation.id }),
     }).catch(() => null)
     setEnCours(false)

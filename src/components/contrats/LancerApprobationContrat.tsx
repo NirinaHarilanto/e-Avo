@@ -1,4 +1,5 @@
 import { jourDansFuseauEtablissement } from '../../lib/etablissement'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useEtudiants } from '../../hooks/useEtudiants'
@@ -363,7 +364,7 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
       for (const ligne of lignes) {
         fetch('/api/admin/notifier', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
           body: JSON.stringify({
             destinataireProfileId: ligne.destinataire_profile_id,
             type: 'contrat_a_signer',
@@ -455,7 +456,7 @@ export function LancerApprobationContrat({ etablissementId, modeles, onLance, on
       for (const destinataireANotifier of [destinataire, destinataireSecondaire].filter((p): p is NonNullable<typeof p> => !!p)) {
         fetch('/api/admin/notifier', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
           body: JSON.stringify({
             destinataireProfileId: destinataireANotifier.id,
             type: 'contrat_a_signer',

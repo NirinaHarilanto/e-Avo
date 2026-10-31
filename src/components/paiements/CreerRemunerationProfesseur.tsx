@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { useHeuresNonPayeesProfesseur } from '../../hooks/useHeuresNonPayeesProfesseur'
@@ -97,7 +98,7 @@ export function CreerRemunerationProfesseur({ etablissementId, onCree, onAnnuler
     setErreur(null)
     const reponse = await fetch('/api/admin/payer-professeur', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ teacherId, hourLedgerIds: [...lignesSelectionnees] }),
     })
     setEnCours(false)

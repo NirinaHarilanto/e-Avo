@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { Champ, champStyle } from '../ui/Champ'
 import { MessageErreur, MessageSucces } from '../ui/Etats'
@@ -35,7 +36,7 @@ export function FormulaireInvitation({ endpoint, roleLabel, onTermine, corpsSupp
     setErreur(null)
     const reponse = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ email, nom, prenom, ...corpsSupplementaire }),
     })
     setEnCours(false)

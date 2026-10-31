@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { Modale } from '../ui/Modale'
 import { Champ, champStyle, etiquetteStyle, LigneInfo } from '../ui/Champ'
@@ -59,7 +60,7 @@ export function AjouterForfaitModale({
     setErreur(null)
     const reponse = await fetch('/api/admin/ajouter-forfait', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({
         studentId,
         heures: Number(heures),

@@ -1,4 +1,5 @@
 import { jourDansFuseauEtablissement } from '../../lib/etablissement'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { champStyle } from '../ui/Champ'
@@ -169,7 +170,7 @@ export function PlanifierSeancesForfait({
     setResultat(null)
     const reponse = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({
         studentIds,
         ...(cohortId ? { cohortId } : {}),

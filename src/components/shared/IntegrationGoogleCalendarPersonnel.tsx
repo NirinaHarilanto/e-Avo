@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useSearchParams } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useStatutGoogleCalendarPersonnel } from '../../hooks/useGoogleCalendarPersonnel'
@@ -74,7 +75,7 @@ export function IntegrationGoogleCalendarPersonnel() {
       setErreur(null)
       const reponse = await fetch('/api/google-personnel/demarrer', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
         body: JSON.stringify({ adresseAttendue }),
       })
       const corps = await reponse.json().catch(() => null)
@@ -118,7 +119,7 @@ export function IntegrationGoogleCalendarPersonnel() {
     setErreur(null)
     const reponse = await fetch('/api/google-personnel/deconnecter', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${await jetonAcces()}` },
     })
     setEnCours(false)
     if (!reponse.ok) {
@@ -341,7 +342,7 @@ function DemanderChangementModale({
     setErreur(null)
     const reponse = await fetch('/api/google-personnel/demander-changement', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ googleEmailSouhaite: adresse.trim(), motif: motif.trim() || undefined }),
     })
     setEnCours(false)

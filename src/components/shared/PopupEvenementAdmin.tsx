@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
 import { etudiantsSelectionnables, type PersonneSelectionnable } from '../../lib/invitations'
@@ -478,7 +479,7 @@ export function CarteEvenementAdmin({
     setEchec(null)
     const reponse = await fetch(urlAnnulation, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ evenementId: evenement.id }),
     })
       .then((r) => r.json())
@@ -497,7 +498,7 @@ export function CarteEvenementAdmin({
     setEchec(null)
     const reponse = await fetch('/api/admin/supprimer-evenement', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ evenementId: evenement.id }),
     })
       .then((r) => r.json())
@@ -538,7 +539,7 @@ export function CarteEvenementAdmin({
     setEchec(null)
     const reponse = await fetch(urlModification, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({
         evenementId: evenement.id,
         titre: titre.trim(),

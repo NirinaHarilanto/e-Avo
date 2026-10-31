@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { ModaleConfirmation } from '../ui/ModaleConfirmation'
 import { boutonDangerStyle } from '../ui/Boutons'
@@ -29,7 +30,7 @@ export function SupprimerCompte({ personne, onSupprime }: SupprimerCompteProps) 
     setErreur(null)
     const { ok, error } = await fetch('/api/admin/supprimer-utilisateur', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ profileId: personne.id }),
     })
       .then((r) => r.json())

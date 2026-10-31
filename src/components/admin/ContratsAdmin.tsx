@@ -1,4 +1,5 @@
 import { jourDansFuseauEtablissement } from '../../lib/etablissement'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useState } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
@@ -265,7 +266,7 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
     setErreur(null)
     const reponse = await fetch('/api/contrats/signer', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ contractId: contrat.id }),
     })
     setEnCours(false)
@@ -291,11 +292,13 @@ function LigneContrat({ item, onImprimer, onChange }: { item: ContratAvecDestina
       contrat.destinataire_secondaire_profile_id && !contrat.signe_destinataire_secondaire_at ? contrat.destinataire_secondaire_profile_id : null,
     ].filter((id): id is string => !!id)
 
+    // Jeton résolu une seule fois, avant la salve : chaque rappel partage le même.
+    const jeton = await jetonAcces()
     const reponses = await Promise.all(
       destinatairesARelancer.map((destinataireProfileId) =>
         fetch('/api/admin/notifier', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jeton}` },
           body: JSON.stringify({ destinataireProfileId, type: 'rappel_contrat', titre, lien }),
         }),
       ),

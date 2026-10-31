@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { acompteSuggere, arrondi, formaterMontant, resteAPayer, statutReglement, LABEL_TYPE_PROGRAMME } from '../../lib/paiements'
@@ -302,7 +303,7 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
     setErreur(null)
     const reponse = await fetch('/api/admin/generer-facture', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ table: estProfesseur ? 'teacher_payments' : 'student_payments', id: paiement.id, type }),
     })
       .then((r) => r.json())

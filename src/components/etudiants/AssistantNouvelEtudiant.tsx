@@ -1,4 +1,5 @@
 import { useState, type CSSProperties } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useTarifs } from '../../hooks/useTarifs'
 import { useCohortes } from '../../hooks/useCohortes'
@@ -96,7 +97,7 @@ export function AssistantNouvelEtudiant({ etablissementId, onTermine }: { etabli
     setErreur(null)
     const reponse = await fetch('/api/admin/inviter-etudiant', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({
         prenom: eleve.prenom.trim(),
         nom: eleve.nom.trim(),

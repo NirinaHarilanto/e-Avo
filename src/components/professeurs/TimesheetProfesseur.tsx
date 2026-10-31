@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useHeuresDeclarables, useTimesheets, type TimesheetAvecProfesseur } from '../../hooks/useTimesheets'
 import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
@@ -81,7 +82,7 @@ export function TimesheetProfesseur() {
     setSucces(null)
     const reponse = await fetch('/api/professeur/soumettre-timesheet', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ periodeDebut: debut, periodeFin: fin, hourLedgerIds: retenues.map((h) => h.id), commentaire }),
     })
       .then((r) => r.json())

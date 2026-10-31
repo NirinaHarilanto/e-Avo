@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { Section } from '../ui/Section'
 import { MessageSucces } from '../ui/Etats'
@@ -41,7 +42,7 @@ export function DetacherVisioEtablissement({
     for (let tour = 0; tour < 30; tour += 1) {
       const reponse = await fetch('/api/admin/detacher-visio-etablissement', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
         body: JSON.stringify({ teacherId }),
       }).catch(() => null)
       const corps = (await reponse?.json().catch(() => null)) as { error?: string; detachees?: number; restant?: number } | null

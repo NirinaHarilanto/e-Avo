@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useNavigate } from 'react-router-dom'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
@@ -991,7 +992,7 @@ function DeplacerEtudiantsModale({
     setErreur(null)
     const reponse = await fetch('/api/admin/deplacer-etudiants-classe', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ classeSourceId: classe.id, classeCibleId, studentIds: [...selection] }),
     })
     const resultat = (await reponse.json().catch(() => ({}))) as { error?: string }
@@ -1266,7 +1267,7 @@ function ProfesseursClasseModale({
     setErreur(null)
     const reponse = await fetch('/api/admin/retirer-professeur-classe', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ assignationId: secondaireARetirer.id, motif: motif || null }),
     })
     const resultat = (await reponse.json().catch(() => ({}))) as { error?: string }
@@ -1568,7 +1569,7 @@ function FormulaireClasse({
     if (elevesARejoindre.length > 0 && session) {
       const reponse = await fetch('/api/admin/deplacer-etudiants-classe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
         body: JSON.stringify({ classeCibleId: creee.id, studentIds: elevesARejoindre }),
       })
       const resultat = (await reponse.json().catch(() => ({}))) as { error?: string }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, NIVEAUX_CECRL } from '../../lib/classesCollectif'
@@ -81,7 +82,7 @@ export function ConvertirCandidatCollectif({
     if (!session) return { error: 'Session expirée.' }
     const reponse = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify(corps),
     })
     const resultat = await reponse.json().catch(() => null)

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useSearchParams } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
@@ -68,7 +69,7 @@ export function IntegrationGoogleMeet() {
     for (let tour = 0; tour < 60; tour += 1) {
       const reponse = await fetch('/api/admin/realigner-visios', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}` },
+        headers: { Authorization: `Bearer ${await jetonAcces()}` },
       }).catch(() => null)
       const corps = (await reponse?.json().catch(() => null)) as {
         error?: string
@@ -124,7 +125,7 @@ export function IntegrationGoogleMeet() {
     setErreur(null)
     const reponse = await fetch('/api/admin/google-oauth-demarrer', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${await jetonAcces()}` },
     })
     const corps = await reponse.json().catch(() => null)
     if (!reponse.ok || !corps?.url) {
@@ -143,7 +144,7 @@ export function IntegrationGoogleMeet() {
     setErreur(null)
     const reponse = await fetch('/api/admin/google-deconnecter', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      headers: { Authorization: `Bearer ${await jetonAcces()}` },
     })
     setEnCours(false)
     if (!reponse.ok) {

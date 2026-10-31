@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { jetonAcces } from '../lib/jetonAcces'
 import { useProfileContext } from '../context/ProfileContext'
 
 /* Reprise, dans l'agenda Google du professeur, des réunions à venir encore hébergées par le compte
@@ -38,7 +39,7 @@ export function useRepriseReunionsGoogle() {
       for (let passage = 0; passage < 10; passage += 1) {
         const reponse = await fetch('/api/google-personnel/adopter-seances', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
           body: JSON.stringify({ mode }),
         }).catch(() => null)
         const corps = (await reponse?.json().catch(() => null)) as

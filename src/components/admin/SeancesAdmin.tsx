@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useSeancesAdmin, type SeanceAdmin } from '../../hooks/useSeancesAdmin'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
@@ -498,7 +499,7 @@ function LigneSeance({ seance, onChange }: { seance: SeanceAdmin; maintenant: st
     setErreurVisio(null)
     const reponse = await fetch('/api/admin/generer-lien-visio', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authSession.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ sessionId: seance.session.id }),
     })
     setGenerationEnCours(false)

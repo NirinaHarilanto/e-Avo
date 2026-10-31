@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur, type SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { useVagues } from '../../hooks/useVagues'
@@ -460,7 +461,7 @@ function FormulairePlanification({
     if (estPrestationExterne(nature)) {
       const reponsePrestation = await fetch('/api/prestations/creer', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
         body: JSON.stringify({
           type: nature,
           client: client.trim(),
@@ -489,7 +490,7 @@ function FormulairePlanification({
     if (nature === 'autre' && regleRecurrence) {
       const reponseSerie = await fetch('/api/google-personnel/evenement', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
         body: JSON.stringify({
           action: 'creer',
           titre: titre.trim(),
@@ -516,7 +517,7 @@ function FormulairePlanification({
       const debuts = genererOccurrences(regleRecurrence, new Date(debut)).map((d) => d.toISOString())
       const reponseSerie = await fetch('/api/professeur/planifier-seances-prevision', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
         body: JSON.stringify({
           studentIds,
           dureeMinutes,
@@ -542,7 +543,7 @@ function FormulairePlanification({
       nature === 'seance_cours' ? '/api/professeur/planifier-seance' : '/api/professeur/creer-evenement',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
         body: JSON.stringify(
           nature === 'seance_cours'
             ? {

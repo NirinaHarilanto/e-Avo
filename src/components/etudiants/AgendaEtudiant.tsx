@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useDossierEtudiant, type SeanceDuParcours } from '../../hooks/useDossierEtudiant'
 import { getJoinUrl } from '../../lib/visio'
@@ -18,7 +19,6 @@ import { SectionRepliable, intituleAccentStyle } from '../shared/SectionRepliabl
 import { useRafraichirSurNotification } from '../../hooks/useRafraichirSurNotification'
 import { useCacheRequete } from '../../hooks/useCacheRequete'
 import { useDetailSeance } from '../../hooks/useDetailSeance'
-import { supabase } from '../../lib/supabaseClient'
 
 const PREFIXE_RDV = 'rdv:'
 const PREFIXE_EVT = 'evt:'
@@ -62,9 +62,8 @@ interface MesRendezVous {
 }
 
 async function chargerMonRendezVous(): Promise<MesRendezVous> {
-  const { data: session } = await supabase.auth.getSession()
   const reponse = await fetch('/api/etudiant/mon-rendez-vous', {
-    headers: { Authorization: `Bearer ${session.session?.access_token}` },
+    headers: { Authorization: `Bearer ${await jetonAcces()}` },
   })
   const corps = (await reponse.json().catch(() => null)) as { rendezVous?: MonRendezVous[]; evenements?: MonEvenement[]; error?: string } | null
   if (!reponse.ok) throw new Error(corps?.error ?? 'Rendez-vous indisponible.')

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useAdmins } from '../../hooks/useAdmins'
@@ -264,7 +265,7 @@ function EquipeAdmins() {
     setErreur(null)
     const reponse = await fetch('/api/admin/supprimer-admin', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ profileId: id }),
     })
     setEnCoursId(null)
