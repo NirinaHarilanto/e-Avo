@@ -54,6 +54,7 @@ vi.mock('../../../hooks/usePrestationsExternes', () => ({
 }))
 vi.mock('../../../hooks/useGoogleCalendarPersonnel', () => ({
   useEvenementsGoogleCalendarPersonnel: () => ({ evenements: [], parId: new Map(), recharger: vi.fn() }),
+  useEvenementsGoogleProfesseurs: () => ({ evenements: [], parId: new Map(), recharger: vi.fn() }),
 }))
 vi.mock('../../../context/ProfileContext', () => ({
   useProfileContext: () => ({

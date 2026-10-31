@@ -65,6 +65,8 @@ vi.mock('../../../hooks/useGoogleCalendarPersonnel', () => ({
     parId: new Map([[evenementGoogle.id, evenementGoogle]]),
     recharger: vi.fn(),
   }),
+  // Agendas Google des professeurs cochés : hors sujet pour ce fichier, qui teste la case « Admin ».
+  useEvenementsGoogleProfesseurs: () => ({ evenements: [], parId: new Map(), recharger: vi.fn() }),
 }))
 
 /* La grille elle-même (positionnement, défilement...) n'est pas ce qu'on teste ici : un stub qui
