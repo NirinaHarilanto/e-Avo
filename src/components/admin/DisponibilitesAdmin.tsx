@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useDisponibilites } from '../../hooks/useRendezVous'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { supabase } from '../../lib/supabaseClient'
 import { Section } from '../ui/Section'
 import { EtatChargement, MessageErreur, MessageInfo, MessageSucces } from '../ui/Etats'
@@ -37,6 +38,31 @@ export function DisponibilitesAdmin() {
   const [nouveauJour, setNouveauJour] = useState(1)
   const [nouveauDebut, setNouveauDebut] = useState('09:00')
   const [nouveauFin, setNouveauFin] = useState('12:00')
+  const [apercu, setApercu] = useState<ApercuCreneaux | null>(null)
+  const [plageEnEdition, setPlageEnEdition] = useState<string | null>(null)
+  const [editionDebut, setEditionDebut] = useState('09:00')
+  const [editionFin, setEditionFin] = useState('12:00')
+
+  /* Aperçu de ce que le visiteur voit réellement, recalculé à chaque modification des plages
+     (demande client du 2026-10-31). Il passe par le serveur et non par un calcul local : seul le
+     serveur peut lire l'agenda Google de l'établissement, qui est précisément ce qui faisait
+     disparaître des plages pourtant ouvertes. */
+  const chargerApercu = useCallback(async () => {
+    const reponse = await fetch('/api/admin/apercu-creneaux', {
+      headers: { Authorization: `Bearer ${await jetonAcces()}` },
+    })
+      .then((r) => r.json())
+      .catch(() => null)
+    setApercu(reponse && !reponse.error ? (reponse as ApercuCreneaux) : null)
+  }, [])
+
+  /* Signature plutôt que le tableau lui-même : `useDisponibilites` rend `valeur?.plages ?? []`,
+     donc un tableau d'identité neuve à chaque rendu tant que la requête n'a pas répondu — en
+     dépendance directe, l'effet se relancerait en boucle. */
+  const signaturePlages = plages.map((p) => `${p.id}:${p.actif}:${p.heure_debut}:${p.heure_fin}`).join(',')
+  useEffect(() => {
+    chargerApercu()
+  }, [chargerApercu, signaturePlages])
 
   useEffect(() => {
     if (!parametres) return
@@ -87,6 +113,29 @@ export function DisponibilitesAdmin() {
     }
   }
 
+  /* Modification d'une plage EXISTANTE — demande client du 2026-10-31 : « il faut que les
+     créneaux existants dans paramètres espace admin soient modifiables par l'admin et
+     instantanément pris en compte après sauvegarde ». Jusqu'ici il fallait supprimer la plage
+     puis la recréer, ce qui obligeait à retaper le jour en plus de l'horaire. */
+  async function enregistrerPlage(id: string) {
+    if (editionFin <= editionDebut) {
+      setEchec('L’heure de fin doit être après l’heure de début.')
+      return
+    }
+    setEchec(null)
+    const { error } = await supabase
+      .from('creneaux_disponibilites')
+      .update({ heure_debut: editionDebut, heure_fin: editionFin })
+      .eq('id', id)
+    if (error) {
+      setEchec(error.message)
+      return
+    }
+    setPlageEnEdition(null)
+    setMessage('Plage modifiée.')
+    recharger()
+  }
+
   async function basculerPlage(id: string, actif: boolean) {
     const { error } = await supabase.from('creneaux_disponibilites').update({ actif }).eq('id', id)
     if (error) setEchec(error.message)
@@ -134,6 +183,16 @@ export function DisponibilitesAdmin() {
         {enregistrement ? 'Enregistrement…' : 'Enregistrer les réglages'}
       </button>
 
+      {/* Le total, avant le détail plage par plage : c'est la première question que se pose
+          l'admin en arrivant ici (« est-ce que mes créneaux sortent ? »). */}
+      {apercu && (
+        <MessageInfo>
+          {apercu.creneauxLibres.length > 0
+            ? `${apercu.creneauxLibres.length} créneau${apercu.creneauxLibres.length > 1 ? 'x' : ''} d’appel sont actuellement proposés sur le site public, sur les ${apercu.horizonJours} prochains jours. Toute modification ci-dessous y est répercutée en moins d’une minute.`
+            : 'Aucun créneau n’est actuellement proposé sur le site public. Le détail de chaque plage ci-dessous en donne la raison.'}
+        </MessageInfo>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
         {plages.length === 0 && (
           <MessageInfo>
@@ -146,11 +205,51 @@ export function DisponibilitesAdmin() {
             className="carte-ligne"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 14px', borderRadius: 10, background: 'var(--surface-alt)' }}
           >
-            <span style={{ fontSize: 13.5, color: plage.actif ? 'var(--ink)' : 'var(--muted-2)', textDecoration: plage.actif ? 'none' : 'line-through' }}>
-              <strong>{JOURS.find((j) => j.valeur === plage.jour_semaine)?.libelle}</strong>{' '}
-              {plage.heure_debut.slice(0, 5)} – {plage.heure_fin.slice(0, 5)}
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+              {plageEnEdition === plage.id ? (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <strong style={{ fontSize: 13.5, color: 'var(--ink)' }}>
+                    {JOURS.find((j) => j.valeur === plage.jour_semaine)?.libelle}
+                  </strong>
+                  <ChampDate type="time" value={editionDebut} onChange={(e) => setEditionDebut(e.target.value)} style={{ ...champStyle, width: 120 }} />
+                  <span style={{ color: 'var(--muted)' }}>–</span>
+                  <ChampDate type="time" value={editionFin} onChange={(e) => setEditionFin(e.target.value)} style={{ ...champStyle, width: 120 }} />
+                </span>
+              ) : (
+                <span style={{ fontSize: 13.5, color: plage.actif ? 'var(--ink)' : 'var(--muted-2)', textDecoration: plage.actif ? 'none' : 'line-through' }}>
+                  <strong>{JOURS.find((j) => j.valeur === plage.jour_semaine)?.libelle}</strong>{' '}
+                  {plage.heure_debut.slice(0, 5)} – {plage.heure_fin.slice(0, 5)}
+                </span>
+              )}
+              {/* Ce que cette journée donne VRAIMENT au visiteur. Sans cette ligne, une plage
+                  ouverte mais entièrement occupée par l'agenda Google était indiscernable d'une
+                  plage qui fonctionne — c'est le défaut signalé le 2026-10-31. */}
+              {plage.actif && <LigneApercuJour apercu={apercu} jourSemaine={plage.jour_semaine} />}
             </span>
-            <span style={{ display: 'flex', gap: 8 }}>
+            <span style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+              {plageEnEdition === plage.id ? (
+                <>
+                  <button type="button" onClick={() => setPlageEnEdition(null)} style={boutonDiscret}>
+                    Annuler
+                  </button>
+                  <button type="button" onClick={() => enregistrerPlage(plage.id)} style={{ ...boutonDiscret, color: 'var(--accent-blue)' }}>
+                    Enregistrer
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEchec(null)
+                    setEditionDebut(plage.heure_debut.slice(0, 5))
+                    setEditionFin(plage.heure_fin.slice(0, 5))
+                    setPlageEnEdition(plage.id)
+                  }}
+                  style={boutonDiscret}
+                >
+                  Modifier
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => basculerPlage(plage.id, !plage.actif)}
@@ -188,6 +287,50 @@ export function DisponibilitesAdmin() {
         </button>
       </div>
     </Section>
+  )
+}
+
+interface ApercuCreneaux {
+  dureeMinutes: number
+  fuseau: string
+  horizonJours: number
+  agendaGoogleLu: boolean
+  nbPlagesActives: number
+  creneauxLibres: string[]
+  jours: { jourSemaine: number; libres: number; occupesGoogle: number; occupesBase: number; horsDelai: number }[]
+}
+
+/* Une phrase, pas un tableau de chiffres : l'admin veut savoir si sa plage « marche », et sinon
+   pourquoi. L'ordre des cas suit ce qui explique le plus de créneaux manquants. */
+function LigneApercuJour({ apercu, jourSemaine }: { apercu: ApercuCreneaux | null; jourSemaine: number }) {
+  if (!apercu) return null
+  const jour = apercu.jours.find((j) => j.jourSemaine === jourSemaine)
+  const libres = jour?.libres ?? 0
+
+  if (libres > 0) {
+    return (
+      <span style={{ fontSize: 11.5, color: 'var(--accent-teal)' }}>
+        {libres} créneau{libres > 1 ? 'x' : ''} proposé{libres > 1 ? 's' : ''} au public sur les {apercu.horizonJours}{' '}
+        prochains jours
+      </span>
+    )
+  }
+
+  const raison = !jour
+    ? `aucune date de ce jour ne tombe dans les ${apercu.horizonJours} prochains jours`
+    : jour.occupesGoogle > 0
+      ? `l’agenda Google de l’établissement les occupe déjà (${jour.occupesGoogle} créneau${jour.occupesGoogle > 1 ? 'x' : ''})`
+      : jour.occupesBase > 0
+        ? `des rendez-vous ou des cours y sont déjà planifiés (${jour.occupesBase} créneau${jour.occupesBase > 1 ? 'x' : ''})`
+        : jour.horsDelai > 0
+          ? 'ils tombent tous sous le délai minimum de réservation'
+          : 'la plage est plus courte que la durée d’un appel'
+
+  return (
+    <span style={{ fontSize: 11.5, color: 'var(--danger)' }}>
+      Aucun créneau proposé au public : {raison}.
+      {!apercu.agendaGoogleLu && ' (agenda Google illisible pour l’instant)'}
+    </span>
   )
 }
 

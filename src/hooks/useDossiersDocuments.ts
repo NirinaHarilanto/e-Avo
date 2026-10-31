@@ -9,15 +9,22 @@ export type DossierDocument = Database['public']['Tables']['document_dossiers'][
    et la charger entièrement permet de construire le fil d'Ariane et les sous-dossiers sans une
    requête par clic. La RLS filtre déjà selon qui regarde (propriétaire, professeur de l'élève,
    admin de l'établissement) — mêmes règles que `documents`. */
-export function useDossiersDocuments(proprietaireProfileId: string | undefined) {
+export type PorteeDossiers = 'personnelle' | 'etablissement'
+
+export function useDossiersDocuments(proprietaireProfileId: string | undefined, portee: PorteeDossiers = 'personnelle') {
+  /* Deux arborescences distinctes dans la même table (0149) : celle d'une personne, et la
+     bibliothèque commune des documents partageables, qui n'appartient à personne en particulier
+     et que tous les admins alimentent. Deux clés de cache séparées, sinon l'une servirait les
+     dossiers de l'autre. */
+  const commune = portee === 'etablissement'
   const { valeur, loading, erreur, recharger } = useCacheRequete(
-    proprietaireProfileId && `dossiers-documents-${proprietaireProfileId}`,
+    commune ? 'dossiers-documents-etablissement' : proprietaireProfileId && `dossiers-documents-${proprietaireProfileId}`,
     async () => {
-      const { data, error } = await supabase
-        .from('document_dossiers')
-        .select('*')
-        .eq('proprietaire_profile_id', proprietaireProfileId as string)
-        .order('nom')
+      const requete = supabase.from('document_dossiers').select('*')
+      const { data, error } = await (commune
+        ? requete.eq('etablissement_wide', true)
+        : requete.eq('etablissement_wide', false).eq('proprietaire_profile_id', proprietaireProfileId as string)
+      ).order('nom')
       if (error) throw new Error(error.message)
       return data ?? []
     },

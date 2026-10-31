@@ -313,6 +313,34 @@ function BadgeProfesseurSupprime() {
   )
 }
 
+/* Professeur remplacé — demande client du 2026-10-31, capture à l'appui : « pour les anciens
+   professeurs il faudrait griser la ligne mais les informations doivent rester lisibles et
+   visibles ». Un parcours peut aligner quatre périodes, dont deux seulement sont en cours : sans
+   étiquette, rien ne distinguait une période close d'une période ouverte sinon la date de fin,
+   écrite en petit au milieu d'une phrase.
+
+   « Griser » veut dire poser un fond, PAS baisser l'opacité ni éclaircir le texte : c'est
+   exactement ce que le client demande d'éviter. Le voile lavande (`--voile`) est le même que
+   celui déjà employé pour l'avatar d'une période close juste en dessous, et les deux gris
+   secondaires du thème clair sont calés pour rester lisibles dessus (voir index.css). */
+function BadgeAncienProfesseur() {
+  return (
+    <span
+      style={{
+        fontSize: 10.5,
+        fontWeight: 700,
+        color: 'var(--muted)',
+        background: 'var(--voile, rgba(255,255,255,.06))',
+        border: '1px solid var(--border)',
+        borderRadius: 999,
+        padding: '3px 9px',
+      }}
+    >
+      Ancien professeur
+    </span>
+  )
+}
+
 function BlocPeriode({
   periode,
   estActuelle,
@@ -345,7 +373,13 @@ function BlocPeriode({
       style={{
         borderRadius: 16,
         border: estActuelle ? '1px solid rgba(169,140,255,.3)' : '1px solid var(--border)',
-        background: estActuelle ? 'var(--hoc-pastille, rgba(42,26,82,.6))' : 'var(--surface)',
+        /* Trois fonds et non deux : la période en cours garde sa pastille d'accent, une période
+           close prend le voile gris demandé le 2026-10-31, et le blanc de carte ne reste que
+           pour une période sans date de fin qui n'est pourtant pas « actuelle » (cas d'un
+           parcours encore en cours de reconstitution). */
+        background: estActuelle
+          ? 'var(--hoc-pastille, rgba(42,26,82,.6))'
+          : 'var(--voile, rgba(255,255,255,.06))',
         overflow: 'hidden',
       }}
     >
@@ -373,10 +407,12 @@ function BlocPeriode({
               {periode.professeur ? `${periode.professeur.prenom} ${periode.professeur.nom}` : 'Professeur supprimé'}
             </span>
             {periode.professeur?.status === 'suspended' && <BadgeProfesseurSupprime />}
-            {estActuelle && (
+            {estActuelle ? (
               <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent-teal)', background: 'rgba(111,227,192,.14)', border: '1px solid rgba(111,227,192,.3)', borderRadius: 999, padding: '3px 9px' }}>
                 Professeur actuel
               </span>
+            ) : (
+              <BadgeAncienProfesseur />
             )}
           </div>
           {/* La langue n'est plus affichée (demande client du 2026-10-30) : l'établissement
@@ -1288,11 +1324,23 @@ export function DossierEtudiantVue({
             n'ouvre jamais la reprogrammation sur une séance collective. */}
         {ongletActif === 'planning' && (forfait || cohorte) && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {panneauPlanification && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={() => setPlanificationOuverte((v) => !v)} style={boutonPanneauStyle}>
-                  {planificationOuverte ? 'Annuler' : seancesPlanifiees.length > 0 ? 'Modifier' : 'Planifier les séances'}
-                </button>
+            {/* « Nouveau créneau » rejoint « Modifier » ici — demande client du 2026-10-31,
+                capture à l'appui : « il faudrait ajouter un bouton nouveau, qui permettrait à
+                l'admin de créer et d'organiser des séances de cours entre le professeur et
+                étudiants associés ». C'est bien dans cet onglet qu'on vient lire le planning, et
+                donc là qu'on s'aperçoit qu'il manque une séance ; l'onglet Forfait, où le même
+                bouton vit déjà, répond à une autre question (combien d'heures restent).
+                Volontairement le MÊME panneau, et non une copie : l'élève et son professeur y
+                sont déjà connus, et le bouton doit ouvrir exactement la même fenêtre aux deux
+                endroits. */}
+            {(panneauPlanification || panneauNouveauCreneau) && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+                {panneauNouveauCreneau}
+                {panneauPlanification && (
+                  <button onClick={() => setPlanificationOuverte((v) => !v)} style={boutonPanneauStyle}>
+                    {planificationOuverte ? 'Annuler' : seancesPlanifiees.length > 0 ? 'Modifier' : 'Planifier les séances'}
+                  </button>
+                )}
               </div>
             )}
 

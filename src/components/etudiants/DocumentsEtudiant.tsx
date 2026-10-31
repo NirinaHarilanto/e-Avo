@@ -3,6 +3,7 @@ import { useDocuments } from '../../hooks/useDocuments'
 import { useSessionReports } from '../../hooks/useSessionReports'
 import { EtudiantLayout } from '../layout/EtudiantLayout'
 import { ExplorateurDocuments } from '../documents/ExplorateurDocuments'
+import { DocumentsEtablissement } from '../documents/DocumentsEtablissement'
 import { ListeComptesRendus } from '../shared/ListeComptesRendus'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GroupeSection } from '../ui/Section'
@@ -32,6 +33,13 @@ export function DocumentsEtudiant() {
             titreVide="Aucun compte rendu pour le moment"
             descriptionVide="Votre professeur peut rédiger un compte rendu après chaque séance. Ils apparaîtront ici automatiquement, du plus récent au plus ancien."
           />
+        </GroupeSection>
+
+        {/* Bibliothèque commune (0149, demande client du 2026-10-31) : les supports déposés
+            par l'administration dans Documents › Partageables n'étaient listés nulle part côté
+            élève, alors que la RLS les lui ouvre depuis 0033. En lecture seule. */}
+        <GroupeSection titre="Documents de l’établissement">
+          <DocumentsEtablissement />
         </GroupeSection>
 
         <GroupeSection titre="Mes pièces">

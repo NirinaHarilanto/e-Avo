@@ -87,7 +87,9 @@ const DETAILS: Record<
     description:
       'Le cours individuel, c’est vous et votre professeur ou professeure dédié·e, sur le rythme et les sujets qui comptent vraiment pour vous. Nous construisons votre parcours selon vos attentes et vos objectifs : préparer un entretien, développer votre anglais professionnel, préparer un projet de voyage ou d’immigration, réussir une certification (TOEIC, TOEFL, IELTS…) ou renforcer l’anglais de vos enfants. Chaque séance s’ajuste à la précédente : votre professeur ou professeure suit votre progression et adapte le contenu en conséquence.',
     etapes: [
-      'Réservez un appel diagnostic gratuit et sans engagement : nous évaluons votre niveau réel et clarifions votre objectif.',
+      'Choisissez votre créneau d’appel diagnostic, gratuit et sans engagement, et laissez-nous vos coordonnées.',
+      'Répondez au questionnaire écrit de positionnement : il situe un premier niveau avant même l’appel. Votre demande est enregistrée à la dernière question.',
+      'Passez l’appel diagnostic en visioconférence : nous confirmons votre niveau réel et clarifions votre objectif.',
       'Choisissez votre forfait d’heures et votre rythme hebdomadaire — vous gardez la main sur votre planning.',
       'Un professeur vous est attribué et devient votre interlocuteur unique pour toute la durée du forfait.',
       'Chaque séance se déroule en visioconférence, avec un compte rendu rédigé par votre professeur juste après.',
@@ -99,7 +101,9 @@ const DETAILS: Record<
     description:
       'Le cours en duo, c’est un professeur attitré et un suivi personnalisé, partagés entre deux personnes qui avancent ensemble : conjoints, amis, collègues ou membres d’une même famille. L’émulation du binôme entretient la motivation, sans jamais sacrifier l’attention portée à chacun : votre professeur veille à ce que les deux objectifs, même différents, soient servis à chaque séance. Les deux membres du duo doivent avoir le même niveau, ou des niveaux proches : nous les évaluons lors de l’appel diagnostic.',
     etapes: [
-      'Réservez un appel diagnostic à deux : nous évaluons le niveau et l’objectif de chacun des deux membres du duo.',
+      'Choisissez votre créneau d’appel diagnostic à deux et laissez-nous les coordonnées des deux membres du binôme.',
+      'Répondez au questionnaire écrit de positionnement : il situe un premier niveau avant l’appel. Votre demande est enregistrée à la dernière question.',
+      'Passez l’appel diagnostic à deux : nous confirmons le niveau et l’objectif de chacun des deux membres du duo.',
       'Choisissez ensemble votre forfait d’heures et votre rythme hebdomadaire.',
       'Un seul professeur accompagne le binôme sur toute la durée du forfait, pour une vraie cohérence pédagogique.',
       'Les séances se déroulent en visioconférence, les deux membres du duo toujours réunis au même moment.',
@@ -408,8 +412,15 @@ function FenetreFormule({
               </>
             ) : (
               <>
-                <p className="rtitle">Appel diagnostic</p>
-                <p>Gratuit et sans engagement, avec {etablissementNom}.</p>
+                {/* Titre et phrase d'introduction s'effacent une fois le questionnaire
+                    commencé, comme côté collectif : ils ont déjà été lus, et leur hauteur
+                    permet d'afficher une question entière sans défilement. */}
+                {etapeTest !== 'quiz' && (
+                  <>
+                    <p className="rtitle">Appel diagnostic</p>
+                    <p>Gratuit et sans engagement, avec {etablissementNom}.</p>
+                  </>
+                )}
                 <div className="agenda">
                   <ReserverAppel
                     etablissementSlug={etablissementSlug}
@@ -417,6 +428,7 @@ function FenetreFormule({
                     accent={accent}
                     typeInitial={type}
                     onConfirme={() => {}}
+                    onEtapeChange={setEtapeTest}
                     sansCadre
                   />
                 </div>

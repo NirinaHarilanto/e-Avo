@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
-import { cheminDossier, sousDossiers, useDossiersDocuments, type DossierDocument } from '../../hooks/useDossiersDocuments'
+import { cheminDossier, sousDossiers, useDossiersDocuments, type DossierDocument, type PorteeDossiers } from '../../hooks/useDossiersDocuments'
 import { useDocumentsPartages } from '../../hooks/useDocumentsPartages'
 import type { Database, CategorieDocument } from '../../types/database.types'
 import { UploaderDocument } from './UploaderDocument'
@@ -39,10 +39,13 @@ export function ExplorateurDocuments({
   peutSupprimer,
   onChange,
   peutOrganiser = true,
+  peutDeposer = true,
   peutPartager,
   forcerCategorie,
   etablissementWide,
   messageVide,
+  portee = 'personnelle',
+  titreRacine = 'Mes documents',
 }: {
   documents: Document[]
   ownerProfileId: string
@@ -57,12 +60,24 @@ export function ExplorateurDocuments({
   /* À `false` pour un espace consulté sans pouvoir le réorganiser (un professeur range ses
      propres documents, pas l'arborescence de son élève — voir la policy update de 0058). */
   peutOrganiser?: boolean
+  /* Distinct de `peutOrganiser` : l'élève et le professeur CONSULTENT la bibliothèque commune de
+     l'établissement sans pouvoir y déposer quoi que ce soit (seul l'admin l'alimente), alors
+     qu'ils déposent librement dans leur propre espace. Ranger et déposer sont deux droits
+     différents, et un même écran peut en accorder un sans l'autre. */
+  peutDeposer?: boolean
   forcerCategorie?: CategorieDocument
   etablissementWide?: boolean
   messageVide?: string
+  /* Quelle arborescence on explore (0149) : l'espace documentaire d'UNE personne, ou la
+     bibliothèque commune des documents partageables, qui n'appartient à personne en particulier.
+     En portée « établissement », les quatre catégories par défaut et « Mes fichiers partagés »
+     n'ont pas de sens — ce sont des dossiers personnels — et le classement se lit à la racine. */
+  portee?: PorteeDossiers
+  titreRacine?: string
 }) {
   const { profile } = useProfileContext()
-  const { dossiers, loading, erreur, recharger } = useDossiersDocuments(ownerProfileId)
+  const commune = portee === 'etablissement'
+  const { dossiers, loading, erreur, recharger } = useDossiersDocuments(ownerProfileId, portee)
   const { partages, recharger: rechargerPartages } = useDocumentsPartages(ownerProfileId)
   /* `ID_PARTAGES` désigne le dossier « Mes fichiers partagés », qui n'existe pas en base : les
      fichiers reçus appartiennent à d'autres personnes et restent dans LEUR arborescence (voir
@@ -112,6 +127,7 @@ export function ExplorateurDocuments({
      (ID_PARTAGES) ; les trois autres n'apparaissent que si le dossier par défaut correspondant
      existe encore (voir NOMS_PAR_DEFAUT ci-dessus). */
   const onglets = useMemo(() => {
+    if (commune) return []
     const parNom = new Map(racine.map((d) => [d.nom, d]))
     return NOMS_PAR_DEFAUT.map((nom) =>
       nom === 'Mes fichiers partagés'
@@ -120,7 +136,7 @@ export function ExplorateurDocuments({
           ? { id: parNom.get(nom)!.id, nom, compteur: contenuDe(parNom.get(nom)!).fichiers + contenuDe(parNom.get(nom)!).dossiers }
           : null,
     ).filter((o): o is { id: string; nom: string; compteur: number } => o !== null)
-  }, [racine, partages.length, contenuDe])
+  }, [commune, racine, partages.length, contenuDe])
   const idsOnglets = new Set(onglets.map((o) => o.id))
   /* Dossiers créés par la personne à la racine, en plus des quatre par défaut — restent
      accessibles via la grille de cartes classique sous les onglets, pas dupliqués dedans. */
@@ -132,7 +148,11 @@ export function ExplorateurDocuments({
     setErreurAction(null)
     const { error } = await supabase.from('document_dossiers').insert({
       etablissement_id: etablissementId,
-      proprietaire_profile_id: ownerProfileId,
+      /* Dans la bibliothèque commune, `proprietaire_profile_id` ne dit plus à qui le dossier
+         appartient (il appartient à l'établissement) mais seulement qui l'a créé : la colonne
+         est `not null` depuis 0058 et reste renseignée pour la traçabilité. */
+      proprietaire_profile_id: commune ? profile.id : ownerProfileId,
+      etablissement_wide: commune,
       parent_id: dossierCourantId,
       nom: nouveauNom.trim(),
       created_by_profile_id: profile.id,
@@ -233,7 +253,7 @@ export function ExplorateurDocuments({
           onClick={() => setDossierCourantId(null)}
           style={{ ...lienChemin, color: dossierCourantId === null ? 'var(--ink)' : 'var(--accent-blue)' }}
         >
-          Mes documents
+          {titreRacine}
         </button>
         {dansPartages && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -342,7 +362,7 @@ export function ExplorateurDocuments({
       {/* L'upload vise toujours le dossier ouvert : c'est ce que l'utilisateur a sous les yeux,
           et ça évite un second sélecteur de destination qui dirait la même chose. Rien à
           déposer en revanche dans « Mes fichiers partagés », qui n'est pas un vrai dossier. */}
-      {!dansPartages && (
+      {!dansPartages && peutDeposer && (
         <UploaderDocument
           ownerProfileId={ownerProfileId}
           etablissementId={etablissementId}
@@ -381,7 +401,9 @@ export function ExplorateurDocuments({
             dansPartages
               ? 'Personne ne vous a encore partagé de fichier. Ceux qu’on vous partagera apparaîtront ici.'
               : dossierCourantId
-                ? 'Ce dossier ne contient encore aucun fichier. Déposez-en un avec le formulaire ci-dessus.'
+                ? peutDeposer
+                  ? 'Ce dossier ne contient encore aucun fichier. Déposez-en un avec le formulaire ci-dessus.'
+                  : 'Ce dossier ne contient encore aucun fichier.'
                 : messageVide
           }
         />

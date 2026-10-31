@@ -3,6 +3,7 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useSessionReports } from '../../hooks/useSessionReports'
 import { ExplorateurDocuments } from '../documents/ExplorateurDocuments'
+import { DocumentsEtablissement } from '../documents/DocumentsEtablissement'
 import { ListeComptesRendus } from '../shared/ListeComptesRendus'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GroupeSection } from '../ui/Section'
@@ -43,6 +44,15 @@ export function DocumentsProfesseur() {
               onChange={recharger}
             />
           )}
+        </GroupeSection>
+
+        {/* Bibliothèque commune (0149, demande client du 2026-10-31) : les supports que
+            l'administration dépose dans Documents › Partageables étaient visibles d'elle seule,
+            faute d'écran pour les lister ici — la RLS les ouvrait pourtant à tout
+            l'établissement depuis 0033. En lecture : le professeur parcourt le classement de
+            l'administration, il ne le réorganise pas et n'y dépose rien. */}
+        <GroupeSection titre="Documents de l’établissement">
+          <DocumentsEtablissement />
         </GroupeSection>
 
         <GroupeSection titre="Mes comptes rendus">

@@ -19,6 +19,24 @@ export interface PlageHebdomadaire {
 export interface Occupation {
   debut: string | Date
   fin: string | Date
+  /* D'où vient l'empêchement. Sans effet sur le calcul — un créneau occupé l'est, quelle qu'en
+     soit la raison — mais indispensable pour l'EXPLIQUER à l'administration : une plage ouverte
+     dans les réglages qui ne produit aucun créneau public est autrement indiscernable d'une plage
+     oubliée (signalé le 2026-10-31 : « je ne vois pas les créneaux de jeudis et vendredis qui
+     sont paramétrés pour être disponibles »). */
+  source?: SourceOccupation
+}
+
+export type SourceOccupation = 'base' | 'google'
+
+/* État d'un créneau théorique de la grille, du point de vue du visiteur. */
+export type EtatCreneau = 'libre' | 'delai' | 'occupe'
+
+export interface CreneauDetaille {
+  debut: string
+  etat: EtatCreneau
+  /* Renseigné seulement pour `occupe` : qui occupe la place. */
+  source?: SourceOccupation
 }
 
 export interface ParametresCreneaux {
@@ -119,6 +137,27 @@ export function calculerCreneauxLibres(
   parametres: ParametresCreneaux,
   maintenant: Date,
 ): string[] {
+  return detaillerCreneaux(plages, occupations, parametres, maintenant)
+    .filter((c) => c.etat === 'libre')
+    .map((c) => c.debut)
+}
+
+/**
+ * Tous les créneaux théoriques de la grille, chacun avec la raison pour laquelle il n'est pas
+ * proposé — ou rien, s'il l'est.
+ *
+ * Même parcours que `calculerCreneauxLibres`, qui n'en est plus qu'un filtre : c'était la seule
+ * manière d'être certain que l'aperçu montré à l'administration (écran Paramètres) et la liste
+ * servie au visiteur ne puissent jamais diverger. Les écrire séparément aurait reproduit
+ * exactement le piège que `creneauxLibres` (api/_lib/reservation.ts) évite déjà entre l'affichage
+ * et l'enregistrement d'une réservation.
+ */
+export function detaillerCreneaux(
+  plages: PlageHebdomadaire[],
+  occupations: Occupation[],
+  parametres: ParametresCreneaux,
+  maintenant: Date,
+): CreneauDetaille[] {
   const { dureeMinutes, delaiMinimumHeures, horizonJours, pauseMinutes, fuseau } = parametres
   const plagesActives = plages.filter((p) => p.actif !== false)
   if (plagesActives.length === 0 || dureeMinutes <= 0) return []
@@ -132,9 +171,10 @@ export function calculerCreneauxLibres(
   const occupees = occupations.map((o) => ({
     debut: versDate(o.debut).getTime() - pauseMinutes * 60_000,
     fin: versDate(o.fin).getTime() + pauseMinutes * 60_000,
+    source: o.source,
   }))
 
-  const libres: string[] = []
+  const detail: CreneauDetaille[] = []
   const depart = partiesLocales(maintenant, fuseau)
 
   /* On balaie jour local par jour local plutôt qu'en ajoutant 24 h à un instant : un jour civil
@@ -161,16 +201,32 @@ export function calculerCreneauxLibres(
         )
         const fin = new Date(debut.getTime() + dureeMinutes * 60_000)
 
-        if (debut < debutAutorise) continue
-        const chevauche = occupees.some((o) => debut.getTime() < o.fin && fin.getTime() > o.debut)
-        if (chevauche) continue
+        if (debut < debutAutorise) {
+          detail.push({ debut: debut.toISOString(), etat: 'delai' })
+          continue
+        }
+        const occupation = occupees.find((o) => debut.getTime() < o.fin && fin.getTime() > o.debut)
+        if (occupation) {
+          detail.push({ debut: debut.toISOString(), etat: 'occupe', source: occupation.source })
+          continue
+        }
 
-        libres.push(debut.toISOString())
+        detail.push({ debut: debut.toISOString(), etat: 'libre' })
       }
     }
   }
 
-  return [...new Set(libres)].sort()
+  /* Deux plages qui se recouvrent (« 09:00–12:00 » et « 10:00–13:00 » le même jour, ce qui
+     existe bel et bien dans les réglages) produisent le même instant deux fois. On n'en garde
+     qu'une occurrence, et la plus favorable : un créneau libre par une plage l'est, même si une
+     autre le refaisait tomber hors délai. */
+  const parDebut = new Map<string, CreneauDetaille>()
+  const rang: Record<EtatCreneau, number> = { libre: 0, occupe: 1, delai: 2 }
+  for (const creneau of detail) {
+    const existant = parDebut.get(creneau.debut)
+    if (!existant || rang[creneau.etat] < rang[existant.etat]) parDebut.set(creneau.debut, creneau)
+  }
+  return [...parDebut.values()].sort((a, b) => a.debut.localeCompare(b.debut))
 }
 
 /* Fuseau réellement utilisé par le navigateur du visiteur. C'est la localisation que le

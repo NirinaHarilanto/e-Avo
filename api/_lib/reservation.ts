@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import type { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
-import { calculerCreneauxLibres } from '../../src/lib/creneaux.js'
+import { detaillerCreneaux, type CreneauDetaille, type Occupation } from '../../src/lib/creneaux.js'
 import { integrationDeLEtablissement, occupationsAgenda } from './google.js'
 
 type ServiceClient = ReturnType<typeof createClient<Database>>
@@ -18,6 +18,32 @@ export async function creneauxLibres(
   serviceClient: ServiceClient,
   etablissementId: string,
 ): Promise<{ creneaux: string[]; dureeMinutes: number; fuseau: string }> {
+  const { detail, dureeMinutes, fuseau } = await detailCreneaux(serviceClient, etablissementId)
+  return { creneaux: detail.filter((c) => c.etat === 'libre').map((c) => c.debut), dureeMinutes, fuseau }
+}
+
+/**
+ * Le même calcul, mais sans jeter ce qui a été écarté : chaque créneau théorique de la grille y
+ * garde la raison pour laquelle il n'est pas proposé.
+ *
+ * Sert l'aperçu de l'écran Paramètres (api/admin/apercu-creneaux.ts) — demande client du
+ * 2026-10-31 : « synchroniser réglage créneau diag call dans l'espace admin avec ce que tu
+ * affiches au public ». Une plage ouverte qui ne produit aucun créneau ne se distinguait pas
+ * d'une plage oubliée, et c'est exactement ce qui est arrivé au jeudi et au vendredi.
+ */
+export async function detailCreneaux(
+  serviceClient: ServiceClient,
+  etablissementId: string,
+): Promise<{
+  detail: CreneauDetaille[]
+  dureeMinutes: number
+  fuseau: string
+  horizonJours: number
+  plages: { jour_semaine: number; heure_debut: string; heure_fin: string }[]
+  /* Faux quand la lecture de l'agenda Google a échoué : l'aperçu ne doit pas affirmer qu'un
+     créneau est libre alors qu'on n'a pas pu vérifier l'agenda réel. */
+  agendaGoogleLu: boolean
+}> {
   const [{ data: parametres }, { data: plages }] = await Promise.all([
     serviceClient.from('reservation_parametres').select('*').eq('etablissement_id', etablissementId).maybeSingle(),
     serviceClient
@@ -29,8 +55,9 @@ export async function creneauxLibres(
 
   const dureeMinutes = parametres?.duree_minutes ?? 15
   const fuseau = parametres?.fuseau ?? 'Indian/Antananarivo'
+  const horizonJours = parametres?.horizon_jours ?? 21
   if (!parametres || !plages || plages.length === 0) {
-    return { creneaux: [], dureeMinutes, fuseau }
+    return { detail: [], dureeMinutes, fuseau, horizonJours, plages: plages ?? [], agendaGoogleLu: true }
   }
 
   const maintenant = new Date()
@@ -55,25 +82,29 @@ export async function creneauxLibres(
       .lte('debut', finHorizon.toISOString()),
   ])
 
-  const occupations = [...(rendezVous ?? []), ...(seances ?? [])].map((o) => ({
+  const occupations: Occupation[] = [...(rendezVous ?? []), ...(seances ?? [])].map((o) => ({
     debut: o.debut,
     fin: new Date(new Date(o.debut).getTime() + o.duree_minutes * 60_000).toISOString(),
+    source: 'base',
   }))
 
   /* L'agenda Google réel de l'établissement est ce qui rend la liste vraiment à jour : un
      empêchement noté directement dans Google retire aussitôt le créneau. Une panne Google ne doit
      pour autant jamais bloquer la réservation — on continue alors avec les seules occupations
      connues en base, quitte à ce que l'admin refuse le rendez-vous. */
+  let agendaGoogleLu = true
   try {
     const integration = await integrationDeLEtablissement(serviceClient, etablissementId)
     if (integration) {
-      occupations.push(...(await occupationsAgenda(integration, maintenant, finHorizon)))
+      const evenements = await occupationsAgenda(integration, maintenant, finHorizon)
+      occupations.push(...evenements.map((e) => ({ ...e, source: 'google' as const })))
     }
   } catch {
     // Silencieux volontairement : l'incident est déjà tracé par les autres appels Google.
+    agendaGoogleLu = false
   }
 
-  const creneaux = calculerCreneauxLibres(
+  const detail = detaillerCreneaux(
     plages,
     occupations,
     {
@@ -86,7 +117,7 @@ export async function creneauxLibres(
     maintenant,
   )
 
-  return { creneaux, dureeMinutes, fuseau }
+  return { detail, dureeMinutes, fuseau, horizonJours, plages, agendaGoogleLu }
 }
 
 /** Profils à prévenir dans l'application quand une demande arrive ou change d'état. */

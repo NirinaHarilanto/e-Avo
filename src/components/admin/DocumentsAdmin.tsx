@@ -197,22 +197,29 @@ function PanneauPartageables({ etablissementId, adminId }: { etablissementId: st
           Tout fichier déposé ici devient immédiatement visible par l’ensemble des élèves et des professeurs. Pour un
           document à diffusion restreinte, utilisez l’onglet « Confidentiels ».
         </MessageInfo>
-        <UploaderDocument ownerProfileId={adminId} etablissementId={etablissementId} etablissementWide onUploade={charger} />
         {loading ? (
           <EtatChargement lignes={3} hauteur={52} />
         ) : (
-          <div className="card" style={{ padding: 20 }}>
-            <ListeDocuments
-              documents={documents}
-              peutSupprimer={() => true}
-              /* Un document partageable est déjà visible de tout l'établissement : le partage sert
-                 ici à le POUSSER nommément chez quelqu'un, qui le retrouve dans « Mes fichiers
-                 partagés » avec un mot d'accompagnement, au lieu d'avoir à le chercher. */
-              peutPartager={() => true}
-              onChange={charger}
-              messageVide="Aucun document partagé pour l’instant. Déposez ici les supports que tout l’établissement doit pouvoir consulter."
-            />
-          </div>
+          /* Arborescence depuis le 2026-10-31 (0149), là où cet onglet n'affichait qu'une liste
+             plate : la bibliothèque commune grossit vague après vague et le client demande de
+             pouvoir la ranger en dossiers et sous-dossiers. L'explorateur est le même que partout
+             ailleurs, en portée « établissement » — les dossiers appartiennent à l'établissement
+             et non à l'admin connecté, pour que ses collègues voient le même classement. */
+          <ExplorateurDocuments
+            documents={documents}
+            ownerProfileId={adminId}
+            etablissementId={etablissementId}
+            portee="etablissement"
+            titreRacine="Documents partageables"
+            etablissementWide
+            peutSupprimer={() => true}
+            /* Un document partageable est déjà visible de tout l'établissement : le partage sert
+               ici à le POUSSER nommément chez quelqu'un, qui le retrouve dans « Mes fichiers
+               partagés » avec un mot d'accompagnement, au lieu d'avoir à le chercher. */
+            peutPartager={() => true}
+            onChange={charger}
+            messageVide="Aucun document partagé pour l’instant. Déposez ici les supports que tout l’établissement doit pouvoir consulter."
+          />
         )}
       </div>
     </GroupeSection>

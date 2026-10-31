@@ -1292,6 +1292,9 @@ export interface Database {
           proprietaire_role: Role
           parent_id: string | null
           nom: string
+          /* Dossier de la bibliothèque commune (0149) : il appartient à l'établissement, pas à
+             `proprietaire_profile_id`, qui n'y garde que la trace de qui l'a créé. */
+          etablissement_wide: boolean
           created_by_profile_id: string
           created_at: string
         }
@@ -1299,6 +1302,7 @@ export interface Database {
           id?: string
           etablissement_id: string
           proprietaire_profile_id: string
+          etablissement_wide?: boolean
           // Recalculé par le trigger document_dossiers_avant_ecriture (0058), comme
           // documents.owner_role : jamais fait confiance depuis le navigateur.
           proprietaire_role?: Role
@@ -2266,6 +2270,21 @@ export interface Database {
         }
         Returns: {
           nouvelle_affectation_id: string
+          seances_individuelles_transferees: number
+          seances_collectives_desinscrites: number
+        }[]
+      }
+      /* Remplace UNE affectation désignée par un ou plusieurs professeurs (0148). Là où
+         `attribuer_professeur` refuse de choisir quand l'élève en a déjà plusieurs, celle-ci
+         reçoit l'affectation à clôturer de l'appelant. Les séances individuelles encore à venir
+         passent au PREMIER identifiant de `p_teacher_ids` — une séance n'a qu'un professeur. */
+      remplacer_professeur: {
+        Args: {
+          p_affectation_id: string
+          p_teacher_ids: string[]
+          p_motif?: string | null
+        }
+        Returns: {
           seances_individuelles_transferees: number
           seances_collectives_desinscrites: number
         }[]

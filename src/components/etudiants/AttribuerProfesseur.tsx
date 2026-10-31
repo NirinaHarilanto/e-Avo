@@ -27,6 +27,10 @@ interface AttribuerProfesseurProps {
 
 type Formulaire = 'changer' | 'ajouter' | null
 
+function nomDe(periode: PeriodeProfesseur): string {
+  return periode.professeur ? `${periode.professeur.prenom} ${periode.professeur.nom}` : 'ce professeur'
+}
+
 export function AttribuerProfesseur({ studentId, periodesActuelles, estCollectif, onTermine }: AttribuerProfesseurProps) {
   const { session } = useProfileContext()
   const { professeurs, loading: chargementProfs } = useProfesseurs()
@@ -37,6 +41,12 @@ export function AttribuerProfesseur({ studentId, periodesActuelles, estCollectif
   const [erreur, setErreur] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [aRetirer, setARetirer] = useState<PeriodeProfesseur | null>(null)
+  /* Fenêtre de remplacement (demande client du 2026-10-31) : quelle affectation est clôturée, et
+     par qui. Deux états distincts et non un seul objet, parce que le choix du remplacé se refait
+     sans perdre la liste déjà cochée quand l'admin hésite. */
+  const [remplacementOuvert, setRemplacementOuvert] = useState(false)
+  const [affectationARemplacer, setAffectationARemplacer] = useState<string>('')
+  const [remplacants, setRemplacants] = useState<string[]>([])
 
   const aUnProfesseur = periodesActuelles.length > 0
   /* Un professeur déjà attribué ne doit pas réapparaître dans la liste d'ajout : la base le
@@ -44,6 +54,10 @@ export function AttribuerProfesseur({ studentId, periodesActuelles, estCollectif
      avoir cliqué. */
   const dejaAttribues = new Set(periodesActuelles.map((p) => p.affectation.teacher_id))
   const professeursProposables = formulaire === 'ajouter' ? professeurs.filter((p) => !dejaAttribues.has(p.id)) : professeurs
+  /* Repreneurs possibles : tous sauf ceux qui enseignent DÉJÀ à cet élève — y compris celui qu'on
+     remplace, qu'on ne peut pas nommer son propre successeur, et son collègue, que la base
+     refuserait en double (index unique du couple, 0138). */
+  const professeursDisponibles = professeurs.filter((p) => !dejaAttribues.has(p.id))
 
   function fermer() {
     setFormulaire(null)
@@ -128,6 +142,72 @@ export function AttribuerProfesseur({ studentId, periodesActuelles, estCollectif
     }
   }
 
+  function ouvrirRemplacement() {
+    setMessage(null)
+    setErreur(null)
+    setMotif('')
+    setRemplacants([])
+    /* Un seul professeur en cours : il n'y a rien à choisir, la fenêtre s'ouvre déjà sur lui. */
+    setAffectationARemplacer(periodesActuelles.length === 1 ? periodesActuelles[0].affectation.id : '')
+    setRemplacementOuvert(true)
+  }
+
+  async function remplacer() {
+    if (!affectationARemplacer || remplacants.length === 0) return
+    setEnCours(true)
+    setErreur(null)
+
+    /* `remplacer_professeur` (0148) et non `attribuer_professeur` : celle-ci refuse d'agir dès
+       que l'élève a plusieurs professeurs actifs, faute de savoir lequel clôturer (0138). Ici
+       l'admin l'a désigné, et le ou les remplaçants avec. */
+    const { data, error } = await supabase.rpc('remplacer_professeur', {
+      p_affectation_id: affectationARemplacer,
+      p_teacher_ids: remplacants,
+      p_motif: motif || null,
+    })
+    setEnCours(false)
+    if (error) {
+      setErreur(error.message)
+      return
+    }
+
+    const remplace = periodesActuelles.find((p) => p.affectation.id === affectationARemplacer)
+    const nomsRemplacants = remplacants
+      .map((id) => professeurs.find((p) => p.id === id))
+      .map((p) => (p ? `${p.prenom} ${p.nom}` : null))
+      .filter((n): n is string => !!n)
+    const resultat = data?.[0]
+    const transferees = resultat?.seances_individuelles_transferees ?? 0
+    const desinscrites = resultat?.seances_collectives_desinscrites ?? 0
+    setMessage(
+      [
+        nomsRemplacants.length > 0
+          ? `${remplace ? nomDe(remplace) : 'Le professeur'} est remplacé par ${nomsRemplacants.join(' et ')}.`
+          : 'Remplacement effectué.',
+        transferees > 0 ? `${transferees} séance(s) à venir transférée(s) à ${nomsRemplacants[0]}.` : null,
+        desinscrites > 0 ? `${desinscrites} séance(s) collective(s) libérée(s) — à réinscrire manuellement si besoin.` : null,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    )
+
+    setRemplacementOuvert(false)
+    setRemplacants([])
+    setMotif('')
+    onTermine()
+
+    /* Même e-mail automatique que l'attribution ordinaire, et pour la même raison : l'élève doit
+       apprendre le changement de formateur. Envoyé pour le repreneur des séances — celui que
+       l'élève verra en face de lui. Sans blocage : l'affectation est déjà écrite. */
+    if (session) {
+      fetch('/api/admin/email-demarrage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
+        body: JSON.stringify({ studentId, teacherId: remplacants[0] }),
+      }).catch(() => undefined)
+    }
+  }
+
   async function retirer() {
     if (!aRetirer || !session) return
     setEnCours(true)
@@ -191,8 +271,19 @@ export function AttribuerProfesseur({ studentId, periodesActuelles, estCollectif
   if (!formulaire) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* Deux gestes derrière un même bouton, selon ce que l'élève a déjà :
+            — personne : une attribution, qui ne remplace rien (formulaire en ligne, inchangé) ;
+            — un professeur ou plus : un remplacement, qui demande QUI s'en va et QUI reprend —
+              demande client du 2026-10-31, capture à l'appui. Le pop-up est obligatoire dès le
+              deuxième professeur (rien ne permettait de désigner lequel), et il sert aussi quand
+              il n'y en a qu'un : l'écran reste le même d'un élève à l'autre, et c'est le seul
+              endroit d'où l'on peut nommer plusieurs repreneurs. */}
         <button
           onClick={() => {
+            if (aUnProfesseur) {
+              ouvrirRemplacement()
+              return
+            }
             setMessage(null)
             setFormulaire('changer')
           }}
@@ -239,7 +330,133 @@ export function AttribuerProfesseur({ studentId, periodesActuelles, estCollectif
         )}
 
         {message && <MessageSucces>{message}</MessageSucces>}
-        {erreur && <p style={{ color: 'var(--danger)', fontSize: 12, margin: 0 }}>{erreur}</p>}
+        {erreur && !remplacementOuvert && <p style={{ color: 'var(--danger)', fontSize: 12, margin: 0 }}>{erreur}</p>}
+
+        {remplacementOuvert && (
+          <Modale titre="Changer de professeur" onFermer={() => setRemplacementOuvert(false)} largeurMax={480}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {periodesActuelles.length > 1 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted-2)' }}>Professeur à remplacer</span>
+                  {periodesActuelles.map((periode) => (
+                    <label
+                      key={periode.affectation.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 9,
+                        fontSize: 12.5,
+                        color: 'var(--ink-2)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 10,
+                        padding: '9px 11px',
+                        cursor: 'pointer',
+                        background:
+                          affectationARemplacer === periode.affectation.id
+                            ? 'var(--hoc-pastille, rgba(169,140,255,.14))'
+                            : 'transparent',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="professeur-a-remplacer"
+                        checked={affectationARemplacer === periode.affectation.id}
+                        onChange={() => {
+                          setAffectationARemplacer(periode.affectation.id)
+                          /* Le remplacé ne peut pas se remplacer lui-même : son nom sort de la
+                             liste des repreneurs au moment même où il est désigné. */
+                          setRemplacants((actuels) => actuels.filter((id) => id !== periode.affectation.teacher_id))
+                        }}
+                      />
+                      {nomDe(periode)}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ fontSize: 12.5, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6 }}>
+                  <strong>{nomDe(periodesActuelles[0])}</strong> ne suivra plus cet élève. Ses séances encore à venir
+                  passeront au premier remplaçant choisi ci-dessous.
+                </p>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted-2)' }}>
+                  Remplacé par {remplacants.length > 1 ? `(${remplacants.length} professeurs)` : ''}
+                </span>
+                {/* Plusieurs repreneurs possibles — « choisir le ou les professeurs qui le ou les
+                    remplacent ». Les séances déjà planifiées, elles, ne se répartissent pas :
+                    `sessions.teacher_id` ne porte qu'un nom, elles vont donc au premier coché,
+                    ce que la phrase sous la liste annonce avant de valider. */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 210, overflowY: 'auto' }}>
+                  {professeursDisponibles.length === 0 && (
+                    <span style={{ fontSize: 11.5, color: 'var(--muted-2)' }}>
+                      {chargementProfs ? 'Chargement…' : 'Aucun autre professeur disponible pour cet élève.'}
+                    </span>
+                  )}
+                  {professeursDisponibles.map((p) => {
+                    const coche = remplacants.includes(p.id)
+                    return (
+                      <label
+                        key={p.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 9,
+                          fontSize: 12.5,
+                          color: 'var(--ink-2)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 10,
+                          padding: '9px 11px',
+                          cursor: 'pointer',
+                          background: coche ? 'var(--hoc-pastille, rgba(169,140,255,.14))' : 'transparent',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={coche}
+                          onChange={() =>
+                            setRemplacants((actuels) =>
+                              coche ? actuels.filter((id) => id !== p.id) : [...actuels, p.id],
+                            )
+                          }
+                        />
+                        {p.prenom} {p.nom}
+                        {coche && remplacants[0] === p.id && remplacants.length > 1 && (
+                          <span style={{ marginLeft: 'auto', fontSize: 10.5, fontWeight: 700, color: 'var(--muted)' }}>
+                            reprend les séances
+                          </span>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <input
+                placeholder="Motif du changement (optionnel)"
+                value={motif}
+                onChange={(e) => setMotif(e.target.value)}
+                style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
+              />
+
+              {erreur && <p style={{ color: 'var(--danger)', fontSize: 12, margin: 0 }}>{erreur}</p>}
+
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => setRemplacementOuvert(false)} style={{ ...boutonNeutreStyle, flexGrow: 1 }}>
+                  Annuler
+                </button>
+                <Bouton
+                  onClick={remplacer}
+                  enCours={enCours}
+                  disabled={!affectationARemplacer || remplacants.length === 0}
+                  libelle="Confirmer le changement"
+                  libelleEnCours="Changement…"
+                  style={{ flexGrow: 1, background: 'var(--accent-blue-gradient)', color: '#fff' }}
+                />
+              </div>
+            </div>
+          </Modale>
+        )}
 
         {aRetirer && (
           <Modale

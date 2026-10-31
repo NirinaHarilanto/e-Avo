@@ -6,6 +6,7 @@ import { adminsDeLEtablissement, creneauxLibres } from '../_lib/reservation.js'
 import { envoyerEmail, modeleDemandeRecue } from '../_lib/email.js'
 import { trouverHomonymeProspect, messageHomonymeProspect } from '../_lib/nomDuplique.js'
 import { verifierDebit } from '../_lib/limiteDebit.js'
+import { corriger, type ReponseCandidat } from '../../src/lib/quiz.js'
 
 export const config = { runtime: 'edge' }
 
@@ -34,6 +35,17 @@ interface CorpsReservation {
   /* Présent uniquement pour typeProgramme === 'duo' — demande client du 2026-09-21 : les deux
      personnes du binôme réservent ensemble, un seul appel diagnostic pour les deux. */
   duo?: CorpsDuo
+  /* Quiz écrit de positionnement, désormais passé AUSSI par les prospects individuels et duo —
+     demande client du 2026-10-31 : « après le renseignement des informations personnelles du
+     prospect, le prospect fasse un quiz écrit pour évaluer son niveau. Ce quiz est le même que
+     ce que l'on a déjà pour les cours collectifs. »
+
+     Facultatif ici, contrairement au collectif (api/prospects/inscrire-test.ts) où la place
+     n'est acquise que par le quiz : un rendez-vous individuel reste une demande d'appel, et
+     refuser de l'enregistrer parce qu'aucun questionnaire n'est configuré — ou parce qu'une
+     ancienne page est encore ouverte dans un onglet — ferait perdre un prospect pour une raison
+     qui ne le concerne pas. */
+  reponses?: ReponseCandidat[]
 }
 
 const EMAIL_VALIDE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -171,6 +183,40 @@ export default async function handler(request: Request): Promise<Response> {
       if (prospect2) {
         prospect2Id = prospect2.id
         await serviceClient.from('prospects').update({ duo_partenaire_id: prospect2.id }).eq('id', prospect.id)
+      }
+    }
+
+    /* Niveau issu du quiz écrit, rattaché au dossier du prospect exactement comme le fait le
+       parcours collectif (api/prospects/inscrire-test.ts) : même correction, même barème, même
+       bilan, même ligne `diagnostic_calls`. L'admin retrouve donc la note sur la fiche avant même
+       d'avoir passé l'appel, et le niveau suivra l'élève s'il est converti.
+
+       Rien de bloquant : une correction impossible (aucun questionnaire configuré, aucun admin
+       approuvé à qui attribuer la ligne) laisse la réservation se faire sans niveau. Le prospect
+       a demandé un appel, c'est cela qu'il faut enregistrer coûte que coûte. */
+    if (corps.reponses && corps.reponses.length > 0) {
+      const { data: questions } = await serviceClient
+        .from('quiz_questions')
+        .select('id, ordre, enonce, options, bonne_reponse')
+        .eq('etablissement_id', etablissement.id)
+        .eq('actif', true)
+        .order('ordre')
+      const admins = await adminsDeLEtablissement(serviceClient, etablissement.id)
+      if (questions && questions.length > 0 && admins[0]) {
+        const resultat = corriger(questions, corps.reponses)
+        /* `date_appel` = le créneau demandé, et non l'instant du quiz : cette ligne EST l'appel
+           diagnostic à venir, que l'admin complétera après l'avoir mené. PipelineCRM en crée une
+           à la volée quand elle manque — en la posant ici, elle porte d'emblée le niveau écrit.
+           Pour un duo, une seule ligne, sur le dossier principal : les deux membres passent le
+           même appel (0054). */
+        await serviceClient.from('diagnostic_calls').insert({
+          etablissement_id: etablissement.id,
+          prospect_id: prospect.id,
+          mene_par: admins[0],
+          date_appel: demande,
+          niveau_evalue: resultat.niveau,
+          notes: resultat.bilan,
+        })
       }
     }
 

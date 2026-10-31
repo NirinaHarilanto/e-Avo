@@ -3,6 +3,7 @@ import type { AccentPalette } from '../../lib/accent'
 import { fuseauDuVisiteur, grouperParJour } from '../../lib/creneaux'
 import { FUSEAU_ETABLISSEMENT } from '../../lib/etablissement'
 import type { TypeProgrammeProspect } from '../../types/database.types'
+import { QuizPositionnement, SECONDES_PAR_QUESTION, type QuestionPublique, type ReponseQuiz } from './QuizPositionnement'
 
 /* Prise de rendez-vous directement sur le site, en remplacement du renvoi vers Calendly : le
    visiteur ne quitte plus la page, et ses réponses arrivent en base au lieu de rester chez un
@@ -30,6 +31,7 @@ export function ReserverAppel({
   typeInitial = 'individuel',
   onPrefererContact,
   onConfirme,
+  onEtapeChange,
   sansCadre = false,
 }: {
   etablissementSlug: string
@@ -40,6 +42,10 @@ export function ReserverAppel({
   /* Signale au parent (ModaleReservation) que la demande vient d'être enregistrée, pour qu'il
      masque le choix de type de cours — le modifier après coup n'aurait plus aucun effet. */
   onConfirme?: () => void
+  /* Permet à la page d'alléger ce qui l'entoure pendant le questionnaire, exactement comme pour
+     le parcours collectif (voir TestPositionnement) : chaque pixel rendu sert à faire tenir une
+     question entière sans défilement. */
+  onEtapeChange?: (etape: 'creneau' | 'quiz') => void
   sansCadre?: boolean
 }) {
   const [donnees, setDonnees] = useState<ReponseCreneaux | null>(null)
@@ -75,6 +81,12 @@ export function ReserverAppel({
   const [envoi, setEnvoi] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [confirme, setConfirme] = useState<string | null>(null)
+  /* Quiz écrit de positionnement, ajouté au parcours individuel et duo le 2026-10-31 à la
+     demande du client — le même questionnaire que celui du collectif, et la même logique
+     d'évaluation côté serveur. Il s'intercale entre les coordonnées et l'envoi : la demande
+     n'est enregistrée qu'à la dernière question, en un seul appel qui porte les réponses. */
+  const [questions, setQuestions] = useState<QuestionPublique[]>([])
+  const [phase, setPhase] = useState<'formulaire' | 'quiz'>('formulaire')
 
   useEffect(() => {
     setTypeProgramme(typeInitial)
@@ -101,6 +113,29 @@ export function ReserverAppel({
     }
   }, [etablissementSlug])
 
+  /* Énoncés du questionnaire — la même source publique que le parcours collectif, qui ne rend
+     jamais les corrigés (api/prospects/test-positionnement). Chargés d'emblée et non au moment
+     d'entrer dans le quiz : soixante-sept énoncés ne doivent pas faire patienter le prospect une
+     fois ses coordonnées saisies. Un échec est silencieux — la réservation se fait alors sans
+     test écrit plutôt que de ne pas se faire du tout. */
+  useEffect(() => {
+    let annule = false
+    fetch(`/api/prospects/test-positionnement?etablissement=${encodeURIComponent(etablissementSlug)}`)
+      .then((r) => r.json())
+      .then((reponse: { questions?: QuestionPublique[] }) => {
+        if (!annule) setQuestions(reponse.questions ?? [])
+      })
+      .catch(() => undefined)
+    return () => {
+      annule = true
+    }
+  }, [etablissementSlug])
+
+  useEffect(() => {
+    onEtapeChange?.(phase === 'quiz' ? 'quiz' : 'creneau')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase])
+
   /* Les créneaux sont recalculés en instants UTC côté serveur ; l'affichage se contente de les
      reformater dans le fuseau choisi par le prospect (par défaut celui de l'établissement), sans
      jamais toucher à l'instant réel envoyé dans la demande de réservation. */
@@ -125,8 +160,20 @@ export function ReserverAppel({
       new Date(`${date}T12:00:00Z`),
     )
 
-  async function envoyer(e: FormEvent) {
+  /* Le formulaire ne valide plus la demande : il ouvre le questionnaire, qui la valide à sa
+     dernière question. Sans questionnaire configuré, il reste l'envoi direct d'avant. */
+  function envoyer(e: FormEvent) {
     e.preventDefault()
+    if (!creneauChoisi) return
+    setErreur(null)
+    if (questions.length > 0) {
+      setPhase('quiz')
+      return
+    }
+    soumettre([])
+  }
+
+  async function soumettre(reponses: ReponseQuiz[]) {
     if (!creneauChoisi) return
     setEnvoi(true)
     setErreur(null)
@@ -146,6 +193,7 @@ export function ReserverAppel({
         objectif,
         typeProgramme,
         message,
+        reponses,
         ...(typeProgramme === 'duo'
           ? {
               duo: {
@@ -165,6 +213,10 @@ export function ReserverAppel({
 
     setEnvoi(false)
     if (reponse.error) {
+      /* Retour au formulaire pour que l'erreur soit lue là où elle peut être corrigée : la
+         question qui vient d'être validée n'a plus rien à afficher, et les réponses déjà
+         données restent portées par cet appel. */
+      setPhase('formulaire')
       setErreur(reponse.error)
       /* Créneau pris entre-temps : on rafraîchit la liste pour qu'il n'apparaisse plus. */
       if (reponse.error.includes('créneau')) {
@@ -207,6 +259,22 @@ export function ReserverAppel({
             ? <> aux adresses {email} et {email2}.</>
             : <> à l’adresse {email}.</>}
         </p>
+      </div>
+    )
+  }
+
+  /* Le questionnaire prend toute la fenêtre : l'agenda et le formulaire déjà remplis n'ont plus
+     rien à apporter, et la place qu'ils occupaient permet d'afficher une question entière sans
+     défilement (même choix que le parcours collectif). */
+  if (phase === 'quiz') {
+    return (
+      <div className="quiz-colonne" style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+        <QuizPositionnement
+          questions={questions}
+          accent={accent}
+          libelleFin="Valider ma demande"
+          onTermine={soumettre}
+        />
       </div>
     )
   }
@@ -426,6 +494,29 @@ export function ReserverAppel({
             J’accepte d’être recontacté(e) au sujet de ma demande.
           </label>
 
+          {/* Le test écrit s'annonce AVANT de commencer : il est chronométré et sans retour en
+              arrière, personne ne doit le découvrir à la première question (même avertissement
+              que le parcours collectif). */}
+          {questions.length > 0 && (
+            <p
+              style={{
+                margin: 0,
+                padding: '11px 13px',
+                borderRadius: 12,
+                border: `1px solid ${accent.accentBorder}`,
+                background: 'var(--surface-alt)',
+                fontSize: 12.5,
+                lineHeight: 1.6,
+                color: 'var(--ink-2)',
+              }}
+            >
+              <strong style={{ color: accent.accent }}>À savoir :</strong> un court test écrit de{' '}
+              {questions.length} questions suit, pour situer votre niveau avant l'appel. Chaque question est{' '}
+              <strong>chronométrée à {SECONDES_PAR_QUESTION} secondes</strong> : passé ce délai, la suivante s'affiche
+              d'elle-même, sans retour en arrière. Votre demande est enregistrée à la dernière question.
+            </p>
+          )}
+
           {erreur && <p style={{ fontSize: 13, color: 'var(--danger)', margin: 0 }}>{erreur}</p>}
 
           <button
@@ -441,7 +532,7 @@ export function ReserverAppel({
               fontSize: 14.5,
             }}
           >
-            {envoi ? 'Envoi…' : 'Confirmer ma demande'}
+            {envoi ? 'Envoi…' : questions.length > 0 ? 'Commencer le test écrit' : 'Confirmer ma demande'}
           </button>
           <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0, textAlign: 'center' }}>
             {etablissementNom} valide votre créneau, puis vous recevez l’invitation avec le lien de visioconférence.
