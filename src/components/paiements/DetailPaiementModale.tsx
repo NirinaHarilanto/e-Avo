@@ -695,21 +695,38 @@ function FormulaireAcompte({
   const [reference, setReference] = useState('')
   const [notes, setNotes] = useState('')
 
-  /* Le solde restant change à chaque acompte enregistré : sans cette resynchronisation, le
-     champ garderait la suggestion du premier affichage et proposerait de payer deux fois.
-
-     Les AUTRES champs sont remis à blanc en même temps (2026-10-31) : seul le montant se
-     resynchronisait, si bien qu'un second acompte héritait en silence du moyen, de la référence
-     et de la note du premier. Constaté en production sur une ligne de 1 100 000 Ar — deux
-     versements de 500 000 et 600 000 Ar enregistrés à trente secondes d'intervalle, tous deux
-     estampillés « Virement · AZ3424 », alors qu'ils ne peuvent pas venir du même virement. Une
-     référence fausse sur un encaissement rend le rapprochement bancaire impossible. */
+  /* Un forfait à régler EN UNE FOIS garde son comportement d'origine : le champ est verrouillé
+     (`readOnly`) et affiche le solde, il n'y a qu'un seul geste possible et aucun risque de
+     double saisie à corriger. */
   useEffect(() => {
-    setMontant(String(suggestion))
+    if (paiementUnique != null) setMontant(String(suggestion))
+  }, [suggestion, paiementUnique])
+
+  /* Plus aucune valeur pré-remplie après un acompte enregistré — demande client du 2026-10-31,
+     capture à l'appui : « enlève les valeurs dans les zones entourées, pour éviter une
+     redondance ». Le montant répétait exactement le « Reste à encaisser » déjà affiché juste
+     au-dessus, et c'est précisément ce champ pré-rempli qui a produit l'incident de la veille —
+     deux acomptes de 500 000 et 600 000 Ar saisis à trente secondes d'intervalle, le second
+     n'étant qu'un second clic sur un formulaire resté chargé avec le solde entier.
+
+     Un formulaire vraiment vide après chaque enregistrement force une saisie délibérée avant de
+     pouvoir cliquer de nouveau : le bouton reste désactivé tant que `montant` est vide. Le solde
+     reste lisible au-dessus (« Reste à encaisser ») et en placeholder ici, en gris, jamais comme
+     une valeur prête à partir.
+
+     Les AUTRES champs (moyen, référence, note) suivent la même règle depuis la veille — un
+     second acompte héritait sinon en silence de ceux du premier, constaté en production sur
+     cette même ligne : les deux versements portaient la référence « AZ3424 », qui ne peut
+     pourtant pas venir du même virement. Date rejoint le lot : elle restait sur la date du
+     dernier acompte saisi plutôt que de revenir à aujourd'hui. */
+  useEffect(() => {
+    if (paiementUnique != null) return
+    setMontant('')
+    setDate(dateDuJour)
     setMoyen('')
     setReference('')
     setNotes('')
-  }, [suggestion])
+  }, [suggestion, paiementUnique])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
@@ -746,13 +763,22 @@ function FormulaireAcompte({
         </>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
-        <Champ label={`Montant (${devise})`} obligatoire aide={paiementUnique != null ? 'Solde complet, non modifiable.' : 'Pré-rempli avec le solde restant.'}>
+        <Champ
+          label={`Montant (${devise})`}
+          obligatoire
+          aide={
+            paiementUnique != null
+              ? 'Solde complet, non modifiable.'
+              : `Reste à encaisser : ${formaterMontant(suggestion, devise)}.`
+          }
+        >
           <input
             type="number"
             min={0}
             step="0.01"
             value={montant}
             readOnly={paiementUnique != null}
+            placeholder={paiementUnique == null ? String(suggestion) : undefined}
             onChange={(e) => setMontant(e.target.value)}
             style={{ ...champStyle, ...(paiementUnique != null ? { opacity: 0.7, cursor: 'not-allowed' } : {}) }}
           />
