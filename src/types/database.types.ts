@@ -1070,6 +1070,11 @@ export interface Database {
           notes: string | null
           motif_refus: string | null
           professeur_id: string | null
+          /* Retrait de la candidature du recrutement (0156), à n'importe quelle étape. Non nul =
+             hors des listes et des compteurs. Ne supprime pas la personne. */
+          supprime_le: string | null
+          supprime_par: string | null
+          motif_suppression: string | null
           created_at: string
           updated_at: string
         }
@@ -1095,6 +1100,9 @@ export interface Database {
           notes?: string | null
           motif_refus?: string | null
           professeur_id?: string | null
+          supprime_le?: string | null
+          supprime_par?: string | null
+          motif_suppression?: string | null
           created_at?: string
           updated_at?: string
         }

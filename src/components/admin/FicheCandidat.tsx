@@ -70,6 +70,8 @@ export function FicheCandidat({
   const [succes, setSucces] = useState<string | null>(null)
   const [refus, setRefus] = useState(false)
   const [motif, setMotif] = useState('')
+  const [suppression, setSuppression] = useState(false)
+  const [motifSuppression, setMotifSuppression] = useState('')
 
   /* Statut visuel des boutons « Enregistrer » (demande client du 2026-10-10) : les quatre blocs
      de la fiche partagent le MÊME `enregistrer()`, qui persiste systématiquement l'intégralité de
@@ -380,6 +382,68 @@ export function FicheCandidat({
             )}
           </div>
         )}
+
+        {/* Suppression possible à TOUTES les étapes — demande client du 2026-10-31 : « rajoute la
+            possibilité de supprimer le candidat professeur à chaque étape du processus ». Le bloc
+            « Ne pas retenir » juste au-dessus ne couvre pas ce besoin : il CLASSE le dossier
+            (statut « non retenu », motif conservé, le candidat reste dans l'onglet), et il
+            disparaît lui-même une fois le candidat intégré ou refusé. Ici on retire la ligne du
+            recrutement, quel que soit le statut — pour un doublon, un dépôt par erreur ou un
+            dossier de test. */}
+        <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {suppression ? (
+            <>
+              <MessageAvertissement>
+                {c.statut === 'integre' ? (
+                  <>
+                    Ce candidat est <strong>intégré</strong> : son dossier de recrutement sera retiré, mais son compte
+                    professeur, ses contrats et ses séances restent intacts. Pour supprimer la personne elle-même,
+                    passez par la section <strong>Professeurs</strong>.
+                  </>
+                ) : (
+                  <>
+                    La candidature sera retirée du recrutement, à cette étape comme aux suivantes. Elle ne sera plus
+                    comptée nulle part.
+                  </>
+                )}
+              </MessageAvertissement>
+              <Champ label="Motif" obligatoire aide="Conservé dans l’historique du recrutement.">
+                <input
+                  value={motifSuppression}
+                  onChange={(e) => setMotifSuppression(e.target.value)}
+                  placeholder="Doublon, dépôt par erreur, dossier de test…"
+                  style={champStyle}
+                />
+              </Champ>
+              <Actions>
+                <button onClick={() => setSuppression(false)} style={boutonNeutreStyle}>
+                  Annuler
+                </button>
+                <button
+                  onClick={async () => {
+                    const ok = await enregistrer(
+                      {
+                        supprime_le: new Date().toISOString(),
+                        supprime_par: session?.user.id ?? null,
+                        motif_suppression: motifSuppression.trim(),
+                      },
+                      'Candidature supprimée.',
+                    )
+                    if (ok) onFermer()
+                  }}
+                  disabled={enCours || !motifSuppression.trim()}
+                  style={boutonDangerStyle}
+                >
+                  Supprimer définitivement
+                </button>
+              </Actions>
+            </>
+          ) : (
+            <button onClick={() => setSuppression(true)} style={boutonDangerStyle}>
+              Supprimer cette candidature
+            </button>
+          )}
+        </div>
       </div>
     </Modale>
   )
