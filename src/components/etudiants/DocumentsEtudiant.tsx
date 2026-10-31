@@ -3,7 +3,6 @@ import { useDocuments } from '../../hooks/useDocuments'
 import { useSessionReports } from '../../hooks/useSessionReports'
 import { EtudiantLayout } from '../layout/EtudiantLayout'
 import { ExplorateurDocuments } from '../documents/ExplorateurDocuments'
-import { DocumentsEtablissement } from '../documents/DocumentsEtablissement'
 import { ListeComptesRendus } from '../shared/ListeComptesRendus'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GroupeSection } from '../ui/Section'
@@ -35,13 +34,14 @@ export function DocumentsEtudiant() {
           />
         </GroupeSection>
 
-        {/* Bibliothèque commune (0149, demande client du 2026-10-31) : les supports déposés
-            par l'administration dans Documents › Partageables n'étaient listés nulle part côté
-            élève, alors que la RLS les lui ouvre depuis 0033. En lecture seule. */}
-        <GroupeSection titre="Documents de l’établissement">
-          <DocumentsEtablissement />
-        </GroupeSection>
-
+        {/* Un bloc « Documents de l'établissement » a existé brièvement ici le 2026-10-31, pour
+            lister en lecture les fichiers de Documents › Partageables de l'administration —
+            fondé sur l'idée qu'un fichier déposé là devenait visible de tout l'établissement.
+            Le client a corrigé l'exigence le jour même, capture à l'appui : un fichier
+            partageable reste dans l'espace de son déposant tant qu'il n'a pas été partagé
+            nommément (voir admin/DocumentsAdmin.tsx). Ce qu'un professeur ou l'administration
+            partage avec cet élève se retrouve dans « Mes fichiers partagés », juste en dessous
+            dans « Mes pièces » — rien à dupliquer ici. */}
         <GroupeSection titre="Mes pièces">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {erreur && <MessageErreur>{erreur}</MessageErreur>}

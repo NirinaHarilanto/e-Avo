@@ -193,9 +193,18 @@ function PanneauPartageables({ etablissementId, adminId }: { etablissementId: st
       titre="Documents partageables"
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Corrigé le 2026-10-31 — le texte d'origine disait l'inverse de l'exigence de base du
+            client : « tout dossier ici est partageable mais pas immédiatement visible par tous
+            les étudiants et professeurs. Le détenteur de l'espace est libre de donner une vue
+            du document à une autre personne ». Un fichier déposé ici reste dans VOTRE espace,
+            exactement comme n'importe quel autre document que vous déposez ; seul le bouton
+            « Partager » de chaque fichier en donne la vue à quelqu'un, une personne à la fois —
+            la même règle que partout ailleurs dans l'application (0111 : « tout utilisateur
+            voyant un document peut en ajouter la vue à un autre »). Rien n'est donc jamais
+            visible de tout l'établissement d'un seul coup. */}
         <MessageInfo>
-          Tout fichier déposé ici devient immédiatement visible par l’ensemble des élèves et des professeurs. Pour un
-          document à diffusion restreinte, utilisez l’onglet « Confidentiels ».
+          Les fichiers déposés ici restent dans votre espace, comme vos autres documents. Partagez-les un par un,
+          avec le bouton « Partager » de chaque fichier, pour en donner la vue à une personne précise.
         </MessageInfo>
         {loading ? (
           <EtatChargement lignes={3} hauteur={52} />

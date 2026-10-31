@@ -3,7 +3,6 @@ import { useProfileContext } from '../../context/ProfileContext'
 import { useDocuments } from '../../hooks/useDocuments'
 import { useSessionReports } from '../../hooks/useSessionReports'
 import { ExplorateurDocuments } from '../documents/ExplorateurDocuments'
-import { DocumentsEtablissement } from '../documents/DocumentsEtablissement'
 import { ListeComptesRendus } from '../shared/ListeComptesRendus'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GroupeSection } from '../ui/Section'
@@ -13,7 +12,15 @@ import { EtatChargement, MessageErreur } from '../ui/Etats'
    partage explicite (0059) couvre déjà ce besoin — un professeur qui veut donner un support à
    un élève le PARTAGE depuis son propre espace (clic sur le document → « Partager »), l'élève le
    retrouve dans « Mes fichiers partagés » avec la mention de qui le lui a transmis. Il n'y a
-   donc plus besoin d'ouvrir l'arborescence de chaque élève depuis l'espace professeur. */
+   donc plus besoin d'ouvrir l'arborescence de chaque élève depuis l'espace professeur.
+
+   Un bloc « Documents de l'établissement » a existé brièvement le 2026-10-31, pour lister ici en
+   lecture les fichiers de Documents › Partageables — fondé sur la même erreur que le bandeau de
+   cet onglet (voir admin/DocumentsAdmin.tsx) : croire qu'un fichier déposé là devient visible de
+   tout l'établissement. Le client a corrigé l'exigence le jour même : un fichier partageable
+   reste dans l'espace de son déposant tant qu'il n'a pas été partagé nommément, et c'est
+   exactement le mécanisme ci-dessus — « Mes fichiers partagés » — qui le reçoit alors. Rien à
+   ajouter ici : un support que l'administration veut donner à un professeur le lui partage. */
 export function DocumentsProfesseur() {
   const { profile } = useProfileContext()
   const { documents, loading, erreur, recharger } = useDocuments(profile?.id)
@@ -44,15 +51,6 @@ export function DocumentsProfesseur() {
               onChange={recharger}
             />
           )}
-        </GroupeSection>
-
-        {/* Bibliothèque commune (0149, demande client du 2026-10-31) : les supports que
-            l'administration dépose dans Documents › Partageables étaient visibles d'elle seule,
-            faute d'écran pour les lister ici — la RLS les ouvrait pourtant à tout
-            l'établissement depuis 0033. En lecture : le professeur parcourt le classement de
-            l'administration, il ne le réorganise pas et n'y dépose rien. */}
-        <GroupeSection titre="Documents de l’établissement">
-          <DocumentsEtablissement />
         </GroupeSection>
 
         <GroupeSection titre="Mes comptes rendus">

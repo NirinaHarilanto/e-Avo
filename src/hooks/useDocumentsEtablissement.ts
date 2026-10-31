@@ -4,16 +4,18 @@ import { useCacheRequete } from './useCacheRequete'
 
 type Document = Database['public']['Tables']['documents']['Row']
 
-/* Bibliothèque commune de l'établissement : les documents marqués « partageables »
-   (`etablissement_wide`, 0033), que l'administration dépose depuis Documents › Partageables.
-   La RLS les ouvre depuis le début à tout l'établissement (`documents_etablissement_wide_select`)
-   mais aucun écran ne les listait côté élève ni côté professeur — ils n'étaient atteignables
-   qu'en étant partagés nommément. Demande client du 2026-10-31 : les mêmes dossiers doivent se
-   parcourir dans les trois espaces.
+/* Documents marqués « partageables » (`etablissement_wide`, 0033) — à l'usage de
+   l'ADMINISTRATION SEULE, pour choisir parmi eux la pièce jointe automatique d'un modèle
+   d'e-mail (voir messages/TemplatesEmails.tsx, 0152).
 
-   Volontairement pas filtré par `etablissement_id` ici : la policy ne laisse de toute façon
-   passer que l'établissement de la personne connectée, et un filtre de plus donnerait l'illusion
-   que c'est l'écran qui protège la donnée. */
+   N'ouvre PLUS la bibliothèque commune aux élèves et aux professeurs : une policy qui le
+   permettait brièvement (`documents_etablissement_wide_select`, 0033) a été retirée le
+   2026-10-31 — le client a corrigé l'exigence de base, capture à l'appui : un fichier déposé
+   dans Documents › Partageables reste dans l'espace de son déposant tant qu'il n'a pas été
+   PARTAGÉ nommément (0111), jamais visible de tout l'établissement d'un coup. Ce hook continue
+   de fonctionner pour un admin uniquement parce que `documents_admin_all` (0018) donne déjà à
+   tout admin de l'établissement l'accès à tout document de l'établissement, indépendamment de
+   `etablissement_wide` — ne JAMAIS le réutiliser pour un écran élève ou professeur. */
 export function useDocumentsEtablissement() {
   const { valeur, loading, erreur, recharger } = useCacheRequete('documents-etablissement', async () => {
     const { data, error } = await supabase
