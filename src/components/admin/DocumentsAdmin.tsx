@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useEtudiants } from '../../hooks/useEtudiants'
 import { useProfesseurs } from '../../hooks/useProfesseurs'
@@ -36,7 +37,7 @@ const ONGLETS: { value: Onglet; label: string }[] = [
 ]
 
 export function DocumentsAdmin() {
-  const { profile, session } = useProfileContext()
+  const { profile } = useProfileContext()
   const { etudiants, loading: chargementEtudiants } = useEtudiants()
   const { professeurs, loading: chargementProfesseurs } = useProfesseurs()
   const [onglet, setOnglet] = useState<Onglet>('etudiants')
@@ -133,7 +134,7 @@ export function DocumentsAdmin() {
       )}
 
       {onglet === 'partageables' && profile && <PanneauPartageables etablissementId={profile.etablissement_id} adminId={profile.id} />}
-      {onglet === 'comptes_rendus' && <PanneauComptesRendus accessToken={session?.access_token} />}
+      {onglet === 'comptes_rendus' && <PanneauComptesRendus />}
       {onglet === 'confidentiels' && profile && <PanneauConfidentiels etablissementId={profile.etablissement_id} adminId={profile.id} />}
     </AdminLayout>
   )
@@ -222,7 +223,7 @@ function PanneauPartageables({ etablissementId, adminId }: { etablissementId: st
    confidentiels plus bas) avec filtre par personne concernée et par date — demande client du
    2026-09-23 : la liste, jusqu'ici entièrement dépliée, devenait vite trop longue à parcourir dès
    que les professeurs accumulaient des comptes rendus. */
-function PanneauComptesRendus({ accessToken }: { accessToken: string | undefined }) {
+function PanneauComptesRendus() {
   const { comptesRendus, loading, erreur, recharger } = useSessionReports()
   const [recherchePersonne, setRecherchePersonne] = useState('')
   const [dateDebut, setDateDebut] = useState('')
@@ -305,7 +306,7 @@ function PanneauComptesRendus({ accessToken }: { accessToken: string | undefined
           loading={false}
           titreVide="Aucun compte rendu pour le moment"
           descriptionVide="Les comptes rendus sont rédigés par les professeurs depuis leur agenda, après avoir clôturé une séance."
-          actionsParLigne={({ rapport }) => <BoutonSupprimerCompteRendu rapportId={rapport.id} accessToken={accessToken} onSupprime={recharger} />}
+          actionsParLigne={({ rapport }) => <BoutonSupprimerCompteRendu rapportId={rapport.id} onSupprime={recharger} />}
         />
       )}
     </div>
@@ -317,17 +318,18 @@ function PanneauComptesRendus({ accessToken }: { accessToken: string | undefined
    de supprimer un compte rendu de séance »). Le professeur auteur peut déjà le faire depuis son
    propre calendrier (session_reports_teacher_all, 0033) ; l'admin n'avait jusqu'ici qu'une
    lecture seule ici, d'où la route dédiée en clé de service. */
-function BoutonSupprimerCompteRendu({ rapportId, accessToken, onSupprime }: { rapportId: string; accessToken: string | undefined; onSupprime: () => void }) {
+function BoutonSupprimerCompteRendu({ rapportId, onSupprime }: { rapportId: string; onSupprime: () => void }) {
   const [enCours, setEnCours] = useState(false)
 
   async function supprimer(e: React.MouseEvent) {
     e.stopPropagation()
-    if (!accessToken) return
+    const jeton = await jetonAcces()
+    if (!jeton) return
     if (!window.confirm('Supprimer ce compte rendu ? Les supports de cours qui y sont joints seront supprimés avec lui.')) return
     setEnCours(true)
     const reponse = await fetch('/api/admin/supprimer-compte-rendu', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jeton}` },
       body: JSON.stringify({ rapportId }),
     })
     setEnCours(false)

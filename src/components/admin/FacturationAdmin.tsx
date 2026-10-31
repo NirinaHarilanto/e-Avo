@@ -1,4 +1,5 @@
 import { jourDansFuseauEtablissement } from '../../lib/etablissement'
+import { jetonAcces } from '../../lib/jetonAcces'
 import { useState } from 'react'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfileContext } from '../../context/ProfileContext'
@@ -38,16 +39,16 @@ function ZoneDevis({ intitule, children, grandit = false }: { intitule: string; 
 const LABELS_DEVIS: Record<StatutDevis, string> = { brouillon: 'Brouillon', envoye: 'Envoyé', accepte: 'Accepté', refuse: 'Refusé', expire: 'Expiré' }
 const LABELS_FACTURE: Record<StatutFacture, string> = { emise: 'Émise', envoyee: 'Envoyée', payee: 'Payée', en_retard: 'En retard', annulee: 'Annulée' }
 
-async function supprimerLigne(table: 'quotes' | 'invoices', id: string, accessToken: string) {
+async function supprimerLigne(table: 'quotes' | 'invoices', id: string) {
   return fetch('/api/admin/supprimer-ligne-financiere', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
     body: JSON.stringify({ table, id }),
   })
 }
 
 export function FacturationAdmin() {
-  const { profile, session } = useProfileContext()
+  const { profile } = useProfileContext()
   const [onglet, setOnglet] = useState<Onglet>('factures')
   const [formulaireOuvert, setFormulaireOuvert] = useState(false)
   const [devisAImprimer, setDevisAImprimer] = useState<DevisAvecEtudiant | null>(null)
@@ -196,7 +197,7 @@ export function FacturationAdmin() {
               <LigneDevis key={d.devis.id} item={d} onImprimer={(action) => {
                   setActionImpression(action)
                   setDevisAImprimer(d)
-                }} onChange={rechargerDevis} accessToken={session?.access_token} />
+                }} onChange={rechargerDevis} />
             ))}
           </div>
         )
@@ -226,7 +227,6 @@ export function FacturationAdmin() {
                 setFactureAImprimer(f)
               }}
               onChange={rechargerFactures}
-              accessToken={session?.access_token}
             />
           ))}
         </div>
@@ -279,12 +279,10 @@ export function LigneDevis({
   item,
   onImprimer,
   onChange,
-  accessToken,
 }: {
   item: DevisAvecEtudiant
   onImprimer: (action: ActionImpression) => void
   onChange: () => void
-  accessToken: string | undefined
 }) {
   const { devis, etudiant, duoPartenaire } = item
   const [enCours, setEnCours] = useState(false)
@@ -338,11 +336,10 @@ export function LigneDevis({
   }
 
   async function supprimer() {
-    if (!accessToken) return
     if (!window.confirm(`Supprimer le devis ${devis.numero} ?`)) return
     setEnCours(true)
     setErreur(null)
-    const reponse = await supprimerLigne('quotes', devis.id, accessToken)
+    const reponse = await supprimerLigne('quotes', devis.id)
     setEnCours(false)
     if (!reponse.ok) {
       const corps = await reponse.json().catch(() => null)
@@ -441,13 +438,11 @@ function LigneFacture({
   paiementsEtudiant,
   onImprimer,
   onChange,
-  accessToken,
 }: {
   item: FactureAvecDestinataire
   paiementsEtudiant: ReturnType<typeof usePaiementsEtudiants>['paiements']
   onImprimer: (action: ActionImpression) => void
   onChange: () => void
-  accessToken: string | undefined
 }) {
   const { facture, destinataire, duoPartenaire } = item
   const [enCours, setEnCours] = useState(false)
@@ -519,11 +514,10 @@ function LigneFacture({
   }
 
   async function supprimer() {
-    if (!accessToken) return
     if (!window.confirm(`Supprimer la facture ${facture.numero} ?`)) return
     setEnCours(true)
     setErreur(null)
-    const reponse = await supprimerLigne('invoices', facture.id, accessToken)
+    const reponse = await supprimerLigne('invoices', facture.id)
     setEnCours(false)
     if (!reponse.ok) {
       const corps = await reponse.json().catch(() => null)
@@ -534,12 +528,12 @@ function LigneFacture({
   }
 
   async function envoyer() {
-    if (!accessToken || !destinataire) return
+    if (!destinataire) return
     setEnCours(true)
     setErreur(null)
     const reponse = await fetch('/api/admin/notifier', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({
         destinataireProfileId: destinataire.id,
         type: 'facture',

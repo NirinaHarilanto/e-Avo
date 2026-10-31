@@ -50,7 +50,7 @@ beforeEach(() => {
 describe('LigneDevis — unicité du numéro avant validation', () => {
   it('bloque et n’enregistre rien quand le numéro saisi existe déjà', async () => {
     etat.numeroExistant = 'DEV-2026-0099'
-    render(<LigneDevis item={item} onImprimer={() => {}} onChange={() => {}} accessToken="jeton" />)
+    render(<LigneDevis item={item} onImprimer={() => {}} onChange={() => {}} />)
 
     // Le bouton affiche le numéro lui-même comme texte visible (son nom accessible) ; le titre
     // n'est consulté par les lecteurs d'écran qu'en l'absence de texte.
@@ -66,7 +66,7 @@ describe('LigneDevis — unicité du numéro avant validation', () => {
   it('enregistre quand le numéro est libre', async () => {
     etat.numeroExistant = null
     const onChange = vi.fn()
-    render(<LigneDevis item={item} onImprimer={() => {}} onChange={onChange} accessToken="jeton" />)
+    render(<LigneDevis item={item} onImprimer={() => {}} onChange={onChange} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'DEV-2026-0001' }))
     const champ = screen.getByDisplayValue('DEV-2026-0001')
