@@ -86,10 +86,27 @@ export function FormulaireCreerEvenement({
     [etudiants, professeurs, vagues, classes],
   )
 
+  /* Vivier d'une séance de cours, scindé en deux — demande client du 2026-10-31, capture à
+     l'appui : « sépare le bloc professeur et élève en deux blocs : un bloc Professeur et un
+     autre bloc Étudiant ». Un rendez-vous « autre » (réunion, point de suivi) garde SON unique
+     champ mélangé juste en dessous : rien n'y distingue a priori qui est professeur ou élève, la
+     scission ne vaudrait rien pour lui. */
+  const professeursPourSeance = useMemo(() => professeurs.map((p) => ({ ...p, role: 'Professeur' })), [professeurs])
+  const etudiantsPourSeance = useMemo(
+    () => [...etudiantsSelectionnables(etudiants), ...vaguesSelectionnables(vagues), ...classesSelectionnables(classes)],
+    [etudiants, vagues, classes],
+  )
+
   const professeurIds = useMemo(() => new Set(professeurs.map((p) => p.id)), [professeurs])
   const tousParticipants = [...obligatoiresIds, ...optionnelsIds]
   const professeursConvies = tousParticipants.filter((id) => professeurIds.has(id))
   const etudiantsConvies = tousParticipants.filter((id) => !professeurIds.has(id))
+  /* Les deux blocs d'une séance de cours partagent le même état `obligatoiresIds` que le champ
+     mélangé d'un rendez-vous « autre » — rien d'autre dans le fichier (validation à l'envoi,
+     classe/vague détectées, titre récapitulatif) n'a alors besoin de savoir d'où vient un
+     identifiant. Chaque bloc n'en reçoit et n'en renvoie que son sous-ensemble. */
+  const profsSeanceSelectionnes = obligatoiresIds.filter((id) => professeurIds.has(id))
+  const etudiantsSeanceSelectionnes = obligatoiresIds.filter((id) => !professeurIds.has(id))
 
   /* Une séance n'est rattachée à une classe/vague que si tout son effectif y est, et lui seul :
      c'est cette appartenance qui fait décompter l'heure à tous ses inscrits, présents ou non
@@ -268,14 +285,39 @@ export function FormulaireCreerEvenement({
         {/* Deux zones de recherche façon Outlook — demande client du 2026-09-16 : « on devrait
             avoir le même principe que Outlook lors de la réservation d'un point ». Une même
             personne ne peut pas se retrouver dans les deux à la fois (`exclure`). */}
-        <SelecteurPersonnes
-          etiquette={nature === 'seance_cours' ? 'Professeur et élèves' : 'Participants obligatoires'}
-          placeholder="Rechercher un nom, une classe ou une vague…"
-          candidats={toutLeMonde}
-          selectionnes={obligatoiresIds}
-          onChange={setObligatoiresIds}
-          exclure={optionnelsIds}
-        />
+        {nature === 'seance_cours' ? (
+          <>
+            {/* Professeur(s) et élève(s), en deux blocs — demande client du 2026-10-31. Quand
+                l'élève a plusieurs professeurs actifs (0138), `participantsInitiaux` les y pose
+                tous les deux par défaut : « mets les deux professeurs par défaut [...] l'admin
+                pourra en enlever manuellement ». Une séance de cours n'en garde en revanche
+                qu'UN seul à l'envoi (`sessions.teacher_id` est une colonne unique) : le message
+                d'erreur plus bas le rappelle si l'admin valide sans avoir retiré le second. */}
+            <SelecteurPersonnes
+              etiquette="Professeur(s)"
+              placeholder="Rechercher un professeur…"
+              candidats={professeursPourSeance}
+              selectionnes={profsSeanceSelectionnes}
+              onChange={(ids) => setObligatoiresIds((actuels) => [...ids, ...actuels.filter((id) => !professeurIds.has(id))])}
+            />
+            <SelecteurPersonnes
+              etiquette="Élève(s)"
+              placeholder="Rechercher un nom, une classe ou une vague…"
+              candidats={etudiantsPourSeance}
+              selectionnes={etudiantsSeanceSelectionnes}
+              onChange={(ids) => setObligatoiresIds((actuels) => [...actuels.filter((id) => professeurIds.has(id)), ...ids])}
+            />
+          </>
+        ) : (
+          <SelecteurPersonnes
+            etiquette="Participants obligatoires"
+            placeholder="Rechercher un nom, une classe ou une vague…"
+            candidats={toutLeMonde}
+            selectionnes={obligatoiresIds}
+            onChange={setObligatoiresIds}
+            exclure={optionnelsIds}
+          />
+        )}
         {nature === 'autre' && obligatoiresIds.length === 0 && optionnelsIds.length === 0 && (
           <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
             Sans participant, ce créneau sera simplement bloqué dans votre agenda : il part dans votre agenda Google,

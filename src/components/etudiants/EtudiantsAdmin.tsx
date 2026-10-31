@@ -374,21 +374,21 @@ function DossierPanel({
       }
       panneauNouveauCreneau={
         /* Même garde que la planification de série juste en dessous : sans professeur attribué,
-           il n'y a personne à qui attacher la séance. Quand l'élève en a plusieurs (0138),
-           l'admin choisit lequel, plutôt que de remplir en silence l'agenda du premier venu. */
+           il n'y a personne à qui attacher la séance. Mais contrairement à elle, plus de
+           sélecteur posé AVANT l'ouverture quand l'élève a plusieurs professeurs (0138) :
+           demande client du 2026-10-31, « mets les deux professeurs par défaut [...] l'admin
+           pourra en enlever manuellement ». Les deux vont donc dans le bloc « Professeur(s) » du
+           formulaire lui-même, qui force déjà à n'en garder qu'un pour valider une séance de
+           cours — un sélecteur extérieur ferait trancher l'admin deux fois pour la même chose. */
         forfait && professeursAttribues.length > 0 ? (
-          <ChoixProfesseurPlanification professeurs={professeursAttribues}>
-            {(teacherId) => (
-              <NouveauCreneauEtudiant
-                studentIds={[etudiant.id]}
-                teacherId={teacherId}
-                onCree={() => {
-                  recharger()
-                  rechargerParcours()
-                }}
-              />
-            )}
-          </ChoixProfesseurPlanification>
+          <NouveauCreneauEtudiant
+            studentIds={[etudiant.id]}
+            teacherIds={professeursAttribues.map((p) => p.id)}
+            onCree={() => {
+              recharger()
+              rechargerParcours()
+            }}
+          />
         ) : undefined
       }
       panneauPlanification={

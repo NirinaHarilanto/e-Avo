@@ -3,35 +3,31 @@ import { supabase } from '../../lib/supabaseClient'
 
 /* Résultat du quiz écrit d'un prospect, affiché là où l'admin décide de sa demande — précision
    client du 2026-10-31 : « l'admin verra également son résultat du quiz et son niveau provisoire
-   écrit ».
+   écrit ». Repris le 2026-10-31 pour un second écran (le pop-up du pipeline, « Voir le résultat du
+   quiz avec son niveau provisoire ») : capture à l'appui, un prospect encore « Appel diagnostic
+   planifié » n'affichait ni score ni niveau, alors que les deux sont connus dès sa réservation.
+
    Le parcours individuel se termine désormais par le questionnaire (créneau → informations →
    quiz → demande enregistrée). Ce qu'il en reste est une ligne `diagnostic_calls` portant le
    niveau estimé et le bilan détaillé, écrite par api/prospects/reserver.ts — exactement comme le
    fait le parcours collectif depuis 0091.
 
-   Provisoire, et dit comme tel : le niveau définitif est celui que l'admin arrête APRÈS l'appel,
-   en corrigeant cette même ligne. C'est la règle de `niveauDefinitif` (lib/niveauEtudiant.ts), et
-   l'étiquette « provisoire » est là pour qu'on ne la confonde pas. */
-export function ResultatQuizProspect({ prospectId }: { prospectId: string }) {
-  const [diagnostic, setDiagnostic] = useState<{ niveau_evalue: string | null; notes: string | null } | null>(null)
-  const [detailOuvert, setDetailOuvert] = useState(false)
+   Provisoire, et dit comme tel : au clic sur « Marquer le diagnostic comme fait »
+   (PipelineCRM.tsx, `marquerRealise`), `niveau_evalue` est RÉÉCRIT par l'évaluation que l'admin
+   porte pendant l'appel — ce bloc ne doit donc plus s'afficher une fois le statut passé à
+   « diagnostic_fait » : son `niveau_evalue` n'est alors plus celui du quiz. */
 
-  useEffect(() => {
-    let annule = false
-    supabase
-      .from('diagnostic_calls')
-      .select('niveau_evalue, notes')
-      .eq('prospect_id', prospectId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!annule) setDiagnostic(data ?? null)
-      })
-    return () => {
-      annule = true
-    }
-  }, [prospectId])
+export interface DiagnosticAvecBilan {
+  niveau_evalue: string | null
+  notes: string | null
+}
+
+/* Partie purement présentationnelle, sans requête : réutilisable par un écran qui a DÉJÀ chargé
+   la ligne `diagnostic_calls` en mémoire (le pipeline charge tous les diagnostics d'un coup pour
+   construire ses cartes, voir useProspectsPipeline.ts) — lui refaire demander la même ligne au
+   clic sur une fiche serait un aller-retour réseau superflu. */
+export function BlocResultatQuiz({ diagnostic }: { diagnostic: DiagnosticAvecBilan | null }) {
+  const [detailOuvert, setDetailOuvert] = useState(false)
 
   /* Le score est la première ligne du bilan rédigé par `redigerBilan` (lib/quiz.ts) : « Test de
      positionnement écrit : 12/20 — niveau estimé B1. » On la relit telle quelle plutôt que de
@@ -105,4 +101,30 @@ export function ResultatQuizProspect({ prospectId }: { prospectId: string }) {
       )}
     </div>
   )
+}
+
+/* Variante qui va chercher elle-même la ligne — pour un écran qui n'a QUE l'identifiant du
+   prospect (la carte d'un rendez-vous, voir shared/PopupEvenementAdmin.tsx), sans le reste du
+   dossier en mémoire. */
+export function ResultatQuizProspect({ prospectId }: { prospectId: string }) {
+  const [diagnostic, setDiagnostic] = useState<DiagnosticAvecBilan | null>(null)
+
+  useEffect(() => {
+    let annule = false
+    supabase
+      .from('diagnostic_calls')
+      .select('niveau_evalue, notes')
+      .eq('prospect_id', prospectId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!annule) setDiagnostic(data ?? null)
+      })
+    return () => {
+      annule = true
+    }
+  }, [prospectId])
+
+  return <BlocResultatQuiz diagnostic={diagnostic} />
 }

@@ -34,6 +34,7 @@ import { boutonPrimaireStyle } from '../ui/Boutons'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { Icone } from '../ui/Icones'
 import { BoutonRejoindreVisio } from '../shared/BoutonRejoindreVisio'
+import { BlocResultatQuiz } from '../shared/ResultatQuizProspect'
 
 /* Pastilles d'étape, relevées sur la maquette « Prospects » du 2026-10-16 : la couleur se
    fonce à mesure que le dossier avance, du blanc cerné de la première étape au violet plein de
@@ -1184,6 +1185,8 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
               </div>
             )}
 
+            {prospect.statut !== 'diagnostic_fait' && <BlocResultatQuiz diagnostic={prospect.diagnostic} />}
+
             {prospect.statut === 'diagnostic_planifie' && (
               <PostItRendezVous
                 prospect={prospect}
@@ -1669,6 +1672,7 @@ function CarteDuo({
                     « {p.objectif} »
                   </p>
                 )}
+                {p.statut !== 'diagnostic_fait' && <BlocResultatQuiz diagnostic={p.diagnostic} />}
               </div>
             ))}
 

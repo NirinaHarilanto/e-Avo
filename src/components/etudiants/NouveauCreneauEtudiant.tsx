@@ -27,20 +27,27 @@ function prochainQuartDHeure(): Date {
  * — l'admin retrouve ici tout ce que l'agenda lui offre (séance de cours OU rendez-vous « autre »
  *   pour une réunion ou une séance d'information, répétition, participants optionnels, notes),
  *   au lieu du seul couple date + durée ;
- * — le professeur et l'élève sont déjà dans la zone « Professeur et élèves » à l'ouverture : c'est
- *   tout ce que cet écran sait de plus que l'agenda, et le seul intérêt d'y avoir un bouton.
+ * — le professeur et l'élève sont déjà posés par défaut dans les blocs « Professeur(s) » et
+ *   « Élève(s) » à l'ouverture (scindés le 2026-10-31) : c'est tout ce que cet écran sait de
+ *   plus que l'agenda, et le seul intérêt d'y avoir un bouton.
  *
  * Ils restent retirables et on peut en ajouter : un point de suivi peut réunir l'élève et deux
  * professeurs, ou l'élève seul avec l'administration.
  */
 export function NouveauCreneauEtudiant({
   studentIds,
-  teacherId,
+  teacherIds,
   dureeParDefaut = 60,
   onCree,
 }: {
   studentIds: string[]
-  teacherId: string
+  /* Tous les professeurs ACTIFS de l'élève (0138), posés par défaut dans le bloc « Professeur(s) »
+     du formulaire — demande client du 2026-10-31 : « quand il y a deux professeurs qui gèrent
+     l'étudiant, mets les deux professeurs par défaut [...] l'admin pourra en enlever
+     manuellement ». La fenêtre y oblige elle-même à n'en garder qu'un pour une séance de cours
+     (`sessions.teacher_id` est une colonne unique) ; c'est donc elle, et non un sélecteur posé
+     avant l'ouverture, qui doit porter ce choix. */
+  teacherIds: string[]
   dureeParDefaut?: number
   onCree: () => void
 }) {
@@ -74,7 +81,7 @@ export function NouveauCreneauEtudiant({
           debutInitial={debutInitial}
           /* Le professeur d'abord : la fenêtre exige « exactement un professeur et au moins un
              élève » pour une séance de cours, et c'est dans cet ordre que l'admin les relit. */
-          participantsInitiaux={[teacherId, ...studentIds]}
+          participantsInitiaux={[...teacherIds, ...studentIds]}
           natureInitiale="seance_cours"
           dureeInitiale={dureeParDefaut}
           onFermer={() => setOuverte(false)}
