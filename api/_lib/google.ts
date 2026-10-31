@@ -808,20 +808,68 @@ export async function lienMeetDeLEvenement(
 /**
  * Crée l'événement Calendar et son lien de visioconférence.
  *
- * Le lien n'est plus un lien Meet : Google refuse l'accès à toute personne non connectée à un
- * compte Google dès lors que la réunion est hébergée par un compte Gmail gratuit — celui de
- * l'établissement. Une partie des élèves de HOC n'ont pas de compte Google, et aucune API ne lève
- * cette restriction (celle qui le permettrait, Meet API v2 `accessType: OPEN`, exige Workspace).
- * Le lien est donc une salle Jitsi, générée ici puis portée par l'événement : Calendar continue
- * d'assurer l'agenda et l'envoi des invitations, qui n'ont jamais posé problème.
+ * Deux chemins, selon le fournisseur voulu, et surtout UNE SEULE requête chacun.
  *
- * Le lien va dans `location` ET en tête de description. `location` est la source de vérité : les
- * modifications ultérieures d'un événement réécrivent la description, jamais le lieu.
+ * Meet (cours individuels, binômes DUO, appels diagnostic) : la visioconférence est demandée dans
+ * la création même, via `conferenceDataVersion=1`, et Google renvoie son lien dans la réponse.
+ * Jusqu'au 2026-10-31, l'événement naissait avec une salle Jitsi, recevait son Meet par une
+ * deuxième requête, puis une troisième venait remplacer le lien Jitsi par le lien Meet dans le
+ * lieu et la description. Chacune des trois notifiant les invités (`sendUpdates=all`), Google
+ * coupait à la troisième — « Rate Limit Exceeded » : l'événement restait alors affiché avec DEUX
+ * liens (le Meet et le Jitsi jamais effacé), et l'exception faisait perdre à l'appelant
+ * l'identifiant d'un événement pourtant bien créé, qui devenait orphelin dans l'agenda.
+ *
+ * Le lien Meet n'étant connu qu'APRÈS la création, il ne peut pas être recopié dans `location` :
+ * inutile, Google Calendar affiche nativement son bouton « Participer avec Google Meet », et rien
+ * dans l'application ne relit ce champ pour retrouver un lien (la base en est la source de vérité).
+ *
+ * Jitsi (cours collectifs) : Google refuse l'accès d'une réunion Meet hébergée par un compte Gmail
+ * gratuit à toute personne non connectée à un compte Google, et une partie des élèves de HOC n'en
+ * ont pas. Le lien est donc une salle Jitsi, générée ici et portée par l'événement — dans
+ * `location` ET en tête de description, `location` faisant foi : les modifications ultérieures
+ * réécrivent la description, jamais le lieu.
  */
 export async function creerEvenementVisio(
   integration: HoteAgenda,
   params: ParamsEvenement,
 ): Promise<{ eventId: string; lienVisio: string; fournisseur: FournisseurVisio }> {
+  if (params.fournisseur === 'google_meet') {
+    const reponse = await fetch(`${CALENDAR_URL}?conferenceDataVersion=1&sendUpdates=all`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${integration.accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        summary: params.titre,
+        description: params.description,
+        ...bornes(params.debut, params.dureeMinutes),
+        attendees: params.emailsInvites.map((email) => ({ email })),
+        conferenceData: {
+          createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: 'hangoutsMeet' } },
+        },
+      }),
+    })
+
+    const corps = (await reponse.json()) as {
+      id?: string
+      hangoutLink?: string
+      conferenceData?: { entryPoints?: { entryPointType?: string; uri?: string }[] }
+      error?: { message?: string }
+    }
+    if (!reponse.ok || !corps.id) {
+      throw new GoogleError(corps.error?.message ?? "Google Calendar a refusé la création de l'événement.")
+    }
+
+    const lienMeet = corps.hangoutLink ?? corps.conferenceData?.entryPoints?.find((e) => e.entryPointType === 'video')?.uri
+    if (lienMeet) {
+      return { eventId: corps.id, lienVisio: lienMeet, fournisseur: 'google_meet' }
+    }
+
+    /* Google a créé l'événement mais pas sa visioconférence : on lui pose la salle Jitsi plutôt
+       que de laisser une séance sans aucun lien. Une requête de plus, sur ce seul chemin d'échec. */
+    const lienDeSecours = nouveauLienVisio()
+    await modifierEvenementVisio(integration, corps.id, { lienVisio: lienDeSecours, description: params.description })
+    return { eventId: corps.id, lienVisio: lienDeSecours, fournisseur: 'jitsi' }
+  }
+
   const lienJitsi = nouveauLienVisio()
   const reponse = await fetch(`${CALENDAR_URL}?sendUpdates=all`, {
     method: 'POST',
@@ -838,19 +886,6 @@ export async function creerEvenementVisio(
   const corps = (await reponse.json()) as { id?: string; error?: { message?: string } }
   if (!reponse.ok || !corps.id) {
     throw new GoogleError(corps.error?.message ?? "Google Calendar a refusé la création de l'événement.")
-  }
-
-  /* L'événement naît avec la salle Jitsi, et c'est seulement ensuite qu'on tente d'y attacher un
-     Meet. Deux appels plutôt qu'un seul : si la création de la visio Google échoue, l'événement
-     existe déjà et porte un lien utilisable, au lieu de faire échouer toute la planification pour
-     une visio. Les invités ne reçoivent pas deux convocations pour autant — Google regroupe les
-     notifications d'un même événement. */
-  if (params.fournisseur === 'google_meet') {
-    const lienMeet = await lienMeetDeLEvenement(integration, corps.id)
-    if (lienMeet) {
-      await modifierEvenementVisio(integration, corps.id, { lienVisio: lienMeet, description: params.description })
-      return { eventId: corps.id, lienVisio: lienMeet, fournisseur: 'google_meet' }
-    }
   }
 
   return { eventId: corps.id, lienVisio: lienJitsi, fournisseur: 'jitsi' }
