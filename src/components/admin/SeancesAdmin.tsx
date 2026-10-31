@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { jetonAcces } from '../../lib/jetonAcces'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useSeancesAdmin, type SeanceAdmin } from '../../hooks/useSeancesAdmin'
@@ -37,6 +37,7 @@ import { Onglets } from '../ui/Onglets'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { AgendaHebdo } from '../ui/AgendaHebdo'
+import { ChampRecherche } from '../ui/BarreOutils'
 import { useProfileContext } from '../../context/ProfileContext'
 import { estLienReel, getJoinUrl } from '../../lib/visio'
 import { ajouterJours, lundiDeLaSemaine } from '../../lib/agenda'
@@ -66,6 +67,36 @@ export function SeancesAdmin() {
   const [vue, setVue] = useState<Vue>('semaine')
   const [semaineDebut, setSemaineDebut] = useState(() => lundiDeLaSemaine(new Date()))
   const [personnesSelectionnees, setPersonnesSelectionnees] = useState<Set<string>>(new Set())
+  const [recherche, setRecherche] = useState('')
+
+  /* Tri sur le PRÉNOM — demande client du 2026-10-31 : « il faudrait afficher les professeurs par
+     ordre alphabétique et étudiant par ordre alphabétique ». Les deux listes arrivaient déjà
+     triées par la base (`order('nom')`, useProfesseurs/useEtudiants), mais sur le nom de FAMILLE :
+     chaque ligne affichant « Prénom NOM », l'œil lisait Harinjo, Patricia, Ashley, Raissa… et n'y
+     voyait aucun ordre. On trie donc sur ce qui est lu en premier.
+     `localeCompare` en français, et non une comparaison brute : « Éric » doit se ranger avec les
+     E, pas après les Z comme le ferait un tri sur les codes de caractères. */
+  const parPrenom = useCallback(
+    (a: { prenom: string | null; nom: string | null }, b: { prenom: string | null; nom: string | null }) =>
+      `${a.prenom ?? ''} ${a.nom ?? ''}`.trim().localeCompare(`${b.prenom ?? ''} ${b.nom ?? ''}`.trim(), 'fr', {
+        sensitivity: 'base',
+      }),
+    [],
+  )
+
+  /* La recherche porte sur le prénom ET le nom, dans les deux listes à la fois — « une zone de
+     recherche au-dessus du bloc admin, permettant de retrouver toute personne de HOC ». Elle ne
+     décoche rien : une personne cochée puis masquée par la recherche reste dans la sélection et
+     son agenda reste affiché, sinon taper un nom ferait disparaître sans prévenir ce qu'on venait
+     de composer. */
+  const correspond = useCallback(
+    (p: { prenom: string | null; nom: string | null }) =>
+      !recherche.trim() || `${p.prenom ?? ''} ${p.nom ?? ''}`.toLowerCase().includes(recherche.trim().toLowerCase()),
+    [recherche],
+  )
+
+  const professeursAffiches = useMemo(() => [...professeurs].sort(parPrenom).filter(correspond), [professeurs, parPrenom, correspond])
+  const etudiantsAffiches = useMemo(() => [...etudiants].sort(parPrenom).filter(correspond), [etudiants, parPrenom, correspond])
 
   const [seanceOuverteId, setSeanceOuverteId] = useState<string | null>(null)
   const [prestationOuverteId, setPrestationOuverteId] = useState<string | null>(null)
@@ -123,7 +154,18 @@ export function SeancesAdmin() {
   )
 
   const evenements = useMemo(() => {
-    // Rien coché : comportement d'origine, toutes les séances de la semaine, aucun agenda admin.
+    /* Rien coché, rien affiché — demande client du 2026-10-31, capture à l'appui : « pourquoi il
+       y a des rdv affichés dans l'agenda alors qu'il n'y a aucune personne sélectionnée dans le
+       panel de navigation ? »
+
+       La grille montrait jusqu'ici toutes les séances de l'établissement tant qu'aucune case
+       n'était cochée. Avec neuf professeurs et une soixantaine d'élèves, cela donnait une semaine
+       illisible que personne n'avait demandée, et surtout contredisait le panneau lui-même : des
+       cases à cocher qui ne changent rien tant qu'on n'y touche pas annoncent une sélection vide,
+       pas une sélection totale. La grille part donc vide et se remplit de ce qu'on coche, comme
+       un agenda à plusieurs calendriers. Le message de la grille vide dit quoi faire. */
+    if (personnesSelectionnees.size === 0) return []
+
     const visibles =
       personnesSelectionnees.size === 0
         ? seancesSemaine
@@ -316,7 +358,20 @@ export function SeancesAdmin() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="grille-agenda-filtre">
-            <aside style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+            {/* Panneau plié dans sa propre hauteur, avec son défilement — demande client du
+                2026-10-31 : « la liste des étudiants et professeurs est très longue visuellement.
+                Il faut un bloc fixe visuel contenant la liste et une barre de défilement vertical,
+                exactement comme la liste des étudiants dans la section étudiants ». Ce sont donc
+                littéralement les mêmes classes que cette liste-là (EtudiantsAdmin.tsx), pour que
+                les deux écrans se comportent pareil et n'aient qu'un seul style à maintenir. */}
+            <aside className="liste-maitre-sticky" style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
+              <ChampRecherche
+                valeur={recherche}
+                onChange={setRecherche}
+                placeholder="Rechercher une personne…"
+                etiquette="Rechercher une personne de HOC"
+              />
+
               {personnesSelectionnees.size > 0 && (
                 <button
                   onClick={() => setPersonnesSelectionnees(new Set())}
@@ -326,6 +381,8 @@ export function SeancesAdmin() {
                 </button>
               )}
 
+              {/* « Admin » n'est pas une personne de HOC mais un agenda : il reste donc en tête,
+                  hors du champ de la recherche, toujours atteignable. */}
               <LigneFiltrePersonne
                 id={ID_ADMIN}
                 libelle="Admin"
@@ -334,11 +391,19 @@ export function SeancesAdmin() {
                 onBasculer={() => basculerPersonne(ID_ADMIN)}
               />
 
+              <div className="liste-maitre-defilante" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {recherche.trim() && professeursAffiches.length === 0 && etudiantsAffiches.length === 0 && (
+                <span style={{ fontSize: 11.5, color: 'var(--muted)', padding: '6px 4px', lineHeight: 1.5 }}>
+                  Personne ne correspond à « {recherche.trim()} ».
+                </span>
+              )}
+
+              {professeursAffiches.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted-2)', padding: '2px 4px' }}>
                   Professeurs
                 </span>
-                {professeurs.map((prof) => {
+                {professeursAffiches.map((prof) => {
                   const nb = seancesSemaine.filter((s) => s.professeur?.id === prof.id).length
                   return (
                     <LigneFiltrePersonne
@@ -353,12 +418,14 @@ export function SeancesAdmin() {
                   )
                 })}
               </div>
+              )}
 
+              {etudiantsAffiches.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--muted-2)', padding: '2px 4px' }}>
                   Étudiants
                 </span>
-                {etudiants.map((etu) => {
+                {etudiantsAffiches.map((etu) => {
                   const nb = seancesSemaine.filter((s) => s.inscriptions.some((i) => i.etudiant?.id === etu.id)).length
                   return (
                     <LigneFiltrePersonne
@@ -372,6 +439,8 @@ export function SeancesAdmin() {
                     />
                   )
                 })}
+              </div>
+              )}
               </div>
             </aside>
 
@@ -389,7 +458,7 @@ export function SeancesAdmin() {
                 videMessage={
                   personnesSelectionnees.size > 0
                     ? 'Aucun événement pour les personnes cochées cette semaine. Changez la sélection ou de semaine.'
-                    : 'Aucune séance cette semaine. Les professeurs les créent depuis leur propre agenda, ou l’admin en lot depuis un forfait étudiant.'
+                    : 'Cochez une ou plusieurs personnes à gauche pour voir leur semaine — un professeur, un étudiant, ou « Admin » pour votre propre agenda.'
                 }
               />
             </div>

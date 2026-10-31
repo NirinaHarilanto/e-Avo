@@ -3456,3 +3456,20 @@ html:has(.page-connexion-hoc) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Panneau de personnes de « Séances & visio » : il réutilise `.liste-maitre-sticky` et
+   `.liste-maitre-defilante` de la page Étudiants (demande client du 2026-10-31, « exactement
+   comme la liste des étudiants »). Ces deux classes s'activent à partir de 861 px, alors que
+   `.grille-agenda-filtre` se replie en une seule colonne en dessous de 901 px : entre les deux,
+   le panneau se collerait en haut d'une grille déjà pleine largeur, et sa barre de défilement
+   couperait la liste pour rien. Neutralisé sur cette plage, où liste et agenda se lisent l'un
+   après l'autre. */
+@media (max-width: 900px) {
+  .grille-agenda-filtre .liste-maitre-sticky {
+    position: static;
+    max-height: none;
+  }
+  .grille-agenda-filtre .liste-maitre-defilante {
+    overflow-y: visible;
+  }
+}

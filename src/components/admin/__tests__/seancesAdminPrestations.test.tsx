@@ -86,13 +86,17 @@ vi.mock('../../../components/ui/AgendaHebdo', () => ({
 const { SeancesAdmin } = await import('../SeancesAdmin')
 
 describe('SeancesAdmin — prestations corporate / chat & chill', () => {
-  it('montre la prestation dans l’agenda admin, sans rien cocher', () => {
+  /* Rien coché, rien affiché depuis le 2026-10-31 (demande client : « pourquoi il y a des rdv
+     affichés dans l'agenda alors qu'il n'y a aucune personne sélectionnée ? »). Ce test disait
+     exactement l'inverse jusque-là — il fixait l'ancienne règle, où la grille montrait tout
+     l'établissement tant qu'aucune case n'était cochée. */
+  it('n’affiche rien tant qu’aucune personne n’est cochée', () => {
     render(
       <MemoryRouter>
         <SeancesAdmin />
       </MemoryRouter>,
     )
-    expect(screen.getByText('Telma colleagues')).toBeTruthy()
+    expect(screen.queryByText('Telma colleagues')).toBeNull()
   })
 
   it('la garde quand son professeur est coché', () => {
@@ -121,6 +125,8 @@ describe('SeancesAdmin — prestations corporate / chat & chill', () => {
         <SeancesAdmin />
       </MemoryRouter>,
     )
+    // Il faut cocher son professeur pour qu'elle soit à l'écran : la grille part vide.
+    fireEvent.click(screen.getByLabelText(/Nirina Stéphane/))
     fireEvent.click(screen.getByText('Telma colleagues'))
     expect(screen.getByText('Prestation hors cursus')).toBeTruthy()
     // La fiche nomme le client et le type, comme côté professeur.
