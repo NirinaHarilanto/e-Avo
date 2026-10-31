@@ -776,13 +776,11 @@ function FormulaireAcompte({
         className="btn-shine"
         style={{ ...boutonPrimaireStyle, opacity: enCours || !montant || !moyenValide ? 0.6 : 1 }}
       >
-        {enCours
-          ? 'Enregistrement…'
-          : estProfesseur
-            ? 'Enregistrer le versement'
-            : Number(montant) > 0
-              ? `Encaisser ${formaterMontant(Number(montant), devise)}`
-              : 'Encaisser'}
+        {/* « Enregistrer l'acompte », demandé explicitement le 2026-10-31 — remplace le montant
+            dynamique (« Encaisser 300 000,00 Ar ») que ce bouton portait depuis le correctif de
+            la veille sur « Déjà encaissé/réglé » : plus simple à lire d'un coup d'œil, et le
+            montant exact reste visible juste au-dessus dans le champ qu'on vient de remplir. */}
+        {enCours ? 'Enregistrement…' : estProfesseur ? 'Enregistrer le versement' : 'Enregistrer l’acompte'}
       </button>
     </div>
   )

@@ -32,6 +32,7 @@ import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { Modale } from '../ui/Modale'
 import { boutonPrimaireStyle } from '../ui/Boutons'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
+import { boutonDangerStyle, boutonNeutreStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
 import { BoutonRejoindreVisio } from '../shared/BoutonRejoindreVisio'
 import { BlocResultatQuiz } from '../shared/ResultatQuizProspect'
@@ -915,6 +916,36 @@ function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => vo
     onChange()
   }
 
+  /* Réinitialisation des paiements de ce prospect — demande client du 2026-10-31 : « rajoute un
+     bouton supprimer qui permet d'effacer tous les paiements enregistrés [...] ce qui permettra à
+     l'admin de corriger les erreurs ». Deux acomptes saisis par mégarde avaient soldé une ligne
+     de 1 100 000 Ar, et rien, depuis la fiche, ne permettait de repartir de zéro.
+
+     Suppression DOUCE, exactement comme « Supprimer ce paiement » de la fenêtre de détail
+     (DetailPaiementModale.tsx) : la ligne sort des listes mais reste en base avec son motif et
+     son auteur. Un vrai DELETE ferait disparaître sans trace un mouvement financier et casserait
+     les factures déjà émises qui le référencent. Les acomptes et les échéances suivent leur
+     ligne : rattachés à elle, ils disparaissent de l'écran avec elle.
+
+     Pour un binôme, c'est le PORTEUR qui tient la ligne de paiement (voir `identifierPorteur`) :
+     ce prospect-ci peut donc ne pas en avoir, et il n'y a alors rien à réinitialiser. */
+  async function reinitialiserPaiements(motif: string) {
+    if (!profile || !prospect.paiement) return
+    setEnCours(true)
+    setErreur(null)
+    const { error } = await supabase
+      .from('student_payments')
+      .update({ supprime_le: new Date().toISOString(), supprime_par: profile.id, motif_suppression: motif })
+      .eq('prospect_id', prospect.id)
+      .is('supprime_le', null)
+    setEnCours(false)
+    if (error) {
+      setErreur(error.message)
+      return
+    }
+    onChange()
+  }
+
   async function choisirTarif(tarifId: string) {
     setErreur(null)
     const { error } = await supabase.from('prospects').update({ tarif_choisi_id: tarifId || null }).eq('id', prospect.id)
@@ -992,6 +1023,7 @@ function useActionsProspect(prospect: ProspectAvecDiagnostic, onChange: () => vo
     marquerRealise,
     enregistrerDiagnostic,
     choisirTarif,
+    reinitialiserPaiements,
     basculerEssai,
     essaiHeures,
     choisirHeuresEssai,
@@ -1040,6 +1072,7 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
     marquerRealise,
     enregistrerDiagnostic,
     choisirTarif,
+    reinitialiserPaiements,
     basculerEssai,
     essaiHeures,
     choisirHeuresEssai,
@@ -1308,7 +1341,7 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
                     ci-dessus (section « Niveau d'anglais actuel » → Niveau estimé, et « Rythme
                     souhaité ») — demande client du 2026-09-21, « corrige les redondances ». */}
                 <ApercuNiveauRythme reponses={reponses} />
-                <SelecteurTarifChoisi tarifs={tarifsDuProgramme} valeur={prospect.tarif_choisi_id} onChoisir={choisirTarif} />
+                <SelecteurTarifChoisi tarifs={tarifsDuProgramme} valeur={prospect.tarif_choisi_id} verrouille={!!prospect.paiement} onChoisir={choisirTarif} />
                 <button onClick={marquerRealise} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
                   Confirmer
                 </button>
@@ -1324,7 +1357,7 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
                   onChange={setReponses}
                 />
                 <ApercuNiveauRythme reponses={reponses} />
-                <SelecteurTarifChoisi tarifs={tarifsDuProgramme} valeur={prospect.tarif_choisi_id} onChoisir={choisirTarif} />
+                <SelecteurTarifChoisi tarifs={tarifsDuProgramme} valeur={prospect.tarif_choisi_id} verrouille={!!prospect.paiement} onChoisir={choisirTarif} />
                 <ChoixHeureEssai
                   essai={essai}
                   heures={essaiHeures}
@@ -1342,6 +1375,8 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
                   collectif={estPositionnement}
                   echeancesNonReglees={prospect.echeancesNonReglees}
                   onOuvrir={() => setPaiementOuvert(true)}
+                  onReinitialiser={reinitialiserPaiements}
+                  reinitialisationEnCours={enCours}
                 />
                 <button onClick={enregistrerDiagnostic} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
                   {enCours ? 'Enregistrement…' : 'Enregistrer'}
@@ -1788,7 +1823,7 @@ function CarteDuo({
                   reponsesAutre={reponsesAutre}
                   onChangeAutre={setReponsesAutre}
                 />
-                <SelecteurTarifChoisi tarifs={a.tarifsDuProgramme} valeur={porteur.tarif_choisi_id} onChoisir={a.choisirTarif} />
+                <SelecteurTarifChoisi tarifs={a.tarifsDuProgramme} valeur={porteur.tarif_choisi_id} verrouille={!!porteur.paiement} onChoisir={a.choisirTarif} />
                 <button onClick={marquerDuoRealise} disabled={a.enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: a.enCours ? 0.7 : 1 }}>
                   Confirmer
                 </button>
@@ -1809,7 +1844,7 @@ function CarteDuo({
                   reponsesAutre={reponsesAutre}
                   onChangeAutre={setReponsesAutre}
                 />
-                <SelecteurTarifChoisi tarifs={a.tarifsDuProgramme} valeur={porteur.tarif_choisi_id} onChoisir={a.choisirTarif} />
+                <SelecteurTarifChoisi tarifs={a.tarifsDuProgramme} valeur={porteur.tarif_choisi_id} verrouille={!!porteur.paiement} onChoisir={a.choisirTarif} />
                 <ChoixHeureEssai
                   essai={a.essai}
                   heures={a.essaiHeures}
@@ -1824,6 +1859,8 @@ function CarteDuo({
                   essai={a.essai}
                   echeancesNonReglees={porteur.echeancesNonReglees}
                   onOuvrir={() => a.setPaiementOuvert(true)}
+                  onReinitialiser={a.reinitialiserPaiements}
+                  reinitialisationEnCours={a.enCours}
                 />
                 <button onClick={enregistrerDuoDiagnostic} disabled={a.enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: a.enCours ? 0.7 : 1 }}>
                   {a.enCours ? 'Enregistrement…' : 'Enregistrer'}
@@ -1982,6 +2019,8 @@ function BlocPaiementForfait({
   collectif = false,
   echeancesNonReglees = 0,
   onOuvrir,
+  onReinitialiser,
+  reinitialisationEnCours = false,
 }: {
   paiement: ProspectAvecDiagnostic['paiement']
   tarifAEncaisser: { titre: string; prix: number } | null
@@ -1993,6 +2032,11 @@ function BlocPaiementForfait({
      s'en apercevoir. */
   echeancesNonReglees?: number
   onOuvrir: () => void
+  /* Réinitialisation de TOUS les paiements de ce prospect — demande client du 2026-10-31,
+     capture à l'appui : un bouton pour corriger une saisie en double sans rouvrir la fenêtre de
+     détail. `undefined` pour la fiche d'un professeur, qui n'a pas cette notion. */
+  onReinitialiser?: (motif: string) => void
+  reinitialisationEnCours?: boolean
 }) {
   const ligne = paiement
     ? { montant: paiement.montant, montant_regle: paiement.montant_regle, statut: paiement.statut }
@@ -2044,6 +2088,9 @@ function BlocPaiementForfait({
           <button onClick={onOuvrir} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9 }}>
             {reste > 0 ? 'Ajouter un acompte' : 'Voir le paiement'}
           </button>
+          {onReinitialiser && (
+            <BoutonReinitialiserPaiements enCours={reinitialisationEnCours} onReinitialiser={onReinitialiser} />
+          )}
         </>
       ) : (
         <button
@@ -2065,6 +2112,67 @@ function BlocPaiementForfait({
               : 'Enregistrer le paiement du forfait'}
         </button>
       )}
+    </div>
+  )
+}
+
+/* Réinitialisation de tous les paiements d'un prospect — demande client du 2026-10-31, capture à
+   l'appui : « rajoute un bouton supprimer qui permet d'effacer tous les paiements enregistrés
+   [...] ce qui permettra à l'admin de corriger les erreurs ». Même geste à deux temps que
+   « Supprimer ce paiement » (DetailPaiementModale.tsx) : un motif obligatoire, conservé avec les
+   lignes supprimées en douceur, pour qu'une correction reste traçable. */
+function BoutonReinitialiserPaiements({
+  enCours,
+  onReinitialiser,
+}: {
+  enCours: boolean
+  onReinitialiser: (motif: string) => void
+}) {
+  const [ouvert, setOuvert] = useState(false)
+  const [motif, setMotif] = useState('')
+
+  if (!ouvert) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOuvert(true)}
+        disabled={enCours}
+        style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: 0, fontSize: 11.5, fontWeight: 700, color: 'var(--danger)', cursor: 'pointer', fontFamily: 'inherit' }}
+      >
+        Réinitialiser les paiements
+      </button>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <span style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--muted)' }}>
+        Tous les acomptes et échéances de ce dossier seront retirés. Ils restent conservés en base, avec ce motif, pour
+        garder une trace de la correction.
+      </span>
+      <input
+        value={motif}
+        onChange={(e) => setMotif(e.target.value)}
+        placeholder="Motif (doublon, erreur de saisie…)"
+        style={champStyle}
+      />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button type="button" onClick={() => setOuvert(false)} style={boutonNeutreStyle}>
+          Annuler
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onReinitialiser(motif.trim())
+            setOuvert(false)
+            setMotif('')
+          }}
+          disabled={enCours || motif.trim().length === 0}
+          style={{ ...boutonDangerStyle, opacity: enCours || motif.trim().length === 0 ? 0.6 : 1 }}
+        >
+          {enCours ? 'Réinitialisation…' : 'Confirmer la réinitialisation'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -2166,10 +2274,18 @@ function ApercuNiveauRythme({ reponses }: { reponses: ReponsesDiagnostic }) {
 function SelecteurTarifChoisi({
   tarifs,
   valeur,
+  verrouille = false,
   onChoisir,
 }: {
   tarifs: { id: string; titre: string; prix: number; unite: string; heures: number | null }[]
   valeur: string | null
+  /* Figé dès qu'un paiement est enregistré sur cette base — demande client du 2026-10-31 : « une
+     fois un paiement effectué, il faudrait griser la zone forfait choisi pour empêcher
+     l'utilisateur de remodifier le forfait ». Le montant encaissé a été calculé sur CE forfait :
+     en changer ensuite laisserait une ligne de paiement qui ne correspond plus à rien, et c'est
+     elle qui sert ensuite de base au forfait créé à la conversion (convert-prospect.ts).
+     Le choix de l'essai juste au-dessus portait déjà ce verrou ; le forfait lui échappait. */
+  verrouille?: boolean
   onChoisir: (tarifId: string) => void
 }) {
   if (tarifs.length === 0) return null
@@ -2178,8 +2294,17 @@ function SelecteurTarifChoisi({
       <label style={{ ...etiquetteStyle, fontSize: 11 }}>Forfait choisi</label>
       <select
         value={valeur ?? ''}
+        disabled={verrouille}
         onChange={(e) => onChoisir(e.target.value)}
-        style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '9px 10px', fontSize: 12.5, color: 'var(--ink)', background: 'var(--fond-champ, rgba(0,0,0,.22))' }}
+        style={{
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          padding: '9px 10px',
+          fontSize: 12.5,
+          color: verrouille ? 'var(--muted-2)' : 'var(--ink)',
+          background: verrouille ? 'var(--surface-alt)' : 'var(--fond-champ, rgba(0,0,0,.22))',
+          cursor: verrouille ? 'not-allowed' : 'pointer',
+        }}
       >
         <option value="">Non renseigné</option>
         {tarifs.map((t) => (
@@ -2188,6 +2313,12 @@ function SelecteurTarifChoisi({
           </option>
         ))}
       </select>
+      {verrouille && (
+        <span style={{ fontSize: 11, lineHeight: 1.5, color: 'var(--muted-2)' }}>
+          Forfait figé : un paiement a déjà été enregistré dessus. Pour en changer, réinitialisez d’abord les paiements
+          ci-dessous.
+        </span>
+      )}
     </div>
   )
 }
