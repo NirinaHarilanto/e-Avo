@@ -1373,6 +1373,37 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['document_partages']['Insert']>
         Relationships: []
       }
+      /* Partage d'un DOSSIER (0155), à ne pas confondre avec `document_partages` juste au-dessus,
+         qui ne porte que sur un fichier. Un dossier partagé couvre aussi ses sous-dossiers et ce
+         qui y sera déposé plus tard, et peut accorder le droit d'y écrire. */
+      document_dossier_partages: {
+        Row: {
+          id: string
+          dossier_id: string
+          destinataire_profile_id: string
+          partage_par_profile_id: string
+          niveau: 'lecture' | 'ecriture'
+          message: string | null
+          /* Figés à l'insertion par trigger, même raison qu'en 0060/0114 pour les fichiers :
+             chacun des deux ne peut pas toujours lire le profil de l'autre. */
+          partage_par_nom: string | null
+          destinataire_nom: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          dossier_id: string
+          destinataire_profile_id: string
+          partage_par_profile_id: string
+          niveau: 'lecture' | 'ecriture'
+          message?: string | null
+          partage_par_nom?: string | null
+          destinataire_nom?: string | null
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['document_dossier_partages']['Insert']>
+        Relationships: []
+      }
       document_permissions: {
         Row: {
           id: string

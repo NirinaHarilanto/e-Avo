@@ -20,7 +20,13 @@ export function FenetreContact({ ouverte, onFermer }: { ouverte: boolean; onFerm
   const [projet, setProjet] = useState('')
   const [erreur, setErreur] = useState<string | null>(null)
   const [envoiEnCours, setEnvoiEnCours] = useState(false)
-  const [envoye, setEnvoye] = useState(false)
+  /* Ce qu'il faut encore nommer dans l'écran de confirmation, APRÈS que les champs ont été vidés
+     — demande client du 2026-10-31 : « une fois le message envoyé, il faut nettoyer les zones
+     renseignées ». Les champs gardaient sinon leur contenu : invisible derrière la confirmation,
+     mais de retour intact à la réouverture de la fenêtre, où il invitait à renvoyer deux fois le
+     même message. Le nom et l'adresse sont donc recopiés ici avant le nettoyage, le temps
+     d'écrire « Merci, X — nous vous répondons à Y ». */
+  const [confirmation, setConfirmation] = useState<{ nom: string; email: string } | null>(null)
   const champNom = useRef<HTMLInputElement>(null)
   const champProjet = useRef<HTMLTextAreaElement>(null)
 
@@ -29,7 +35,7 @@ export function FenetreContact({ ouverte, onFermer }: { ouverte: boolean; onFerm
      sans ça, rouvrir après un envoi réussi laisserait voir l'ancien message de confirmation. */
   useEffect(() => {
     if (!ouverte) return
-    setEnvoye(false)
+    setConfirmation(null)
     setErreur(null)
     document.documentElement.style.overflow = 'hidden'
     const miseAuPoint = setTimeout(() => champNom.current?.focus(), 250)
@@ -69,7 +75,13 @@ export function FenetreContact({ ouverte, onFermer }: { ouverte: boolean; onFerm
         }),
       }).then((r) => r.json())
       if (reponse.error) throw new Error(reponse.error)
-      setEnvoye(true)
+      setConfirmation({ nom: nomSaisi, email: email.trim() })
+      /* Vidés seulement maintenant : le message est parti, il n'y a plus rien à conserver. En cas
+         d'échec au contraire, tout reste en place — on ne fait jamais retaper un message perdu. */
+      setNom('')
+      setTelephone('')
+      setEmail('')
+      setProjet('')
     } catch (erreurEnvoi) {
       setErreur(erreurEnvoi instanceof Error ? erreurEnvoi.message : 'L’envoi a échoué, réessayez.')
     } finally {
@@ -121,12 +133,12 @@ export function FenetreContact({ ouverte, onFermer }: { ouverte: boolean; onFerm
           </a>
         </div>
         <form noValidate onSubmit={envoyer}>
-          {envoye ? (
+          {confirmation ? (
             <div className="confirmation">
               <h3>Message envoyé</h3>
               <p>
-                Merci{nom.trim() ? `, ${nom.trim()}` : ''} ! Votre message est bien arrivé, nous vous répondons
-                rapidement{email.trim() ? ` à ${email.trim()}` : ''}.
+                Merci{confirmation.nom ? `, ${confirmation.nom}` : ''} ! Votre message est bien arrivé, nous vous
+                répondons rapidement{confirmation.email ? ` à ${confirmation.email}` : ''}.
               </p>
               <button type="button" className="b gold" onClick={onFermer}>
                 Fermer

@@ -1,15 +1,16 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { cheminDossier, sousDossiers, useDossiersDocuments, type DossierDocument, type PorteeDossiers } from '../../hooks/useDossiersDocuments'
 import { useDocumentsPartages } from '../../hooks/useDocumentsPartages'
+import { useDossiersPartages } from '../../hooks/useDossiersPartages'
 import type { Database, CategorieDocument } from '../../types/database.types'
 import { UploaderDocument } from './UploaderDocument'
 import { ListeDocuments } from './ListeDocuments'
+import { PanneauDossiers } from './PanneauDossiers'
+import { PartagerDossierModale } from './PartagerDossierModale'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
-import { boutonSecondaireStyle, boutonNeutreStyle } from '../ui/Boutons'
 import { champStyle } from '../ui/Champ'
-import { Icone } from '../ui/Icones'
 
 type Document = Database['public']['Tables']['documents']['Row']
 
@@ -17,21 +18,22 @@ type Document = Database['public']['Tables']['documents']['Row']
    collision possible avec un identifiant de dossier. */
 const ID_PARTAGES = '__partages__'
 
-/* Ordre et libellés des quatre catégories par défaut (0059/0062) — demande client du
-   2026-09-22 : « disposées sous forme d'onglets ... intitulés plus visibles et lisibles en
-   entier ». Un dossier renommé ou supprimé par la personne sort simplement de cette liste
-   (filtré plus bas) plutôt que d'afficher un onglet cassé. */
-const NOMS_PAR_DEFAUT = ['Mes supports pédagogiques', 'Mes notes', 'Mes fichiers partagés', 'Mes communications HOC']
-
 /* Espace documentaire arborescent, partagé par les trois espaces (admin, professeur, étudiant)
    — demande client du 2026-09-21. Un seul composant pour les trois : les règles de visibilité
    sont portées par la RLS (0018 pour les fichiers, 0058 pour les dossiers), pas par l'écran,
    donc rien ne justifierait trois copies qui divergeraient.
 
-   Un dossier ne fait que classer : il ne donne ni ne retire aucun droit (voir le commentaire de
-   la migration 0058). C'est pourquoi la suppression d'un fichier reste exactement celle d'avant,
-   et qu'un dossier ne se supprime que vide — retirer ses fichiers passe obligatoirement par
-   l'API qui nettoie aussi le bucket Storage. */
+   Refondu le 2026-10-31 sur le modèle d'un explorateur de fichiers, à la demande du client :
+   « réorganise bien l'arborescence et la mécanique de la gestion de dossier, il doit être
+   exactement similaire à la gestion de dossier sur PC ». Concrètement : un panneau de navigation
+   à gauche où l'arbre se déplie, le contenu à droite, le clic droit pour renommer / créer /
+   partager / supprimer, et le renommage directement sur place. Les pastilles de catégories qui
+   tenaient lieu de navigation ont disparu — elles ne montraient que la racine et ne disaient rien
+   de la profondeur.
+
+   Un dossier ne donnait historiquement aucun droit (0058, il ne faisait que classer). Ce n'est
+   plus vrai depuis 0155 : un dossier PARTAGÉ ouvre son contenu, ses sous-dossiers et ce qu'on y
+   déposera, en vue seule ou en écriture. */
 export function ExplorateurDocuments({
   documents,
   ownerProfileId,
@@ -60,18 +62,14 @@ export function ExplorateurDocuments({
   /* À `false` pour un espace consulté sans pouvoir le réorganiser (un professeur range ses
      propres documents, pas l'arborescence de son élève — voir la policy update de 0058). */
   peutOrganiser?: boolean
-  /* Distinct de `peutOrganiser` : l'élève et le professeur CONSULTENT la bibliothèque commune de
-     l'établissement sans pouvoir y déposer quoi que ce soit (seul l'admin l'alimente), alors
-     qu'ils déposent librement dans leur propre espace. Ranger et déposer sont deux droits
-     différents, et un même écran peut en accorder un sans l'autre. */
+  /* Distinct de `peutOrganiser` : ranger et déposer sont deux droits différents, et un même écran
+     peut en accorder un sans l'autre. */
   peutDeposer?: boolean
   forcerCategorie?: CategorieDocument
   etablissementWide?: boolean
   messageVide?: string
-  /* Quelle arborescence on explore (0149) : l'espace documentaire d'UNE personne, ou la
-     bibliothèque commune des documents partageables, qui n'appartient à personne en particulier.
-     En portée « établissement », les quatre catégories par défaut et « Mes fichiers partagés »
-     n'ont pas de sens — ce sont des dossiers personnels — et le classement se lit à la racine. */
+  /* Quelle arborescence on explore (0149) : l'espace documentaire d'UNE personne, ou celle des
+     documents marqués partageables. */
   portee?: PorteeDossiers
   titreRacine?: string
 }) {
@@ -79,43 +77,84 @@ export function ExplorateurDocuments({
   const commune = portee === 'etablissement'
   const { dossiers, loading, erreur, recharger } = useDossiersDocuments(ownerProfileId, portee)
   const { partages, recharger: rechargerPartages } = useDocumentsPartages(ownerProfileId)
-  /* `ID_PARTAGES` désigne le dossier « Mes fichiers partagés », qui n'existe pas en base : les
-     fichiers reçus appartiennent à d'autres personnes et restent dans LEUR arborescence (voir
-     0059). Une valeur sentinelle plutôt qu'un vrai uuid, donc jamais en collision. */
+  /* Dossiers reçus (0155) : seulement dans SON PROPRE espace. Dans l'espace d'un tiers consulté
+     par un admin, ou dans la bibliothèque des partageables, afficher « partagés avec moi » n'a
+     aucun sens — ce ne sont pas mes dossiers que je regarde. */
+  const espacePersonnel = !commune && profile?.id === ownerProfileId
+  const {
+    racines: dossiersRecus,
+    descendance: descendanceRecue,
+    recharger: rechargerDossiersRecus,
+  } = useDossiersPartages(espacePersonnel ? profile?.id : undefined)
+
   const [dossierCourantId, setDossierCourantId] = useState<string | null>(null)
-  const [creationOuverte, setCreationOuverte] = useState(false)
+  const [creationDansId, setCreationDansId] = useState<string | null | undefined>(undefined)
   const [nouveauNom, setNouveauNom] = useState('')
+  const [renommageId, setRenommageId] = useState<string | null>(null)
+  const [nomRenomme, setNomRenomme] = useState('')
+  const [dossierAPartager, setDossierAPartager] = useState<DossierDocument | null>(null)
   const [enCours, setEnCours] = useState(false)
   const [erreurAction, setErreurAction] = useState<string | null>(null)
+  const champCreation = useRef<HTMLInputElement>(null)
+
+  /* Ce qu'ouvre chaque dossier reçu : la racine partagée porte le niveau, ses descendants en
+     héritent — exactement ce que calcule `dossiers_accessibles_par_partage` côté base (0155). Le
+     recalculer ici sert l'affichage ; c'est la base, et elle seule, qui autorise. */
+  const niveauParDossier = useMemo(() => {
+    const niveaux = new Map<string, 'lecture' | 'ecriture'>()
+    const tous = [...dossiersRecus.map((r) => r.dossier), ...descendanceRecue]
+    for (const { dossier, partage } of dossiersRecus) niveaux.set(dossier.id, partage.niveau)
+    for (let tour = 0; tour < 12; tour += 1) {
+      for (const d of tous) {
+        if (d.parent_id && niveaux.has(d.parent_id) && !niveaux.has(d.id)) {
+          niveaux.set(d.id, niveaux.get(d.parent_id)!)
+        }
+      }
+    }
+    return niveaux
+  }, [dossiersRecus, descendanceRecue])
+
+  const dossiersRecusTous = useMemo(
+    () => [...dossiersRecus.map((r) => r.dossier), ...descendanceRecue],
+    [dossiersRecus, descendanceRecue],
+  )
+  const dansDossierRecu = dossierCourantId !== null && niveauParDossier.has(dossierCourantId)
+
+  /* Les fichiers d'un dossier reçu ne sont pas dans `documents` : cette prop ne contient que
+     l'espace de `ownerProfileId`. Chargés à l'ouverture du dossier, et seulement alors — précharger
+     toutes les arborescences partagées ramènerait des fichiers qu'on ne regardera peut-être
+     jamais. */
+  const [documentsRecus, setDocumentsRecus] = useState<Document[]>([])
+  const [chargementRecus, setChargementRecus] = useState(false)
+  const chargerDocumentsRecus = useCallback(async () => {
+    if (!dansDossierRecu || !dossierCourantId) return
+    setChargementRecus(true)
+    const { data } = await supabase.from('documents').select('*').eq('dossier_id', dossierCourantId)
+    setDocumentsRecus(data ?? [])
+    setChargementRecus(false)
+  }, [dansDossierRecu, dossierCourantId])
+  useEffect(() => {
+    if (dansDossierRecu) chargerDocumentsRecus()
+    else setDocumentsRecus([])
+  }, [dansDossierRecu, chargerDocumentsRecus])
 
   const dansPartages = dossierCourantId === ID_PARTAGES
+  const arbreCourant = dansDossierRecu ? dossiersRecusTous : dossiers
   const chemin = useMemo(
-    () => (dansPartages ? [] : cheminDossier(dossiers, dossierCourantId)),
-    [dossiers, dossierCourantId, dansPartages],
+    () => (dansPartages ? [] : cheminDossier(arbreCourant, dossierCourantId)),
+    [arbreCourant, dossierCourantId, dansPartages],
   )
   const enfants = useMemo(
-    () => (dansPartages ? [] : sousDossiers(dossiers, dossierCourantId)),
-    [dossiers, dossierCourantId, dansPartages],
+    () => (dansPartages ? [] : sousDossiers(arbreCourant, dossierCourantId)),
+    [arbreCourant, dossierCourantId, dansPartages],
   )
-  const documentsDuDossier = useMemo(
-    () =>
-      dansPartages
-        ? partages.map((p) => p.document)
-        : documents.filter((d) => (d.dossier_id ?? null) === dossierCourantId),
-    [documents, dossierCourantId, dansPartages, partages],
-  )
-  const partageParDocument = useMemo(
-    () => new Map(partages.map((p) => [p.document.id, p.partage])),
-    [partages],
-  )
+  const documentsDuDossier = useMemo(() => {
+    if (dansPartages) return partages.map((p) => p.document)
+    if (dansDossierRecu) return documentsRecus
+    return documents.filter((d) => (d.dossier_id ?? null) === dossierCourantId)
+  }, [documents, dossierCourantId, dansPartages, partages, dansDossierRecu, documentsRecus])
+  const partageParDocument = useMemo(() => new Map(partages.map((p) => [p.document.id, p.partage])), [partages])
 
-  const racine = useMemo(() => sousDossiers(dossiers, null), [dossiers])
-  /* Compteurs affichés sur chaque sous-dossier : ce qu'il contient directement. Volontairement
-     pas de total récursif — un chiffre qui inclurait les petits-enfants laisserait croire qu'un
-     dossier est plein alors qu'on n'y trouve rien en l'ouvrant.
-     En `useCallback` (déplacé ici, avant son premier usage) : `onglets` ci-dessous en dépend, et
-     sans mémoïsation cette fonction serait recréée à chaque rendu, empêchant de la déclarer
-     proprement comme dépendance. */
   const contenuDe = useCallback(
     (dossier: DossierDocument) => ({
       dossiers: dossiers.filter((d) => d.parent_id === dossier.id).length,
@@ -123,57 +162,51 @@ export function ExplorateurDocuments({
     }),
     [dossiers, documents],
   )
-  /* Les quatre onglets, dans l'ordre imposé par le client. `Mes fichiers partagés` est virtuel
-     (ID_PARTAGES) ; les trois autres n'apparaissent que si le dossier par défaut correspondant
-     existe encore (voir NOMS_PAR_DEFAUT ci-dessus). */
-  const onglets = useMemo(() => {
-    if (commune) return []
-    const parNom = new Map(racine.map((d) => [d.nom, d]))
-    return NOMS_PAR_DEFAUT.map((nom) =>
-      nom === 'Mes fichiers partagés'
-        ? { id: ID_PARTAGES, nom, compteur: partages.length }
-        : parNom.has(nom)
-          ? { id: parNom.get(nom)!.id, nom, compteur: contenuDe(parNom.get(nom)!).fichiers + contenuDe(parNom.get(nom)!).dossiers }
-          : null,
-    ).filter((o): o is { id: string; nom: string; compteur: number } => o !== null)
-  }, [commune, racine, partages.length, contenuDe])
-  const idsOnglets = new Set(onglets.map((o) => o.id))
-  /* Dossiers créés par la personne à la racine, en plus des quatre par défaut — restent
-     accessibles via la grille de cartes classique sous les onglets, pas dupliqués dedans. */
-  const racinePersonnalisee = racine.filter((d) => !idsOnglets.has(d.id))
+
+  /* Déposer dans un dossier reçu n'est possible qu'en écriture ; ailleurs, c'est le droit de
+     l'écran qui tranche, comme avant. */
+  const peutDeposerIci =
+    peutDeposer && !dansPartages && (!dansDossierRecu || niveauParDossier.get(dossierCourantId!) === 'ecriture')
+  const peutOrganiserIci = peutOrganiser && !dansDossierRecu
+
+  useEffect(() => {
+    if (creationDansId !== undefined) champCreation.current?.focus()
+  }, [creationDansId])
 
   async function creerDossier() {
     if (!profile || !nouveauNom.trim()) return
     setEnCours(true)
     setErreurAction(null)
+    const parentId = creationDansId ?? null
     const { error } = await supabase.from('document_dossiers').insert({
       etablissement_id: etablissementId,
       /* Dans la bibliothèque commune, `proprietaire_profile_id` ne dit plus à qui le dossier
-         appartient (il appartient à l'établissement) mais seulement qui l'a créé : la colonne
-         est `not null` depuis 0058 et reste renseignée pour la traçabilité. */
+         appartient mais seulement qui l'a créé : la colonne est `not null` depuis 0058. */
       proprietaire_profile_id: commune ? profile.id : ownerProfileId,
       etablissement_wide: commune,
-      parent_id: dossierCourantId,
+      parent_id: parentId,
       nom: nouveauNom.trim(),
       created_by_profile_id: profile.id,
     })
     setEnCours(false)
     if (error) {
-      setErreurAction(
-        error.code === '23505' ? 'Un dossier porte déjà ce nom à cet endroit.' : error.message,
-      )
+      setErreurAction(error.code === '23505' ? 'Un dossier porte déjà ce nom à cet endroit.' : error.message)
       return
     }
     setNouveauNom('')
-    setCreationOuverte(false)
+    setCreationDansId(undefined)
     recharger()
   }
 
-  async function renommer(dossier: DossierDocument) {
-    const nom = window.prompt('Nouveau nom du dossier', dossier.nom)
-    if (!nom || !nom.trim() || nom.trim() === dossier.nom) return
+  /* Renommage sur place et non plus par `window.prompt` : sur un PC, le nom devient éditable là
+     où il est affiché. La boîte de dialogue du navigateur, en plus d'être hors charte, vidait le
+     contexte de l'arborescence le temps de la saisie. */
+  async function validerRenommage(dossier: DossierDocument) {
+    const nom = nomRenomme.trim()
+    setRenommageId(null)
+    if (!nom || nom === dossier.nom) return
     setErreurAction(null)
-    const { error } = await supabase.from('document_dossiers').update({ nom: nom.trim() }).eq('id', dossier.id)
+    const { error } = await supabase.from('document_dossiers').update({ nom }).eq('id', dossier.id)
     if (error) {
       setErreurAction(error.code === '23505' ? 'Un dossier porte déjà ce nom à cet endroit.' : error.message)
       return
@@ -196,100 +229,136 @@ export function ExplorateurDocuments({
       setErreurAction(error.message)
       return
     }
+    if (dossierCourantId === dossier.id) setDossierCourantId(dossier.parent_id)
     recharger()
   }
 
   if (loading) return <EtatChargement lignes={3} hauteur={52} />
+
+  const dossierCourant = arbreCourant.find((d) => d.id === dossierCourantId) ?? null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {erreur && <MessageErreur>{erreur}</MessageErreur>}
       {erreurAction && <MessageErreur>{erreurAction}</MessageErreur>}
 
-      {/* Onglets des quatre catégories par défaut (demande client du 2026-09-22) : toujours
-          visibles, pour changer de catégorie en un clic sans repasser par « Mes documents ».
-          Labels complets, jamais tronqués — c'était le reproche fait à l'ancien affichage en
-          grille de cartes étroites. */}
-      {/* Pastilles arrondies depuis la refonte du 2026-10-16 : c'est le dessin que la maquette
-          « Mes documents » donne à ces catégories. Les libellés soulignés y sont réservés aux
-          barres qui changent de section (voir la variante par défaut d'Onglets.tsx) ; ici on
-          filtre une liste sans quitter la page. */}
-      <div role="tablist" aria-label="Catégories de documents" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {onglets.map((o) => {
-          const actif = dossierCourantId === o.id
-          return (
-            <button
-              key={o.id}
-              role="tab"
-              aria-selected={actif}
-              onClick={() => setDossierCourantId(o.id)}
-              style={{
-                height: 34,
-                padding: '0 14px',
-                borderRadius: 999,
-                border: actif ? 'none' : '1px solid var(--border)',
-                background: actif ? 'var(--accent-blue)' : 'var(--surface)',
-                color: actif ? '#fefffa' : 'var(--accent-blue)',
-                fontSize: 13,
-                fontWeight: actif ? 700 : 600,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {o.nom}
-              {o.compteur > 0 && (
-                <span style={{ marginLeft: 7, fontSize: 11, opacity: actif ? 0.85 : 0.7 }}>{o.compteur}</span>
-              )}
-            </button>
-          )
-        })}
-      </div>
+      {/* Deux colonnes au-delà de 760 px, empilées en dessous : sur un téléphone, un panneau
+          latéral de 240 px ne laisserait pas de quoi lire un nom de fichier. */}
+      <div className="explorateur-documents">
+        <PanneauDossiers
+          dossiers={dossiers}
+          dossierCourantId={dossierCourantId}
+          titreRacine={titreRacine}
+          compteurDe={contenuDe}
+          partagesRecus={dossiersRecus}
+          descendancePartagee={descendanceRecue}
+          nombreFichiersRecus={partages.length}
+          idPartages={ID_PARTAGES}
+          peutOrganiser={peutOrganiser}
+          actions={{
+            onOuvrir: (id) => {
+              setDossierCourantId(id)
+              setRenommageId(null)
+            },
+            ...(peutOrganiser
+              ? {
+                  onNouveauSousDossier: (parentId: string | null) => {
+                    setCreationDansId(parentId)
+                    setNouveauNom('')
+                    if (parentId !== null) setDossierCourantId(parentId)
+                  },
+                  onRenommer: (dossier: DossierDocument) => {
+                    setRenommageId(dossier.id)
+                    setNomRenomme(dossier.nom)
+                    setDossierCourantId(dossier.id)
+                  },
+                  onSupprimer: supprimerDossier,
+                }
+              : {}),
+            onPartager: (dossier: DossierDocument) => setDossierAPartager(dossier),
+          }}
+        />
 
-      {/* Fil d'Ariane : la racine est toujours cliquable, y compris quand on est déjà dessus —
-          repère stable plutôt qu'un élément qui disparaît selon la profondeur. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 12.5 }}>
-        <button
-          onClick={() => setDossierCourantId(null)}
-          style={{ ...lienChemin, color: dossierCourantId === null ? 'var(--ink)' : 'var(--accent-blue)' }}
-        >
-          {titreRacine}
-        </button>
-        {dansPartages && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ color: 'var(--muted-2)' }}>/</span>
-            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>Mes fichiers partagés</span>
-          </span>
-        )}
-        {chemin.map((d, index) => (
-          <span key={d.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ color: 'var(--muted-2)' }}>/</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 }}>
+          {/* Fil d'Ariane : la racine est toujours cliquable, y compris quand on est déjà dessus —
+              repère stable plutôt qu'un élément qui disparaît selon la profondeur. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 12.5 }}>
             <button
-              onClick={() => setDossierCourantId(d.id)}
-              style={{ ...lienChemin, color: index === chemin.length - 1 ? 'var(--ink)' : 'var(--accent-blue)' }}
+              onClick={() => setDossierCourantId(null)}
+              style={{ ...lienChemin, color: dossierCourantId === null ? 'var(--ink)' : 'var(--accent-blue)' }}
             >
-              {d.nom}
+              {titreRacine}
             </button>
-          </span>
-        ))}
-      </div>
+            {dansPartages && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ color: 'var(--muted-2)' }}>/</span>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>Mes fichiers partagés</span>
+              </span>
+            )}
+            {chemin.map((d, index) => (
+              <span key={d.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ color: 'var(--muted-2)' }}>/</span>
+                {renommageId === d.id ? (
+                  <input
+                    autoFocus
+                    value={nomRenomme}
+                    onChange={(e) => setNomRenomme(e.target.value)}
+                    onBlur={() => validerRenommage(d)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') validerRenommage(d)
+                      if (e.key === 'Escape') setRenommageId(null)
+                    }}
+                    style={{ ...champStyle, height: 28, width: 190, fontSize: 12.5 }}
+                  />
+                ) : (
+                  <button
+                    onClick={() => setDossierCourantId(d.id)}
+                    onDoubleClick={() => {
+                      if (!peutOrganiserIci) return
+                      setRenommageId(d.id)
+                      setNomRenomme(d.nom)
+                    }}
+                    style={{ ...lienChemin, color: index === chemin.length - 1 ? 'var(--ink)' : 'var(--accent-blue)' }}
+                  >
+                    {d.nom}
+                  </button>
+                )}
+              </span>
+            ))}
+            {dansDossierRecu && (
+              <span
+                style={{
+                  marginLeft: 4,
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  color: 'var(--accent-teal)',
+                  background: 'color-mix(in srgb, var(--accent-teal) 14%, transparent)',
+                  borderRadius: 999,
+                  padding: '2px 9px',
+                }}
+              >
+                Partagé avec vous ·{' '}
+                {niveauParDossier.get(dossierCourantId!) === 'ecriture' ? 'vue et écriture' : 'vue seule'}
+              </span>
+            )}
+          </div>
 
-      {peutOrganiser && !dansPartages && (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          {creationOuverte ? (
-            <>
+          {creationDansId !== undefined && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               <input
-                autoFocus
+                ref={champCreation}
                 value={nouveauNom}
                 onChange={(e) => setNouveauNom(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') creerDossier()
-                  if (e.key === 'Escape') setCreationOuverte(false)
+                  if (e.key === 'Escape') setCreationDansId(undefined)
                 }}
-                placeholder="Nom du dossier"
-                style={{ ...champStyle, width: 220 }}
+                placeholder={
+                  creationDansId === null ? 'Nom du dossier' : `Nom du sous-dossier`
+                }
+                style={{ ...champStyle, width: 230 }}
               />
-              <button onClick={() => setCreationOuverte(false)} style={boutonNeutreStyle}>
+              <button onClick={() => setCreationDansId(undefined)} style={boutonTexte}>
                 Annuler
               </button>
               <button
@@ -300,114 +369,118 @@ export function ExplorateurDocuments({
               >
                 {enCours ? 'Création…' : 'Créer'}
               </button>
-            </>
-          ) : (
-            <button onClick={() => setCreationOuverte(true)} style={boutonSecondaireStyle}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <Icone nom="plus" taille={13} />
-                Nouveau dossier
-                {chemin.length > 0 ? ` dans « ${chemin[chemin.length - 1].nom} »` : ''}
-              </span>
-            </button>
+            </div>
           )}
-        </div>
-      )}
 
-      {/* Sous la racine, les quatre catégories par défaut sont couvertes par les onglets
-          ci-dessus : cette grille n'affiche donc que les dossiers personnalisés créés en plus,
-          à la racine ou à l'intérieur d'une catégorie. */}
-      {((dossierCourantId === null ? racinePersonnalisee.length : enfants.length) > 0) && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 10 }}>
-          {(dossierCourantId === null ? racinePersonnalisee : enfants).map((d) => {
-            const contenu = contenuDe(d)
-            return (
-              <div
-                key={d.id}
-                className="card card-lift"
-                style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}
-              >
-                <button
-                  onClick={() => setDossierCourantId(d.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, flexGrow: 1, minWidth: 0, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
-                >
-                  <span style={{ color: 'var(--accent-gold, #e9cf94)', flexShrink: 0, display: 'inline-flex' }}>
-                    <Icone nom="documents" taille={17} />
-                  </span>
-                  <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                    <span style={{ fontSize: 13, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {d.nom}
-                    </span>
-                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                      {contenu.fichiers} fichier{contenu.fichiers > 1 ? 's' : ''}
-                      {contenu.dossiers > 0 ? ` · ${contenu.dossiers} sous-dossier${contenu.dossiers > 1 ? 's' : ''}` : ''}
-                    </span>
-                  </span>
-                </button>
-                {peutOrganiser && (
-                  <span style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                    <button onClick={() => renommer(d)} title="Renommer" style={boutonIcone}>
-                      ✎
+          {/* Sous-dossiers du dossier ouvert, en grille : le panneau de gauche donne la structure,
+              cette grille donne le contenu — c'est le même couple que dans un explorateur. */}
+          {!dansPartages && enfants.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 10 }}>
+              {enfants.map((d) => {
+                const contenu = contenuDe(d)
+                return (
+                  <div
+                    key={d.id}
+                    className="card card-lift"
+                    style={{ padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}
+                  >
+                    <button
+                      onClick={() => setDossierCourantId(d.id)}
+                      onDoubleClick={() => {
+                        if (!peutOrganiserIci) return
+                        setRenommageId(d.id)
+                        setNomRenomme(d.nom)
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 9, flexGrow: 1, minWidth: 0, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden style={{ flexShrink: 0, color: 'var(--accent-gold, #e9cf94)' }}>
+                        <path
+                          d="M1.5 3.6c0-.6.5-1.1 1.1-1.1h3.1c.4 0 .7.2.9.5l.6 1h5.2c.6 0 1.1.5 1.1 1.1v7.3c0 .6-.5 1.1-1.1 1.1H2.6c-.6 0-1.1-.5-1.1-1.1V3.6Z"
+                          stroke="currentColor"
+                          strokeWidth="1.3"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 12.5, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {d.nom}
+                        </span>
+                        <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>
+                          {contenu.fichiers} fichier{contenu.fichiers > 1 ? 's' : ''}
+                          {contenu.dossiers > 0 ? ` · ${contenu.dossiers} dossier${contenu.dossiers > 1 ? 's' : ''}` : ''}
+                        </span>
+                      </span>
                     </button>
-                    <button onClick={() => supprimerDossier(d)} title="Supprimer" style={{ ...boutonIcone, color: 'var(--danger)' }}>
-                      ✕
-                    </button>
-                  </span>
-                )}
-              </div>
-            )
-          })}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* L'upload vise toujours le dossier ouvert : c'est ce que l'utilisateur a sous les yeux,
+              et ça évite un second sélecteur de destination qui dirait la même chose. */}
+          {peutDeposerIci && (
+            <UploaderDocument
+              /* Dans un dossier reçu, le fichier entre dans l'espace de son PROPRIÉTAIRE, pas dans
+                 le mien : c'est son dossier que j'alimente. La base exige exactement cela (0155),
+                 un `owner_profile_id` différent serait refusé. */
+              ownerProfileId={dansDossierRecu ? (dossierCourant?.proprietaire_profile_id ?? ownerProfileId) : ownerProfileId}
+              etablissementId={etablissementId}
+              dossierId={dossierCourantId}
+              onUploade={dansDossierRecu ? chargerDocumentsRecus : onChange}
+              forcerCategorie={forcerCategorie}
+              etablissementWide={dansDossierRecu ? false : etablissementWide}
+            />
+          )}
+
+          <div className="card" style={{ padding: 20 }}>
+            {chargementRecus ? (
+              <EtatChargement lignes={2} hauteur={46} />
+            ) : (
+              <ListeDocuments
+                documents={documentsDuDossier}
+                /* Gouverne uniquement la suppression RÉELLE. Reste `false` dans « Mes fichiers
+                   partagés » et dans un dossier reçu : un fichier qu'on nous laisse voir ne nous
+                   appartient pas. Retirer SA PROPRE vue passe par un chemin indépendant de cette
+                   prop (règle client du 2026-10-10). */
+                peutSupprimer={(d) => !dansPartages && !dansDossierRecu && peutSupprimer(d)}
+                /* Tout fichier visible est partageable, y compris reçu en partage — sens littéral
+                   de la règle posée le 2026-10-10 (0111). La base applique la même règle. */
+                peutPartager={peutPartager ?? (() => true)}
+                mentionPartage={(d) => {
+                  const partage = partageParDocument.get(d.id)
+                  return partage ? { par: partage.partage_par_nom ?? 'Hari Online Club', message: partage.message } : null
+                }}
+                onChange={() => {
+                  onChange()
+                  rechargerPartages()
+                  if (dansDossierRecu) chargerDocumentsRecus()
+                }}
+                messageVide={
+                  dansPartages
+                    ? 'Personne ne vous a encore partagé de fichier. Ceux qu’on vous partagera apparaîtront ici.'
+                    : dossierCourantId
+                      ? peutDeposerIci
+                        ? 'Ce dossier ne contient encore aucun fichier. Déposez-en un avec le formulaire ci-dessus.'
+                        : 'Ce dossier ne contient encore aucun fichier.'
+                      : messageVide
+                }
+              />
+            )}
+          </div>
         </div>
-      )}
-
-      {/* L'upload vise toujours le dossier ouvert : c'est ce que l'utilisateur a sous les yeux,
-          et ça évite un second sélecteur de destination qui dirait la même chose. Rien à
-          déposer en revanche dans « Mes fichiers partagés », qui n'est pas un vrai dossier. */}
-      {!dansPartages && peutDeposer && (
-        <UploaderDocument
-          ownerProfileId={ownerProfileId}
-          etablissementId={etablissementId}
-          dossierId={dossierCourantId}
-          onUploade={onChange}
-          forcerCategorie={forcerCategorie}
-          etablissementWide={etablissementWide}
-        />
-      )}
-
-      <div className="card" style={{ padding: 20 }}>
-        <ListeDocuments
-          documents={documentsDuDossier}
-          /* Gouverne uniquement la suppression RÉELLE, hors sujet propriété/partage (admin gérant
-             le dossier d'un tiers, déposant dans sa propre arborescence...) — reste `false` dans
-             « Mes fichiers partagés », un fichier reçu n'appartenant jamais à son destinataire.
-             Retirer SA PROPRE vue d'un fichier partagé passe par un chemin indépendant de cette
-             prop, déterminé dans DetailDocumentModale lui-même (règle client du 2026-10-10) :
-             c'est pourquoi un bouton « Retirer de mon espace » peut apparaître ici malgré
-             `peutSupprimer === false`. */
-          peutSupprimer={(d) => !dansPartages && peutSupprimer(d)}
-          /* Tout fichier visible est partageable, y compris un fichier REÇU en partage et y
-             compris dans l'espace de quelqu'un d'autre — c'est le sens littéral de la règle posée
-             le 2026-10-10 (voir 0111). La base applique la même règle, et elle seule fait
-             autorité : un partage portant sur un document que l'émetteur ne voit pas est refusé. */
-          peutPartager={peutPartager ?? (() => true)}
-          mentionPartage={(d) => {
-            const partage = partageParDocument.get(d.id)
-            return partage ? { par: partage.partage_par_nom ?? 'Hari Online Club', message: partage.message } : null
-          }}
-          onChange={() => {
-            onChange()
-            rechargerPartages()
-          }}
-          messageVide={
-            dansPartages
-              ? 'Personne ne vous a encore partagé de fichier. Ceux qu’on vous partagera apparaîtront ici.'
-              : dossierCourantId
-                ? peutDeposer
-                  ? 'Ce dossier ne contient encore aucun fichier. Déposez-en un avec le formulaire ci-dessus.'
-                  : 'Ce dossier ne contient encore aucun fichier.'
-                : messageVide
-          }
-        />
       </div>
+
+      {dossierAPartager && (
+        <PartagerDossierModale
+          dossier={dossierAPartager}
+          onFermer={() => setDossierAPartager(null)}
+          onChange={() => {
+            recharger()
+            rechargerDossiersRecus()
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -422,15 +495,13 @@ const lienChemin: React.CSSProperties = {
   cursor: 'pointer',
 }
 
-const boutonIcone: React.CSSProperties = {
-  width: 26,
-  height: 26,
-  borderRadius: 8,
-  border: '1px solid var(--border)',
+const boutonTexte: React.CSSProperties = {
   background: 'transparent',
+  border: 'none',
+  padding: 0,
+  fontSize: 12.5,
+  fontWeight: 700,
   color: 'var(--muted)',
-  cursor: 'pointer',
-  fontSize: 12,
-  lineHeight: 1,
   fontFamily: 'inherit',
+  cursor: 'pointer',
 }

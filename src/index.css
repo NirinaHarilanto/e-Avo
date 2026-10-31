@@ -3439,3 +3439,20 @@ html:has(.page-connexion-hoc) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Explorateur de documents : panneau de navigation à gauche, contenu à droite — refonte du
+   2026-10-31 sur le modèle d'un explorateur de fichiers (demande client). Empilé sous 760 px :
+   sur un téléphone, une colonne latérale de 240 px ne laisserait pas de quoi lire un nom de
+   fichier à côté. */
+.explorateur-documents {
+  display: grid;
+  grid-template-columns: 244px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .explorateur-documents {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
