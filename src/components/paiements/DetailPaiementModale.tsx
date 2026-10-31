@@ -687,9 +687,19 @@ function FormulaireAcompte({
   const [notes, setNotes] = useState('')
 
   /* Le solde restant change à chaque acompte enregistré : sans cette resynchronisation, le
-     champ garderait la suggestion du premier affichage et proposerait de payer deux fois. */
+     champ garderait la suggestion du premier affichage et proposerait de payer deux fois.
+
+     Les AUTRES champs sont remis à blanc en même temps (2026-10-31) : seul le montant se
+     resynchronisait, si bien qu'un second acompte héritait en silence du moyen, de la référence
+     et de la note du premier. Constaté en production sur une ligne de 1 100 000 Ar — deux
+     versements de 500 000 et 600 000 Ar enregistrés à trente secondes d'intervalle, tous deux
+     estampillés « Virement · AZ3424 », alors qu'ils ne peuvent pas venir du même virement. Une
+     référence fausse sur un encaissement rend le rapprochement bancaire impossible. */
   useEffect(() => {
     setMontant(String(suggestion))
+    setMoyen('')
+    setReference('')
+    setNotes('')
   }, [suggestion])
 
   return (

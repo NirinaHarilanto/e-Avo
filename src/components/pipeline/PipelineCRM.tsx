@@ -1340,6 +1340,7 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
                   tarifAEncaisser={tarifAEncaisser}
                   essai={essai}
                   collectif={estPositionnement}
+                  echeancesNonReglees={prospect.echeancesNonReglees}
                   onOuvrir={() => setPaiementOuvert(true)}
                 />
                 <button onClick={enregistrerDiagnostic} disabled={enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: enCours ? 0.7 : 1 }}>
@@ -1817,7 +1818,13 @@ function CarteDuo({
                   verrouille={!!porteur.paiement}
                   onBasculer={a.basculerEssai}
                 />
-                <BlocPaiementForfait paiement={porteur.paiement} tarifAEncaisser={a.tarifAEncaisser} essai={a.essai} onOuvrir={() => a.setPaiementOuvert(true)} />
+                <BlocPaiementForfait
+                  paiement={porteur.paiement}
+                  tarifAEncaisser={a.tarifAEncaisser}
+                  essai={a.essai}
+                  echeancesNonReglees={porteur.echeancesNonReglees}
+                  onOuvrir={() => a.setPaiementOuvert(true)}
+                />
                 <button onClick={enregistrerDuoDiagnostic} disabled={a.enCours} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9, opacity: a.enCours ? 0.7 : 1 }}>
                   {a.enCours ? 'Enregistrement…' : 'Enregistrer'}
                 </button>
@@ -1973,12 +1980,18 @@ function BlocPaiementForfait({
      l'admin de croire qu'une seconde somme reste due à la conversion : c'est exactement la
      confusion signalée par le client le 2026-10-16. */
   collectif = false,
+  echeancesNonReglees = 0,
   onOuvrir,
 }: {
   paiement: ProspectAvecDiagnostic['paiement']
   tarifAEncaisser: { titre: string; prix: number } | null
   essai: boolean
   collectif?: boolean
+  /* Échéances encore planifiées et non cochées sur ce paiement (0070). Affichées ici depuis le
+     2026-10-31 : sans elles, la fiche pouvait annoncer « Payé » sans laisser deviner qu'un
+     échéancier restait ouvert sur la même ligne — il fallait ouvrir la fenêtre de paiement pour
+     s'en apercevoir. */
+  echeancesNonReglees?: number
   onOuvrir: () => void
 }) {
   const ligne = paiement
@@ -2017,6 +2030,17 @@ function BlocPaiementForfait({
               {reste > 0 ? ` · reste ${formaterMontant(reste)}` : ''}
             </span>
           </div>
+          {/* Le badge dit ce qui est ENCAISSÉ, cette ligne ce qui reste PLANIFIÉ : les deux
+              peuvent se contredire, et c'est précisément ce qu'il faut montrer. Mis en avant
+              quand la ligne est pourtant soldée — demande client du 2026-10-31, « il faut que le
+              statut planifié et non réglé soit mis en valeur ». */}
+          {echeancesNonReglees > 0 && (
+            <span style={{ fontSize: 11.5, lineHeight: 1.5, color: reste === 0 ? 'var(--warning)' : 'var(--muted)' }}>
+              {reste === 0
+                ? `Attention : ${formaterMontant(echeancesNonReglees)} restent planifiés et non réglés sur une ligne déjà soldée. À vérifier dans le paiement.`
+                : `Dont ${formaterMontant(echeancesNonReglees)} planifiés à l’échéancier.`}
+            </span>
+          )}
           <button onClick={onOuvrir} className="btn-shine btn-secondary" style={{ fontSize: 12.5, padding: 9 }}>
             {reste > 0 ? 'Ajouter un acompte' : 'Voir le paiement'}
           </button>

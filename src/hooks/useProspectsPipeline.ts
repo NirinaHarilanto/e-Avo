@@ -37,6 +37,12 @@ export interface ProspectAvecDiagnostic extends Prospect {
   /* Paiement du forfait choisi encaissé avant la conversion (0056). `null` tant que l'admin n'a
      rien enregistré — c'est précisément ce qui bloque le bouton « Convertir en étudiant ». */
   paiement: StudentPayment | null
+  /* Somme des échéances PLANIFIÉES et NON RÉGLÉES sur ce paiement (0070) — signalé par le client
+     le 2026-10-31 : sa fiche annonçait « Payé, 1 100 000 Ar réglé sur 1 100 000 Ar » alors qu'une
+     échéance de 600 000 Ar restait planifiée et non cochée sur la même ligne. L'échéancier ne se
+     lisait que dans la fenêtre de paiement ; il fallait l'ouvrir pour s'apercevoir que le dossier
+     se contredisait. 0 quand il n'y a rien de planifié, le cas courant. */
+  echeancesNonReglees: number
 }
 
 export const COLONNES_PIPELINE: { statut: ProspectStatut; titre: string }[] = [
@@ -56,6 +62,7 @@ export function useProspectsPipeline() {
       { data: convertisData },
       { data: profilsSupprimesData },
       { data: paiementsData },
+      { data: echeancesData },
     ] = await Promise.all([
       // Un prospect converti quitte définitivement ce tableau — demande client du 2026-09-21 :
       // il vit désormais dans l'espace Étudiants, avec les informations recueillies pendant la
@@ -80,6 +87,9 @@ export function useProspectsPipeline() {
         .not('prospect_id', 'is', null)
         .is('supprime_le', null)
         .order('created_at', { ascending: false }),
+      /* Échéances encore dues, en un seul appel comme tout le reste de ce hook : une requête par
+         carte aurait coûté un aller-retour par prospect affiché. */
+      supabase.from('paiement_echeances').select('student_payment_id, montant').is('reglee_le', null),
     ])
     if (prospectsError || diagnosticsError || rendezVousError) {
       throw new Error((prospectsError ?? diagnosticsError ?? rendezVousError)?.message ?? 'Erreur de chargement.')
@@ -129,6 +139,14 @@ export function useProspectsPipeline() {
       }
     }
 
+    const echeancesParPaiement = new Map<string, number>()
+    for (const echeance of echeancesData ?? []) {
+      echeancesParPaiement.set(
+        echeance.student_payment_id,
+        (echeancesParPaiement.get(echeance.student_payment_id) ?? 0) + Number(echeance.montant),
+      )
+    }
+
     const prospects = (prospectsData ?? [])
       /* Un candidat au collectif qui a TERMINÉ son quiz de positionnement quitte ce tableau —
          demande client du 2026-10-19 : « pour les personnes qui s'inscrivent en cours collectifs
@@ -154,6 +172,10 @@ export function useProspectsPipeline() {
           creneauTest: testPositionnement ? (creneauParId.get(testPositionnement.creneau_id) ?? null) : null,
           duoPartenaireNom: prospect.duo_partenaire_id ? (nomParProspect.get(prospect.duo_partenaire_id) ?? null) : null,
           paiement: paiementParProspect.get(prospect.id) ?? null,
+          echeancesNonReglees: (() => {
+            const paiement = paiementParProspect.get(prospect.id)
+            return paiement ? (echeancesParPaiement.get(paiement.id) ?? 0) : 0
+          })(),
         }
       })
 

@@ -62,6 +62,41 @@ export function arrondi(valeur: number): number {
   return Math.round(valeur * 100) / 100
 }
 
+/* Rapprochement de l'ÉCHÉANCIER et de ce qui a RÉELLEMENT été encaissé — signalé par le client
+   le 2026-10-31, capture à l'appui : une ligne soldée (« Payé », reste 0 Ar) affichait en même
+   temps « Planifié et non réglé : 600 000 Ar sur 0,00 Ar restant dus ». Les deux registres
+   vivaient côte à côte sans jamais se comparer : l'échéance annonce ce qui reste à encaisser
+   (0070), l'acompte constate ce qui l'a été (0049), et rien ne les rapprochait.
+
+   Ce verdict est ce qui manquait. Il ne CORRIGE rien tout seul — un versement qui solde une
+   échéance sans qu'on l'ait cochée reste un geste d'admin, et c'est voulu : un acompte ne
+   correspond pas toujours à une échéance (règlement anticipé, montant arrondi). Il nomme
+   simplement la situation, y compris quand elle est contradictoire. */
+export type VerdictEcheancier =
+  /* Rien de planifié, et plus rien à encaisser : la ligne est close. */
+  | { cas: 'soldee' }
+  /* Rien de planifié, mais il reste à encaisser : l'échéancier est à remplir. */
+  | { cas: 'a_planifier'; resteDu: number }
+  /* Le reste dû est intégralement couvert par des échéances. */
+  | { cas: 'couvert'; planifie: number }
+  /* Une partie seulement du reste dû est planifiée. */
+  | { cas: 'partiel'; planifie: number; aPlanifier: number }
+  /* Plus planifié qu'il n'en reste à encaisser : soit une échéance a déjà été réglée par un
+     acompte sans avoir été cochée, soit le montant a été saisi deux fois (une fois en acompte,
+     une fois en échéance). C'est le cas que l'écran doit mettre en avant. */
+  | { cas: 'excedent'; planifie: number; excedent: number; resteDu: number }
+
+export function verdictEcheancier(planifie: number, resteDu: number): VerdictEcheancier {
+  const planifieNet = Math.max(0, arrondi(planifie))
+  const reste = Math.max(0, arrondi(resteDu))
+  if (planifieNet === 0) return reste === 0 ? { cas: 'soldee' } : { cas: 'a_planifier', resteDu: reste }
+  if (planifieNet > reste) {
+    return { cas: 'excedent', planifie: planifieNet, excedent: arrondi(planifieNet - reste), resteDu: reste }
+  }
+  if (planifieNet === reste) return { cas: 'couvert', planifie: planifieNet }
+  return { cas: 'partiel', planifie: planifieNet, aPlanifier: arrondi(reste - planifieNet) }
+}
+
 /* Acompte proposé par défaut dans la fenêtre de détail : le solde restant, la situation la
    plus courante. Un acompte partiel se saisit en corrigeant cette valeur. */
 export function acompteSuggere(ligne: LignePayable): number {
