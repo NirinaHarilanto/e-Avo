@@ -1148,13 +1148,14 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
         )}
 
         {/* Étape « diagnostic réalisé » : le niveau, écrit grand comme sur la maquette — c'est
-            lui qui décide du forfait proposé à l'étape suivante. */}
+            lui qui décide du forfait proposé à l'étape suivante. La légende « niveau estimé »
+            qui l'accompagnait est retirée depuis le 2026-10-31 (demande client, capture à
+            l'appui) : la valeur seule, en gros, se lit déjà comme un niveau sur cette carte. */}
         {prospect.statut === 'diagnostic_fait' && prospect.diagnostic?.niveau_evalue && (
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
             <span className="police-titre" style={{ fontWeight: 700, fontSize: 26, color: 'var(--ink)' }}>
               {prospect.diagnostic.niveau_evalue}
             </span>
-            <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>niveau estimé</span>
           </div>
         )}
       </div>
@@ -1616,7 +1617,6 @@ function CarteDuo({
                   <span className="police-titre" style={{ fontWeight: 700, fontSize: 26, color: 'var(--ink)' }}>
                     {p.diagnostic.niveau_evalue}
                   </span>
-                  <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>niveau estimé</span>
                 </div>
               )}
             </div>

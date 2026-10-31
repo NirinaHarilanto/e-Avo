@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { LigneInfo } from '../ui/Champ'
 
 /* Résultat du quiz écrit d'un prospect, affiché là où l'admin décide de sa demande — précision
    client du 2026-10-31 : « l'admin verra également son résultat du quiz et son niveau provisoire
@@ -29,39 +30,54 @@ export interface DiagnosticAvecBilan {
 export function BlocResultatQuiz({ diagnostic }: { diagnostic: DiagnosticAvecBilan | null }) {
   const [detailOuvert, setDetailOuvert] = useState(false)
 
-  /* Le score est la première ligne du bilan rédigé par `redigerBilan` (lib/quiz.ts) : « Test de
-     positionnement écrit : 12/20 — niveau estimé B1. » On la relit telle quelle plutôt que de
-     recalculer un score à partir des réponses, qui ne quittent jamais le serveur. */
-  const resume = diagnostic?.notes?.split('\n')[0]?.trim() ?? null
-  if (!diagnostic || (!resume && !diagnostic.niveau_evalue)) return null
+  /* Score extrait de la première ligne du bilan rédigé par `redigerBilan` (lib/quiz.ts) : « Test
+     de positionnement écrit : 13/50 — niveau estimé Beginner. » Par motif et non recalculé : les
+     réponses elles-mêmes ne quittent jamais le serveur. */
+  const premiereLigne = diagnostic?.notes?.split('\n')[0]?.trim() ?? null
+  const score = premiereLigne?.match(/:\s*(\d+\s*\/\s*\d+)/)?.[1]?.replace(/\s+/g, '') ?? null
+  const niveau = diagnostic?.niveau_evalue ?? null
+  if (!diagnostic || (!score && !niveau)) return null
 
   return (
+    /* Repris le 2026-10-31 — demande client, capture à l'appui : « les informations [...] ne
+       sont pas très visibles, il faut bien organiser visuellement les infos » avec le plan
+       exact qu'il a dicté (un titre, le résultat sur sa ligne, le niveau sur la sienne). Le
+       résumé compact d'une seule phrase avec une pastille « Niveau provisoire » accolée est
+       remplacé par un petit encadré à deux lignes nommées — même mécanique d'intitulé-puis-valeur
+       que partout ailleurs dans l'application (`LigneInfo`, voir ui/Champ.tsx), pour que ce bloc
+       se lise comme le reste d'une fiche plutôt que comme une note à part. */
     <div
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 6,
-        padding: '9px 11px',
-        borderRadius: 10,
+        gap: 2,
+        padding: '11px 13px',
+        borderRadius: 12,
         border: '1px solid var(--border)',
-        background: 'var(--voile, rgba(255,255,255,.06))',
+        background: 'var(--surface-alt)',
       }}
     >
-      <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--ink-2)' }}>
-        {resume ?? `Test de positionnement écrit — niveau estimé ${diagnostic.niveau_evalue}.`}
-        <span
-          style={{
-            fontSize: 10.5,
-            fontWeight: 700,
-            color: 'var(--muted)',
-            border: '1px solid var(--border)',
-            borderRadius: 999,
-            padding: '2px 8px',
-          }}
-        >
-          Niveau provisoire
-        </span>
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: 0.4,
+          textTransform: 'uppercase',
+          color: 'var(--muted)',
+          marginBottom: 3,
+        }}
+      >
+        Test de niveau (quiz écrit)
       </span>
+      {score && <LigneInfo collee label="Résultat" valeur={score} />}
+      {niveau && (
+        <LigneInfo
+          collee
+          accent
+          label="Niveau estimé provisoire"
+          valeur={<strong style={{ color: 'var(--ink)' }}>{niveau}</strong>}
+        />
+      )}
       {diagnostic.notes && diagnostic.notes.includes('\n') && (
         <>
           <button
@@ -72,6 +88,7 @@ export function BlocResultatQuiz({ diagnostic }: { diagnostic: DiagnosticAvecBil
               background: 'transparent',
               border: 'none',
               padding: 0,
+              marginTop: 4,
               fontSize: 11.5,
               fontWeight: 700,
               color: 'var(--accent-blue)',
