@@ -362,10 +362,19 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
                     </span>
                   )}
                 </div>
+                {/* « Déjà encaissé » et non « Déjà réglé » — demande client du 2026-10-31 :
+                    « pourquoi c'est marqué que la totalité est déjà réglé alors que ce n'est pas
+                    le cas ? Il faut que ce soit très clair. » Ces deux lignes ne comptent QUE
+                    l'argent reçu, c'est-à-dire la somme des acomptes listés juste en dessous ;
+                    une échéance planifiée n'y entre jamais. Le mot « réglé » laissait croire à un
+                    état du dossier, là où il s'agit d'une caisse. */}
                 <LigneInfo label="Montant dû" valeur={formaterMontant(paiement.montant, paiement.devise)} />
-                <LigneInfo label="Déjà réglé" valeur={formaterMontant(paiement.montant_regle, paiement.devise)} />
                 <LigneInfo
-                  label="Reste à payer"
+                  label="Déjà encaissé"
+                  valeur={`${formaterMontant(paiement.montant_regle, paiement.devise)}${(versements ?? []).length > 0 ? ` · ${(versements ?? []).length} acompte${(versements ?? []).length > 1 ? 's' : ''}` : ''}`}
+                />
+                <LigneInfo
+                  label="Reste à encaisser"
                   valeur={
                     <strong style={{ color: resteAPayer(ligne) > 0 ? 'var(--accent-gold, #e9cf94)' : 'var(--accent-teal)' }}>
                       {formaterMontant(resteAPayer(ligne), paiement.devise)}
@@ -708,11 +717,33 @@ function FormulaireAcompte({
         {estProfesseur ? 'Enregistrer un versement' : paiementUnique != null ? 'Enregistrer le règlement' : 'Enregistrer un acompte'}
       </span>
       {!estProfesseur && (
-        <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
-          {paiementUnique != null
-            ? `Forfait de ${paiementUnique} h : il se règle en une seule fois. Le paiement en plusieurs fois est réservé aux forfaits de ${HEURES_MIN_PAIEMENT_FRACTIONNE} h et plus.`
-            : `Forfait de ${HEURES_MIN_PAIEMENT_FRACTIONNE} h ou plus : le paiement en plusieurs fois (acomptes) est possible.`}
-        </span>
+        <>
+          <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>
+            {paiementUnique != null
+              ? `Forfait de ${paiementUnique} h : il se règle en une seule fois. Le paiement en plusieurs fois est réservé aux forfaits de ${HEURES_MIN_PAIEMENT_FRACTIONNE} h et plus.`
+              : `Forfait de ${HEURES_MIN_PAIEMENT_FRACTIONNE} h ou plus : le paiement en plusieurs fois (acomptes) est possible.`}
+          </span>
+          {/* La distinction qui manquait — demande client du 2026-10-31. Relevé en base : une
+              échéance planifiée à 16:19:02, puis un acompte du même montant enregistré à
+              16:19:08. Six secondes : le formulaire ci-dessous était resté pré-rempli avec le
+              solde entier sous un bouton « Enregistrer » qui ne disait pas ce qu'il
+              enregistrait, juste au-dessus de l'échéancier qu'on venait de remplir. */}
+          <span
+            style={{
+              fontSize: 11.5,
+              lineHeight: 1.55,
+              color: 'var(--ink-2)',
+              padding: '8px 10px',
+              borderRadius: 9,
+              border: '1px dashed var(--border)',
+              background: 'var(--surface-alt)',
+            }}
+          >
+            Un acompte constate de l’argent <strong>déjà reçu</strong> : il augmente le « déjà encaissé » ci-dessus.
+            Pour annoncer un règlement <strong>à venir</strong>, ne remplissez pas ce formulaire — planifiez une
+            échéance dans l’échéancier.
+          </span>
+        </>
       )}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
         <Champ label={`Montant (${devise})`} obligatoire aide={paiementUnique != null ? 'Solde complet, non modifiable.' : 'Pré-rempli avec le solde restant.'}>
@@ -745,7 +776,13 @@ function FormulaireAcompte({
         className="btn-shine"
         style={{ ...boutonPrimaireStyle, opacity: enCours || !montant || !moyenValide ? 0.6 : 1 }}
       >
-        {enCours ? 'Enregistrement…' : 'Enregistrer'}
+        {enCours
+          ? 'Enregistrement…'
+          : estProfesseur
+            ? 'Enregistrer le versement'
+            : Number(montant) > 0
+              ? `Encaisser ${formaterMontant(Number(montant), devise)}`
+              : 'Encaisser'}
       </button>
     </div>
   )
