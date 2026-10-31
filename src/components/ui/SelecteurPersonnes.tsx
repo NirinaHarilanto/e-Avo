@@ -38,7 +38,12 @@ export function SelecteurPersonnes({ etiquette, placeholder, candidats, selectio
     if (!recherche) return []
     return candidats
       .filter((c) => {
-        if (exclure.includes(c.id) || !normaliserNom(nomComplet(c)).includes(recherche)) return false
+        /* Le nom OU l'adresse e-mail, quand l'appelant la fournit : coller l'adresse d'un
+           destinataire est un réflexe au moins aussi courant que taper son nom, et ne rien
+           trouver laissait croire que la personne n'était pas inscrite. */
+        const correspond =
+          normaliserNom(nomComplet(c)).includes(recherche) || (!!c.email && normaliserNom(c.email).includes(recherche))
+        if (exclure.includes(c.id) || !correspond) return false
         // Un groupe reste proposable tant qu'un de ses membres manque à l'appel.
         if (c.membres) return c.membres.some((m) => !selectionnes.includes(m))
         return !selectionnes.includes(c.id)

@@ -74,10 +74,21 @@ export function UtiliserTemplateModale({
      quand il ajoute un destinataire, sinon il perd ses corrections sans comprendre pourquoi. */
   const [texteRetouche, setTexteRetouche] = useState(false)
 
-  const candidats = useMemo(
-    () => personnes.map((p) => ({ id: p.id, nom: p.nom, prenom: p.prenom, role: LIBELLE_ROLE[p.role] ?? p.role })),
-    [personnes],
-  )
+  /* Vivier des destinataires. L'adresse vient des listes admin (élèves, professeurs) et non de
+     l'annuaire, qui ne porte aucune coordonnée (0090) : elle ne sert qu'à RETROUVER la personne
+     quand l'admin colle son adresse au lieu de taper son nom — elle n'est jamais affichée. */
+  const candidats = useMemo(() => {
+    const emailParId = new Map(
+      [...etudiants, ...professeurs].filter((p) => p.email).map((p) => [p.id, p.email as string]),
+    )
+    return personnes.map((p) => ({
+      id: p.id,
+      nom: p.nom,
+      prenom: p.prenom,
+      role: LIBELLE_ROLE[p.role] ?? p.role,
+      email: emailParId.get(p.id) ?? null,
+    }))
+  }, [personnes, etudiants, professeurs])
 
   /* Aperçu recalculé tant que l'admin n'a pas pris la main sur le texte. Les constantes de la
      maison passent d'abord, les valeurs du destinataire ensuite (elles l'emportent). */
@@ -303,6 +314,18 @@ export function UtiliserTemplateModale({
 
   const titre = brouillon ? 'Reprendre un brouillon' : (template?.nom ?? 'Nouvel e-mail')
   const pret = obligatoires.length > 0 && !!objet.trim() && !!corps.trim()
+  /* Ce qui manque, dit à l'écran. Les trois boutons partagent la condition `pret`, mais seul
+     « Envoyer via gmail » en montrait quelque chose (son opacité) : l'admin voyait un bouton pâle
+     qui ne réagissait pas, sans jamais savoir pourquoi — signalé le 2026-10-31, alors qu'une
+     adresse avait bien été TAPÉE dans le champ des destinataires sans être SÉLECTIONNÉE dans la
+     liste, laissant la sélection vide. */
+  const raisonBlocage = !pret
+    ? obligatoires.length === 0
+      ? 'Choisissez au moins un destinataire obligatoire : tapez son nom ou son adresse, puis cliquez sur la personne proposée — une adresse saisie sans être sélectionnée ne compte pas.'
+      : !objet.trim()
+        ? 'Renseignez l’objet du message.'
+        : 'Le message est vide.'
+    : null
 
   return (
     <Modale titre={titre} onFermer={onFermer} largeurMax={720} fermetureExterieureDesactivee>
@@ -407,16 +430,33 @@ export function UtiliserTemplateModale({
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, borderTop: '1px solid var(--border-soft)', paddingTop: 14, flexWrap: 'wrap' }}>
+            {raisonBlocage && (
+              <span style={{ flexBasis: '100%', fontSize: 12, color: 'var(--warning)', lineHeight: 1.55, textAlign: 'right', marginBottom: 4 }}>
+                {raisonBlocage}
+              </span>
+            )}
             <button type="button" onClick={onFermer} style={boutonNeutreStyle}>
               Annuler
             </button>
-            <button type="button" onClick={() => appeler('enregistrement')} disabled={enCours !== null || !pret} style={boutonSecondaireStyle}>
+            {/* Opacité posée aussi sur ces deux-là : sans elle, ils paraissaient actifs alors
+                qu'ils portent exactement la même condition que « Envoyer via gmail ». */}
+            <button
+              type="button"
+              onClick={() => appeler('enregistrement')}
+              disabled={enCours !== null || !pret}
+              style={{ ...boutonSecondaireStyle, opacity: enCours !== null || !pret ? 0.6 : 1 }}
+            >
               {enCours === 'enregistrement' ? 'Enregistrement…' : 'Enregistrer'}
             </button>
             {/* Envoi interne (0119) : canal distinct de Gmail, d'où un bouton distinct plutôt
                 qu'un choix caché dans un menu — les deux partent du même texte relu à l'écran. */}
-            <button type="button" onClick={() => appeler('interne')} disabled={enCours !== null || !pret} style={boutonSecondaireStyle}>
+            <button
+              type="button"
+              onClick={() => appeler('interne')}
+              disabled={enCours !== null || !pret}
+              style={{ ...boutonSecondaireStyle, opacity: enCours !== null || !pret ? 0.6 : 1 }}
+            >
               {enCours === 'interne' ? 'Envoi…' : 'Envoyer'}
             </button>
             <button

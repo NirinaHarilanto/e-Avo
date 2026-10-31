@@ -13,6 +13,12 @@ export interface PersonneSelectionnable {
   /* Étiquette facultative affichée à côté du nom dans la liste de suggestions (ex. « Étudiant »,
      « Professeur ») — purement indicative, aucune logique n'en dépend. */
   role?: string
+  /* Adresse e-mail, quand l'appelant la connaît : elle rend la personne retrouvable en tapant son
+     adresse et non seulement son nom (demande client du 2026-10-31 — l'admin collait l'adresse
+     d'un destinataire dans le champ, la recherche ne trouvait rien, et l'envoi restait donc
+     impossible sans que rien ne l'explique). Jamais affichée, seulement cherchée : l'annuaire de
+     l'établissement n'expose les coordonnées de personne (0090). */
+  email?: string | null
   /* Partenaire DUO de cette personne (demande client du 2026-09-23) : quand elle est choisie, le
      champ propose d'ajouter son binôme au lieu de laisser l'utilisateur se souvenir tout seul
      qu'un duo se convoque à deux. La proposition reste une proposition — certains rendez-vous ne
