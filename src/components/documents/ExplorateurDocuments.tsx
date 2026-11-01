@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
-import { cheminDossier, sousDossiers, useDossiersDocuments, type DossierDocument, type PorteeDossiers } from '../../hooks/useDossiersDocuments'
+import { cheminDossier, useDossiersDocuments, type DossierDocument, type PorteeDossiers } from '../../hooks/useDossiersDocuments'
 import { useDocumentsPartages } from '../../hooks/useDocumentsPartages'
 import { useDossiersPartages } from '../../hooks/useDossiersPartages'
 import type { Database, CategorieDocument } from '../../types/database.types'
@@ -142,10 +142,6 @@ export function ExplorateurDocuments({
   const arbreCourant = dansDossierRecu ? dossiersRecusTous : dossiers
   const chemin = useMemo(
     () => (dansPartages ? [] : cheminDossier(arbreCourant, dossierCourantId)),
-    [arbreCourant, dossierCourantId, dansPartages],
-  )
-  const enfants = useMemo(
-    () => (dansPartages ? [] : sousDossiers(arbreCourant, dossierCourantId)),
     [arbreCourant, dossierCourantId, dansPartages],
   )
   const documentsDuDossier = useMemo(() => {
@@ -369,51 +365,6 @@ export function ExplorateurDocuments({
               >
                 {enCours ? 'Création…' : 'Créer'}
               </button>
-            </div>
-          )}
-
-          {/* Sous-dossiers du dossier ouvert, en grille : le panneau de gauche donne la structure,
-              cette grille donne le contenu — c'est le même couple que dans un explorateur. */}
-          {!dansPartages && enfants.length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 10 }}>
-              {enfants.map((d) => {
-                const contenu = contenuDe(d)
-                return (
-                  <div
-                    key={d.id}
-                    className="card card-lift"
-                    style={{ padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}
-                  >
-                    <button
-                      onClick={() => setDossierCourantId(d.id)}
-                      onDoubleClick={() => {
-                        if (!peutOrganiserIci) return
-                        setRenommageId(d.id)
-                        setNomRenomme(d.nom)
-                      }}
-                      style={{ display: 'flex', alignItems: 'center', gap: 9, flexGrow: 1, minWidth: 0, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden style={{ flexShrink: 0, color: 'var(--accent-gold, #e9cf94)' }}>
-                        <path
-                          d="M1.5 3.6c0-.6.5-1.1 1.1-1.1h3.1c.4 0 .7.2.9.5l.6 1h5.2c.6 0 1.1.5 1.1 1.1v7.3c0 .6-.5 1.1-1.1 1.1H2.6c-.6 0-1.1-.5-1.1-1.1V3.6Z"
-                          stroke="currentColor"
-                          strokeWidth="1.3"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                      <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: 12.5, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {d.nom}
-                        </span>
-                        <span style={{ fontSize: 10.5, color: 'var(--muted)' }}>
-                          {contenu.fichiers} fichier{contenu.fichiers > 1 ? 's' : ''}
-                          {contenu.dossiers > 0 ? ` · ${contenu.dossiers} dossier${contenu.dossiers > 1 ? 's' : ''}` : ''}
-                        </span>
-                      </span>
-                    </button>
-                  </div>
-                )
-              })}
             </div>
           )}
 
