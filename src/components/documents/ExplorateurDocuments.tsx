@@ -9,6 +9,7 @@ import { UploaderDocument } from './UploaderDocument'
 import { ListeDocuments } from './ListeDocuments'
 import { PanneauDossiers } from './PanneauDossiers'
 import { PartagerDossierModale } from './PartagerDossierModale'
+import { DeplacerDossierModale } from './DeplacerDossierModale'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { champStyle } from '../ui/Champ'
 
@@ -93,6 +94,7 @@ export function ExplorateurDocuments({
   const [renommageId, setRenommageId] = useState<string | null>(null)
   const [nomRenomme, setNomRenomme] = useState('')
   const [dossierAPartager, setDossierAPartager] = useState<DossierDocument | null>(null)
+  const [dossierADeplacer, setDossierADeplacer] = useState<DossierDocument | null>(null)
   const [enCours, setEnCours] = useState(false)
   const [erreurAction, setErreurAction] = useState<string | null>(null)
   const champCreation = useRef<HTMLInputElement>(null)
@@ -269,6 +271,7 @@ export function ExplorateurDocuments({
                     setDossierCourantId(dossier.id)
                   },
                   onSupprimer: supprimerDossier,
+                  onDeplacer: (dossier: DossierDocument) => setDossierADeplacer(dossier),
                 }
               : {}),
             onPartager: (dossier: DossierDocument) => setDossierAPartager(dossier),
@@ -430,6 +433,16 @@ export function ExplorateurDocuments({
             recharger()
             rechargerDossiersRecus()
           }}
+        />
+      )}
+
+      {dossierADeplacer && (
+        <DeplacerDossierModale
+          dossier={dossierADeplacer}
+          dossiers={dossiers}
+          titreRacine={titreRacine}
+          onFermer={() => setDossierADeplacer(null)}
+          onChange={recharger}
         />
       )}
     </div>

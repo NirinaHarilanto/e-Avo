@@ -13,6 +13,7 @@ import type { DossierRecu } from '../../hooks/useDossiersPartages'
 export interface ActionsDossier {
   onOuvrir: (id: string | null) => void
   onRenommer?: (dossier: DossierDocument) => void
+  onDeplacer?: (dossier: DossierDocument) => void
   onSupprimer?: (dossier: DossierDocument) => void
   onNouveauSousDossier?: (parentId: string | null) => void
   onPartager?: (dossier: DossierDocument) => void
@@ -262,6 +263,9 @@ export function PanneauDossiers({
                     : []),
                   ...(actions.onRenommer
                     ? [{ libelle: 'Renommer', action: () => actions.onRenommer!(menu.dossier) }]
+                    : []),
+                  ...(actions.onDeplacer
+                    ? [{ libelle: 'Déplacer…', action: () => actions.onDeplacer!(menu.dossier) }]
                     : []),
                   ...(actions.onPartager
                     ? [{ libelle: 'Partager…', action: () => actions.onPartager!(menu.dossier) }]
