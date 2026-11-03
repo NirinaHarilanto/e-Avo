@@ -37,7 +37,7 @@ describe('SelecteurRecurrence — jours et horaires du personnalisé', () => {
     frequence: 'semaine',
     intervalle: 1,
     joursSemaine: [1],
-    heuresParJour: { 1: '10:00' },
+    heuresParJour: { 1: ['10:00'] },
     fin: finParDefaut(LUNDI_8H),
   }
 
@@ -55,17 +55,65 @@ describe('SelecteurRecurrence — jours et horaires du personnalisé', () => {
     expect(screen.getByLabelText('Heure du Mer')).toBeDisabled()
   })
 
-  it('cocher un jour lui donne une heure, la changer ne touche pas les autres', () => {
+  it('cocher un jour lui donne un créneau, le changer ne touche pas les autres', () => {
     const onChange = vi.fn()
     render(<SelecteurRecurrence debut={LUNDI_8H} valeur={reglePerso} onChange={onChange} />)
     fireEvent.click(screen.getByRole('button', { name: 'Mer' }))
     expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ joursSemaine: [1, 3], heuresParJour: { 1: '10:00', 3: '08:00' } }),
+      expect.objectContaining({ joursSemaine: [1, 3], heuresParJour: { 1: ['10:00'], 3: ['08:00'] } }),
     )
 
     onChange.mockClear()
     fireEvent.change(screen.getByLabelText('Heure du Lun'), { target: { value: '14:30' } })
-    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ heuresParJour: { 1: '14:30' } }))
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ heuresParJour: { 1: ['14:30'] } }))
+  })
+})
+
+/* « Il se peut que l'on ajoute des créneaux sur le même jour. Par exemple, l'utilisateur pourra
+   rajouter deux séances de cours le lundi à 6:15 et 18h si besoin. » — client, 2026-11-04. */
+describe('SelecteurRecurrence — plusieurs créneaux le même jour', () => {
+  const reglePerso: RegleRecurrence = {
+    frequence: 'semaine',
+    intervalle: 1,
+    joursSemaine: [1],
+    heuresParJour: { 1: ['06:15'] },
+    fin: finParDefaut(LUNDI_8H),
+  }
+
+  it('offre un « + » sur chaque jour coché, et pas sur les autres', () => {
+    render(<SelecteurRecurrence debut={LUNDI_8H} valeur={reglePerso} onChange={vi.fn()} />)
+    expect(screen.getByLabelText('Ajouter un créneau le Lun')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Ajouter un créneau le Mar')).not.toBeInTheDocument()
+  })
+
+  it('le « + » ajoute un second créneau au même jour', () => {
+    const onChange = vi.fn()
+    render(<SelecteurRecurrence debut={LUNDI_8H} valeur={reglePerso} onChange={onChange} />)
+    fireEvent.click(screen.getByLabelText('Ajouter un créneau le Lun'))
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ heuresParJour: { 1: ['06:15', '07:15'] } }))
+  })
+
+  it('affiche et modifie chaque créneau indépendamment', () => {
+    const onChange = vi.fn()
+    const deuxCreneaux: RegleRecurrence = { ...reglePerso, heuresParJour: { 1: ['06:15', '18:00'] } }
+    render(<SelecteurRecurrence debut={LUNDI_8H} valeur={deuxCreneaux} onChange={onChange} />)
+    expect(screen.getByDisplayValue('06:15')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('18:00')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Heure 2 du Lun'), { target: { value: '19:30' } })
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ heuresParJour: { 1: ['06:15', '19:30'] } }))
+  })
+
+  it('un créneau se retire, mais jamais le dernier du jour', () => {
+    const onChange = vi.fn()
+    const deuxCreneaux: RegleRecurrence = { ...reglePerso, heuresParJour: { 1: ['06:15', '18:00'] } }
+    const { rerender } = render(<SelecteurRecurrence debut={LUNDI_8H} valeur={deuxCreneaux} onChange={onChange} />)
+    fireEvent.click(screen.getByLabelText('Retirer le créneau de 18:00 du Lun'))
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ heuresParJour: { 1: ['06:15'] } }))
+
+    // Avec un seul créneau, plus de « × » : on retire le jour entier en le décochant.
+    rerender(<SelecteurRecurrence debut={LUNDI_8H} valeur={reglePerso} onChange={onChange} />)
+    expect(screen.queryByLabelText(/Retirer le créneau/)).not.toBeInTheDocument()
   })
 })
 

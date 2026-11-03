@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { genererOccurrences, versRRule, preselectionsRecurrence, regleEquivalente, finParDefaut, LIMITE_OCCURRENCES_DEFAUT, type RegleRecurrence } from '../recurrence'
+import { genererOccurrences, versRRule, preselectionsRecurrence, regleEquivalente, finParDefaut, aPlusieursCreneauxParJour, LIMITE_OCCURRENCES_DEFAUT, type RegleRecurrence } from '../recurrence'
 
 const jourLocal = (iso: string) => new Date(`${iso}T18:00:00`)
 
@@ -178,7 +178,7 @@ describe('heure propre à chaque jour de la semaine', () => {
       frequence: 'semaine',
       intervalle: 1,
       joursSemaine: [1, 3],
-      heuresParJour: { 1: '10:00', 3: '14:30' },
+      heuresParJour: { 1: ['10:00'], 3: ['14:30'] },
       fin: { type: 'apres', occurrences: 4 },
     }
     // Lundi 2 novembre 2026, 8h — l'heure de départ ne doit PAS l'emporter sur celle des jours.
@@ -196,7 +196,7 @@ describe('heure propre à chaque jour de la semaine', () => {
       frequence: 'semaine',
       intervalle: 1,
       joursSemaine: [1, 3],
-      heuresParJour: { 1: '10:00' },
+      heuresParJour: { 1: ['10:00'] },
       fin: { type: 'apres', occurrences: 2 },
     }
     const dates = genererOccurrences(regle, new Date(2026, 10, 2, 8, 15))
@@ -226,5 +226,42 @@ describe('préréglages bornés par défaut', () => {
 
   it('finParDefaut tombe trois mois après le départ', () => {
     expect(finParDefaut(new Date(2026, 10, 3, 5, 45))).toEqual({ type: 'le', date: '2027-02-03' })
+  })
+})
+
+describe('plusieurs créneaux le même jour', () => {
+  it('crée une occurrence par créneau, en ordre chronologique', () => {
+    const regle: RegleRecurrence = {
+      frequence: 'semaine',
+      intervalle: 1,
+      joursSemaine: [1],
+      // Saisis dans le désordre : la sortie doit rester chronologique.
+      heuresParJour: { 1: ['18:00', '06:15'] },
+      fin: { type: 'apres', occurrences: 4 },
+    }
+    const dates = genererOccurrences(regle, new Date(2026, 10, 2, 0, 0))
+    expect(dates.map((d) => `${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`)).toEqual([
+      '2 6:15',
+      '2 18:00',
+      '9 6:15',
+      '9 18:00',
+    ])
+  })
+
+  it('compte chaque créneau dans la limite d’occurrences', () => {
+    const regle: RegleRecurrence = {
+      frequence: 'semaine',
+      intervalle: 1,
+      joursSemaine: [1],
+      heuresParJour: { 1: ['06:15', '18:00'] },
+      fin: { type: 'apres', occurrences: 3 },
+    }
+    expect(genererOccurrences(regle, new Date(2026, 10, 2, 0, 0))).toHaveLength(3)
+  })
+
+  it('signale une règle que RRULE ne sait pas transporter', () => {
+    const base: RegleRecurrence = { frequence: 'semaine', intervalle: 1, joursSemaine: [1], fin: { type: 'jamais' } }
+    expect(aPlusieursCreneauxParJour({ ...base, heuresParJour: { 1: ['06:15'] } })).toBe(false)
+    expect(aPlusieursCreneauxParJour({ ...base, heuresParJour: { 1: ['06:15', '18:00'] } })).toBe(true)
   })
 })

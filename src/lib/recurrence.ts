@@ -28,12 +28,12 @@ export interface RegleRecurrence {
   /* 0 = dimanche … 6 = samedi, comme Date.prototype.getDay(). Uniquement pour frequence === 'semaine' ;
      un ou plusieurs jours cochés (ex. lundi + mercredi + vendredi). */
   joursSemaine?: number[]
-  /* Heure propre à chaque jour coché, au format « HH:MM » — demande client du 2026-11-03 : « il
-     faut pouvoir définir les jours de la semaine du lundi au dimanche et un créneau à définir à
-     côté de chaque jour ». Un cours peut être à 10h le lundi et 14h le mercredi, ce qu'une heure
-     unique héritée du point de départ ne savait pas exprimer : il fallait créer deux séries.
+  /* Heures propres à chaque jour coché, au format « HH:MM » — demande client du 2026-11-03,
+     élargie le 2026-11-04 : « il se peut que l'on ajoute des créneaux sur le même jour […] deux
+     séances de cours le lundi à 6:15 et 18h ». D'où une LISTE par jour et non une heure unique :
+     un même jour peut porter plusieurs séances, et chacune devient sa propre occurrence.
      Un jour absent de cette table garde l'heure du point de départ, l'ancien comportement. */
-  heuresParJour?: Record<number, string>
+  heuresParJour?: Record<number, string[]>
   fin: FinRecurrence
 }
 
@@ -84,21 +84,25 @@ function genererOccurrencesHebdomadaires(
 
   while (occurrences.length < limite) {
     for (const jour of jours) {
-      const candidate = dateDuJourDansLaSemaine(semaineCursor, jour)
-      /* L'heure du jour quand elle est définie, sinon celle du point de départ : c'est ce qui
-         permet « lundi 10h, mercredi 14h » en une seule série (2026-11-03). */
-      const heureDuJour = regle.heuresParJour?.[jour]
-      if (heureDuJour) {
-        const [h, m] = heureDuJour.split(':').map(Number)
+      /* Les heures du jour quand il en porte, sinon celle du point de départ : c'est ce qui
+         permet « lundi 10h, mercredi 14h » dans une seule série, et depuis le 2026-11-04
+         plusieurs créneaux le MÊME jour (« lundi 6h15 et 18h »). Triées pour que la série
+         sorte en ordre chronologique, quel que soit l'ordre de saisie. */
+      const heuresDuJour = regle.heuresParJour?.[jour]
+      const heures = heuresDuJour?.length
+        ? [...heuresDuJour].sort()
+        : [`${String(debut.getHours()).padStart(2, '0')}:${String(debut.getMinutes()).padStart(2, '0')}`]
+
+      for (const heure of heures) {
+        const candidate = dateDuJourDansLaSemaine(semaineCursor, jour)
+        const [h, m] = heure.split(':').map(Number)
         candidate.setHours(h, m, 0, 0)
-      } else {
-        candidate.setHours(debut.getHours(), debut.getMinutes(), debut.getSeconds(), 0)
+        if (candidate.getTime() < debut.getTime()) continue
+        if (limiteDate && candidate.getTime() > limiteDate.getTime()) return occurrences
+        occurrences.push(candidate)
+        if (limiteCompte && occurrences.length >= limiteCompte) return occurrences
+        if (occurrences.length >= limite) return occurrences
       }
-      if (candidate.getTime() < debut.getTime()) continue
-      if (limiteDate && candidate.getTime() > limiteDate.getTime()) return occurrences
-      occurrences.push(candidate)
-      if (limiteCompte && occurrences.length >= limiteCompte) return occurrences
-      if (occurrences.length >= limite) return occurrences
     }
     semaineCursor = ajouterIntervalle(semaineCursor, regle)
   }
@@ -137,7 +141,16 @@ function versRRuleDate(date: Date): string {
   return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`
 }
 
-/** Traduit une règle en RRULE iCalendar — ce que Google Agenda attend pour un événement récurrent. */
+/* Une règle porte-t-elle plus d'un créneau sur un même jour ? Sert au formulaire à savoir si la
+   règle est traduisible en RRULE : une RRULE n'a qu'une heure, celle du DTSTART, donc « lundi
+   6h15 ET 18h » ne s'exprime pas dans un événement Google récurrent unique. Les séances de cours
+   n'ont pas cette limite — elles deviennent des dates concrètes via `genererOccurrences`. */
+export function aPlusieursCreneauxParJour(regle: RegleRecurrence): boolean {
+  return Object.values(regle.heuresParJour ?? {}).some((heures) => heures.length > 1)
+}
+
+/** Traduit une règle en RRULE iCalendar — ce que Google Agenda attend pour un événement récurrent.
+    Ne transporte qu'UNE heure (celle du DTSTART) : voir `aPlusieursCreneauxParJour`. */
 export function versRRule(regle: RegleRecurrence): string {
   const parties = [`FREQ=${FREQ_ICAL[regle.frequence]}`]
   if (regle.intervalle > 1) parties.push(`INTERVAL=${regle.intervalle}`)
@@ -238,7 +251,15 @@ export function regleEquivalente(a: RegleRecurrence, b: RegleRecurrence): boolea
   const heuresA = a.heuresParJour ?? {}
   const heuresB = b.heuresParJour ?? {}
   const clesHeures = [...new Set([...Object.keys(heuresA), ...Object.keys(heuresB)])]
-  if (clesHeures.some((k) => heuresA[Number(k)] !== heuresB[Number(k)])) return false
+  if (
+    clesHeures.some((k) => {
+      const listeA = [...(heuresA[Number(k)] ?? [])].sort()
+      const listeB = [...(heuresB[Number(k)] ?? [])].sort()
+      return listeA.length !== listeB.length || listeA.some((h, i) => h !== listeB[i])
+    })
+  ) {
+    return false
+  }
   if (a.fin.type !== b.fin.type) return false
   if (a.fin.type === 'le' && a.fin.date !== b.fin.date) return false
   if (a.fin.type === 'apres' && a.fin.occurrences !== b.fin.occurrences) return false

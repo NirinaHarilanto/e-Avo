@@ -25,6 +25,21 @@ const JOURS_SEMAINE = [
   { jour: 0, court: 'Dim' },
 ]
 
+const boutonCreneauStyle = (couleur: string): React.CSSProperties => ({
+  width: 24,
+  height: 24,
+  flexShrink: 0,
+  borderRadius: 7,
+  border: `1px solid ${couleur}`,
+  background: 'transparent',
+  color: couleur,
+  fontSize: 14,
+  lineHeight: 1,
+  fontWeight: 700,
+  cursor: 'pointer',
+  fontFamily: 'inherit',
+})
+
 function heureDeLaDate(date: Date): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
@@ -34,7 +49,7 @@ function regleParDefautPersonnalisee(debut: Date): RegleRecurrence {
     frequence: 'semaine',
     intervalle: 1,
     joursSemaine: [debut.getDay()],
-    heuresParJour: { [debut.getDay()]: heureDeLaDate(debut) },
+    heuresParJour: { [debut.getDay()]: [heureDeLaDate(debut)] },
     fin: finParDefaut(debut),
   }
 }
@@ -86,16 +101,40 @@ export function SelecteurRecurrence({
     const coche = actuels.includes(jour)
     const prochains = coche ? actuels.filter((j) => j !== jour) : [...actuels, jour].sort((a, b) => a - b)
     const heures = { ...(valeur.heuresParJour ?? {}) }
-    /* Un jour décoché perd son heure, un jour coché reprend celle du départ : sans ça, décocher
-       puis recocher ressusciterait une heure que l'utilisateur croyait effacée. */
+    /* Un jour décoché perd TOUS ses créneaux, un jour coché en reprend un, à l'heure du départ :
+       sans ça, décocher puis recocher ressusciterait des horaires qu'on croyait effacés. */
     if (coche) delete heures[jour]
-    else heures[jour] = heures[jour] ?? heureDeLaDate(debut)
+    else heures[jour] = heures[jour]?.length ? heures[jour] : [heureDeLaDate(debut)]
     onChange({ ...valeur, joursSemaine: prochains, heuresParJour: heures })
   }
 
-  function changerHeureJour(jour: number, heure: string) {
+  function heuresDuJour(jour: number): string[] {
+    const heures = valeur?.heuresParJour?.[jour]
+    return heures?.length ? heures : [heureDeLaDate(debut)]
+  }
+
+  function changerHeureJour(jour: number, index: number, heure: string) {
     if (!valeur) return
-    onChange({ ...valeur, heuresParJour: { ...(valeur.heuresParJour ?? {}), [jour]: heure } })
+    const prochaines = [...heuresDuJour(jour)]
+    prochaines[index] = heure
+    onChange({ ...valeur, heuresParJour: { ...(valeur.heuresParJour ?? {}), [jour]: prochaines } })
+  }
+
+  /* Un créneau de plus sur le MÊME jour — demande client du 2026-11-04 : « deux séances de cours
+     le lundi à 6:15 et 18h si besoin ». Proposé une heure après le dernier créneau du jour,
+     simplement pour ne pas créer deux fois le même horaire d'un clic. */
+  function ajouterCreneau(jour: number) {
+    if (!valeur) return
+    const actuelles = heuresDuJour(jour)
+    const [h, m] = actuelles[actuelles.length - 1].split(':').map(Number)
+    const suivante = `${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+    onChange({ ...valeur, heuresParJour: { ...(valeur.heuresParJour ?? {}), [jour]: [...actuelles, suivante] } })
+  }
+
+  function retirerCreneau(jour: number, index: number) {
+    if (!valeur) return
+    const prochaines = heuresDuJour(jour).filter((_, i) => i !== index)
+    onChange({ ...valeur, heuresParJour: { ...(valeur.heuresParJour ?? {}), [jour]: prochaines } })
   }
 
   const dateDebutLisible = debut.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -195,8 +234,9 @@ export function SelecteurRecurrence({
                   d'un coup d'œil plutôt que seulement ce qui est déjà choisi. */}
               {JOURS_SEMAINE.map(({ jour, court }) => {
                 const actif = (valeur.joursSemaine ?? []).includes(jour)
+                const creneaux = heuresDuJour(jour)
                 return (
-                  <div key={jour} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div key={jour} style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                     <button
                       type="button"
                       onClick={() => basculerJour(jour)}
@@ -204,6 +244,7 @@ export function SelecteurRecurrence({
                       style={{
                         width: 62,
                         padding: '5px 0',
+                        marginTop: 1,
                         borderRadius: 8,
                         border: `1px solid ${actif ? 'transparent' : 'var(--border)'}`,
                         background: actif ? 'var(--accent-gradient)' : 'transparent',
@@ -217,14 +258,46 @@ export function SelecteurRecurrence({
                     >
                       {court}
                     </button>
-                    <input
-                      type="time"
-                      aria-label={`Heure du ${court}`}
-                      disabled={!actif}
-                      value={valeur.heuresParJour?.[jour] ?? heureDeLaDate(debut)}
-                      onChange={(e) => changerHeureJour(jour, e.target.value)}
-                      style={{ ...champStyle, width: 'auto', padding: '5px 9px', opacity: actif ? 1 : 0.4 }}
-                    />
+                    {/* Une ligne par créneau du jour : le « + » en ajoute un autre au MÊME jour
+                        (demande client du 2026-11-04), le « × » retire celui de sa ligne. Le
+                        dernier créneau n'a pas de « × » — on retire le jour entier en le
+                        décochant, ce qui évite une ligne de jour coché sans aucune heure. */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                      {creneaux.map((heure, index) => (
+                        <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <input
+                            type="time"
+                            aria-label={index === 0 ? `Heure du ${court}` : `Heure ${index + 1} du ${court}`}
+                            disabled={!actif}
+                            value={heure}
+                            onChange={(e) => changerHeureJour(jour, index, e.target.value)}
+                            style={{ ...champStyle, width: 'auto', padding: '5px 9px', opacity: actif ? 1 : 0.4 }}
+                          />
+                          {actif && creneaux.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => retirerCreneau(jour, index)}
+                              aria-label={`Retirer le créneau de ${heure} du ${court}`}
+                              title="Retirer ce créneau"
+                              style={boutonCreneauStyle('var(--danger)')}
+                            >
+                              ×
+                            </button>
+                          )}
+                          {actif && index === creneaux.length - 1 && (
+                            <button
+                              type="button"
+                              onClick={() => ajouterCreneau(jour)}
+                              aria-label={`Ajouter un créneau le ${court}`}
+                              title="Ajouter un créneau ce jour-là"
+                              style={boutonCreneauStyle('var(--accent-blue)')}
+                            >
+                              +
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )
               })}
