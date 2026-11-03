@@ -21,24 +21,23 @@ export default async function handler(request: Request): Promise<Response> {
   try {
     const { serviceClient, profileId, roles } = await requireTeacherOrAdmin(request)
 
-    if (!roles.includes('admin_etablissement')) {
-      const { data: autorisation } = await serviceClient
-        .from('demandes_agenda_google')
-        .select('id')
-        .eq('profile_id', profileId)
-        .eq('statut', 'approuvee')
-        .maybeSingle()
+    /* Réservée à l'administration depuis le 2026-11-04 : « mets le bouton de déconnexion
+       uniquement du côté admin ». Un professeur ne se délie donc plus lui-même — l'administration
+       le fait pour lui depuis Paramètres › Agendas Google des professeurs
+       (api/admin/deconnecter-agenda-professeur.ts).
 
-      if (!autorisation) {
-        return Response.json(
-          {
-            error:
-              'Le retrait de votre compte Google doit être validé par l’administration : faites-en la demande depuis « Mon profil ». Pour simplement réparer une synchronisation, reconnectez la même adresse — c’est libre.',
-            changementARequerir: true,
-          },
-          { status: 409 },
-        )
-      }
+       Le contrôle vit ICI et pas seulement dans l'écran : masquer un bouton n'empêche personne
+       d'appeler la route. Il remplace l'autorisation préalable exigée depuis 0112, qui poursuivait
+       le même but — empêcher qu'on contourne la validation d'un changement d'adresse en se
+       déconnectant puis en reconnectant un autre compte. */
+    if (!roles.includes('admin_etablissement')) {
+      return Response.json(
+        {
+          error:
+            'Le retrait de votre compte Google est effectué par l’administration. Demandez-le-lui : elle le fait depuis Paramètres › Agendas Google des professeurs. Pour simplement réparer une synchronisation, reconnectez la même adresse — c’est libre.',
+        },
+        { status: 403 },
+      )
     }
 
     const { error } = await serviceClient.from('google_integrations_personnelles').delete().eq('profile_id', profileId)

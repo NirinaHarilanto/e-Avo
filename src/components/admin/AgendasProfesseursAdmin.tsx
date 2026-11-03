@@ -49,7 +49,7 @@ function nomComplet(ligne: LigneAgenda): string {
 
 export function AgendasProfesseursAdmin() {
   const { profile } = useProfileContext()
-  const { valeur, loading } = useCacheRequete(profile ? 'agendas-professeurs' : null, async () => {
+  const { valeur, loading, recharger } = useCacheRequete(profile ? 'agendas-professeurs' : null, async () => {
     const { data } = await supabase.from('google_agendas_professeurs_statut').select('*')
     return (data ?? []) as LigneAgenda[]
   })
@@ -163,6 +163,13 @@ export function AgendasProfesseursAdmin() {
                     >
                       {presentation.libelle}
                     </span>
+                    {/* Désynchroniser le compte d'un professeur — demande client du 2026-11-04.
+                        N'existait nulle part : le professeur ne peut se déconnecter qu'avec une
+                        autorisation (0112), et l'administration, qui EST cette autorité, n'avait
+                        aucun bouton. Un professeur parti gardait donc sa liaison indéfiniment. */}
+                    {ligne.google_email && (
+                      <BoutonDeconnecterAgenda ligne={ligne} onDeconnecte={recharger} />
+                    )}
                   </div>
                 )
               })}
@@ -295,6 +302,74 @@ function CarteDemande({ demande, onDecide }: { demande: DemandeAdmin; onDecide: 
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+/* Désynchronisation du Google Calendar d'un professeur par l'administration — demande client du
+   2026-11-04. En deux temps, jamais au premier clic : le geste coupe la liaison et fera repartir
+   les prochaines réunions du compte de l'établissement, ce qui change l'expéditeur des invitations
+   que reçoivent ses élèves. Le professeur en est notifié (voir la route). */
+export function BoutonDeconnecterAgenda({ ligne, onDeconnecte }: { ligne: LigneAgenda; onDeconnecte: () => void }) {
+  const { session } = useProfileContext()
+  const [confirmation, setConfirmation] = useState(false)
+  const [enCours, setEnCours] = useState(false)
+  const [erreur, setErreur] = useState<string | null>(null)
+
+  async function deconnecter() {
+    if (!session) return
+    setEnCours(true)
+    setErreur(null)
+    const reponse = await fetch('/api/admin/deconnecter-agenda-professeur', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
+      body: JSON.stringify({ profileId: ligne.profile_id }),
+    })
+    setEnCours(false)
+    if (!reponse.ok) {
+      const corps = await reponse.json().catch(() => null)
+      setErreur(corps?.error ?? 'La déconnexion a échoué.')
+      return
+    }
+    setConfirmation(false)
+    onDeconnecte()
+  }
+
+  if (!confirmation) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+        <button
+          type="button"
+          onClick={() => setConfirmation(true)}
+          style={{ ...boutonNeutreStyle, color: 'var(--danger)', fontSize: 11.5, padding: '5px 12px' }}
+        >
+          Déconnecter
+        </button>
+        {erreur && <span style={{ fontSize: 11, color: 'var(--danger)' }}>{erreur}</span>}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, maxWidth: 260 }}>
+      <span style={{ fontSize: 11.5, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+        Délier {ligne.google_email ?? 'ce compte'} ? Ses prochaines réunions repartiront du compte de l’établissement,
+        et il devra reconnecter son agenda lui-même.
+      </span>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button type="button" onClick={() => setConfirmation(false)} disabled={enCours} style={{ ...boutonNeutreStyle, fontSize: 11.5, padding: '5px 12px' }}>
+          Annuler
+        </button>
+        <button
+          type="button"
+          onClick={deconnecter}
+          disabled={enCours}
+          style={{ ...boutonNeutreStyle, color: 'var(--danger)', fontSize: 11.5, padding: '5px 12px' }}
+        >
+          {enCours ? 'Déconnexion…' : 'Confirmer'}
+        </button>
+      </div>
+      {erreur && <span style={{ fontSize: 11, color: 'var(--danger)' }}>{erreur}</span>}
     </div>
   )
 }

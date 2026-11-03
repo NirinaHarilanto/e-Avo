@@ -243,9 +243,16 @@ export function IntegrationGoogleCalendarPersonnel() {
                   Demander un changement d’adresse
                 </button>
               )}
-              <button type="button" onClick={deconnecter} disabled={enCours} style={{ ...boutonNeutreStyle, color: 'var(--danger)' }}>
-                Déconnecter
-              </button>
+              {/* Déconnexion réservée à l'administration — demande client du 2026-11-04 : « mets
+                  le bouton de déconnexion uniquement du côté admin ». Elle se fait depuis
+                  Paramètres › Agendas Google des professeurs. Le professeur gardait jusque-là un
+                  bouton qui, pour lui, ne menait qu'à un refus : il devait de toute façon passer
+                  par une validation (0112). Autant ne pas le lui montrer. */}
+              {estAdmin && (
+                <button type="button" onClick={deconnecter} disabled={enCours} style={{ ...boutonNeutreStyle, color: 'var(--danger)' }}>
+                  Déconnecter
+                </button>
+              )}
             </div>
           </>
         ) : (
