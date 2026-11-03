@@ -1,3 +1,4 @@
+import { correspondARecherche } from '../../lib/recherche'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
@@ -63,12 +64,12 @@ export function EtudiantsProfesseur() {
       aAfficher.filter((e) => {
         const secondaire = secondaireParPrincipal.get(e.id)
         const cible = `${e.prenom ?? ''} ${e.nom ?? ''} ${secondaire ? `${secondaire.prenom ?? ''} ${secondaire.nom ?? ''}` : ''}`
-        return cible.toLowerCase().includes(recherche.toLowerCase())
+        return correspondARecherche(cible, recherche)
       }),
     [aAfficher, recherche, secondaireParPrincipal],
   )
   const anciensFiltres = useMemo(
-    () => etudiantsAnciens.filter((e) => `${e.profil.prenom ?? ''} ${e.profil.nom ?? ''}`.toLowerCase().includes(recherche.toLowerCase())),
+    () => etudiantsAnciens.filter((e) => correspondARecherche(`${e.profil.prenom ?? ''} ${e.profil.nom ?? ''}`, recherche)),
     [etudiantsAnciens, recherche],
   )
   const statutsContrats = useStatutsContratsSignature(idsActifs)

@@ -1,3 +1,4 @@
+import { correspondARecherche } from '../../lib/recherche'
 import { useCallback, useMemo, useState } from 'react'
 import { jetonAcces } from '../../lib/jetonAcces'
 import { AdminLayout } from '../layout/AdminLayout'
@@ -91,7 +92,7 @@ export function SeancesAdmin() {
      de composer. */
   const correspond = useCallback(
     (p: { prenom: string | null; nom: string | null }) =>
-      !recherche.trim() || `${p.prenom ?? ''} ${p.nom ?? ''}`.toLowerCase().includes(recherche.trim().toLowerCase()),
+      correspondARecherche(`${p.prenom ?? ''} ${p.nom ?? ''}`, recherche),
     [recherche],
   )
 

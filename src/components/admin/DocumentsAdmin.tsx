@@ -1,3 +1,4 @@
+import { correspondARecherche } from '../../lib/recherche'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { jetonAcces } from '../../lib/jetonAcces'
 import { AdminLayout } from '../layout/AdminLayout'
@@ -47,7 +48,7 @@ export function DocumentsAdmin() {
   const personnes = onglet === 'etudiants' ? etudiants : professeurs
   const loading = onglet === 'etudiants' ? chargementEtudiants : chargementProfesseurs
   const filtres = useMemo(
-    () => personnes.filter((p) => `${p.prenom ?? ''} ${p.nom ?? ''}`.toLowerCase().includes(recherche.toLowerCase())),
+    () => personnes.filter((p) => correspondARecherche(`${p.prenom ?? ''} ${p.nom ?? ''}`, recherche)),
     [personnes, recherche],
   )
   const selectionne = personnes.find((p) => p.id === selectionneId) ?? null
@@ -250,7 +251,7 @@ function PanneauComptesRendus() {
     return comptesRendus.filter(({ session, professeur, participants }) => {
       if (rechercheNormalisee) {
         const personnes = [professeur, ...participants].filter((p): p is Profile => !!p)
-        const correspond = personnes.some((p) => `${p.prenom ?? ''} ${p.nom ?? ''}`.toLowerCase().includes(rechercheNormalisee))
+        const correspond = personnes.some((p) => correspondARecherche(`${p.prenom ?? ''} ${p.nom ?? ''}`, recherchePersonne))
         if (!correspond) return false
       }
       if (dateDebut || dateFin) {

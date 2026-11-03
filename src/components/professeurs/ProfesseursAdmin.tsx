@@ -1,3 +1,4 @@
+import { correspondARecherche } from '../../lib/recherche'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AdminLayout } from '../layout/AdminLayout'
@@ -75,7 +76,7 @@ export function ProfesseursAdmin() {
   const filtres = useMemo(
     () =>
       professeurs.filter((p) => {
-        const correspondNom = `${p.prenom ?? ''} ${p.nom ?? ''} ${p.email ?? ''}`.toLowerCase().includes(recherche.toLowerCase())
+        const correspondNom = correspondARecherche(`${p.prenom ?? ''} ${p.nom ?? ''} ${p.email ?? ''}`, recherche)
         return correspondNom && correspondALaCharge(comptes[p.id] ?? 0, filtreCharge)
       }),
     [professeurs, recherche, filtreCharge, comptes],

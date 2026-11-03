@@ -1,3 +1,4 @@
+import { correspondARecherche } from '../../lib/recherche'
 import { jourDansFuseauEtablissement } from '../../lib/etablissement'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -67,13 +68,16 @@ export function EtudiantsAdmin() {
   const etudiants = useMemo(() => tousLesEtudiants.filter((e) => !e.duo_partenaire_id), [tousLesEtudiants])
 
   /* La recherche porte aussi sur le second membre d'un binôme : son nom est affiché dans le bloc
-     du duo, le taper doit donc ramener ce bloc — sinon il paraîtrait introuvable. */
+     du duo, le taper doit donc ramener ce bloc — sinon il paraîtrait introuvable.
+     `correspondARecherche` et non un `includes` littéral depuis le 2026-11-04 : « Nomena ANDRY
+     TAHIANA » restait introuvable en tapant « Andry nomena », l'ordre nom-prénom étant pourtant
+     l'usage courant ici. Voir src/lib/recherche.ts. */
   const filtres = useMemo(
     () =>
       etudiants.filter((e) => {
         const secondaire = secondaireParPrincipal.get(e.id)
         const cible = `${e.prenom ?? ''} ${e.nom ?? ''} ${secondaire ? `${secondaire.prenom ?? ''} ${secondaire.nom ?? ''}` : ''}`
-        return cible.toLowerCase().includes(recherche.toLowerCase())
+        return correspondARecherche(cible, recherche)
       }),
     [etudiants, recherche, secondaireParPrincipal],
   )
