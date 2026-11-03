@@ -6,6 +6,7 @@ import {
   libelleTypeSeance,
   nomEleveInscrit,
   seancePasseeNonCloturee,
+  seanceCloturable,
   seancesHorsAffectation,
 } from '../seances'
 
@@ -160,5 +161,42 @@ describe('seancePasseeNonCloturee', () => {
     expect(seancePasseeNonCloturee(seance('2026-10-18T16:00:00Z', 60, 'terminee'), maintenant)).toBe(false)
     expect(seancePasseeNonCloturee(seance('2026-10-18T16:00:00Z', 60, 'annulee'), maintenant)).toBe(false)
     expect(seancePasseeNonCloturee(seance('2026-10-18T16:00:00Z', 60, 'reportee'), maintenant)).toBe(false)
+  })
+})
+
+/* Règle posée par le client le 2026-11-04 : « toute séance de cours doit être clôturable à
+   partir de 5 min avant la fin de la séance ». Avant, le bouton s'ouvrait dès le DÉBUT. */
+describe('seanceCloturable', () => {
+  const seance = (debut: string, duree_minutes = 60, statut = 'planifiee') => ({ statut, debut, duree_minutes })
+  // Séance de 10h00 à 11h00 : clôture ouverte à partir de 10h55.
+  const DEBUT = '2026-11-04T10:00:00Z'
+
+  it('reste fermée tant qu’il manque plus de 5 min avant la fin', () => {
+    expect(seanceCloturable(seance(DEBUT), new Date('2026-11-04T10:00:00Z'))).toBe(false)
+    expect(seanceCloturable(seance(DEBUT), new Date('2026-11-04T10:30:00Z'))).toBe(false)
+    expect(seanceCloturable(seance(DEBUT), new Date('2026-11-04T10:54:59Z'))).toBe(false)
+  })
+
+  it('s’ouvre pile 5 min avant la fin, et le reste après', () => {
+    expect(seanceCloturable(seance(DEBUT), new Date('2026-11-04T10:55:00Z'))).toBe(true)
+    expect(seanceCloturable(seance(DEBUT), new Date('2026-11-04T11:00:00Z'))).toBe(true)
+    // Une séance oubliée trois jours doit évidemment rester clôturable.
+    expect(seanceCloturable(seance(DEBUT), new Date('2026-11-07T09:00:00Z'))).toBe(true)
+  })
+
+  it('tient compte de la durée réelle, pas d’une heure fixe', () => {
+    // Séance de 30 min : clôture à partir de 10h25, pas 10h55.
+    expect(seanceCloturable(seance(DEBUT, 30), new Date('2026-11-04T10:24:00Z'))).toBe(false)
+    expect(seanceCloturable(seance(DEBUT, 30), new Date('2026-11-04T10:25:00Z'))).toBe(true)
+    // Séance de 2 h : toujours fermée à 10h55.
+    expect(seanceCloturable(seance(DEBUT, 120), new Date('2026-11-04T10:55:00Z'))).toBe(false)
+    expect(seanceCloturable(seance(DEBUT, 120), new Date('2026-11-04T11:55:00Z'))).toBe(true)
+  })
+
+  it('ne s’applique qu’aux séances encore planifiées', () => {
+    const apres = new Date('2026-11-04T11:30:00Z')
+    expect(seanceCloturable(seance(DEBUT, 60, 'terminee'), apres)).toBe(false)
+    expect(seanceCloturable(seance(DEBUT, 60, 'annulee'), apres)).toBe(false)
+    expect(seanceCloturable(seance(DEBUT, 60, 'reportee'), apres)).toBe(false)
   })
 })

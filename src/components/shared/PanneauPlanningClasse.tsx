@@ -78,7 +78,6 @@ export function PanneauPlanningClasse({
   const seanceOuverte = seances.find((s) => s.session.id === seanceOuverteId) ?? null
   // Figé au montage : `new Date()` pendant le rendu rendrait celui-ci impur (et relancerait les
   // comparaisons « séance déjà commencée » à chaque re-rendu).
-  const [maintenant] = useState(() => new Date().toISOString())
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -197,7 +196,6 @@ export function PanneauPlanningClasse({
               les pieds du professeur. Seule la croix (onFermer ci-dessus) la referme désormais. */}
           <CarteSeance
             seance={seanceOuverte}
-            maintenant={maintenant}
             sansCadre
             onChange={() => {
               recharger()

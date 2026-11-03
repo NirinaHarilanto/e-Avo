@@ -10,7 +10,7 @@ import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import type { Database } from '../../types/database.types'
 import { lundiDeLaSemaine, type EvenementAgenda } from '../../lib/agenda'
 import { nomVagueSeul } from '../../lib/cohortes'
-import { estSeanceDuo, libelleTypeSeance, nomsElevesInscrits } from '../../lib/seances'
+import { estSeanceDuo, libelleTypeSeance, nomsElevesInscrits, seanceCloturable } from '../../lib/seances'
 import {
   versEvenementAdmin,
   versEvenementPrestation,
@@ -120,7 +120,6 @@ export function CalendrierProfesseur() {
      pas en pop-up. */
   const [seanceACloturerId, setSeanceACloturerId] = useState<string | null>(null)
 
-  const maintenant = new Date().toISOString()
   const aVenir = seances
     .filter((s) => s.session.statut === 'planifiee')
     .sort((a, b) => a.session.debut.localeCompare(b.session.debut))
@@ -209,11 +208,13 @@ export function CalendrierProfesseur() {
             <Stat libelle="Élèves actifs" valeur={etudiantsActifs.length} ton="bleu" aide="Actuellement attribués" />
             <Stat libelle="Heures enseignées" valeur={formaterHeures(heuresEnseignees)} ton="or" aide="Séances clôturées uniquement" />
             <Stat libelle="Séances à venir" valeur={aVenir.length} ton="teal" />
+            {/* Compté avec la MÊME règle que le bouton « Clôturer » de la carte (2026-11-04) :
+                sinon la tuile réclamerait une clôture dont le bouton n'est pas encore apparu. */}
             <Stat
               libelle="À clôturer"
-              valeur={aVenir.filter((s) => s.session.debut < maintenant).length}
-              ton={aVenir.some((s) => s.session.debut < maintenant) ? 'alerte' : 'neutre'}
-              aide="Séances passées encore au statut planifiée"
+              valeur={aVenir.filter((s) => seanceCloturable(s.session)).length}
+              ton={aVenir.some((s) => seanceCloturable(s.session)) ? 'alerte' : 'neutre'}
+              aide="Séances clôturables, encore au statut planifiée"
             />
           </GrilleStats>
         )}
@@ -283,7 +284,6 @@ export function CalendrierProfesseur() {
                     <CarteSeance
                       key={seance.session.id}
                       seance={seance}
-                      maintenant={maintenant}
                       onChange={recharger}
                       onDemandeCloture={() => {
                         setSeanceOuverteId(seance.session.id)
@@ -301,7 +301,7 @@ export function CalendrierProfesseur() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {passees.map((seance) => (
-                    <CarteSeance key={seance.session.id} seance={seance} maintenant={maintenant} onChange={recharger} />
+                    <CarteSeance key={seance.session.id} seance={seance} onChange={recharger} />
                   ))}
                 </div>
               )}
@@ -323,7 +323,6 @@ export function CalendrierProfesseur() {
               reprogrammation et compte rendu restent écrits à un seul endroit. */}
           <CarteSeance
             seance={seanceOuverte}
-            maintenant={maintenant}
             onChange={recharger}
             sansCadre
             emargementOuvertADemande={seanceOuverte.session.id === seanceACloturerId}

@@ -82,6 +82,30 @@ export function seancePasseeNonCloturee(
   return fin <= maintenant.getTime()
 }
 
+/* Combien de minutes avant la fin d'une séance sa clôture devient possible — demande client du
+   2026-11-04 : « il faut que toute séance de cours soit clôturable à partir de 5 min avant la fin
+   de la séance de cours ». */
+export const MINUTES_AVANT_FIN_POUR_CLOTURER = 5
+
+/* Une séance est-elle clôturable MAINTENANT ?
+   Avant le 2026-11-04, le bouton apparaissait dès que la séance avait COMMENCÉ : une séance d'une
+   heure était clôturable dès sa première minute, ce qui exposait à une clôture par mégarde —
+   geste qui décompte pourtant les heures du forfait de l'élève et crédite celles du professeur
+   (api/professeur/cloturer-seance.ts). Le client a tranché pour la règle stricte : la clôture
+   s'ouvre cinq minutes avant la fin prévue, et le reste ensuite sans limite — une séance oubliée
+   trois jours doit évidemment pouvoir être clôturée encore.
+
+   `duree_minutes` entre donc dans le calcul, comme pour `seancePasseeNonCloturee` ci-dessus : la
+   fin se déduit du début et de la durée, jamais d'un champ stocké. */
+export function seanceCloturable(
+  session: { statut: string; debut: string; duree_minutes: number },
+  maintenant: Date = new Date(),
+): boolean {
+  if (session.statut !== 'planifiee') return false
+  const fin = new Date(session.debut).getTime() + session.duree_minutes * 60_000
+  return maintenant.getTime() >= fin - MINUTES_AVANT_FIN_POUR_CLOTURER * 60_000
+}
+
 /* Séances d'un élève que AUCUNE de ses affectations individuelles ne réclame — demande client du
    2026-10-19 : « il faudrait que tous les étudiants en cours collectifs soient visibles dans la
    section Étudiants afin de bien suivre l'étudiant en cours collectif ». Le parcours d'un dossier

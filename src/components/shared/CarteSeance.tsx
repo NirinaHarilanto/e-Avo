@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { type SeanceProfesseur } from '../../hooks/useCalendrierProfesseur'
 import { getJoinUrl } from '../../lib/visio'
-import { libelleTypeSeance, nomsElevesInscrits } from '../../lib/seances'
+import { libelleTypeSeance, nomsElevesInscrits, seanceCloturable } from '../../lib/seances'
 import { Bouton } from '../ui/Boutons'
 import { champStyle, LigneInfo } from '../ui/Champ'
 import { BadgeStatutSeance } from './BadgeStatutSeance'
@@ -27,14 +27,12 @@ const etiquettePresenceStyle = intituleAccentStyle()
    mêmes règles de clôture des deux côtés. */
 export function CarteSeance({
   seance,
-  maintenant,
   onChange,
   sansCadre = false,
   onDemandeCloture,
   emargementOuvertADemande = false,
 }: {
   seance: SeanceProfesseur
-  maintenant: string
   onChange: () => void
   /* Montée dans une modale (depuis l'agenda), la carte perd son propre cadre pour éviter une
      carte dans une carte — même convention que le prop `carte` d'InformationsPersonnelles. */
@@ -65,7 +63,18 @@ export function CarteSeance({
   const [proposerCompteRendu, setProposerCompteRendu] = useState(false)
 
   const estAVenir = seance.session.statut === 'planifiee'
-  const dejaCommencee = seance.session.debut <= maintenant
+  /* Clôture ouverte cinq minutes avant la fin prévue (2026-11-04, voir `seanceCloturable`).
+     `horloge` et non la prop `maintenant` : celle-ci n'est recalculée qu'au rendu de la page
+     parente, si bien que le bouton n'apparaissait JAMAIS tant qu'on ne rechargeait pas — un
+     professeur qui ouvrait son agenda avant le cours attendait en vain. La minuterie fait donc
+     partie du correctif, pas d'un confort : sans elle, la règle ne se déclencherait pas. */
+  const [horloge, setHorloge] = useState(() => new Date())
+  useEffect(() => {
+    if (!estAVenir) return
+    const minuterie = setInterval(() => setHorloge(new Date()), 30_000)
+    return () => clearInterval(minuterie)
+  }, [estAVenir])
+  const cloturePossible = seanceCloturable(seance.session, horloge)
   const auMoinsUnAbsent = !seance.session.cohort_id && Object.values(presences).some((present) => !present)
   const clotureBloquee = auMoinsUnAbsent && (!decisionAbsence || !justificatifAbsence.trim())
 
@@ -157,7 +166,7 @@ export function CarteSeance({
           {seance.video && (seance.video.provider === 'jitsi' || seance.video.provider === 'google_meet') && (
             <BoutonRejoindreVisio lien={getJoinUrl(seance.video)} fournisseur={seance.video.provider} />
           )}
-          {dejaCommencee && (
+          {cloturePossible && (
             <button
               onClick={onDemandeCloture ?? (() => setClotureOuverte(true))}
               className="btn-shine"

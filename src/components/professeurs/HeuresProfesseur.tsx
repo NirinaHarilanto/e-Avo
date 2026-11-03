@@ -1,3 +1,4 @@
+import { seanceCloturable } from '../../lib/seances'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur } from '../../hooks/useCalendrierProfesseur'
@@ -33,7 +34,8 @@ export function HeuresProfesseur() {
   }
   const repartition = [...parEtudiant.entries()].sort((a, b) => b[1].heures - a[1].heures)
   const seancesCloturees = seances.filter((s) => s.session.statut === 'terminee').length
-  const aCloturer = seances.filter((s) => s.session.statut === 'planifiee' && s.session.debut < new Date().toISOString()).length
+  // Même règle que le bouton « Clôturer » (2026-11-04) : 5 min avant la fin prévue.
+  const aCloturer = seances.filter((s) => seanceCloturable(s.session)).length
   const maximum = repartition[0]?.[1].heures ?? 0
 
   return (

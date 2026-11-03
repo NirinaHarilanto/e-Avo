@@ -272,7 +272,6 @@ export function SeancesAdmin() {
         null)
       : null
 
-  const maintenant = new Date().toISOString()
   const aVenir = seances
     .filter((s) => s.session.statut === 'planifiee')
     .sort((a, b) => a.session.debut.localeCompare(b.session.debut))
@@ -338,7 +337,7 @@ export function SeancesAdmin() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {aVenir.map((seance) => (
-                    <LigneSeance key={seance.session.id} seance={seance} maintenant={maintenant} onChange={recharger} />
+                    <LigneSeance key={seance.session.id} seance={seance} onChange={recharger} />
                   ))}
                 </div>
               )}
@@ -349,7 +348,7 @@ export function SeancesAdmin() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {passees.map((seance) => (
-                    <LigneSeance key={seance.session.id} seance={seance} maintenant={maintenant} onChange={recharger} />
+                    <LigneSeance key={seance.session.id} seance={seance} onChange={recharger} />
                   ))}
                 </div>
               )}
@@ -596,7 +595,7 @@ function LigneFiltrePersonne({
   )
 }
 
-function LigneSeance({ seance, onChange }: { seance: SeanceAdmin; maintenant: string; onChange: () => void }) {
+function LigneSeance({ seance, onChange }: { seance: SeanceAdmin; onChange: () => void }) {
   const { session: authSession } = useProfileContext()
   const [editionOuverte, setEditionOuverte] = useState(false)
   const [generationEnCours, setGenerationEnCours] = useState(false)
