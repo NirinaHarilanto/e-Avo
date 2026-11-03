@@ -6,6 +6,7 @@ import { useVagues } from '../../hooks/useVagues'
 import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { nomVagueSeul } from '../../lib/cohortes'
 import { genererOccurrences, versRRule, type RegleRecurrence } from '../../lib/recurrence'
+import { RecapitulatifSeances, SEUIL_RECAPITULATIF } from './RecapitulatifSeances'
 import { etudiantsSelectionnables, vaguesSelectionnables, classesSelectionnables } from '../../lib/invitations'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import { SelecteurRecurrence } from './SelecteurRecurrence'
@@ -69,6 +70,8 @@ export function FormulaireCreerEvenement({
      chaque occurrence devient une vraie `sessions`, liée aux autres par un `serie_id` commun). */
   const [regleRecurrence, setRegleRecurrence] = useState<RegleRecurrence | null>(null)
   const [enCours, setEnCours] = useState(false)
+  /* Dates en attente de confirmation : non nul = le récapitulatif est ouvert (2026-11-03). */
+  const [recapitulatif, setRecapitulatif] = useState<Date[] | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
 
   /* Un seul vivier, étudiants et professeurs mélangés — demande client du 2026-09-16 :
@@ -123,7 +126,10 @@ export function FormulaireCreerEvenement({
     return vagues.find((v) => v.membreIds.length === choisis.size && v.membreIds.every((id) => choisis.has(id)))
   }, [etudiantsConvies, vagues, classeDeLaSeance])
 
-  async function creer(e: FormEvent) {
+  /* Validation du formulaire, puis — pour une SÉRIE de plus de deux séances — passage par le
+     récapitulatif avant toute écriture (demande client du 2026-11-03). L'envoi réel vit dans
+     `executerCreation`, appelé soit directement, soit à la confirmation du récapitulatif. */
+  function creer(e: FormEvent) {
     e.preventDefault()
     if (!debut) {
       setErreur('La date est obligatoire.')
@@ -147,6 +153,31 @@ export function FormulaireCreerEvenement({
       setErreur('Une séance de cours demande exactement un professeur et au moins un élève.')
       return
     }
+    setErreur(null)
+
+    /* Plus de deux séances d'un coup : on montre d'abord ce qui va être créé. Rien n'est écrit
+       tant que le récapitulatif n'est pas confirmé — c'est la leçon des 107 séances fantômes du
+       2026-11-03, créées sans que personne n'ait vu la liste des dates. */
+    if (nature === 'seance_cours' && regleRecurrence) {
+      const occurrences = genererOccurrences(regleRecurrence, new Date(debut))
+      if (occurrences.length > SEUIL_RECAPITULATIF) {
+        setRecapitulatif(occurrences)
+        return
+      }
+    }
+    executerCreation()
+  }
+
+  /* Noms affichables du récapitulatif : `toutLeMonde` porte déjà élèves, professeurs, vagues et
+     classes, c'est la seule liste à interroger. */
+  function nomsDe(ids: string[]): string[] {
+    return ids.map((id) => {
+      const personne = toutLeMonde.find((p) => p.id === id)
+      return personne ? `${personne.prenom ?? ''} ${personne.nom ?? ''}`.trim() || 'Sans nom' : 'Inconnu'
+    })
+  }
+
+  async function executerCreation() {
     setEnCours(true)
     setErreur(null)
 
@@ -171,6 +202,9 @@ export function FormulaireCreerEvenement({
         .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
       setEnCours(false)
       if (reponseSerie.error) {
+        /* Le récapitulatif se referme sur une erreur : laissé ouvert, il masquerait le message
+           affiché sous le formulaire et donnerait l'illusion que rien ne s'est passé. */
+        setRecapitulatif(null)
         setErreur(reponseSerie.error)
         return
       }
@@ -200,6 +234,9 @@ export function FormulaireCreerEvenement({
         .catch(() => ({ error: 'Le serveur n’a pas répondu.' }))
       setEnCours(false)
       if (reponseSerie.error) {
+        /* Le récapitulatif se referme sur une erreur : laissé ouvert, il masquerait le message
+           affiché sous le formulaire et donnerait l'illusion que rien ne s'est passé. */
+        setRecapitulatif(null)
         setErreur(reponseSerie.error)
         return
       }
@@ -385,6 +422,18 @@ export function FormulaireCreerEvenement({
           {enCours ? 'Création…' : nature === 'seance_cours' ? 'Planifier la séance' : 'Créer le rendez-vous'}
         </button>
       </form>
+
+      {recapitulatif && (
+        <RecapitulatifSeances
+          dates={recapitulatif}
+          dureeMinutes={dureeMinutes}
+          professeurs={nomsDe(professeursConvies)}
+          etudiants={nomsDe(etudiantsConvies)}
+          enCours={enCours}
+          onAnnuler={() => setRecapitulatif(null)}
+          onConfirmer={executerCreation}
+        />
+      )}
     </Modale>
   )
 }

@@ -28,6 +28,12 @@ export interface RegleRecurrence {
   /* 0 = dimanche … 6 = samedi, comme Date.prototype.getDay(). Uniquement pour frequence === 'semaine' ;
      un ou plusieurs jours cochés (ex. lundi + mercredi + vendredi). */
   joursSemaine?: number[]
+  /* Heure propre à chaque jour coché, au format « HH:MM » — demande client du 2026-11-03 : « il
+     faut pouvoir définir les jours de la semaine du lundi au dimanche et un créneau à définir à
+     côté de chaque jour ». Un cours peut être à 10h le lundi et 14h le mercredi, ce qu'une heure
+     unique héritée du point de départ ne savait pas exprimer : il fallait créer deux séries.
+     Un jour absent de cette table garde l'heure du point de départ, l'ancien comportement. */
+  heuresParJour?: Record<number, string>
   fin: FinRecurrence
 }
 
@@ -79,7 +85,15 @@ function genererOccurrencesHebdomadaires(
   while (occurrences.length < limite) {
     for (const jour of jours) {
       const candidate = dateDuJourDansLaSemaine(semaineCursor, jour)
-      candidate.setHours(debut.getHours(), debut.getMinutes(), debut.getSeconds(), 0)
+      /* L'heure du jour quand elle est définie, sinon celle du point de départ : c'est ce qui
+         permet « lundi 10h, mercredi 14h » en une seule série (2026-11-03). */
+      const heureDuJour = regle.heuresParJour?.[jour]
+      if (heureDuJour) {
+        const [h, m] = heureDuJour.split(':').map(Number)
+        candidate.setHours(h, m, 0, 0)
+      } else {
+        candidate.setHours(debut.getHours(), debut.getMinutes(), debut.getSeconds(), 0)
+      }
       if (candidate.getTime() < debut.getTime()) continue
       if (limiteDate && candidate.getTime() > limiteDate.getTime()) return occurrences
       occurrences.push(candidate)
@@ -148,39 +162,52 @@ export interface OptionRecurrence {
   regle: RegleRecurrence | null
 }
 
+/* Date de fin proposée d'office à toute répétition : trois mois après le départ.
+   Pourquoi PAS « jamais » comme avant — incident du 2026-11-03 : « Tous les jours » sans fin
+   générait 156 séances d'un coup (le plafond `LIMITE_OCCURRENCES_DEFAUT`), et une réservation
+   relancée quatre fois a laissé 107 séances fantômes dans le dossier d'une élève. Une répétition
+   part donc désormais bornée, et c'est à l'utilisateur d'allonger s'il le veut. */
+export function finParDefaut(debut: Date): FinRecurrence {
+  const fin = new Date(debut)
+  fin.setMonth(fin.getMonth() + 3)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return { type: 'le', date: `${fin.getFullYear()}-${pad(fin.getMonth() + 1)}-${pad(fin.getDate())}` }
+}
+
 /* Préréglages façon Google Agenda, calculés à partir de la date/heure de début choisie — jamais
    un libellé générique (« ce jour-là »), toujours le vrai jour pour que l'admin lise exactement
    ce qu'il va créer avant même d'ouvrir quoi que ce soit. */
 export function preselectionsRecurrence(debut: Date): OptionRecurrence[] {
   const jourSemaine = debut.getDay()
   const estJourOuvre = jourSemaine >= 1 && jourSemaine <= 5
+  const fin = finParDefaut(debut)
 
   const options: OptionRecurrence[] = [
     { valeur: 'aucune', libelle: 'Ne se répète pas', regle: null },
-    { valeur: 'jour', libelle: 'Tous les jours', regle: { frequence: 'jour', intervalle: 1, fin: { type: 'jamais' } } },
+    { valeur: 'jour', libelle: 'Tous les jours', regle: { frequence: 'jour', intervalle: 1, fin } },
     {
       valeur: 'semaine',
       libelle: `Toutes les semaines le ${NOMS_JOURS[jourSemaine]}`,
-      regle: { frequence: 'semaine', intervalle: 1, joursSemaine: [jourSemaine], fin: { type: 'jamais' } },
+      regle: { frequence: 'semaine', intervalle: 1, joursSemaine: [jourSemaine], fin },
     },
   ]
   if (estJourOuvre) {
     options.push({
       valeur: 'semaine_ouvree',
       libelle: 'Tous les jours de la semaine (lun-ven)',
-      regle: { frequence: 'semaine', intervalle: 1, joursSemaine: [1, 2, 3, 4, 5], fin: { type: 'jamais' } },
+      regle: { frequence: 'semaine', intervalle: 1, joursSemaine: [1, 2, 3, 4, 5], fin },
     })
   }
   options.push(
     {
       valeur: 'mois',
       libelle: `Tous les mois le ${debut.getDate()}`,
-      regle: { frequence: 'mois', intervalle: 1, fin: { type: 'jamais' } },
+      regle: { frequence: 'mois', intervalle: 1, fin },
     },
     {
       valeur: 'an',
       libelle: `Tous les ans le ${debut.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}`,
-      regle: { frequence: 'an', intervalle: 1, fin: { type: 'jamais' } },
+      regle: { frequence: 'an', intervalle: 1, fin },
     },
     { valeur: 'personnalise', libelle: 'Personnalisé…', regle: null },
   )
@@ -205,6 +232,13 @@ export function regleEquivalente(a: RegleRecurrence, b: RegleRecurrence): boolea
   const joursA = [...(a.joursSemaine ?? [])].sort((x, y) => x - y)
   const joursB = [...(b.joursSemaine ?? [])].sort((x, y) => x - y)
   if (joursA.length !== joursB.length || joursA.some((j, i) => j !== joursB[i])) return false
+  /* Deux règles qui ne diffèrent que par l'heure d'un jour ne sont PAS la même : sans cette
+     comparaison, « lundi 10h » et « lundi 14h » retomberaient tous deux sur le même préréglage,
+     et le sélecteur effacerait l'heure saisie en se croyant sur un préréglage connu. */
+  const heuresA = a.heuresParJour ?? {}
+  const heuresB = b.heuresParJour ?? {}
+  const clesHeures = [...new Set([...Object.keys(heuresA), ...Object.keys(heuresB)])]
+  if (clesHeures.some((k) => heuresA[Number(k)] !== heuresB[Number(k)])) return false
   if (a.fin.type !== b.fin.type) return false
   if (a.fin.type === 'le' && a.fin.date !== b.fin.date) return false
   if (a.fin.type === 'apres' && a.fin.occurrences !== b.fin.occurrences) return false

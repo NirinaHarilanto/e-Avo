@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { genererOccurrences, versRRule, preselectionsRecurrence, regleEquivalente, LIMITE_OCCURRENCES_DEFAUT, type RegleRecurrence } from '../recurrence'
+import { genererOccurrences, versRRule, preselectionsRecurrence, regleEquivalente, finParDefaut, LIMITE_OCCURRENCES_DEFAUT, type RegleRecurrence } from '../recurrence'
 
 const jourLocal = (iso: string) => new Date(`${iso}T18:00:00`)
 
@@ -166,5 +166,65 @@ describe('regleEquivalente', () => {
     const hebdoOuvree = options.find((o) => o.valeur === 'semaine_ouvree')!.regle!
     const memeRegleOrdreDifferent: RegleRecurrence = { ...hebdoOuvree, joursSemaine: [5, 3, 1, 4, 2] }
     expect(regleEquivalente(hebdoOuvree, memeRegleOrdreDifferent)).toBe(true)
+  })
+})
+
+/* Garde-fous posés après l'incident du 2026-11-03 : « Tous les jours » sans date de fin a créé
+   156 séances d'un coup, et une réservation relancée quatre fois a laissé 107 séances fantômes
+   dans le dossier d'une élève. Voir [[reference_doublons_seances_recurrentes]]. */
+describe('heure propre à chaque jour de la semaine', () => {
+  it('applique l’heure définie pour chaque jour coché', () => {
+    const regle: RegleRecurrence = {
+      frequence: 'semaine',
+      intervalle: 1,
+      joursSemaine: [1, 3],
+      heuresParJour: { 1: '10:00', 3: '14:30' },
+      fin: { type: 'apres', occurrences: 4 },
+    }
+    // Lundi 2 novembre 2026, 8h — l'heure de départ ne doit PAS l'emporter sur celle des jours.
+    const dates = genererOccurrences(regle, new Date(2026, 10, 2, 8, 0))
+    expect(dates.map((d) => `${d.getDay()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`)).toEqual([
+      '1 10:00',
+      '3 14:30',
+      '1 10:00',
+      '3 14:30',
+    ])
+  })
+
+  it('garde l’heure de départ pour un jour sans heure propre', () => {
+    const regle: RegleRecurrence = {
+      frequence: 'semaine',
+      intervalle: 1,
+      joursSemaine: [1, 3],
+      heuresParJour: { 1: '10:00' },
+      fin: { type: 'apres', occurrences: 2 },
+    }
+    const dates = genererOccurrences(regle, new Date(2026, 10, 2, 8, 15))
+    expect(dates[0].getHours()).toBe(10)
+    // Mercredi n'a pas d'heure propre : il hérite de 8h15, l'ancien comportement.
+    expect(`${dates[1].getHours()}:${dates[1].getMinutes()}`).toBe('8:15')
+  })
+})
+
+describe('préréglages bornés par défaut', () => {
+  it('aucun préréglage ne part sur une récurrence sans fin', () => {
+    const options = preselectionsRecurrence(new Date(2026, 10, 2, 8, 0))
+    const avecRegle = options.filter((o) => o.regle)
+    expect(avecRegle.length).toBeGreaterThan(0)
+    expect(avecRegle.every((o) => o.regle!.fin.type === 'le')).toBe(true)
+  })
+
+  it('« tous les jours » produit une série bornée, pas le plafond de 156', () => {
+    const debut = new Date(2026, 10, 2, 8, 0)
+    const quotidien = preselectionsRecurrence(debut).find((o) => o.valeur === 'jour')!
+    const dates = genererOccurrences(quotidien.regle!, debut)
+    expect(dates.length).toBeLessThan(LIMITE_OCCURRENCES_DEFAUT)
+    // Trois mois de quotidien : de l'ordre de 90 jours, jamais 156.
+    expect(dates.length).toBeGreaterThan(80)
+    expect(dates.length).toBeLessThan(100)
+  })
+
+  it('finParDefaut tombe trois mois après le départ', () => {
+    expect(finParDefaut(new Date(2026, 10, 3, 5, 45))).toEqual({ type: 'le', date: '2027-02-03' })
   })
 })

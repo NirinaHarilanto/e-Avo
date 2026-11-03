@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { champStyle } from '../ui/Champ'
 import { ChampDate } from '../ui/ChampDate'
+import { supabase } from '../../lib/supabaseClient'
+import { RecapitulatifSeances, SEUIL_RECAPITULATIF } from '../shared/RecapitulatifSeances'
 
 const JOURS = [
   { valeur: 1, label: 'Lun' },
@@ -97,6 +99,9 @@ export function PlanifierSeancesForfait({
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [resultat, setResultat] = useState<number | null>(null)
+  /* Récapitulatif avant écriture (2026-11-03) : non nul = la fenêtre de confirmation est ouverte,
+     avec les noms déjà résolus — ce composant ne reçoit que des identifiants. */
+  const [recapitulatif, setRecapitulatif] = useState<{ professeurs: string[]; etudiants: string[] } | null>(null)
 
   function ajouterCreneau() {
     setCreneaux((c) => [...c, { jour: 1, heure: '18:00' }])
@@ -163,6 +168,24 @@ export function PlanifierSeancesForfait({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateFinTouchee, heuresForfait, dateDebut, dureeMinutes, JSON.stringify(creneaux)])
 
+  /* Plus de deux séances d'un coup : on montre d'abord la liste complète. Même règle que le
+     formulaire « Créer un rendez-vous » — demande client du 2026-11-03, après les 107 séances
+     fantômes créées sans que personne n'ait vu les dates. */
+  async function demanderConfirmation() {
+    if (!session || debutsPrevus.length === 0 || studentIds.length === 0 || !dateFin) return
+    if (debutsPrevus.length <= SEUIL_RECAPITULATIF) {
+      creer()
+      return
+    }
+    const ids = [...studentIds, ...(teacherId ? [teacherId] : [])]
+    const { data } = await supabase.from('profiles').select('id, prenom, nom, role').in('id', ids)
+    const nom = (p: { prenom: string | null; nom: string | null }) => `${p.prenom ?? ''} ${p.nom ?? ''}`.trim() || 'Sans nom'
+    setRecapitulatif({
+      professeurs: (data ?? []).filter((p) => p.id === teacherId).map(nom),
+      etudiants: (data ?? []).filter((p) => p.id !== teacherId).map(nom),
+    })
+  }
+
   async function creer() {
     if (!session || debutsPrevus.length === 0 || studentIds.length === 0 || !dateFin) return
     setEnCours(true)
@@ -182,6 +205,7 @@ export function PlanifierSeancesForfait({
       }),
     })
     setEnCours(false)
+    setRecapitulatif(null)
     if (!reponse.ok) {
       const corps = await reponse.json().catch(() => null)
       setErreur(corps?.error ?? 'La planification a échoué.')
@@ -269,7 +293,7 @@ export function PlanifierSeancesForfait({
       {resultat !== null && <p style={{ color: 'var(--accent-teal)', fontSize: 13 }}>{resultat} séance(s) planifiée(s).</p>}
 
       <button
-        onClick={creer}
+        onClick={demanderConfirmation}
         disabled={enCours || debutsPrevus.length === 0 || studentIds.length === 0}
         className="btn-shine"
         style={{
@@ -280,6 +304,18 @@ export function PlanifierSeancesForfait({
       >
         {enCours ? 'Planification…' : 'Planifier'}
       </button>
+
+      {recapitulatif && (
+        <RecapitulatifSeances
+          dates={debutsPrevus.map((d) => new Date(d))}
+          dureeMinutes={dureeMinutes}
+          professeurs={recapitulatif.professeurs}
+          etudiants={recapitulatif.etudiants}
+          enCours={enCours}
+          onAnnuler={() => setRecapitulatif(null)}
+          onConfirmer={creer}
+        />
+      )}
     </div>
   )
 }
