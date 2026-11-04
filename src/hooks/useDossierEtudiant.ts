@@ -102,6 +102,16 @@ export interface DossierEtudiant {
   tarifChoisi: Tarif | null
 }
 
+/* Le diagnostic d'une personne se cherche sur ses DEUX rattachements possibles, exclusifs
+   depuis 0158 : `prospect_id` pour qui vient du pipeline commercial, `student_id` pour un élève
+   créé à la main. Un élève converti garde le sien sur son prospect d'origine, d'où les deux
+   branches plutôt qu'un simple `eq`. */
+export function filtreDiagnostic(personne: { id: string; prospect_id: string | null }): string {
+  const conditions = [`student_id.eq.${personne.id}`]
+  if (personne.prospect_id) conditions.push(`prospect_id.eq.${personne.prospect_id}`)
+  return conditions.join(',')
+}
+
 export function useDossierEtudiant(studentId: string | undefined) {
   const { valeur, loading, erreur, recharger } = useCacheRequete(studentId && `dossier-etudiant-${studentId}`, async (): Promise<DossierEtudiant> => {
     // Vague 1 : ces 6 requêtes ne dépendent QUE de `studentId`, déjà connu avant même d'appeler
@@ -184,11 +194,25 @@ export function useDossierEtudiant(studentId: string | undefined) {
         : Promise.resolve({ data: null as CohortClass | null }),
       sessionIds.length > 0 ? supabase.from('sessions').select('*').in('id', sessionIds) : Promise.resolve({ data: [] as Session[] }),
       sessionIds.length > 0 ? supabase.from('video_sessions').select('*').in('session_id', sessionIds) : Promise.resolve({ data: [] as VideoSession[] }),
-      etudiant.prospect_id
-        ? supabase.from('diagnostic_calls').select('*').eq('prospect_id', etudiant.prospect_id).order('created_at', { ascending: false }).limit(1).maybeSingle()
-        : Promise.resolve({ data: null as DiagnosticCall | null }),
-      duoPartenaire?.prospect_id
-        ? supabase.from('diagnostic_calls').select('*').eq('prospect_id', duoPartenaire.prospect_id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      /* Les DEUX rattachements, et non le seul prospect : depuis 0158, un élève créé à la main
+         (donc sans prospect) porte son diagnostic sur `student_id`. Ne lire que `prospect_id`
+         laissait un diagnostic bel et bien enregistré totalement invisible — dans le parcours
+         pédagogique comme dans l'assistant de création, qui aurait continué d'en réclamer un. */
+      supabase
+        .from('diagnostic_calls')
+        .select('*')
+        .or(filtreDiagnostic(etudiant))
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      duoPartenaire
+        ? supabase
+            .from('diagnostic_calls')
+            .select('*')
+            .or(filtreDiagnostic(duoPartenaire))
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
         : Promise.resolve({ data: null as DiagnosticCall | null }),
       etudiant.prospect_id
         ? supabase.from('prospects').select('tarif_choisi_id').eq('id', etudiant.prospect_id).maybeSingle()
