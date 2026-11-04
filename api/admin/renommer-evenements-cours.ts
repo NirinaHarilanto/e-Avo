@@ -1,5 +1,12 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
-import { integrationHoteReunion, modifierEvenementVisio, titreEvenement, type HoteReunion } from '../_lib/google.js'
+import {
+  integrationDeLEtablissement,
+  integrationHoteReunion,
+  modifierEvenementVisio,
+  titreEvenement,
+  type HoteAgenda,
+  type HoteReunion,
+} from '../_lib/google.js'
 import { emailsParticipants } from '../_lib/creerSeance.js'
 
 export const config = { runtime: 'edge' }
@@ -33,6 +40,14 @@ export default async function handler(request: Request): Promise<Response> {
 
   try {
     const { serviceClient, etablissementId } = await requireAdmin(request)
+
+    /* L'agenda de l'ÉTABLISSEMENT, en second recours. Une séance planifiée avant 0107 vit dans
+       cet agenda-là, alors que `integrationHoteReunion` rend celui du professeur dès qu'il a
+       connecté le sien depuis : viser le professeur donne alors un 404 et la séance resterait au
+       vieux titre sans que rien ne le dise. Le client l'a nommé explicitement le 2026-11-04 —
+       « ces règles sont valables pour les professeurs ET l'admin dans leurs gmail agenda
+       respectifs ». */
+    const hoteEtablissement = await integrationDeLEtablissement(serviceClient, etablissementId).catch(() => null)
 
     /* Même ruse que `realigner-visios.ts` : PostgREST ne sait pas filtrer sur `debut +
        duree_minutes`, on élargit donc de six heures en arrière puis on écarte en mémoire les
@@ -80,6 +95,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     let renommees = 0
     let dejaBonnes = 0
+    let horsPortee = 0
     let restant = 0
     const echecs: { sessionId: string; raison: string }[] = []
 
@@ -106,18 +122,31 @@ export default async function handler(request: Request): Promise<Response> {
           seance,
         )
 
-        const actuel = await titreEvenement(hote, eventId)
-        /* `null` = événement illisible depuis ce compte : il vit dans l'agenda d'un compte Google
-           précédent, et toute écriture échouerait. C'est le travail de `realigner-visios.ts`, qui
-           le recréera au bon endroit — avec le nouveau titre, puisqu'il passe par la même
-           fonction. On ne le compte donc ni en succès ni en échec. */
-        if (actuel === null) continue
+        /* L'événement est cherché chez le professeur PUIS chez l'établissement : les deux
+           agendas portent des séances, selon qu'elles sont nées avant ou après 0107. Le titre
+           actuel est relu avant toute écriture — c'est ce qui rend l'opération relançable sans
+           repatcher ce qui est déjà au bon format. */
+        let porteur: HoteAgenda | null = hote
+        let actuel = await titreEvenement(hote, eventId)
+        if (actuel === null && hoteEtablissement && hoteEtablissement.googleEmail !== hote.googleEmail) {
+          porteur = hoteEtablissement
+          actuel = await titreEvenement(hoteEtablissement, eventId)
+        }
+
+        /* Toujours illisible : l'événement appartient à un compte Google abandonné (changement
+           d'adresse de l'établissement), où aucun jeton actuel n'a de droit. C'est le travail de
+           `realigner-visios.ts`, qui le recréera au bon endroit — avec le nouveau titre, puisqu'il
+           passe par la même fonction. Ni succès ni échec, donc : simplement hors de portée. */
+        if (actuel === null || !porteur) {
+          horsPortee += 1
+          continue
+        }
         if (actuel === participants.titreCours) {
           dejaBonnes += 1
           continue
         }
 
-        await modifierEvenementVisio(hote, eventId, {
+        await modifierEvenementVisio(porteur, eventId, {
           titre: participants.titreCours,
           prevenirParticipants: false,
         })
@@ -127,7 +156,7 @@ export default async function handler(request: Request): Promise<Response> {
       }
     }
 
-    return Response.json({ ok: echecs.length === 0, renommees, dejaBonnes, restant, echecs })
+    return Response.json({ ok: echecs.length === 0, renommees, dejaBonnes, horsPortee, restant, echecs })
   } catch (error) {
     if (error instanceof AdminAuthError) {
       return Response.json({ error: error.message }, { status: error.status })

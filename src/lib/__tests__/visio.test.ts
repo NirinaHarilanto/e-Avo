@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { creerLienJitsi, DOMAINE_JITSI, estLienReel, fournisseurDepuisLien, getJoinUrl, getRecordingUrl, libelleFournisseur, titreEvenementCours } from '../visio'
+import { creerLienJitsi, DOMAINE_JITSI, estLienReel, fournisseurDepuisLien, getJoinUrl, getRecordingUrl, libelleFournisseur, nomCourtEleve, titreEvenementCours } from '../visio'
 
 describe('getJoinUrl', () => {
   it('renvoie le lien Jitsi tel quel quand la séance en a un', () => {
@@ -111,18 +111,39 @@ describe('libelleFournisseur', () => {
    unique qu'une séance d'une heure laisse au titre, et se fait tronquer par la fin.
    On ne voyait donc ni l'élève, ni le type de cours. */
 describe('titreEvenementCours', () => {
-  it('nomme un cours individuel par le prénom de l’élève', () => {
-    expect(titreEvenementCours({ estCollectif: false, prenomsEleves: ['Sitrakiniaina'] })).toBe('HOC - Sitrakiniaina')
+  it('nomme un cours individuel par le prénom et l’initiale du nom', () => {
+    expect(titreEvenementCours({ estCollectif: false, eleves: [{ prenom: 'Sitrakiniaina', nom: 'MANANJARA' }] })).toBe(
+      'HOC - Sitrakiniaina M.',
+    )
+  })
+
+  /* La raison d'être de l'initiale, demandée par le client le 2026-11-04 après que je lui aie
+     signalé le cas : deux de ses élèves s'appellent Aina, chez la même formatrice. Sans
+     l'initiale, leurs deux cours portaient exactement le même titre dans son agenda. */
+  it('distingue deux élèves qui partagent leur prénom', () => {
+    const aina = titreEvenementCours({ estCollectif: false, eleves: [{ prenom: 'Aina', nom: 'NOELIARIVELO' }] })
+    const autreAina = titreEvenementCours({ estCollectif: false, eleves: [{ prenom: 'Aina', nom: 'SAHY' }] })
+    expect(aina).toBe('HOC - Aina N.')
+    expect(autreAina).toBe('HOC - Aina S.')
+    expect(aina).not.toBe(autreAina)
   })
 
   it('nomme un cours collectif par le niveau de sa classe', () => {
     expect(titreEvenementCours({ estCollectif: true, niveauClasse: 'Intermediate' })).toBe('HOC - Cours co Intermediate')
   })
 
-  /* Un binôme DUO suit la même séance (0054) et reste un cours « individuel » : les deux prénoms
-     doivent apparaître, sinon le professeur ne voit qu'un des deux élèves attendus. */
-  it('nomme un duo par les deux prénoms', () => {
-    expect(titreEvenementCours({ estCollectif: false, prenomsEleves: ['Ravaka', 'Mialy'] })).toBe('HOC - Ravaka & Mialy')
+  /* Un binôme DUO suit la même séance (0054) et reste un cours « individuel » : les deux élèves
+     doivent apparaître, sinon le professeur ne voit qu'un des deux attendus. */
+  it('nomme un duo par les deux élèves', () => {
+    expect(
+      titreEvenementCours({
+        estCollectif: false,
+        eleves: [
+          { prenom: 'Ravaka', nom: 'RANDRIARIVONY' },
+          { prenom: 'Mialy', nom: 'RAKOTONDRAPARANY' },
+        ],
+      }),
+    ).toBe('HOC - Ravaka R. & Mialy R.')
   })
 
   /* Un niveau manquant ne doit pas produire « HOC - Cours co  » avec une espace en trop, ni un
@@ -135,11 +156,26 @@ describe('titreEvenementCours', () => {
   /* Aucun inscrit résolu (profil supprimé, séance vide) : un titre générique plutôt qu'un
      « HOC - » suspendu, qui passerait pour un défaut d'affichage. */
   it('reste lisible quand aucun élève n’est résolu', () => {
-    expect(titreEvenementCours({ estCollectif: false, prenomsEleves: [] })).toBe('HOC - Cours')
+    expect(titreEvenementCours({ estCollectif: false, eleves: [] })).toBe('HOC - Cours')
     expect(titreEvenementCours({ estCollectif: false })).toBe('HOC - Cours')
   })
+})
 
-  it('ignore les prénoms vides plutôt que de les séparer par des « & » orphelins', () => {
-    expect(titreEvenementCours({ estCollectif: false, prenomsEleves: ['Ravaka', '', '  '] })).toBe('HOC - Ravaka')
+describe('nomCourtEleve', () => {
+  it('n’ajoute ni initiale ni point quand le nom de famille manque', () => {
+    expect(nomCourtEleve({ prenom: 'Aina', nom: null })).toBe('Aina')
+    expect(nomCourtEleve({ prenom: 'Aina', nom: '   ' })).toBe('Aina')
+  })
+
+  it('met l’initiale en majuscule, quelle que soit la casse saisie', () => {
+    expect(nomCourtEleve({ prenom: 'Mialy', nom: 'rakotondraparany' })).toBe('Mialy R.')
+  })
+
+  it('retombe sur le nom de famille quand le prénom manque', () => {
+    expect(nomCourtEleve({ prenom: null, nom: 'SAHY' })).toBe('SAHY')
+  })
+
+  it('rend une chaîne vide pour un profil sans aucun nom, que l’appelant écarte', () => {
+    expect(nomCourtEleve({ prenom: null, nom: null })).toBe('')
   })
 })

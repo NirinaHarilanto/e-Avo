@@ -373,13 +373,21 @@ export function AssistantNouvelEtudiant({ etablissementId, onTermine }: { etabli
               personne y choisira elle-même son mot de passe, puis accédera directement à son espace : vous n’avez pas de
               mot de passe à créer ni à transmettre.
             </p>
+
+            {/* Ce que l'étape 3 contient APRÈS la création, annoncé AVANT — demande client du
+                2026-11-04, capture à l'appui : « je ne vois toujours pas les informations sur
+                paiement du forfait, les niveaux [...] tu as oublié ? ». Les sept blocs existaient
+                bien, mais derrière le bouton, et rien ne disait qu'ils arrivaient. Ils ne peuvent
+                pas précéder la création : aucun d'eux n'a d'élève à qui se rattacher tant que
+                `profiles` ne porte pas sa ligne. */}
+            <AnnonceDossier />
             {erreur && <MessageErreur>{erreur}</MessageErreur>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" onClick={() => setEtape2Validee(false)} disabled={enCours} style={boutonNeutreStyle}>
                 Revenir aux informations
               </button>
               <button type="button" onClick={creer} disabled={enCours} className="btn-shine" style={{ ...boutonPrimaireStyle, opacity: enCours ? 0.6 : 1 }}>
-                {enCours ? 'Création…' : 'Créer l’espace personnel'}
+                {enCours ? 'Création…' : 'Créer l’espace et compléter le dossier'}
               </button>
             </div>
           </div>
@@ -393,6 +401,58 @@ export function AssistantNouvelEtudiant({ etablissementId, onTermine }: { etabli
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+const INFORMATIONS_DU_DOSSIER = [
+  'Forfait',
+  'Paiement du forfait',
+  'Niveau',
+  'Appel diagnostic',
+  'Heures de cours restantes',
+  'Professeur',
+  'Planning prévisionnel',
+]
+
+/* Liste de ce qui se renseigne juste après la création, dans cette même étape 3. Affichée plutôt
+   que sous-entendue : sans elle, l'écran donne l'impression de s'arrêter au compte créé. */
+function AnnonceDossier() {
+  return (
+    <div
+      style={{
+        borderRadius: 14,
+        border: '1px dashed var(--border)',
+        padding: '12px 14px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 9,
+      }}
+    >
+      <span style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 700 }}>
+        Puis, juste en dessous, vous renseignerez son dossier :
+      </span>
+      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+        {INFORMATIONS_DU_DOSSIER.map((information) => (
+          <span
+            key={information}
+            style={{
+              fontSize: 11.5,
+              padding: '4px 10px',
+              borderRadius: 999,
+              border: '1px solid var(--border)',
+              color: 'var(--muted)',
+              background: 'var(--voile, rgba(255,255,255,.04))',
+            }}
+          >
+            {information}
+          </span>
+        ))}
+      </div>
+      <span style={{ fontSize: 11.5, color: 'var(--muted-2)', lineHeight: 1.5 }}>
+        Tout reste facultatif et modifiable depuis sa fiche : le compte, lui, est créé dès
+        maintenant pour que ces informations aient quelqu’un à qui se rattacher.
+      </span>
     </div>
   )
 }

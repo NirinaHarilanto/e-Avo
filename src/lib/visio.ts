@@ -98,21 +98,39 @@ export function fournisseurDepuisLien(lien: string): 'jitsi' | 'google_meet' {
    de la semaine se ressemblaient donc, sans qu'on voie ni l'élève ni le type de cours. */
 export const SIGLE_ETABLISSEMENT = 'HOC'
 
+/* Prénom suivi de l'initiale du nom : « Aina N. ». Le client a d'abord demandé le prénom seul
+   (2026-11-04), puis l'initiale le même jour, après que je lui aie signalé que deux de ses élèves
+   s'appellent Aina — NOELIARIVELO et SAHY, tous deux chez la même formatrice : leurs deux cours
+   auraient porté exactement le même titre dans son agenda.
+
+   Un élève sans nom de famille enregistré garde son prénom seul, sans initiale ni point
+   orphelin. */
+export function nomCourtEleve(eleve: { prenom?: string | null; nom?: string | null }): string {
+  const prenom = (eleve.prenom ?? '').trim()
+  const nom = (eleve.nom ?? '').trim()
+  if (!prenom) return nom
+  /* `[...nom][0]` et non `nom[0]` : découper une chaîne par index renvoie une demi-paire de
+     substitution sur un nom commençant par un caractère hors du plan multilingue de base, et
+     l'initiale s'afficherait en losange noir. */
+  const initiale = nom ? [...nom][0]?.toLocaleUpperCase('fr-FR') : ''
+  return initiale ? `${prenom} ${initiale}.` : prenom
+}
+
 /* Titre d'un cours dans l'agenda Google, au format fixé par le client :
-     — individuel (et duo) : « HOC - Sitrakiniaina » ;
+     — individuel (et duo) : « HOC - Sitrakiniaina M. » ;
      — collectif           : « HOC - Cours co Intermediate ».
    L'heure n'est PAS dans le titre : Google Agenda l'affiche déjà sur la ligne suivante, sous
    le titre de l'événement — c'est la « (à la ligne) l'heure du cours » de la demande.
 
-   Le PRÉNOM seul, comme le veut l'exemple du client. Deux élèves qui le partagent donnent donc
-   deux titres identiques ; c'est le professeur, seul destinataire de cet agenda, qui lève
-   l'ambiguïté avec l'heure du créneau. */
+   Même titre dans l'agenda du PROFESSEUR et dans celui de l'ADMINISTRATION : les deux regardent
+   le même événement Google, selon que la réunion est hébergée par le compte du professeur (0107)
+   ou par celui de l'établissement. Il n'y a donc qu'un format, jamais deux à tenir d'accord. */
 export function titreEvenementCours(params: {
   estCollectif: boolean
-  /* Prénoms seuls. Deux pour un binôme DUO, qui suit la même séance (0054) — le client n'a
-     décrit que l'individuel, et deux prénoms sont la lecture naturelle de « nom de l'apprenant »
+  /* Les élèves de la séance. Deux pour un binôme DUO, qui suit la même séance (0054) — le client
+     n'a décrit que l'individuel, et deux noms sont la lecture naturelle de « nom de l'apprenant »
      quand ils sont deux. */
-  prenomsEleves?: string[]
+  eleves?: { prenom?: string | null; nom?: string | null }[]
   /* Libellé déjà résolu de la classe (« Intermediate »), jamais la valeur d'enum. */
   niveauClasse?: string | null
 }): string {
@@ -120,9 +138,9 @@ export function titreEvenementCours(params: {
     const niveau = params.niveauClasse?.trim()
     return `${SIGLE_ETABLISSEMENT} - Cours co${niveau ? ` ${niveau}` : ''}`
   }
-  const prenoms = (params.prenomsEleves ?? []).map((p) => p.trim()).filter(Boolean)
+  const noms = (params.eleves ?? []).map(nomCourtEleve).filter(Boolean)
   /* Aucun inscrit résolu (séance vide, profil supprimé) : mieux vaut un titre générique qu'un
      « HOC - » qui laisserait croire à un bug d'affichage. */
-  if (prenoms.length === 0) return `${SIGLE_ETABLISSEMENT} - Cours`
-  return `${SIGLE_ETABLISSEMENT} - ${prenoms.join(' & ')}`
+  if (noms.length === 0) return `${SIGLE_ETABLISSEMENT} - Cours`
+  return `${SIGLE_ETABLISSEMENT} - ${noms.join(' & ')}`
 }

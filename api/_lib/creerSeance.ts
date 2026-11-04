@@ -267,7 +267,7 @@ export async function emailsParticipants(
        gagné compte sur la seule ligne que Google Agenda accorde au titre. */
     titreCours: titreEvenementCours({
       estCollectif,
-      prenomsEleves: eleves.map((e) => e.prenom ?? '').filter(Boolean),
+      eleves,
       niveauClasse,
     }),
   }

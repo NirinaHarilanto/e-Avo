@@ -127,6 +127,26 @@ describe('AssistantNouvelEtudiant', () => {
     expect(champs('Prénom')).toHaveLength(1)
   })
 
+  /* Demande client du 2026-11-04, capture à l'appui : « je ne vois toujours pas les informations
+     sur paiement du forfait, les niveaux [...] tu as oublié ? ». Les sept blocs existaient, mais
+     derrière le bouton de création, et rien ne les annonçait : l'étape semblait s'arrêter au
+     compte créé. Ils ne PEUVENT pas précéder la création — aucun n'a d'élève à qui se rattacher
+     tant que `profiles` ne porte pas sa ligne — donc c'est l'annonce qui doit être là. */
+  it('annonce les informations du dossier avant même la création', () => {
+    render(<AssistantNouvelEtudiant etablissementId="etab-1" onTermine={() => {}} />)
+    fireEvent.click(screen.getByText('Individuel'))
+    remplir('Prénom', 'Anaïs')
+    remplir('Nom', 'RASOA')
+    remplir('E-mail', 'anais@exemple.test')
+    fireEvent.click(screen.getByText('Valider ces informations'))
+
+    for (const information of ['Paiement du forfait', 'Niveau', 'Appel diagnostic', 'Heures de cours restantes', 'Professeur', 'Planning prévisionnel']) {
+      expect(screen.getByText(information)).toBeTruthy()
+    }
+    // Et le bouton dit lui aussi que la création n'est pas la fin du parcours.
+    expect(screen.getByText('Créer l’espace et compléter le dossier')).toBeTruthy()
+  })
+
   /* Demande client du 2026-11-04 : « on doit pouvoir renseigner en troisième étape TOUTES les
      informations concernant l'étudiant ». L'assistant ne s'arrête donc plus au compte créé — il
      enchaîne sur le dossier, pour l'élève qui vient de naître et dans son programme. */
@@ -137,12 +157,12 @@ describe('AssistantNouvelEtudiant', () => {
     remplir('Nom', 'RASOA')
     remplir('E-mail', 'anais@exemple.test')
     fireEvent.click(screen.getByText('Valider ces informations'))
-    fireEvent.click(screen.getByText('Créer l’espace personnel'))
+    fireEvent.click(screen.getByText('Créer l’espace et compléter le dossier'))
 
     await waitFor(() => expect(screen.getByText('Dossier de l’étudiant')).toBeTruthy())
     expect(screen.getByText('dossier de p1 en individuel')).toBeTruthy()
     // Le formulaire de création a laissé la place : on ne recrée pas le compte deux fois.
-    expect(screen.queryByText('Créer l’espace personnel')).toBeNull()
+    expect(screen.queryByText('Créer l’espace et compléter le dossier')).toBeNull()
   })
 
   it('envoie le type de cours et la classe choisie à la création', async () => {
@@ -154,7 +174,7 @@ describe('AssistantNouvelEtudiant', () => {
     remplir('Vague', 'v-1')
     remplir('Classe de niveau', 'c-1')
     fireEvent.click(screen.getByText('Valider ces informations'))
-    fireEvent.click(screen.getByText('Créer l’espace personnel'))
+    fireEvent.click(screen.getByText('Créer l’espace et compléter le dossier'))
 
     /* La requête part après la demande d'un jeton frais (lib/jetonAcces.ts) : elle n'est donc
        plus émise dans le même tour de boucle que le clic. */
