@@ -9,6 +9,7 @@ import { LABEL_NIVEAU_CLASSE, libelleCreneau } from '../../lib/classesCollectif'
 import { useCreneauxClasses } from '../../hooks/useCreneauxClasses'
 import { nomGroupeDuo } from '../../lib/duo'
 import { formaterHeures } from '../../lib/heures'
+import { CompleterDossierEtudiant } from './CompleterDossierEtudiant'
 import { Champ, champStyle } from '../ui/Champ'
 import { MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonPrimaireStyle, boutonNeutreStyle, boutonSecondaireStyle } from '../ui/Boutons'
@@ -67,7 +68,15 @@ export function AssistantNouvelEtudiant({ etablissementId, onTermine }: { etabli
   const [etape2Validee, setEtape2Validee] = useState(false)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
-  const [resultat, setResultat] = useState<{ avertissement?: string } | null>(null)
+  /* Ce que la route renvoie est conservé, pas seulement l'avertissement : l'étape 3 a besoin du
+     `profileId` du nouvel élève — et du `forfaitId` quand un forfait vient d'être créé — pour
+     enchaîner sur son dossier (paiement, professeur, planning) sans faire chercher la fiche. */
+  const [resultat, setResultat] = useState<{
+    profileId: string
+    partenaireId?: string
+    forfaitId?: string
+    avertissement?: string
+  } | null>(null)
 
   const { classes } = useCohortClasses(type === 'collectif' && cohortId ? cohortId : null)
   const tarifsDuType = tarifs.filter((t) => type && t.type_programme === type)
@@ -119,32 +128,43 @@ export function AssistantNouvelEtudiant({ etablissementId, onTermine }: { etabli
         ...(type === 'collectif' ? { cohortId, cohortClassId: cohortClassId || null } : {}),
       }),
     })
-    const corps = (await reponse.json().catch(() => ({}))) as { error?: string; avertissement?: string }
+    const corps = (await reponse.json().catch(() => ({}))) as {
+      error?: string
+      profileId?: string
+      partenaireId?: string
+      forfaitId?: string
+      avertissement?: string
+    }
     setEnCours(false)
-    if (!reponse.ok) {
+    if (!reponse.ok || !corps.profileId) {
       setErreur(corps.error ?? "La création de l'espace personnel a échoué.")
       return
     }
-    setResultat({ avertissement: corps.avertissement })
+    setResultat({
+      profileId: corps.profileId,
+      partenaireId: corps.partenaireId,
+      forfaitId: corps.forfaitId,
+      avertissement: corps.avertissement,
+    })
   }
 
-  if (resultat) {
+  /* L'étape 3 se poursuit APRÈS la création du compte : c'est là que se renseigne tout le dossier
+     de l'élève — demande client du 2026-11-04. Elle ne pouvait pas précéder la création, aucun des
+     sept blocs n'ayant d'élève à qui se rattacher avant que `profiles` ne porte sa ligne. */
+  if (resultat && type) {
     return (
-      <div className="card" style={{ padding: 20, marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <MessageSucces>
-          L’espace personnel de {eleve.prenom} {eleve.nom} est créé
-          {type === 'duo' ? `, avec celui de ${partenaire.prenom} ${partenaire.nom}` : ''}.
-        </MessageSucces>
-        <p style={{ margin: 0, fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.6 }}>
-          Un e-mail d’invitation a été envoyé : la personne y choisira elle-même son mot de passe, puis accédera
-          directement à son espace. Vous n’avez pas de mot de passe à créer ni à transmettre.
-        </p>
-        {resultat.avertissement && <MessageErreur>{resultat.avertissement}</MessageErreur>}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button onClick={onTermine} className="btn-shine" style={boutonPrimaireStyle}>
-            Terminer
-          </button>
-        </div>
+      <div className="card" style={{ padding: 20, marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Etape numero={3} titre="Dossier de l’étudiant" active>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <MessageSucces>
+              L’espace personnel de {eleve.prenom} {eleve.nom} est créé
+              {type === 'duo' ? `, avec celui de ${partenaire.prenom} ${partenaire.nom}` : ''}. Un e-mail d’invitation a
+              été envoyé : la personne y choisira elle-même son mot de passe.
+            </MessageSucces>
+            {resultat.avertissement && <MessageErreur>{resultat.avertissement}</MessageErreur>}
+            <CompleterDossierEtudiant studentId={resultat.profileId} typeProgramme={type} onTermine={onTermine} />
+          </div>
+        </Etape>
       </div>
     )
   }
@@ -319,7 +339,7 @@ export function AssistantNouvelEtudiant({ etablissementId, onTermine }: { etabli
           s'ouvre qu'une fois l'étape 2 validée : c'est ce qui fait de la validation un vrai
           moment de relecture et non un simple clic de plus. */}
       {type && etape2Validee && (
-        <Etape numero={3} titre="Création de l’espace personnel" active>
+        <Etape numero={3} titre="Espace personnel et dossier" active>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <Recapitulatif
               lignes={[

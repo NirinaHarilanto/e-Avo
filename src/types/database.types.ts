@@ -317,7 +317,10 @@ export interface Database {
         Row: {
           id: string
           etablissement_id: string
-          prospect_id: string
+          /* Exclusifs depuis 0158 : un diagnostic porte sur un PROSPECT (parcours commercial) ou
+             sur un ÉTUDIANT créé à la main, jamais les deux, jamais aucun. */
+          prospect_id: string | null
+          student_id: string | null
           mene_par: string
           date_appel: string
           niveau_evalue: string | null
@@ -331,7 +334,8 @@ export interface Database {
         Insert: {
           id?: string
           etablissement_id: string
-          prospect_id: string
+          prospect_id?: string | null
+          student_id?: string | null
           mene_par: string
           date_appel: string
           niveau_evalue?: string | null

@@ -340,7 +340,12 @@ function LigneVague({ cohorte, onChange }: { cohorte: Cohort; onChange: () => vo
     ])
     const diagParProspect = new Map<string, string>()
     for (const diagnostic of diagnostics ?? []) {
-      if (diagnostic.niveau_evalue && !diagParProspect.has(diagnostic.prospect_id)) diagParProspect.set(diagnostic.prospect_id, diagnostic.niveau_evalue)
+      /* `prospect_id` est devenu facultatif (0158) : un diagnostic peut porter sur un étudiant
+         créé à la main. Cette carte-ci n'indexe que les prospects, les autres lignes ne la
+         concernent pas. */
+      if (diagnostic.prospect_id && diagnostic.niveau_evalue && !diagParProspect.has(diagnostic.prospect_id)) {
+        diagParProspect.set(diagnostic.prospect_id, diagnostic.niveau_evalue)
+      }
     }
     const reevaluationsParEtudiant = new Map<string, { niveau: string }[]>()
     for (const reevaluation of reevaluations ?? []) {

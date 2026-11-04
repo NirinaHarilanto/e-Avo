@@ -97,7 +97,10 @@ export function useProspectsPipeline() {
 
     const diagnosticParProspect = new Map<string, DiagnosticCall>()
     for (const diagnostic of diagnosticsData ?? []) {
-      if (!diagnosticParProspect.has(diagnostic.prospect_id)) {
+      /* `prospect_id` est facultatif depuis 0158 — un diagnostic peut porter sur un étudiant créé
+         à la main. Le pipeline, lui, ne parle que de prospects : ces lignes-là ne le concernent
+         pas. */
+      if (diagnostic.prospect_id && !diagnosticParProspect.has(diagnostic.prospect_id)) {
         diagnosticParProspect.set(diagnostic.prospect_id, diagnostic)
       }
     }

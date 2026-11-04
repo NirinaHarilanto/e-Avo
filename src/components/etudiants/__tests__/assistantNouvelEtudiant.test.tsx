@@ -25,6 +25,12 @@ vi.mock('../../../hooks/useCohortes', () => ({
   useCohortes: () => ({ cohortes: [{ id: 'v-1', nom: 'Vague Novembre', date_debut: '2026-11-01' }] }),
 }))
 
+vi.mock('../CompleterDossierEtudiant', () => ({
+  CompleterDossierEtudiant: ({ studentId, typeProgramme }: { studentId: string; typeProgramme: string }) => (
+    <p>dossier de {studentId} en {typeProgramme}</p>
+  ),
+}))
+
 vi.mock('../../../hooks/useCohortClasses', () => ({
   useCohortClasses: (cohortId?: string) => ({
     classes: cohortId ? [{ id: 'c-1', niveau: 'beginner', nom: '19h30', creneau: 'soir' }] : [],
@@ -51,7 +57,7 @@ describe('AssistantNouvelEtudiant', () => {
 
     expect(screen.getByText('Type de cours souhaité')).toBeTruthy()
     expect(screen.queryByText('Informations indispensables')).toBeNull()
-    expect(screen.queryByText('Création de l’espace personnel')).toBeNull()
+    expect(screen.queryByText('Espace personnel et dossier')).toBeNull()
   })
 
   it('ouvre l’étape 2 au choix du type, et n’y demande ni binôme ni vague en individuel', () => {
@@ -91,10 +97,10 @@ describe('AssistantNouvelEtudiant', () => {
     remplir('Nom', 'RASOA')
     remplir('E-mail', 'anais@exemple.test')
     expect((screen.getByText('Valider ces informations') as HTMLButtonElement).disabled).toBe(false)
-    expect(screen.queryByText('Création de l’espace personnel')).toBeNull()
+    expect(screen.queryByText('Espace personnel et dossier')).toBeNull()
 
     fireEvent.click(screen.getByText('Valider ces informations'))
-    expect(screen.getByText('Création de l’espace personnel')).toBeTruthy()
+    expect(screen.getByText('Espace personnel et dossier')).toBeTruthy()
     expect(screen.getByText('anais@exemple.test', { exact: false })).toBeTruthy()
   })
 
@@ -119,6 +125,24 @@ describe('AssistantNouvelEtudiant', () => {
     // individuel (c'est la raison d'être de la remise à zéro dans `choisirType`).
     expect(screen.queryByText('Seconde personne du binôme')).toBeNull()
     expect(champs('Prénom')).toHaveLength(1)
+  })
+
+  /* Demande client du 2026-11-04 : « on doit pouvoir renseigner en troisième étape TOUTES les
+     informations concernant l'étudiant ». L'assistant ne s'arrête donc plus au compte créé — il
+     enchaîne sur le dossier, pour l'élève qui vient de naître et dans son programme. */
+  it('enchaîne sur le dossier à compléter une fois l’espace personnel créé', async () => {
+    render(<AssistantNouvelEtudiant etablissementId="etab-1" onTermine={() => {}} />)
+    fireEvent.click(screen.getByText('Individuel'))
+    remplir('Prénom', 'Anaïs')
+    remplir('Nom', 'RASOA')
+    remplir('E-mail', 'anais@exemple.test')
+    fireEvent.click(screen.getByText('Valider ces informations'))
+    fireEvent.click(screen.getByText('Créer l’espace personnel'))
+
+    await waitFor(() => expect(screen.getByText('Dossier de l’étudiant')).toBeTruthy())
+    expect(screen.getByText('dossier de p1 en individuel')).toBeTruthy()
+    // Le formulaire de création a laissé la place : on ne recrée pas le compte deux fois.
+    expect(screen.queryByText('Créer l’espace personnel')).toBeNull()
   })
 
   it('envoie le type de cours et la classe choisie à la création', async () => {
