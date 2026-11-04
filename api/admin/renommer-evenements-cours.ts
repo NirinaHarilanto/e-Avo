@@ -132,6 +132,17 @@ export default async function handler(request: Request): Promise<Response> {
     }
 
     for (const seance of concernees) {
+      /* Le budget d'abord, AVANT tout autre raccourci. Placé plus bas, il laissait la boucle
+         continuer de parcourir les séances suivantes : chacune sans événement Google faisait
+         avancer le curseur alors qu'elle venait d'être comptée « restante ». Une seule séance
+         sans événement en fin de liste suffisait à propulser le curseur jusqu'à elle, et le tour
+         suivant reprenait APRÈS les séances jamais examinées. Constaté en production : 54 séances
+         à renommer, 36 examinées, et un rapport annonçant pourtant « 0 restante ». */
+      if (!tempsRestant()) {
+        restant += 1
+        continue
+      }
+
       const eventId = eventParSeance.get(seance.id)
       /* Pas d'événement Google : la séance existe dans HOC, elle n'a simplement jamais été posée
          dans un agenda (compte déconnecté au moment de sa création). Rien à renommer — mais elle
@@ -139,12 +150,6 @@ export default async function handler(request: Request): Promise<Response> {
          indéfiniment dessus. */
       if (!eventId) {
         noter(seance)
-        continue
-      }
-
-      /* Le budget est épuisé : tout ce qui suit est compté restant, sans être examiné. */
-      if (!tempsRestant()) {
-        restant += 1
         continue
       }
 
