@@ -98,7 +98,7 @@ export default async function handler(request: Request): Promise<Response> {
     // ── Séances de cours dont il est le professeur ────────────────────────────
     const { data: seances } = await serviceClient
       .from('sessions')
-      .select('id, debut, duree_minutes, type')
+      .select('id, debut, duree_minutes, type, cohort_class_id')
       .eq('etablissement_id', etablissementId)
       .eq('teacher_id', profileId)
       .eq('statut', 'planifiee')
@@ -143,6 +143,7 @@ export default async function handler(request: Request): Promise<Response> {
           serviceClient,
           profileId,
           (inscrits.data ?? []).map((i) => i.student_id),
+          seance,
         )
         const cree = await creerEvenementVisio(mien, {
           titre: participants.titreCours,

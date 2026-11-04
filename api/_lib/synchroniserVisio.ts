@@ -73,7 +73,10 @@ export async function synchroniserInvitesVisio(
 
   const { data: seance } = await serviceClient
     .from('sessions')
-    .select('teacher_id')
+    /* `type` et `cohort_class_id` en plus depuis le 2026-11-04 : le titre réécrit à chaque
+       synchronisation doit rester celui d'un cours collectif quand c'en est un, sinon la
+       première modification d'invités le ramènerait au format individuel. */
+    .select('teacher_id, type, cohort_class_id')
     .eq('id', params.sessionId)
     .maybeSingle()
   if (!seance) return
@@ -91,6 +94,7 @@ export async function synchroniserInvitesVisio(
       serviceClient,
       seance.teacher_id,
       (inscrits ?? []).map((i) => i.student_id),
+      seance,
     )
     await modifierEvenementVisio(hote, video.google_event_id, {
       // L'organisateur ne s'invite pas lui-même — voir creerVisioconference.

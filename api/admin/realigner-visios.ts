@@ -210,7 +210,7 @@ export default async function handler(request: Request): Promise<Response> {
        signale. C'est aussi `sessions.type` qui décide ici du fournisseur. */
     const { data: seances } = await serviceClient
       .from('sessions')
-      .select('id, debut, duree_minutes, type, teacher_id')
+      .select('id, debut, duree_minutes, type, teacher_id, cohort_class_id')
       .eq('etablissement_id', etablissementId)
       .eq('statut', 'planifiee')
       .gte('debut', plancher)
@@ -285,6 +285,7 @@ export default async function handler(request: Request): Promise<Response> {
             serviceClient,
             seance.teacher_id,
             (inscrits.data ?? []).map((i) => i.student_id),
+            seance,
           )
           const cree = await creerEvenementVisio(hoteSeance, {
             titre: participants.titreCours,

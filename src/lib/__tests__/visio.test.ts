@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { creerLienJitsi, DOMAINE_JITSI, estLienReel, fournisseurDepuisLien, getJoinUrl, getRecordingUrl, libelleFournisseur } from '../visio'
+import { creerLienJitsi, DOMAINE_JITSI, estLienReel, fournisseurDepuisLien, getJoinUrl, getRecordingUrl, libelleFournisseur, titreEvenementCours } from '../visio'
 
 describe('getJoinUrl', () => {
   it('renvoie le lien Jitsi tel quel quand la séance en a un', () => {
@@ -102,5 +102,44 @@ describe('libelleFournisseur', () => {
   it('rend un nom lisible pour chaque fournisseur', () => {
     expect(libelleFournisseur('google_meet')).toBe('Google Meet')
     expect(libelleFournisseur('jitsi')).toBe('Jitsi')
+  })
+})
+
+/* Format des titres d'agenda fixé par le client le 2026-11-04, capture à l'appui : dans Google
+   Agenda, toutes les séances HOC s'affichaient « Hari Online Club » et rien d'autre — le titre
+   complet (« Hari Online Club · Cours · <élève> · <professeur> ») ne tient pas sur la ligne
+   unique qu'une séance d'une heure laisse au titre, et se fait tronquer par la fin.
+   On ne voyait donc ni l'élève, ni le type de cours. */
+describe('titreEvenementCours', () => {
+  it('nomme un cours individuel par le prénom de l’élève', () => {
+    expect(titreEvenementCours({ estCollectif: false, prenomsEleves: ['Sitrakiniaina'] })).toBe('HOC - Sitrakiniaina')
+  })
+
+  it('nomme un cours collectif par le niveau de sa classe', () => {
+    expect(titreEvenementCours({ estCollectif: true, niveauClasse: 'Intermediate' })).toBe('HOC - Cours co Intermediate')
+  })
+
+  /* Un binôme DUO suit la même séance (0054) et reste un cours « individuel » : les deux prénoms
+     doivent apparaître, sinon le professeur ne voit qu'un des deux élèves attendus. */
+  it('nomme un duo par les deux prénoms', () => {
+    expect(titreEvenementCours({ estCollectif: false, prenomsEleves: ['Ravaka', 'Mialy'] })).toBe('HOC - Ravaka & Mialy')
+  })
+
+  /* Un niveau manquant ne doit pas produire « HOC - Cours co  » avec une espace en trop, ni un
+     « undefined » : une classe de vague legacy n'en porte pas toujours. */
+  it('se passe du niveau quand la classe n’en a pas', () => {
+    expect(titreEvenementCours({ estCollectif: true, niveauClasse: null })).toBe('HOC - Cours co')
+    expect(titreEvenementCours({ estCollectif: true, niveauClasse: '  ' })).toBe('HOC - Cours co')
+  })
+
+  /* Aucun inscrit résolu (profil supprimé, séance vide) : un titre générique plutôt qu'un
+     « HOC - » suspendu, qui passerait pour un défaut d'affichage. */
+  it('reste lisible quand aucun élève n’est résolu', () => {
+    expect(titreEvenementCours({ estCollectif: false, prenomsEleves: [] })).toBe('HOC - Cours')
+    expect(titreEvenementCours({ estCollectif: false })).toBe('HOC - Cours')
+  })
+
+  it('ignore les prénoms vides plutôt que de les séparer par des « & » orphelins', () => {
+    expect(titreEvenementCours({ estCollectif: false, prenomsEleves: ['Ravaka', '', '  '] })).toBe('HOC - Ravaka')
   })
 })

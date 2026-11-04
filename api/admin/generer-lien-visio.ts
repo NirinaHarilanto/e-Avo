@@ -27,7 +27,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     const { data: session } = await serviceClient
       .from('sessions')
-      .select('id, teacher_id, debut, duree_minutes, statut, etablissement_id, type')
+      .select('id, teacher_id, debut, duree_minutes, statut, etablissement_id, type, cohort_class_id')
       .eq('id', body.sessionId)
       .single()
     if (!session || session.etablissement_id !== etablissementId) {
@@ -67,7 +67,7 @@ export default async function handler(request: Request): Promise<Response> {
       .maybeSingle()
 
     try {
-      const participants = await emailsParticipants(serviceClient, session.teacher_id, studentIds)
+      const participants = await emailsParticipants(serviceClient, session.teacher_id, studentIds, session)
       const { eventId, lienVisio, fournisseur } = await creerEvenementVisio(hote, {
         titre: participants.titreCours,
         description: 'Cours planifié depuis Hari Online Club.',

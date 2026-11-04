@@ -776,6 +776,22 @@ export async function evenementAccessible(integration: HoteAgenda, eventId: stri
   return reponse?.ok ?? false
 }
 
+/**
+ * Titre actuel de l'événement dans l'agenda, ou `null` s'il est illisible (événement supprimé,
+ * ou resté dans l'agenda d'un compte Google précédent — voir `evenementAccessible`).
+ *
+ * Sert à ne réécrire que ce qui doit l'être : comparer avant d'écrire rend le renommage des
+ * séances idempotent et évite un PATCH par événement déjà au bon format.
+ */
+export async function titreEvenement(integration: HoteAgenda, eventId: string): Promise<string | null> {
+  const reponse = await fetch(`${CALENDAR_URL}/${encodeURIComponent(eventId)}?fields=summary`, {
+    headers: { Authorization: `Bearer ${integration.accessToken}` },
+  }).catch(() => null)
+  if (!reponse?.ok) return null
+  const corps = (await reponse.json().catch(() => null)) as { summary?: string } | null
+  return corps?.summary ?? null
+}
+
 export async function lienMeetDeLEvenement(
   integration: HoteAgenda,
   eventId: string,
@@ -937,6 +953,13 @@ export async function modifierEvenementVisio(
        maître d'une série. La chaîne vide retire la répétition, et l'événement redevient ponctuel.
        `undefined` laisse la règle existante intacte, comme tout champ omis d'un PATCH. */
     recurrence?: string
+    /* Faut-il que Google renvoie une invitation à jour à tous les participants ? Vrai par défaut
+       — c'est le comportement de tous les appelants historiques, et le seul correct quand
+       l'horaire, le lien ou la liste d'invités change. Mis à faux pour une retouche purement
+       cosmétique : renommer les séances à venir (2026-11-04) toucherait une centaine
+       d'événements, et autant d'e-mails inutiles à chaque élève pour un titre qui ne change rien
+       à son cours. */
+    prevenirParticipants?: boolean
   },
 ): Promise<void> {
   const corps: Record<string, unknown> = {}
@@ -951,7 +974,8 @@ export async function modifierEvenementVisio(
   if (params.emailsInvites !== undefined) corps.attendees = params.emailsInvites.map((email) => ({ email }))
   if (params.recurrence !== undefined) corps.recurrence = params.recurrence.trim() ? [params.recurrence.trim()] : []
 
-  const reponse = await fetch(`${CALENDAR_URL}/${encodeURIComponent(eventId)}?sendUpdates=all`, {
+  const sendUpdates = params.prevenirParticipants === false ? 'none' : 'all'
+  const reponse = await fetch(`${CALENDAR_URL}/${encodeURIComponent(eventId)}?sendUpdates=${sendUpdates}`, {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${integration.accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(corps),

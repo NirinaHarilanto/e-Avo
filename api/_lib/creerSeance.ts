@@ -3,7 +3,8 @@ import type { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
 import { creerEvenementVisio, integrationHoteReunion, noterErreurGoogle, noterErreurHote } from './google.js'
 import { avecPartenairesDuo, estBinomeDuo } from './duo.js'
-import { NOM_ETABLISSEMENT } from '../../src/lib/etablissement.js'
+import { titreEvenementCours } from '../../src/lib/visio.js'
+import { LABEL_NIVEAU_CLASSE } from '../../src/lib/classesCollectif.js'
 
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
@@ -110,6 +111,7 @@ export async function creerSeanceAvecInscriptions(
     debut: params.debut,
     dureeMinutes: params.dureeMinutes,
     type,
+    cohortClassId: params.cohortClassId ?? null,
   })
 
   return { sessionId: session.id }
@@ -127,6 +129,9 @@ interface ParamsVisio {
      duo n'est pas un type à part en base — c'est une séance `individuel` à deux inscrits — et
      suit donc naturellement la même branche. */
   type: 'individuel' | 'collectif'
+  /* Classe de niveau, pour un cours collectif : c'est elle qui donne le niveau affiché dans le
+     titre de l'événement (« HOC - Cours co Intermediate »). */
+  cohortClassId?: string | null
 }
 
 /**
@@ -149,7 +154,10 @@ export async function creerVisioconference(serviceClient: ServiceClient, params:
      cas, contre un aller-retour économisé dans le cas courant, où elle est toujours nécessaire. */
   const [resultatIntegration, resultatParticipants] = await Promise.allSettled([
     integrationHoteReunion(serviceClient, { organisateurId: params.teacherId, etablissementId: params.etablissementId }),
-    emailsParticipants(serviceClient, params.teacherId, params.studentIds),
+    emailsParticipants(serviceClient, params.teacherId, params.studentIds, {
+      type: params.type,
+      cohort_class_id: params.cohortClassId ?? null,
+    }),
   ])
 
   const hote = resultatIntegration.status === 'fulfilled' ? resultatIntegration.value : null
@@ -211,6 +219,10 @@ export async function emailsParticipants(
   serviceClient: ServiceClient,
   teacherId: string,
   studentIds: string[],
+  /* La séance elle-même, pour nommer l'événement : son type décide de la forme du titre, et sa
+     classe de niveau du mot qui la termine. Facultatif — un appelant qui ne la connaît pas
+     obtient le titre individuel, celui de l'écrasante majorité des séances. */
+  seance?: { type: 'individuel' | 'collectif' | null; cohort_class_id: string | null } | null,
 ): Promise<{ emails: string[]; titreCours: string }> {
   /* Les deux membres d'un binôme DUO sont conviés, pas seulement celui qui porte la séance
      (demande client du 2026-10-11 : « pour un DUO, les deux personnes formant le DUO devraient
@@ -231,15 +243,32 @@ export async function emailsParticipants(
     .map((id) => (profils ?? []).find((p) => p.id === id))
     .filter((p): p is NonNullable<typeof p> => Boolean(p))
 
-  const nomsEleves = eleves.map((e) => `${e.prenom ?? ''} ${e.nom ?? ''}`.trim()).filter(Boolean)
-  const nomProfesseur = professeur ? `${professeur.prenom ?? ''} ${professeur.nom ?? ''}`.trim() : ''
+  const estCollectif = seance?.type === 'collectif'
+
+  /* Le niveau n'est lu QUE pour un cours collectif : une lecture de plus sur chaque séance
+     individuelle — l'écrasante majorité — pour une valeur qui n'entrerait jamais dans le titre. */
+  let niveauClasse: string | null = null
+  if (estCollectif && seance?.cohort_class_id) {
+    const { data: classe } = await serviceClient
+      .from('cohort_classes')
+      .select('niveau')
+      .eq('id', seance.cohort_class_id)
+      .maybeSingle()
+    /* Repli sur la valeur brute : `pre_advanced` existe encore dans l'enum Postgres (0139) alors
+       que `LABEL_NIVEAU_CLASSE` ne porte plus que les trois niveaux retenus. Mieux vaut un titre
+       qui dit `pre_advanced` qu'un titre qui dit `undefined`. */
+    niveauClasse = classe ? (LABEL_NIVEAU_CLASSE[classe.niveau] ?? classe.niveau) : null
+  }
 
   return {
     emails: [professeur?.email, ...eleves.map((e) => e.email)].filter((e): e is string => Boolean(e)),
-    /* Le nom de l'établissement EN TÊTE du titre (2026-10-31) : c'est ce titre que Google Meet
-       affiche en haut de la réunion, et il est tronqué par la fin. Il ne change pas qui est
-       l'organisateur — Google ne laisse pas écrire `organizer` — mais au moins la réunion porte
-       le nom du club et non le seul nom du professeur. */
-    titreCours: `${NOM_ETABLISSEMENT} · Cours${nomsEleves.length ? ` · ${nomsEleves.join(', ')}` : ''}${nomProfesseur ? ` · ${nomProfesseur}` : ''}`,
+    /* Format fixé par le client le 2026-11-04 — voir `titreEvenementCours`. Le nom du
+       professeur en sort : c'est SON agenda, il sait qu'il est le professeur, et chaque mot
+       gagné compte sur la seule ligne que Google Agenda accorde au titre. */
+    titreCours: titreEvenementCours({
+      estCollectif,
+      prenomsEleves: eleves.map((e) => e.prenom ?? '').filter(Boolean),
+      niveauClasse,
+    }),
   }
 }

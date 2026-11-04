@@ -29,6 +29,7 @@ export function IntegrationGoogleMeet() {
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
   const [bascule, setBascule] = useState<{ enCours: boolean; resultat: string | null }>({ enCours: false, resultat: null })
+  const [renommage, setRenommage] = useState<{ enCours: boolean; resultat: string | null }>({ enCours: false, resultat: null })
 
   const retourGoogle = parametresUrl.get('google')
   const messageRetour = parametresUrl.get('message')
@@ -168,6 +169,64 @@ export function IntegrationGoogleMeet() {
      L'écran doit le dire, sans quoi l'admin cherche la panne ailleurs pendant des heures. */
   const permissionAgendaAccordee = (statut?.scope ?? '').includes('auth/calendar.events')
 
+  /* Renomme les séances déjà inscrites dans les agendas au format demandé le 2026-11-04 :
+     « HOC - <prénom> » ou « HOC - Cours co <niveau> ». Le changement du code ne vaut que pour les
+     séances à naître ; celles de la semaine en cours gardent leur ancien titre jusqu'à ce qu'on
+     les réécrive. Même boucle que le réalignement : le serveur traite ce qu'il peut par appel et
+     dit combien il en reste. */
+  async function renommer() {
+    if (!session) return
+    setRenommage({ enCours: true, resultat: null })
+    setErreur(null)
+
+    let renommees = 0
+    let dejaBonnes = 0
+    let restant = 0
+
+    for (let tour = 0; tour < 60; tour += 1) {
+      const reponse = await fetch('/api/admin/renommer-evenements-cours', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${await jetonAcces()}` },
+      }).catch(() => null)
+      const corps = (await reponse?.json().catch(() => null)) as {
+        error?: string
+        renommees?: number
+        dejaBonnes?: number
+        restant?: number
+      } | null
+
+      if (!reponse?.ok) {
+        setRenommage({ enCours: false, resultat: null })
+        setErreur(corps?.error ?? 'Le renommage des séances a échoué.')
+        return
+      }
+
+      const traitees = corps?.renommees ?? 0
+      renommees += traitees
+      dejaBonnes += corps?.dejaBonnes ?? 0
+      restant = corps?.restant ?? 0
+
+      if (restant === 0) break
+      /* Aucune progression alors qu'il reste du travail : chaque tour échouerait pareil. Les
+         séances « déjà au bon titre » comptent comme une progression, sans quoi un second
+         passage s'arrêterait au premier lot. */
+      if (traitees === 0 && (corps?.dejaBonnes ?? 0) === 0) break
+      setRenommage({ enCours: true, resultat: `${renommees} séance${renommees > 1 ? 's' : ''} renommée${renommees > 1 ? 's' : ''}, ${restant} restante${restant > 1 ? 's' : ''}…` })
+    }
+
+    setRenommage({
+      enCours: false,
+      resultat:
+        renommees === 0
+          ? dejaBonnes > 0
+            ? `Les ${dejaBonnes} séances à venir portent déjà le bon titre : rien à changer.`
+            : 'Aucune séance à venir n’est inscrite dans un agenda Google.'
+          : `${renommees} séance${renommees > 1 ? 's' : ''} renommée${renommees > 1 ? 's' : ''} dans les agendas.` +
+            (dejaBonnes > 0 ? ` ${dejaBonnes} portaient déjà le bon titre.` : '') +
+            (restant > 0 ? ` ${restant} n’${restant > 1 ? 'ont' : 'a'} pas pu être traitée${restant > 1 ? 's' : ''} : relancez le bouton.` : ''),
+    })
+  }
+
   return (
     <Section
       titre="Agenda Google de l’établissement"
@@ -239,6 +298,25 @@ export function IntegrationGoogleMeet() {
                 style={{ ...boutonNeutreStyle, alignSelf: 'flex-start' }}
               >
                 {bascule.enCours ? 'Mise à jour en cours…' : 'Mettre à jour les réunions à venir'}
+              </button>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{ fontSize: 13, color: 'var(--ink-2)', margin: 0, lineHeight: 1.6 }}>
+                <strong style={{ color: 'var(--ink)' }}>Titres des séances dans les agendas.</strong> Les cours
+                planifiés avant le 4 novembre 2026 s’affichent encore « Hari Online Club · Cours · … », tronqué à
+                « Hari Online Club » dans la grille de l’agenda. Ce bouton les renomme au format actuel —{' '}
+                <strong>HOC - Prénom</strong> pour un cours individuel ou duo, <strong>HOC - Cours co Niveau</strong>{' '}
+                pour un cours collectif. Aucune invitation n’est renvoyée : seul le titre change.
+              </p>
+              {renommage.resultat && <MessageSucces>{renommage.resultat}</MessageSucces>}
+              <button
+                type="button"
+                onClick={renommer}
+                disabled={renommage.enCours}
+                style={{ ...boutonNeutreStyle, alignSelf: 'flex-start' }}
+              >
+                {renommage.enCours ? 'Renommage en cours…' : 'Renommer les séances à venir'}
               </button>
             </div>
           </>

@@ -90,3 +90,39 @@ export function libelleFournisseur(fournisseur: 'jitsi' | 'google_meet'): string
 export function fournisseurDepuisLien(lien: string): 'jitsi' | 'google_meet' {
   return lien.startsWith('https://meet.google.com/') ? 'google_meet' : 'jitsi'
 }
+
+/* Sigle de l'établissement, et non son nom complet, en tête du titre d'un événement d'agenda —
+   demande client du 2026-11-04, capture à l'appui. Dans Google Agenda, une séance d'une heure
+   n'offre qu'une ligne de titre : « Hari Online Club · Cours · <élève> · <professeur> » la
+   remplissait entièrement et se faisait tronquer après « Hari Online Club ». Toutes les séances
+   de la semaine se ressemblaient donc, sans qu'on voie ni l'élève ni le type de cours. */
+export const SIGLE_ETABLISSEMENT = 'HOC'
+
+/* Titre d'un cours dans l'agenda Google, au format fixé par le client :
+     — individuel (et duo) : « HOC - Sitrakiniaina » ;
+     — collectif           : « HOC - Cours co Intermediate ».
+   L'heure n'est PAS dans le titre : Google Agenda l'affiche déjà sur la ligne suivante, sous
+   le titre de l'événement — c'est la « (à la ligne) l'heure du cours » de la demande.
+
+   Le PRÉNOM seul, comme le veut l'exemple du client. Deux élèves qui le partagent donnent donc
+   deux titres identiques ; c'est le professeur, seul destinataire de cet agenda, qui lève
+   l'ambiguïté avec l'heure du créneau. */
+export function titreEvenementCours(params: {
+  estCollectif: boolean
+  /* Prénoms seuls. Deux pour un binôme DUO, qui suit la même séance (0054) — le client n'a
+     décrit que l'individuel, et deux prénoms sont la lecture naturelle de « nom de l'apprenant »
+     quand ils sont deux. */
+  prenomsEleves?: string[]
+  /* Libellé déjà résolu de la classe (« Intermediate »), jamais la valeur d'enum. */
+  niveauClasse?: string | null
+}): string {
+  if (params.estCollectif) {
+    const niveau = params.niveauClasse?.trim()
+    return `${SIGLE_ETABLISSEMENT} - Cours co${niveau ? ` ${niveau}` : ''}`
+  }
+  const prenoms = (params.prenomsEleves ?? []).map((p) => p.trim()).filter(Boolean)
+  /* Aucun inscrit résolu (séance vide, profil supprimé) : mieux vaut un titre générique qu'un
+     « HOC - » qui laisserait croire à un bug d'affichage. */
+  if (prenoms.length === 0) return `${SIGLE_ETABLISSEMENT} - Cours`
+  return `${SIGLE_ETABLISSEMENT} - ${prenoms.join(' & ')}`
+}
