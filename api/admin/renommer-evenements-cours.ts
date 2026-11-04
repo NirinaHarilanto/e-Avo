@@ -33,6 +33,18 @@ export const config = { runtime: 'edge' }
  * Portée identique à `realigner-visios.ts` : les séances dont la fin n'est pas passée. Renommer
  * un cours déjà donné n'apporte rien.
  */
+interface Corps {
+  /* Curseur de reprise : `debut` de la dernière séance examinée au tour précédent. Sans lui,
+     chaque appel repartait de la première séance et redemandait son titre à Google — un
+     aller-retour par séance déjà traitée. Au premier essai réel, 20 tours ont consommé leur
+     budget à revérifier 508 fois des séances déjà bonnes, pour n'en renommer que 34 sur 57. */
+  apres?: string
+  /* Séances déjà traitées qui partagent EXACTEMENT ce `debut` : le curseur seul les reprendrait
+     ou les sauterait, deux cours pouvant commencer à la même minute (deux classes, deux
+     professeurs). Jamais plus d'une poignée d'identifiants. */
+  ignorer?: string[]
+}
+
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 })
@@ -40,6 +52,9 @@ export default async function handler(request: Request): Promise<Response> {
 
   try {
     const { serviceClient, etablissementId } = await requireAdmin(request)
+    const corps = ((await request.json().catch(() => ({}))) ?? {}) as Corps
+    const curseur = typeof corps.apres === 'string' ? corps.apres : null
+    const dejaTraites = new Set(Array.isArray(corps.ignorer) ? corps.ignorer : [])
 
     /* L'agenda de l'ÉTABLISSEMENT, en second recours. Une séance planifiée avant 0107 vit dans
        cet agenda-là, alors que `integrationHoteReunion` rend celui du professeur dès qu'il a
@@ -62,10 +77,14 @@ export default async function handler(request: Request): Promise<Response> {
       .select('id, debut, duree_minutes, type, teacher_id, cohort_class_id')
       .eq('etablissement_id', etablissementId)
       .eq('statut', 'planifiee')
-      .gte('debut', plancher)
+      /* Le curseur prime sur le plancher dès qu'il existe : il est forcément plus récent. */
+      .gte('debut', curseur ?? plancher)
       .order('debut')
+      .order('id')
 
-    const concernees = (seances ?? []).filter((s) => enCoursOuAVenir(s.debut, s.duree_minutes))
+    const concernees = (seances ?? []).filter(
+      (s) => enCoursOuAVenir(s.debut, s.duree_minutes) && !dejaTraites.has(s.id),
+    )
 
     const { data: visios } = await serviceClient
       .from('video_sessions')
@@ -98,20 +117,43 @@ export default async function handler(request: Request): Promise<Response> {
     let horsPortee = 0
     let restant = 0
     const echecs: { sessionId: string; raison: string }[] = []
+    /* Dernier `debut` atteint, et les identifiants traités à cet instant précis : c'est ce que
+       le tour suivant reprend pour ne pas revisiter ce qui est fait. */
+    let dernierDebut = curseur
+    let traitesAuDernierDebut: string[] = curseur ? [...dejaTraites] : []
+
+    function noter(seance: { id: string; debut: string }) {
+      if (seance.debut === dernierDebut) {
+        traitesAuDernierDebut.push(seance.id)
+        return
+      }
+      dernierDebut = seance.debut
+      traitesAuDernierDebut = [seance.id]
+    }
 
     for (const seance of concernees) {
       const eventId = eventParSeance.get(seance.id)
       /* Pas d'événement Google : la séance existe dans HOC, elle n'a simplement jamais été posée
-         dans un agenda (compte déconnecté au moment de sa création). Rien à renommer. */
-      if (!eventId) continue
+         dans un agenda (compte déconnecté au moment de sa création). Rien à renommer — mais elle
+         est bien « vue », donc le curseur avance : sans cela, le tour suivant buterait
+         indéfiniment dessus. */
+      if (!eventId) {
+        noter(seance)
+        continue
+      }
 
+      /* Le budget est épuisé : tout ce qui suit est compté restant, sans être examiné. */
       if (!tempsRestant()) {
         restant += 1
         continue
       }
 
       const hote = await hotePour(seance.teacher_id)
-      if (!hote) continue
+      if (!hote) {
+        noter(seance)
+        continue
+      }
+      noter(seance)
 
       try {
         const inscrits = await serviceClient.from('session_enrollments').select('student_id').eq('session_id', seance.id)
@@ -156,7 +198,17 @@ export default async function handler(request: Request): Promise<Response> {
       }
     }
 
-    return Response.json({ ok: echecs.length === 0, renommees, dejaBonnes, horsPortee, restant, echecs })
+    return Response.json({
+      ok: echecs.length === 0,
+      renommees,
+      dejaBonnes,
+      horsPortee,
+      restant,
+      echecs,
+      /* À renvoyer tel quel au tour suivant. Null = tout a été parcouru. */
+      apres: restant > 0 ? dernierDebut : null,
+      ignorer: restant > 0 ? traitesAuDernierDebut : [],
+    })
   } catch (error) {
     if (error instanceof AdminAuthError) {
       return Response.json({ error: error.message }, { status: error.status })

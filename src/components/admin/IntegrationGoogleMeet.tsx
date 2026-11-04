@@ -182,17 +182,24 @@ export function IntegrationGoogleMeet() {
     let renommees = 0
     let dejaBonnes = 0
     let restant = 0
+    /* Curseur de reprise renvoyé par le serveur : sans lui, chaque tour repartait de la première
+       séance et dépensait son budget à redemander à Google des titres déjà corrigés. */
+    let apres: string | null = null
+    let ignorer: string[] = []
 
     for (let tour = 0; tour < 60; tour += 1) {
       const reponse = await fetch('/api/admin/renommer-evenements-cours', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${await jetonAcces()}` },
+        headers: { Authorization: `Bearer ${await jetonAcces()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(apres ? { apres, ignorer } : {}),
       }).catch(() => null)
       const corps = (await reponse?.json().catch(() => null)) as {
         error?: string
         renommees?: number
         dejaBonnes?: number
         restant?: number
+        apres?: string | null
+        ignorer?: string[]
       } | null
 
       if (!reponse?.ok) {
@@ -205,8 +212,13 @@ export function IntegrationGoogleMeet() {
       renommees += traitees
       dejaBonnes += corps?.dejaBonnes ?? 0
       restant = corps?.restant ?? 0
+      apres = corps?.apres ?? null
+      ignorer = corps?.ignorer ?? []
 
       if (restant === 0) break
+      /* Le serveur n'a pas pu avancer d'une seule séance : relancer au même endroit tournerait
+         en rond. */
+      if (!apres) break
       /* Aucune progression alors qu'il reste du travail : chaque tour échouerait pareil. Les
          séances « déjà au bon titre » comptent comme une progression, sans quoi un second
          passage s'arrêterait au premier lot. */
