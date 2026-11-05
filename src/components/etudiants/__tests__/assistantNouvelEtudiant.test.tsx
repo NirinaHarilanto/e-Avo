@@ -47,6 +47,15 @@ function remplir(libelle: string, valeur: string, index = 0) {
   fireEvent.change(champs(libelle)[index], { target: { value: valeur } })
 }
 
+/* Les listes déroulantes (Vague, Classe de niveau) ne sont plus des <select> natifs mais un
+   bouton + une liste dessinée dans la page (ListeChoix.tsx, 2026-11-05 — le popup natif restait
+   vide chez le client malgré trois correctifs CSS) : on les ouvre d'un clic, puis on clique
+   l'option par son texte visible, comme le ferait réellement quelqu'un. */
+function choisirOption(libelle: string, texteOption: string | RegExp) {
+  fireEvent.click(champs(libelle)[0])
+  fireEvent.click(screen.getByRole('option', { name: texteOption }))
+}
+
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ profileId: 'p1' }), { status: 200 })))
 })
@@ -171,8 +180,8 @@ describe('AssistantNouvelEtudiant', () => {
     remplir('Prénom', 'Anaïs')
     remplir('Nom', 'RASOA')
     remplir('E-mail', 'anais@exemple.test')
-    remplir('Vague', 'v-1')
-    remplir('Classe de niveau', 'c-1')
+    choisirOption('Vague', 'Vague Novembre')
+    choisirOption('Classe de niveau', /19h30/)
     fireEvent.click(screen.getByText('Valider ces informations'))
     fireEvent.click(screen.getByText('Créer l’espace et compléter le dossier'))
 

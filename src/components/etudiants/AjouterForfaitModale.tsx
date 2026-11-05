@@ -5,6 +5,7 @@ import { useTarifs } from '../../hooks/useTarifs'
 import { formaterHeures } from '../../lib/heures'
 import { Modale } from '../ui/Modale'
 import { Champ, champStyle, etiquetteStyle, LigneInfo } from '../ui/Champ'
+import { ListeChoix } from '../ui/ListeChoix'
 import { MessageErreur } from '../ui/Etats'
 import { boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import { ChampDate } from '../ui/ChampDate'
@@ -125,16 +126,19 @@ export function AjouterForfaitModale({
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <Champ label="Forfait à ajouter" obligatoire>
-            <select value={tarifId} onChange={(e) => choisirTarif(e.target.value)} style={champStyle}>
-              <option value="">Autre (heures à saisir)</option>
-              {tarifsDuProgramme.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {/* Le titre de la grille porte déjà le volume (« 20h ») : le répéter donnerait
-                      « 20h · 20h · 500 000 Ar ». */}
-                  {t.titre} · {Number(t.prix).toLocaleString('fr-FR')} Ar
-                </option>
-              ))}
-            </select>
+            <ListeChoix
+              valeur={tarifId}
+              onChange={choisirTarif}
+              options={[
+                { id: '', libelle: 'Autre (heures à saisir)' },
+                ...tarifsDuProgramme.map((t) => ({
+                  id: t.id,
+                  /* Le titre de la grille porte déjà le volume (« 20h ») : le répéter donnerait
+                     « 20h · 20h · 500 000 Ar ». */
+                  libelle: `${t.titre} · ${Number(t.prix).toLocaleString('fr-FR')} Ar`,
+                })),
+              ]}
+            />
           </Champ>
           <Champ label="Échéance (facultatif)">
             <ChampDate type="date" value={echeance} onChange={(e) => setEcheance(e.target.value)} style={champStyle} />

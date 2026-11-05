@@ -10,6 +10,7 @@ import { useCreneauxClasses } from '../../hooks/useCreneauxClasses'
 import { nomGroupeDuo } from '../../lib/duo'
 import { CompleterDossierEtudiant } from './CompleterDossierEtudiant'
 import { Champ, champStyle } from '../ui/Champ'
+import { ListeChoix } from '../ui/ListeChoix'
 import { MessageErreur, MessageSucces } from '../ui/Etats'
 import { boutonPrimaireStyle, boutonNeutreStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import type { Database } from '../../types/database.types'
@@ -253,64 +254,55 @@ export function AssistantNouvelEtudiant({ etablissementId, onTermine }: { etabli
 
             {(type === 'individuel' || type === 'duo') && (
               <Champ label="Formule">
-                <select
-                  value={tarifId}
-                  onChange={(e) => {
-                    setTarifId(e.target.value)
+                <ListeChoix
+                  valeur={tarifId}
+                  onChange={(id) => {
+                    setTarifId(id)
                     setEtape2Validee(false)
                   }}
-                  style={champStyle}
-                >
-                  <option value="">Aucune formule pour l’instant (forfait à créer plus tard)</option>
-                  {tarifsDuType.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {/* Le titre de la grille porte déjà le volume (« 20h ») : le répéter
-                          donnait « 20h · 20h · 500 000 Ar » à l'écran. */}
-                      {t.titre} · {Number(t.prix).toLocaleString('fr-FR')} Ar
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { id: '', libelle: 'Aucune formule pour l’instant (forfait à créer plus tard)' },
+                    ...tarifsDuType.map((t) => ({
+                      id: t.id,
+                      /* Le titre de la grille porte déjà le volume (« 20h ») : le répéter
+                         donnait « 20h · 20h · 500 000 Ar » à l'écran. */
+                      libelle: `${t.titre} · ${Number(t.prix).toLocaleString('fr-FR')} Ar`,
+                    })),
+                  ]}
+                />
               </Champ>
             )}
 
             {type === 'collectif' && (
               <>
                 <Champ label="Vague" obligatoire>
-                  <select
-                    value={cohortId}
-                    onChange={(e) => {
-                      setCohortId(e.target.value)
+                  <ListeChoix
+                    valeur={cohortId}
+                    onChange={(id) => {
+                      setCohortId(id)
                       setCohortClassId('')
                       setEtape2Validee(false)
                     }}
-                    style={champStyle}
-                  >
-                    <option value="">Choisir une promotion…</option>
-                    {vagues.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.nom}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Choisir une promotion…"
+                    options={vagues.map((v) => ({ id: v.id, libelle: v.nom }))}
+                  />
                 </Champ>
                 <Champ label="Classe de niveau">
-                  <select
-                    value={cohortClassId}
-                    onChange={(e) => {
-                      setCohortClassId(e.target.value)
+                  <ListeChoix
+                    valeur={cohortClassId}
+                    onChange={(id) => {
+                      setCohortClassId(id)
                       setEtape2Validee(false)
                     }}
                     disabled={!cohortId}
-                    style={champStyle}
-                  >
-                    <option value="">À classer plus tard</option>
-                    {classes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {LABEL_NIVEAU_CLASSE[c.niveau]}
-                        {c.nom ? ` — ${c.nom}` : ''} · {libelleCreneau(creneauxClasses, c.creneau)}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { id: '', libelle: 'À classer plus tard' },
+                      ...classes.map((c) => ({
+                        id: c.id,
+                        libelle: `${LABEL_NIVEAU_CLASSE[c.niveau]}${c.nom ? ` — ${c.nom}` : ''} · ${libelleCreneau(creneauxClasses, c.creneau)}`,
+                      })),
+                    ]}
+                  />
                 </Champ>
                 <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted-2)', lineHeight: 1.5 }}>
                   Le forfait de la vague (32 heures par défaut) est créé automatiquement à l’inscription. Une classe

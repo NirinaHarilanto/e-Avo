@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { champStyle } from '../ui/Champ'
+import { ListeChoix } from '../ui/ListeChoix'
 
 export const MOYENS_PAIEMENT = ['Espèces', 'Virement', 'Chèque', 'Mobile money'] as const
 
@@ -46,15 +47,16 @@ export function SelectMoyenPaiement({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <select value={choix} onChange={(e) => changerChoix(e.target.value)} style={champStyle}>
-        <option value="">Sélectionner…</option>
-        {MOYENS_PAIEMENT.map((m) => (
-          <option key={m} value={m}>
-            {m}
-          </option>
-        ))}
-        <option value={VALEUR_AUTRES}>Autres</option>
-      </select>
+      <ListeChoix
+        valeur={choix}
+        onChange={changerChoix}
+        placeholder="Sélectionner…"
+        options={[
+          { id: '', libelle: 'Sélectionner…' },
+          ...MOYENS_PAIEMENT.map((m) => ({ id: m, libelle: m })),
+          { id: VALEUR_AUTRES, libelle: 'Autres' },
+        ]}
+      />
       {choix === VALEUR_AUTRES && (
         <input
           value={texteLibre}

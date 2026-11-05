@@ -9,7 +9,12 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
    Jusqu'ici l'admin tapait un nombre d'heures libre, sans rapport avec la grille tarifaire, et
    devait retrouver le prix lui-même pour le ressaisir côté paiement. Ce que garde ce fichier :
    la liste propose les formules du BON programme, en choisir une remplit les heures ET le prix,
-   un prix retouché à la main n'est plus écrasé, et la saisie libre reste possible hors grille. */
+   un prix retouché à la main n'est plus écrasé, et la saisie libre reste possible hors grille.
+
+   Le menu est une liste dessinée DANS la page (ListeChoix.tsx) et non un <select> natif — le
+   popup système restait vide chez le client malgré trois correctifs CSS (2026-10-10,
+   2026-10-30, 2026-11-05) ; voir ListeChoix.tsx. Les options ne sont donc dans le DOM qu'une
+   fois le menu ouvert, d'où `ouvrirListe()` avant toute lecture ou tout choix. */
 
 vi.mock('../../../context/ProfileContext', () => ({
   useProfileContext: () => ({ session: { access_token: 'jeton' }, profile: { id: 'admin-1' } }),
@@ -49,8 +54,17 @@ function monter(typeProgramme: 'individuel' | 'duo' = 'individuel') {
    par une espace ordinaire : une attente écrite au clavier ne correspondrait jamais. */
 const sommeFr = (n: number) => n.toLocaleString('fr-FR')
 
-const liste = () => screen.getByLabelText(/^Forfait à ajouter/) as HTMLSelectElement
+const declencheur = () => screen.getByLabelText(/^Forfait à ajouter/)
 const montant = () => screen.getByLabelText(/^Montant réglé/) as HTMLInputElement
+
+function ouvrirListe() {
+  fireEvent.click(declencheur())
+}
+
+function choisirForfait(texteOption: string | RegExp) {
+  ouvrirListe()
+  fireEvent.click(screen.getByRole('option', { name: texteOption }))
+}
 
 function corpsEnvoye() {
   const appel = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
@@ -64,6 +78,7 @@ beforeEach(() => {
 describe('AjouterForfaitModale — liste des forfaits HOC', () => {
   it('propose les formules de la grille, prix compris', () => {
     monter()
+    ouvrirListe()
 
     expect(screen.getByRole('option', { name: `10h · ${sommeFr(300000)} Ar` })).toBeTruthy()
     expect(screen.getByRole('option', { name: `20h · ${sommeFr(500000)} Ar` })).toBeTruthy()
@@ -73,16 +88,19 @@ describe('AjouterForfaitModale — liste des forfaits HOC', () => {
      exactement le travers de libellé relevé par le client le 2026-10-30. */
   it('n’écrit pas le volume deux fois dans le libellé', () => {
     monter()
+    ouvrirListe()
     expect(screen.queryByRole('option', { name: /20h · 20h/ })).toBeNull()
   })
 
   it('ne propose que les formules du programme de l’élève', () => {
     monter('individuel')
+    ouvrirListe()
     expect(screen.queryByRole('option', { name: /DUO 20h/ })).toBeNull()
   })
 
   it('propose les formules DUO pour un élève en binôme', () => {
     monter('duo')
+    ouvrirListe()
     expect(screen.getByRole('option', { name: `DUO 20h · ${sommeFr(700000)} Ar` })).toBeTruthy()
     expect(screen.queryByRole('option', { name: /^10h/ })).toBeNull()
   })
@@ -90,13 +108,14 @@ describe('AjouterForfaitModale — liste des forfaits HOC', () => {
   /* Une ligne de grille sans volume d'heures ne peut rien ajouter au compteur. */
   it('écarte une formule sans nombre d’heures', () => {
     monter()
+    ouvrirListe()
     expect(screen.queryByRole('option', { name: /sur mesure/ })).toBeNull()
   })
 
   it('choisir une formule remplit les heures ET le prix du paiement', () => {
     monter()
 
-    fireEvent.change(liste(), { target: { value: 't-20' } })
+    choisirForfait(`20h · ${sommeFr(500000)} Ar`)
     /* La phrase est coupée par un <strong> autour du volume : on interroge le texte du
        conteneur plutôt que celui d'un nœud isolé. */
     expect(
@@ -118,11 +137,11 @@ describe('AjouterForfaitModale — liste des forfaits HOC', () => {
   it('n’écrase pas un montant que l’admin a saisi lui-même', () => {
     monter()
 
-    fireEvent.change(liste(), { target: { value: 't-10' } })
+    choisirForfait(`10h · ${sommeFr(300000)} Ar`)
     fireEvent.click(screen.getByText('Enregistrer le paiement'))
     fireEvent.change(montant(), { target: { value: '250000' } })
 
-    fireEvent.change(liste(), { target: { value: 't-20' } })
+    choisirForfait(`20h · ${sommeFr(500000)} Ar`)
     expect(montant().value).toBe('250000')
   })
 
@@ -131,14 +150,14 @@ describe('AjouterForfaitModale — liste des forfaits HOC', () => {
     monter()
 
     expect(screen.getByLabelText(/^Heures à ajouter/)).toBeTruthy()
-    fireEvent.change(liste(), { target: { value: 't-10' } })
+    choisirForfait(`10h · ${sommeFr(300000)} Ar`)
     expect(screen.queryByLabelText(/^Heures à ajouter/)).toBeNull()
   })
 
   it('transmet la formule retenue au serveur, avec ses heures et son prix', async () => {
     monter()
 
-    fireEvent.change(liste(), { target: { value: 't-20' } })
+    choisirForfait(`20h · ${sommeFr(500000)} Ar`)
     fireEvent.click(screen.getByText('Enregistrer le paiement'))
     fireEvent.change(screen.getByLabelText(/^Motif/), { target: { value: 'Règlement en espèces' } })
     fireEvent.click(screen.getByText('Confirmer le paiement'))
@@ -176,7 +195,7 @@ describe('AjouterForfaitModale — liste des forfaits HOC', () => {
      payé. */
   it('garde la validation bloquée tant que le paiement n’est pas confirmé', () => {
     monter()
-    fireEvent.change(liste(), { target: { value: 't-20' } })
+    choisirForfait(`20h · ${sommeFr(500000)} Ar`)
 
     expect((screen.getByText('Valider l’ajout du forfait') as HTMLButtonElement).disabled).toBe(true)
   })
