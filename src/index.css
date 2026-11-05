@@ -631,7 +631,28 @@ a:hover {
    écraser par son propre thème système (le popup natif d'un <select> est un contrôle Windows, pas
    une boîte dessinée par Chromium) — si le système est en mode sombre, Windows repeint le popup
    dans SA palette sombre par-dessus la nôtre, quels que soient `background-color`/`color` posés
-   sur chaque `<option>`. `only` rend la préférence OBLIGATOIRE et empêche ce repli système. */
+   sur chaque `<option>`. `only` rend la préférence OBLIGATOIRE et empêche ce repli système.
+
+   TROISIÈME rechute, signalée le 2026-11-05 (capture à l'appui, assistant « Ajouter un
+   étudiant » de l'espace admin) : popup blanc, lignes vides. Mesuré cette fois en production
+   avec les styles CALCULÉS : les dix `<option>` portaient bien leur texte, en #49306a sur
+   #f7f4ff, `color-scheme: light only`, `visibility: visible`, 14 px. Et la MÊME liste forcée
+   en `size=10` (listbox dessinée DANS la page, donc capturable) s'affiche parfaitement sous
+   le zoom 0,74 de l'espace admin. Autrement dit : données, couleurs et peinture en page sont
+   saines — seul le popup natif, dessiné hors de la page, échoue.
+
+   Les deux correctifs précédents ajoutaient de la contrainte (des couleurs d'auteur, puis
+   `only`) et n'ont pas tenu. On fait donc l'inverse : on RETIRE les couleurs posées sur
+   `<option>`. Poser `background-color` sur une option fait sortir Chromium de son rendu natif
+   du popup pour un rendu « stylé par l'auteur » — chemin qui, lui, dépend de la version du
+   navigateur et du thème Windows, et que l'application ne maîtrise pas. Sans ces deux
+   déclarations, le navigateur garde SA paire fond/texte, toujours cohérente entre elle :
+   noir sur blanc en `light only`, blanc sur sombre en `dark only`. Le pire cas devient un
+   popup qui ne reprend pas la teinte lavande de l'application — jamais un popup illisible.
+
+   Ces couleurs répondaient à l'origine (2026-10-10) à un problème du thème SOMBRE, quand les
+   espaces connectés l'étaient encore. Ils sont clairs depuis le 2026-10-16 : la raison d'être
+   de ce contournement a disparu avant lui. */
 :root { --scheme-formulaire: dark only; }
 .page-claire,
 .page-connexion-hoc {
@@ -639,10 +660,6 @@ a:hover {
 }
 select {
   color-scheme: var(--scheme-formulaire);
-}
-select option {
-  background-color: var(--surface-alt);
-  color: var(--ink);
 }
 
 /* Un système réglé sur "moins d'animations" doit obtenir une interface fixe, pas ralentie : le

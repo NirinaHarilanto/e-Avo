@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
+import { useTarifs } from '../../hooks/useTarifs'
+import { formaterHeures } from '../../lib/heures'
 import { Modale } from '../ui/Modale'
 import { Champ, champStyle, etiquetteStyle, LigneInfo } from '../ui/Champ'
 import { MessageErreur } from '../ui/Etats'
@@ -17,6 +19,8 @@ import { SelectMoyenPaiement } from '../paiements/SelectMoyenPaiement'
 export function AjouterForfaitModale({
   studentId,
   nomEtudiant,
+  etablissementId,
+  typeProgramme = 'individuel',
   demandeId,
   heuresSuggerees,
   prolongation = false,
@@ -25,6 +29,10 @@ export function AjouterForfaitModale({
 }: {
   studentId: string
   nomEtudiant: string
+  etablissementId: string
+  /* Décide quelles formules de la grille sont proposées. Repli sur « individuel » : c'est ce
+     que fait déjà la route quand l'élève n'a aucun forfait antérieur. */
+  typeProgramme?: 'individuel' | 'duo'
   /* Présent quand cet ajout vient valider une demande de l'élève (0061). */
   demandeId?: string
   heuresSuggerees?: number
@@ -36,17 +44,40 @@ export function AjouterForfaitModale({
   onAjoute: () => void
 }) {
   const { session } = useProfileContext()
+  const { tarifs } = useTarifs(etablissementId)
+  /* Les formules que HOC propose pour CE programme — demande client du 2026-11-05 : « on devrait
+     avoir une liste déroulante des forfaits proposés par HOC dans la zone heures à ajouter ».
+     Jusqu'ici l'admin tapait un nombre d'heures libre, sans rapport avec la grille tarifaire, et
+     devait retrouver le prix lui-même pour le saisir au paiement. */
+  const tarifsDuProgramme = tarifs.filter((t) => t.type_programme === typeProgramme && t.heures != null)
+  /* Une formule déjà choisie se reconnaît à son identifiant ; la chaîne vide = « Autre », la
+     saisie libre d'avant, conservée pour les cas hors grille (geste commercial, reliquat). */
+  const [tarifId, setTarifId] = useState('')
   const [heures, setHeures] = useState(heuresSuggerees ? String(heuresSuggerees) : '')
   const [echeance, setEcheance] = useState('')
   const [paiementOuvert, setPaiementOuvert] = useState(false)
   const [paiementConfirme, setPaiementConfirme] = useState(false)
   const [montant, setMontant] = useState('')
+  /* Dès que l'admin retouche le montant à la main, la grille cesse de l'écraser : un prix négocié
+     ne doit pas être repris par le simple fait de rouvrir la liste. Même garde-fou que
+     CreerForfait.tsx. */
+  const [montantManuel, setMontantManuel] = useState(false)
   const [motif, setMotif] = useState('')
   const [moyenPaiement, setMoyenPaiement] = useState('')
   const [moyenValide, setMoyenValide] = useState(true)
   const [reference, setReference] = useState('')
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
+
+  /* Choisir une formule remplit les deux champs d'un coup : ses heures, et son prix côté
+     paiement — c'est tout l'intérêt de la liste, l'admin n'a plus à retrouver le tarif. */
+  function choisirTarif(id: string) {
+    setTarifId(id)
+    const tarif = tarifsDuProgramme.find((t) => t.id === id)
+    if (!tarif) return
+    setHeures(String(tarif.heures))
+    if (!montantManuel) setMontant(String(tarif.prix))
+  }
 
   function confirmerPaiement() {
     if (!montant || Number(montant) <= 0 || !motif.trim() || !moyenValide) return
@@ -64,6 +95,7 @@ export function AjouterForfaitModale({
       body: JSON.stringify({
         studentId,
         heures: Number(heures),
+        tarifId: tarifId || undefined,
         echeance: echeance || undefined,
         montantPaiement: Number(montant),
         motifPaiement: motif,
@@ -92,13 +124,43 @@ export function AjouterForfaitModale({
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <Champ label="Heures à ajouter" obligatoire>
-            <input type="number" min={0.5} step="0.5" value={heures} onChange={(e) => setHeures(e.target.value)} style={champStyle} />
+          <Champ label="Forfait à ajouter" obligatoire>
+            <select value={tarifId} onChange={(e) => choisirTarif(e.target.value)} style={champStyle}>
+              <option value="">Autre (heures à saisir)</option>
+              {tarifsDuProgramme.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {/* Le titre de la grille porte déjà le volume (« 20h ») : le répéter donnerait
+                      « 20h · 20h · 500 000 Ar ». */}
+                  {t.titre} · {Number(t.prix).toLocaleString('fr-FR')} Ar
+                </option>
+              ))}
+            </select>
           </Champ>
           <Champ label="Échéance (facultatif)">
             <ChampDate type="date" value={echeance} onChange={(e) => setEcheance(e.target.value)} style={champStyle} />
           </Champ>
         </div>
+
+        {/* Hors grille : le nombre d'heures redevient libre, comme avant la liste. */}
+        {!tarifId && (
+          <Champ label="Heures à ajouter" obligatoire>
+            <input
+              type="number"
+              min={0.5}
+              step="0.5"
+              value={heures}
+              onChange={(e) => setHeures(e.target.value)}
+              style={{ ...champStyle, maxWidth: 200 }}
+            />
+          </Champ>
+        )}
+
+        {tarifId && Number(heures) > 0 && (
+          <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ink-2, var(--ink))', lineHeight: 1.6 }}>
+            <strong>{formaterHeures(Number(heures))}</strong> viendront s’ajouter au compteur de
+            l’élève, et ce forfait rejoindra son historique.
+          </p>
+        )}
 
         <div
           style={{
@@ -124,7 +186,17 @@ export function AjouterForfaitModale({
           ) : paiementOuvert ? (
             <>
               <Champ label="Montant réglé (Ar)" obligatoire>
-                <input type="number" min={0} step="0.01" value={montant} onChange={(e) => setMontant(e.target.value)} style={champStyle} />
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={montant}
+                  onChange={(e) => {
+                    setMontant(e.target.value)
+                    setMontantManuel(true)
+                  }}
+                  style={champStyle}
+                />
               </Champ>
               <Champ label="Motif" obligatoire aide="Ex. règlement du forfait supplémentaire de 10h en espèces.">
                 <input value={motif} onChange={(e) => setMotif(e.target.value)} style={champStyle} />

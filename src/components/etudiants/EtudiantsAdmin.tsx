@@ -452,6 +452,8 @@ function DossierPanel({
         <PanneauAjoutForfait
           studentId={etudiant.id}
           nomEtudiant={`${etudiant.prenom} ${etudiant.nom}`}
+          etablissementId={etudiant.etablissement_id}
+          typeProgramme={forfait?.type_programme === 'duo' ? 'duo' : 'individuel'}
           heuresRestantes={heuresRestantes}
           onAjoute={recharger}
         />
@@ -560,11 +562,16 @@ function BlocRelanceEtudiant({ etudiant }: { etudiant: Profile }) {
 function PanneauAjoutForfait({
   studentId,
   nomEtudiant,
+  etablissementId,
+  typeProgramme,
   heuresRestantes,
   onAjoute,
 }: {
   studentId: string
   nomEtudiant: string
+  etablissementId: string
+  /* Programme du forfait en cours : décide des formules proposées dans la liste. */
+  typeProgramme?: 'individuel' | 'duo'
   /* Heures encore disponibles, tous forfaits cumulés — décide du libellé du bouton (demande
      client du 2026-10-10) : « Prolonger le forfait » tant qu'il en reste, « Ajouter un forfait »
      une fois à 0. Le comportement réel ne change pas (c'est toujours un nouveau forfait qui
@@ -644,6 +651,8 @@ function PanneauAjoutForfait({
         <AjouterForfaitModale
           studentId={studentId}
           nomEtudiant={nomEtudiant}
+          etablissementId={etablissementId}
+          typeProgramme={typeProgramme}
           demandeId={modaleOuverte.demandeId}
           heuresSuggerees={modaleOuverte.heures}
           prolongation={heuresRestantes > 0}

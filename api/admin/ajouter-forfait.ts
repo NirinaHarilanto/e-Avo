@@ -6,6 +6,10 @@ export const config = { runtime: 'edge' }
 interface Corps {
   studentId?: string
   heures?: number
+  /* Formule de la grille `tarifs` retenue par l'admin (2026-11-05), quand il en a choisi une
+     plutôt que de saisir des heures libres. Tracée sur le forfait pour qu'on sache plus tard
+     D'OÙ vient son prix — même colonne que les forfaits créés à l'inscription. */
+  tarifId?: string
   typeProgramme?: 'individuel' | 'duo'
   echeance?: string
   // Paiement enregistré dans le même geste (0061) — demande client du 2026-09-22 : la
@@ -99,6 +103,7 @@ export default async function handler(request: Request): Promise<Response> {
         type_programme: typeProgramme,
         total_heures: corps.heures,
         montant: corps.montantPaiement,
+        tarif_vise_id: corps.tarifId ?? null,
         echeance: corps.echeance || null,
       })
       .select('id')

@@ -8,7 +8,6 @@ import { trierVaguesChronologiquement } from '../../lib/cohortes'
 import { LABEL_NIVEAU_CLASSE, libelleCreneau } from '../../lib/classesCollectif'
 import { useCreneauxClasses } from '../../hooks/useCreneauxClasses'
 import { nomGroupeDuo } from '../../lib/duo'
-import { formaterHeures } from '../../lib/heures'
 import { CompleterDossierEtudiant } from './CompleterDossierEtudiant'
 import { Champ, champStyle } from '../ui/Champ'
 import { MessageErreur, MessageSucces } from '../ui/Etats'
@@ -265,8 +264,9 @@ export function AssistantNouvelEtudiant({ etablissementId, onTermine }: { etabli
                   <option value="">Aucune formule pour l’instant (forfait à créer plus tard)</option>
                   {tarifsDuType.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.titre}
-                      {t.heures != null ? ` · ${formaterHeures(t.heures)}` : ''} · {Number(t.prix).toLocaleString('fr-FR')} Ar
+                      {/* Le titre de la grille porte déjà le volume (« 20h ») : le répéter
+                          donnait « 20h · 20h · 500 000 Ar » à l'écran. */}
+                      {t.titre} · {Number(t.prix).toLocaleString('fr-FR')} Ar
                     </option>
                   ))}
                 </select>
