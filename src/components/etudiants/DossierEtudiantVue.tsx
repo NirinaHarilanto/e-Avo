@@ -1,4 +1,6 @@
 import { useState, type ReactNode } from 'react'
+import { AjusterHeuresModale } from './AjusterHeuresModale'
+import { RetirerSeanceModale } from './RetirerSeanceModale'
 import type { DossierEtudiant, PeriodeProfesseur, SeanceDuParcours } from '../../hooks/useDossierEtudiant'
 import { useNiveauxEtudiant } from '../../hooks/useNiveauxEtudiant'
 import { getJoinUrl } from '../../lib/visio'
@@ -345,11 +347,13 @@ function BlocPeriode({
   onClickSeance,
   professeursDesSeances,
   afficherProfesseur,
+  onRetirerSeance,
 }: {
   periode: PeriodeProfesseur
   estActuelle: boolean
   professeursDesSeances: Record<string, Profile>
   afficherProfesseur: boolean
+  onRetirerSeance?: (seance: SeanceDuParcours) => void
   /* Toujours fourni (même en lecture seule élève/professeur) — demande client du 2026-10-19 :
      une séance clôturée n'avait plus aucune ligne cliquable, donc plus aucun moyen de revoir son
      compte rendu depuis le parcours. L'appelant (DossierEtudiantVue) décide lui-même, par
@@ -445,6 +449,7 @@ function BlocPeriode({
           onClickSeance={onClickSeance}
           professeursDesSeances={professeursDesSeances}
           afficherProfesseur={afficherProfesseur}
+          onRetirerSeance={onRetirerSeance}
         />
       )}
     </div>
@@ -497,10 +502,15 @@ function TableauSeances({
   onClickSeance,
   professeursDesSeances = {},
   afficherProfesseur = false,
+  onRetirerSeance,
 }: {
   seances: SeanceDuParcours[]
   onClickSeance: (seance: SeanceDuParcours) => void
   professeursDesSeances?: Record<string, Profile>
+  /* Retrait d'une séance du parcours (demande client du 2026-11-05) — admin uniquement, d'où
+     l'absence de cette colonne côté élève et professeur : elle n'existe alors pas du tout,
+     plutôt qu'un bouton désactivé qui laisserait croire à un droit manquant. */
+  onRetirerSeance?: (seance: SeanceDuParcours) => void
   /* Qui a donné quoi, ligne par ligne — demande client du 2026-10-27 : « pour chaque séance, il
      faut afficher visuellement le professeur qui a fait la séance ».
      Décidé par l'appelant, et non déduit du contenu de la liste : chaque bloc de période ne
@@ -545,6 +555,9 @@ function TableauSeances({
         <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--muted-2)', textTransform: 'uppercase', letterSpacing: 0.5, width: 72, textAlign: 'right' }}>
           Présence
         </span>
+        {/* Colonne sans intitulé : « Retirer » au-dessus d'une corbeille serait redondant, et
+            la largeur fixe garde la colonne Présence alignée d'une ligne à l'autre. */}
+        {onRetirerSeance && <span style={{ width: 26, flexShrink: 0 }} />}
       </div>
       {/* Une période peut compter des dizaines de séances : n'en montrer que les premières
           garde le parcours lisible quand plusieurs périodes s'enchaînent. */}
@@ -577,6 +590,35 @@ function TableauSeances({
             <span style={{ width: 72, textAlign: 'right' }}>
               <StatutSeance enrollment={seance.enrollment} statutSession={seance.session.statut} seance={seance.session} />
             </span>
+            {onRetirerSeance && (
+              <button
+                type="button"
+                /* `stopPropagation` : la ligne entière ouvre déjà la fiche de la séance. Sans lui,
+                   cliquer la corbeille ouvrirait AUSSI ce pop-up derrière la confirmation. */
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRetirerSeance(seance)
+                }}
+                title="Retirer cette séance du parcours"
+                aria-label="Retirer cette séance du parcours"
+                className="bouton-retirer-seance"
+                style={{
+                  width: 26,
+                  height: 26,
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--muted-2)',
+                  cursor: 'pointer',
+                }}
+              >
+                <Icone nom="supprimer" taille={14} />
+              </button>
+            )}
           </div>
         ))}
       </ListeRepliable>
@@ -597,11 +639,13 @@ function BlocClasseCollective({
   professeur,
   classe,
   onClickSeance,
+  onRetirerSeance,
 }: {
   seances: SeanceDuParcours[]
   professeur: Profile | null
   classe: Database['public']['Tables']['cohort_classes']['Row'] | null
   onClickSeance: (seance: SeanceDuParcours) => void
+  onRetirerSeance?: (seance: SeanceDuParcours) => void
 }) {
   const { creneaux: creneauxClasses } = useCreneauxClasses()
   const heures = seances.filter((s) => s.session.statut === 'terminee').reduce((total, s) => total + s.session.duree_minutes / 60, 0)
@@ -656,7 +700,9 @@ function BlocClasseCollective({
         </div>
       </div>
 
-      {seances.length > 0 && <TableauSeances seances={seances} onClickSeance={onClickSeance} />}
+      {seances.length > 0 && (
+        <TableauSeances seances={seances} onClickSeance={onClickSeance} onRetirerSeance={onRetirerSeance} />
+      )}
     </div>
   )
 }
@@ -719,6 +765,10 @@ interface DossierEtudiantVueProps {
   /* Autorise l'ajout d'une réévaluation de niveau depuis la fenêtre d'historique — admin
      uniquement, comme les autres panneaux d'action. */
   peutModifierNiveau?: boolean
+  /* Corriger à la main le compteur d'heures suivies, et retirer une séance du parcours — admin
+     uniquement (demande client du 2026-11-05). Les deux gestes relèvent du même droit : ils
+     changent ce que l'élève et son professeur ont au compteur. */
+  peutCorrigerHeures?: boolean
   /* Autorise à cliquer une ligne du planning prévisionnel pour la reprogrammer — admin
      uniquement depuis cette vue (le professeur passe par son propre calendrier, voir
      CalendrierProfesseur.tsx : les forfaits/le programme d'un élève ne lui sont pas ouverts,
@@ -758,6 +808,7 @@ export function DossierEtudiantVue({
   badgesSupplementaires,
   activite = null,
   peutModifierNiveau,
+  peutCorrigerHeures,
   peutModifierPlanning,
   limiterEditionAuProfesseur,
   onDossierChange,
@@ -803,6 +854,8 @@ export function DossierEtudiantVue({
   const [editionForfaitOuverte, setEditionForfaitOuverte] = useState(false)
   const [planificationOuverte, setPlanificationOuverte] = useState(false)
   const [historiqueNiveauOuvert, setHistoriqueNiveauOuvert] = useState(false)
+  const [ajustementHeuresOuvert, setAjustementHeuresOuvert] = useState(false)
+  const [seanceARetirer, setSeanceARetirer] = useState<SeanceDuParcours | null>(null)
   const [seanceEnEdition, setSeanceEnEdition] = useState<SeanceDuParcours | null>(null)
   const [seanceEnDetail, setSeanceEnDetail] = useState<SeanceDuParcours | null>(null)
   /* Une séance de classe collective ne se modifie plus depuis la fiche d'UN élève (demande
@@ -964,6 +1017,20 @@ export function DossierEtudiantVue({
                 ? `Forfait${packages.length > 1 ? 's cumulés' : ''} de ${formaterHeures(totalHeuresCumulees)}`
                 : 'Aucun forfait rattaché'
           }
+          /* Correction manuelle du compteur — admin uniquement (2026-11-05). Même pied discret
+             que « Niveau évalué » juste à côté : un lien de 10,5 px sous un trait, pas un
+             bouton qui attirerait l'œil sur une tuile dont le rôle est d'informer. */
+          pied={
+            peutCorrigerHeures ? (
+              <button
+                type="button"
+                onClick={() => setAjustementHeuresOuvert(true)}
+                style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+              >
+                Modifier
+              </button>
+            ) : undefined
+          }
         />
         <Stat
           compact
@@ -1114,6 +1181,7 @@ export function DossierEtudiantVue({
                     professeur={professeurClasse}
                     classe={cohortClasse}
                     onClickSeance={onClickSeance}
+                    onRetirerSeance={peutCorrigerHeures ? setSeanceARetirer : undefined}
                   />
                 )}
                 {periodes.map((periode) => (
@@ -1127,6 +1195,7 @@ export function DossierEtudiantVue({
                     onClickSeance={onClickSeance}
                     professeursDesSeances={professeursDesSeances}
                     afficherProfesseur={periodesActuelles.length > 1}
+                    onRetirerSeance={peutCorrigerHeures ? setSeanceARetirer : undefined}
                   />
                 ))}
                 {(diagnostic || diagnosticPartenaire) && (
@@ -1443,6 +1512,29 @@ export function DossierEtudiantVue({
           eleves={duoPartenaire ? [etudiant, duoPartenaire] : [etudiant]}
           video={seanceEnDetail.video}
           onFermer={() => setSeanceEnDetail(null)}
+        />
+      )}
+
+      {/* Correction manuelle du compteur d'heures (2026-11-05). `heuresAffichees` et non
+          `heuresConsommees` : c'est le chiffre que l'admin a sous les yeux sur la tuile, et
+          pour un élève collectif il est borné à sa classe en cours (0146). */}
+      {ajustementHeuresOuvert && (
+        <AjusterHeuresModale
+          studentId={etudiant.id}
+          nomEleve={`${etudiant.prenom ?? ''} ${etudiant.nom ?? ''}`.trim()}
+          heuresActuelles={heuresAffichees}
+          periodesActuelles={periodesActuelles}
+          onFermer={() => setAjustementHeuresOuvert(false)}
+          onAjuste={() => onDossierChange?.()}
+        />
+      )}
+
+      {seanceARetirer && (
+        <RetirerSeanceModale
+          seance={seanceARetirer}
+          nomEleve={`${etudiant.prenom ?? ''} ${etudiant.nom ?? ''}`.trim()}
+          onFermer={() => setSeanceARetirer(null)}
+          onRetiree={() => onDossierChange?.()}
         />
       )}
     </div>

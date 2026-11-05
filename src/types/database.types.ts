@@ -1006,6 +1006,37 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['cohort_enrollments']['Insert']>
         Relationships: []
       }
+      /* Corrections manuelles du compteur d'heures d'un élève (0159), saisies depuis l'espace
+         admin. Une correction donne UNE ou DEUX écritures dans `hour_ledger` — celle de
+         l'élève, et celle du professeur si l'admin a choisi de répercuter. */
+      ajustements_heures: {
+        Row: {
+          id: string
+          etablissement_id: string
+          student_id: string
+          /* Renseigné seulement si la correction a été répercutée sur un professeur, désigné
+             par l'admin — jamais deviné (un élève peut en avoir plusieurs depuis 0138). */
+          teacher_id: string | null
+          heures_avant: number
+          heures_apres: number
+          justification: string
+          ajuste_par: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          student_id: string
+          teacher_id?: string | null
+          heures_avant: number
+          heures_apres: number
+          justification: string
+          ajuste_par: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['ajustements_heures']['Insert']>
+        Relationships: []
+      }
       hour_ledger: {
         Row: {
           id: string
@@ -1018,6 +1049,10 @@ export interface Database {
           /* Heures suivies AVANT la mise en service, reprises sur le forfait lui-même (0140).
              Toujours un débit d'élève, une seule reprise par forfait. */
           package_id: string | null
+          /* Correction manuelle du compteur, saisie par un admin (0159). Quatrième origine,
+             exclusive avec les trois autres. `heures` peut être NÉGATIF : c'est ainsi qu'on
+             retire des heures sans réécrire les écritures d'origine. */
+          ajustement_id: string | null
           student_id: string | null
           teacher_id: string | null
           type_ecriture: LedgerType
@@ -1039,6 +1074,7 @@ export interface Database {
           session_id?: string | null
           prestation_externe_id?: string | null
           package_id?: string | null
+          ajustement_id?: string | null
           student_id?: string | null
           teacher_id?: string | null
           type_ecriture: LedgerType

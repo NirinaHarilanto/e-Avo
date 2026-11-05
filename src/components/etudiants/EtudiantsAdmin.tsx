@@ -457,6 +457,9 @@ function DossierPanel({
         />
       }
       peutModifierNiveau
+      /* Correction du compteur d heures et retrait d une seance : espace admin uniquement
+         (demande client du 2026-11-05). */
+      peutCorrigerHeures
       /* Jamais pour un élève collectif (2026-10-19) : ses séances appartiennent à sa classe, les
          reprogrammer d'ici n'aurait de sens que pour lui seul alors que toute la classe les suit
          — « les modifications se font par classe dans la section cours collectifs ». */
