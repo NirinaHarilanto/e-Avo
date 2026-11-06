@@ -14,10 +14,18 @@ import { categorieDepuisNiveauEstime, COULEUR_NIVEAU_CLASSE } from '../../lib/cl
    niveau estimé et le bilan détaillé, écrite par api/prospects/reserver.ts — exactement comme le
    fait le parcours collectif depuis 0091.
 
-   Provisoire, et dit comme tel : au clic sur « Marquer le diagnostic comme fait »
-   (PipelineCRM.tsx, `marquerRealise`), `niveau_evalue` est RÉÉCRIT par l'évaluation que l'admin
-   porte pendant l'appel — ce bloc ne doit donc plus s'afficher une fois le statut passé à
-   « diagnostic_fait » : son `niveau_evalue` n'est alors plus celui du quiz. */
+   Repris une seconde fois le 2026-11-06 (demande client, capture à l'appui) : « sur le pop-up
+   diagnostic réalisé, affiche visuellement son résultat du quiz à l'écrit, ce serait toujours
+   utile ». Ce bloc restait caché une fois le statut passé à « diagnostic_fait », au prétexte que
+   `niveau_evalue` est alors RÉÉCRIT par l'évaluation que l'admin porte pendant l'appel
+   (`marquerRealise`, PipelineCRM.tsx) — ce qui est vrai pour le NIVEAU, mais pas pour le reste :
+   `notes`, lui, n'est plus jamais réécrit après l'insertion initiale (le même commentaire de
+   `marquerRealise` le dit : « la réécrire depuis un champ disparu l'aurait effacée »), donc le
+   score et le bilan détaillé du quiz restent exacts pour toujours. Masquer tout le bloc jetait
+   cette information avec l'eau du bain — exactement ce que fait déjà `BilanTestEcrit` pour le
+   parcours collectif, elle, jamais masquée. `afficherNiveau` sépare donc les deux : la ligne
+   « Niveau estimé provisoire » disparaît une fois `diagnostic_fait` (le vrai niveau est affiché à
+   côté, voir « Niveau évalué » dans PipelineCRM.tsx), score et bilan restent. */
 
 export interface DiagnosticAvecBilan {
   niveau_evalue: string | null
@@ -28,7 +36,17 @@ export interface DiagnosticAvecBilan {
    la ligne `diagnostic_calls` en mémoire (le pipeline charge tous les diagnostics d'un coup pour
    construire ses cartes, voir useProspectsPipeline.ts) — lui refaire demander la même ligne au
    clic sur une fiche serait un aller-retour réseau superflu. */
-export function BlocResultatQuiz({ diagnostic }: { diagnostic: DiagnosticAvecBilan | null }) {
+export function BlocResultatQuiz({
+  diagnostic,
+  afficherNiveau = true,
+}: {
+  diagnostic: DiagnosticAvecBilan | null
+  /* `false` une fois l'appel diagnostic réalisé : `niveau_evalue` porte alors la vraie
+     évaluation de l'admin, pas celle du quiz — l'afficher ici comme « Niveau estimé provisoire »
+     redirait un niveau qui n'est plus celui du quiz. Le score et le bilan, eux, restent
+     corrects : seule cette ligne-là se masque. */
+  afficherNiveau?: boolean
+}) {
   const [detailOuvert, setDetailOuvert] = useState(false)
 
   /* Score extrait de la première ligne du bilan rédigé par `redigerBilan` (lib/quiz.ts) : « Test
@@ -36,13 +54,14 @@ export function BlocResultatQuiz({ diagnostic }: { diagnostic: DiagnosticAvecBil
      réponses elles-mêmes ne quittent jamais le serveur. */
   const premiereLigne = diagnostic?.notes?.split('\n')[0]?.trim() ?? null
   const score = premiereLigne?.match(/:\s*(\d+\s*\/\s*\d+)/)?.[1]?.replace(/\s+/g, '') ?? null
-  const niveau = diagnostic?.niveau_evalue ?? null
+  const niveau = afficherNiveau ? (diagnostic?.niveau_evalue ?? null) : null
   /* Repli sur l'accent ordinaire quand le niveau n'est pas reconnu : un dossier ancien peut
      porter une valeur saisie en texte libre, avant la liste déroulante et avant l'échelle unique
      (0153). Mieux vaut une pastille neutre qu'un niveau sans mise en valeur. */
   const categorie = categorieDepuisNiveauEstime(niveau)
   const couleurNiveau = categorie ? COULEUR_NIVEAU_CLASSE[categorie] : 'var(--accent-blue)'
-  if (!diagnostic || (!score && !niveau)) return null
+  const detailDisponible = Boolean(diagnostic?.notes?.includes('\n'))
+  if (!diagnostic || (!score && !niveau && !detailDisponible)) return null
 
   return (
     /* Repris le 2026-10-31 — demande client, capture à l'appui : « les informations [...] ne
@@ -110,7 +129,7 @@ export function BlocResultatQuiz({ diagnostic }: { diagnostic: DiagnosticAvecBil
           }
         />
       )}
-      {diagnostic.notes && diagnostic.notes.includes('\n') && (
+      {detailDisponible && (
         <>
           <button
             type="button"

@@ -1219,7 +1219,11 @@ function CarteProspect({ prospect, onChange, onChangerStatut, indice = 0 }: Cart
               </div>
             )}
 
-            {prospect.statut !== 'diagnostic_fait' && <BlocResultatQuiz diagnostic={prospect.diagnostic} />}
+            {/* Toujours affiché, y compris après le diagnostic réalisé (demande client du
+                2026-11-06) : le score et le bilan du quiz écrit restent exacts pour toujours,
+                seule la ligne « Niveau estimé provisoire » s'efface, supplantée par le « Niveau
+                évalué » juste au-dessus une fois l'appel réalisé. */}
+            <BlocResultatQuiz diagnostic={prospect.diagnostic} afficherNiveau={prospect.statut !== 'diagnostic_fait'} />
 
             {prospect.statut === 'diagnostic_planifie' && (
               <PostItRendezVous
@@ -1708,7 +1712,9 @@ function CarteDuo({
                     « {p.objectif} »
                   </p>
                 )}
-                {p.statut !== 'diagnostic_fait' && <BlocResultatQuiz diagnostic={p.diagnostic} />}
+                {/* Même règle que la fiche solo juste au-dessus : le quiz reste visible après le
+                    diagnostic réalisé, seul son niveau provisoire s'efface. */}
+                <BlocResultatQuiz diagnostic={p.diagnostic} afficherNiveau={p.statut !== 'diagnostic_fait'} />
               </div>
             ))}
 
