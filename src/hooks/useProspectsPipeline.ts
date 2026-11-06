@@ -48,7 +48,10 @@ export interface ProspectAvecDiagnostic extends Prospect {
 export const COLONNES_PIPELINE: { statut: ProspectStatut; titre: string }[] = [
   { statut: 'prospect', titre: 'Nouveaux prospects' },
   { statut: 'diagnostic_planifie', titre: 'Appel diagnostic planifié' },
-  { statut: 'diagnostic_fait', titre: 'Diagnostic réalisé' },
+  /* Demande client du 2026-11-06 : préciser que cette colonne couvre les deux formes de
+     diagnostic — l'appel ET le quiz écrit, dont le résultat reste désormais visible sur la
+     fiche même après l'appel (voir ResultatQuizProspect.tsx, même journée). */
+  { statut: 'diagnostic_fait', titre: 'Diagnostics réalisé (Call & écrit)' },
   { statut: 'etudiant', titre: 'Étudiant' },
 ]
 
