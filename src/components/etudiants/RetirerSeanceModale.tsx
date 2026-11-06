@@ -42,7 +42,7 @@ export function RetirerSeanceModale({
   async function retirer() {
     setEnCours(true)
     setErreur(null)
-    const reponse = await fetch('/api/admin/retirer-seance', {
+    const reponse = await fetch('/api/professeur/retirer-seance', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
       body: JSON.stringify({ sessionId: seance.session.id }),

@@ -1,4 +1,4 @@
-import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
+import { requireTeacherOrAdmin, TeacherAuthError } from '../_lib/teacherAuth.js'
 import { integrationHoteDeLaSession, supprimerEvenement } from '../_lib/google.js'
 
 export const config = { runtime: 'edge' }
@@ -10,24 +10,41 @@ interface Corps {
 /**
  * Retire une séance du parcours d'un élève — demande client du 2026-11-05 : « sur les séances
  * listées dans parcours pédagogique, on doit pouvoir avoir un icône qui permet de retirer
- * visuellement la séance ».
+ * visuellement la séance ». Ouvert au professeur le 2026-11-06 (même journée que le reste) :
+ * « est-ce que tu as également rajouté la fonctionnalité [...] dans les espaces professeurs ? ».
+ *
+ * Remplace `api/admin/retirer-seance.ts` (même logique, déplacée ici) : exactement le même
+ * partage admin/professeur que `annuler-seance.ts` et `modifier-seance.ts`, via
+ * `requireTeacherOrAdmin`.
+ *
+ * Portée du professeur, volontairement plus étroite que celle de l'admin (décision client du
+ * 2026-11-06) :
+ *   — uniquement SES PROPRES séances (`session.teacher_id === profileId`) ;
+ *   — uniquement une séance encore PLANIFIÉE ou déjà ANNULÉE — JAMAIS une séance CLÔTURÉE
+ *     (« terminée ») ou REPORTÉE. Ces deux statuts-là n'ont jamais écrit au grand livre
+ *     (`hour_ledger` ne reçoit d'écriture qu'à la clôture, voir cloturer-seance.ts) : aucune
+ *     heure n'est donc jamais à faire revenir pour ce chemin-ci, à la différence de l'admin.
+ * L'admin, lui, garde la portée complète : n'importe quelle séance de l'établissement, y compris
+ * déjà clôturée, avec reversement des écritures du grand livre.
  *
  * La séance est VRAIMENT supprimée, pas masquée. Un simple drapeau « retirée » obligerait à
  * filtrer partout où une séance s'affiche — parcours, agendas de l'élève, du professeur et de
  * l'admin, « Séances & visio », compteurs d'assiduité — et le moindre oubli la ferait réapparaître
- * là où l'admin croit l'avoir retirée. C'est exactement le travers corrigé le 2026-10-19
+ * là où on croit l'avoir retirée. C'est exactement le travers corrigé le 2026-10-19
  * (« supprimé ne doit plus empêcher ni compter »).
  *
  * Ce qui part avec elle, dans cet ordre :
- *   1. ses écritures du grand livre — `hour_ledger` est la SEULE table référençant `sessions`
- *      SANS `on delete cascade` avec `session_reports` et `session_satisfaction` (0011/0033/0068).
- *      Les retirer d'abord est ce qui fait revenir les compteurs de l'élève ET du professeur à
- *      leur valeur d'avant la clôture ;
+ *   1. ses écritures du grand livre, s'il y en a (admin uniquement en pratique, voir plus haut) —
+ *      `hour_ledger` est la SEULE table référençant `sessions` SANS `on delete cascade` avec
+ *      `session_reports` et `session_satisfaction` (0011/0033/0068). Les retirer d'abord est ce
+ *      qui fait revenir les compteurs de l'élève ET du professeur à leur valeur d'avant la
+ *      clôture ;
  *   2. son compte rendu et son enquête de satisfaction, mêmes tables sans cascade ;
  *   3. la séance, qui emporte en cascade son inscription (0009) et sa ligne de visio (0013) ;
  *   4. son événement dans l'agenda Google, qui resterait sinon orphelin.
  *
- * REFUSÉE quand ses heures sont déjà payées ou déjà déclarées sur un TimeSheet : une fiche de
+ * REFUSÉE (pour l'admin comme pour un professeur dont les heures sont exceptionnellement déjà
+ * comptées) quand ses heures sont déjà payées ou déjà déclarées sur un TimeSheet : une fiche de
  * paie émise ne se réécrit jamais (même règle qu'un forfait payé, 0057). L'admin est renvoyé vers
  * la correction manuelle du compteur, qui, elle, ajoute une écriture au lieu d'en détruire une.
  */
@@ -37,7 +54,7 @@ export default async function handler(request: Request): Promise<Response> {
   }
 
   try {
-    const { serviceClient, etablissementId } = await requireAdmin(request)
+    const { serviceClient, profileId, etablissementId, roles } = await requireTeacherOrAdmin(request)
     const corps = (await request.json()) as Corps
     const sessionId = corps.sessionId?.trim()
 
@@ -54,6 +71,21 @@ export default async function handler(request: Request): Promise<Response> {
 
     if (!seance) {
       return Response.json({ error: 'Séance introuvable dans votre établissement.' }, { status: 404 })
+    }
+
+    const estAdmin = roles.includes('admin_etablissement')
+    if (!estAdmin && seance.teacher_id !== profileId) {
+      return Response.json({ error: "Cette séance n'est pas la vôtre." }, { status: 403 })
+    }
+    if (!estAdmin && seance.statut !== 'planifiee' && seance.statut !== 'annulee') {
+      return Response.json(
+        {
+          error:
+            'Seule une séance encore planifiée ou déjà annulée peut être retirée depuis votre espace. ' +
+            'Pour une séance clôturée, contactez l’administration.',
+        },
+        { status: 409 },
+      )
     }
 
     const { data: ecritures } = await serviceClient
@@ -121,7 +153,7 @@ export default async function handler(request: Request): Promise<Response> {
 
     return Response.json({ ok: true, heuresRetirees, agenda, statut: seance.statut })
   } catch (error) {
-    if (error instanceof AdminAuthError) {
+    if (error instanceof TeacherAuthError) {
       return Response.json({ error: error.message }, { status: error.status })
     }
     return Response.json({ error: 'Erreur interne.' }, { status: 500 })

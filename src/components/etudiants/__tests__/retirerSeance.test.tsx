@@ -85,7 +85,9 @@ describe('RetirerSeanceModale', () => {
 
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled())
     const appel = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]
-    expect(appel[0]).toBe('/api/admin/retirer-seance')
+    // Route partagée admin/professeur (requireTeacherOrAdmin), comme annuler-seance.ts et
+    // modifier-seance.ts — chacun n'y accède que dans les limites que le serveur vérifie.
+    expect(appel[0]).toBe('/api/professeur/retirer-seance')
     expect(JSON.parse((appel[1] as RequestInit).body as string)).toEqual({ sessionId: 'seance-1' })
   })
 

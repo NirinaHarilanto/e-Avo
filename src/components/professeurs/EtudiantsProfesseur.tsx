@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur } from '../../hooks/useCalendrierProfesseur'
-import { useDossierEtudiant } from '../../hooks/useDossierEtudiant'
+import { useDossierEtudiant, type SeanceDuParcours } from '../../hooks/useDossierEtudiant'
 import { useSecondairesDuo } from '../../hooks/useSecondairesDuo'
 import { sansSecondairesDuo } from '../../lib/duo'
 import { useStatutsContratsSignature } from '../../hooks/useStatutsContratsSignature'
@@ -245,6 +245,15 @@ function DossierPanel({ studentId, transfereLe }: { studentId: string; transfere
           : undefined
       }
       peutModifierPlanning={estProfesseurActuel}
+      /* Retrait d'une séance (demande client du 2026-11-06) : ouvert au professeur, mais plus
+         restreint que l'admin — seulement SES propres séances (jamais celle d'un collègue sur un
+         élève à plusieurs professeurs, 0138), et seulement encore PLANIFIÉE ou déjà ANNULÉE,
+         jamais une séance CLÔTURÉE dont les heures sont déjà comptées. Le serveur
+         (api/professeur/retirer-seance.ts) applique la même règle : ceci n'est qu'un confort
+         visuel, pas la seule barrière. */
+      peutRetirerSeance={(seance: SeanceDuParcours) =>
+        seance.session.teacher_id === profile?.id && (seance.session.statut === 'planifiee' || seance.session.statut === 'annulee')
+      }
       /* Ses séances seulement : celles du co-professeur s'ouvrent en lecture seule (0138). */
       limiterEditionAuProfesseur={profile?.id}
       onDossierChange={recharger}

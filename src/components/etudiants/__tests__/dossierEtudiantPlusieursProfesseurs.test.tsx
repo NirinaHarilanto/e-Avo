@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { DossierEtudiant } from '../../../hooks/useDossierEtudiant'
+import type { DossierEtudiant, SeanceDuParcours } from '../../../hooks/useDossierEtudiant'
 
 /* Demande client du 2026-10-27 : « Lors de l'attribution de professeur à un étudiant, il faudrait
    rajouter la possibilité d'avoir deux ou plusieurs professeurs [...] Dans l'espace personnel de
@@ -183,5 +183,63 @@ describe('DossierEtudiantVue — étudiant à plusieurs professeurs', () => {
     // répéterait le même nom à chaque ligne mangerait la largeur du libellé pour rien.
     expect(screen.queryByText('Professeur', { selector: 'span' })).toBeNull()
     expect(screen.getAllByText('Professeur actuel')).toHaveLength(1)
+  })
+
+  /* Demande client du 2026-11-06 : « est-ce que tu as également rajouté la fonctionnalité [...]
+     dans les espaces professeurs ? » — ouverte, mais plus restreinte que l'admin. Prédicat repris
+     à l'identique de EtudiantsProfesseur.tsx : seules SES propres séances (0138 : un élève peut en
+     avoir plusieurs), et seulement encore planifiée ou déjà annulée — jamais une clôturée, dont
+     les heures sont déjà comptées. prof-b (le viewer, voir le mock de ProfileContext en tête de
+     fichier) ne doit donc voir la corbeille que sur s2, sa propre séance planifiée — ni sur s1
+     (clôturée), ni sur s3 (planifiée, mais au professeur A). */
+  describe('retrait d’une séance (peutRetirerSeance, filtre par ligne du côté professeur)', () => {
+    function peutRetirerSeanceCommeProfesseur(s: SeanceDuParcours) {
+      return s.session.teacher_id === 'prof-b' && (s.session.statut === 'planifiee' || s.session.statut === 'annulee')
+    }
+
+    it('ne montre la corbeille que sur sa propre séance, et seulement si elle est encore planifiée ou annulée', () => {
+      render(
+        <DossierEtudiantVue
+          dossier={dossierDeuxProfesseurs()}
+          peutModifierPlanning={false}
+          peutRetirerSeance={peutRetirerSeanceCommeProfesseur}
+        />,
+      )
+
+      // s1 (prof A, clôturée) et s3 (prof A, planifiée) n'appartiennent pas à prof-b : aucune des
+      // deux icônes de sa période ne doit apparaître. Seule s2 (prof B, planifiée) est la sienne.
+      expect(screen.getAllByTitle('Retirer cette séance du parcours')).toHaveLength(1)
+    })
+
+    it('n’affiche aucune corbeille quand aucune séance ne satisfait le filtre', () => {
+      render(
+        <DossierEtudiantVue
+          dossier={dossierDeuxProfesseurs()}
+          peutModifierPlanning={false}
+          // Le professeur A, lui, n'a que des séances soit clôturée (s1) soit déjà planifiée
+          // mais SIENNE — testons le cas où rien ne correspond : aucune séance n'appartient à un
+          // professeur fictif.
+          peutRetirerSeance={(s) => s.session.teacher_id === 'prof-inexistant'}
+        />,
+      )
+
+      expect(screen.queryByTitle('Retirer cette séance du parcours')).toBeNull()
+    })
+
+    it('montre toutes les corbeilles quand peutRetirerSeance vaut true (comportement admin)', () => {
+      render(
+        <DossierEtudiantVue dossier={dossierDeuxProfesseurs()} peutModifierPlanning={false} peutRetirerSeance />,
+      )
+
+      // s1, s2, s3 : les trois séances visibles (aucune n'est repliée derrière « voir les
+      // autres », chaque période en ayant deux ou une).
+      expect(screen.getAllByTitle('Retirer cette séance du parcours')).toHaveLength(3)
+    })
+
+    it('n’affiche aucune corbeille quand peutRetirerSeance est absent', () => {
+      render(<DossierEtudiantVue dossier={dossierDeuxProfesseurs()} peutModifierPlanning={false} />)
+
+      expect(screen.queryByTitle('Retirer cette séance du parcours')).toBeNull()
+    })
   })
 })

@@ -348,12 +348,14 @@ function BlocPeriode({
   professeursDesSeances,
   afficherProfesseur,
   onRetirerSeance,
+  peutRetirerSeance,
 }: {
   periode: PeriodeProfesseur
   estActuelle: boolean
   professeursDesSeances: Record<string, Profile>
   afficherProfesseur: boolean
   onRetirerSeance?: (seance: SeanceDuParcours) => void
+  peutRetirerSeance?: (seance: SeanceDuParcours) => boolean
   /* Toujours fourni (même en lecture seule élève/professeur) — demande client du 2026-10-19 :
      une séance clôturée n'avait plus aucune ligne cliquable, donc plus aucun moyen de revoir son
      compte rendu depuis le parcours. L'appelant (DossierEtudiantVue) décide lui-même, par
@@ -450,6 +452,7 @@ function BlocPeriode({
           professeursDesSeances={professeursDesSeances}
           afficherProfesseur={afficherProfesseur}
           onRetirerSeance={onRetirerSeance}
+          peutRetirerSeance={peutRetirerSeance}
         />
       )}
     </div>
@@ -503,14 +506,21 @@ function TableauSeances({
   professeursDesSeances = {},
   afficherProfesseur = false,
   onRetirerSeance,
+  peutRetirerSeance,
 }: {
   seances: SeanceDuParcours[]
   onClickSeance: (seance: SeanceDuParcours) => void
   professeursDesSeances?: Record<string, Profile>
-  /* Retrait d'une séance du parcours (demande client du 2026-11-05) — admin uniquement, d'où
-     l'absence de cette colonne côté élève et professeur : elle n'existe alors pas du tout,
-     plutôt qu'un bouton désactivé qui laisserait croire à un droit manquant. */
+  /* Retrait d'une séance du parcours (demande client du 2026-11-05) — admin ET professeur
+     depuis le 2026-11-06. Absent = colonne inexistante (élève), plutôt qu'un bouton désactivé
+     qui laisserait croire à un droit manquant. */
   onRetirerSeance?: (seance: SeanceDuParcours) => void
+  /* Filtre PAR LIGNE : décide, séance par séance, si la corbeille y apparaît. Un professeur
+     ne doit voir le geste que sur SES propres séances encore planifiées ou annulées (décision
+     client du 2026-11-06) — jamais une séance clôturée, dont les heures sont déjà comptées.
+     Absent = toujours autorisée (le cas de l'admin, déjà filtré par l'absence totale
+     d'`onRetirerSeance` côté élève). */
+  peutRetirerSeance?: (seance: SeanceDuParcours) => boolean
   /* Qui a donné quoi, ligne par ligne — demande client du 2026-10-27 : « pour chaque séance, il
      faut afficher visuellement le professeur qui a fait la séance ».
      Décidé par l'appelant, et non déduit du contenu de la liste : chaque bloc de période ne
@@ -556,7 +566,9 @@ function TableauSeances({
           Présence
         </span>
         {/* Colonne sans intitulé : « Retirer » au-dessus d'une corbeille serait redondant, et
-            la largeur fixe garde la colonne Présence alignée d'une ligne à l'autre. */}
+            la largeur fixe garde la colonne Présence alignée d'une ligne à l'autre. Réservée
+            dès que la fonction existe, même si certaines lignes n'auront pas l'icône : sans
+            quoi la colonne Présence se décalerait entre deux élèves d'un même professeur. */}
         {onRetirerSeance && <span style={{ width: 26, flexShrink: 0 }} />}
       </div>
       {/* Une période peut compter des dizaines de séances : n'en montrer que les premières
@@ -590,7 +602,7 @@ function TableauSeances({
             <span style={{ width: 72, textAlign: 'right' }}>
               <StatutSeance enrollment={seance.enrollment} statutSession={seance.session.statut} seance={seance.session} />
             </span>
-            {onRetirerSeance && (
+            {onRetirerSeance && (peutRetirerSeance ? peutRetirerSeance(seance) : true) && (
               <button
                 type="button"
                 /* `stopPropagation` : la ligne entière ouvre déjà la fiche de la séance. Sans lui,
@@ -640,12 +652,14 @@ function BlocClasseCollective({
   classe,
   onClickSeance,
   onRetirerSeance,
+  peutRetirerSeance,
 }: {
   seances: SeanceDuParcours[]
   professeur: Profile | null
   classe: Database['public']['Tables']['cohort_classes']['Row'] | null
   onClickSeance: (seance: SeanceDuParcours) => void
   onRetirerSeance?: (seance: SeanceDuParcours) => void
+  peutRetirerSeance?: (seance: SeanceDuParcours) => boolean
 }) {
   const { creneaux: creneauxClasses } = useCreneauxClasses()
   const heures = seances.filter((s) => s.session.statut === 'terminee').reduce((total, s) => total + s.session.duree_minutes / 60, 0)
@@ -701,7 +715,12 @@ function BlocClasseCollective({
       </div>
 
       {seances.length > 0 && (
-        <TableauSeances seances={seances} onClickSeance={onClickSeance} onRetirerSeance={onRetirerSeance} />
+        <TableauSeances
+          seances={seances}
+          onClickSeance={onClickSeance}
+          onRetirerSeance={onRetirerSeance}
+          peutRetirerSeance={peutRetirerSeance}
+        />
       )}
     </div>
   )
@@ -765,10 +784,16 @@ interface DossierEtudiantVueProps {
   /* Autorise l'ajout d'une réévaluation de niveau depuis la fenêtre d'historique — admin
      uniquement, comme les autres panneaux d'action. */
   peutModifierNiveau?: boolean
-  /* Corriger à la main le compteur d'heures suivies, et retirer une séance du parcours — admin
-     uniquement (demande client du 2026-11-05). Les deux gestes relèvent du même droit : ils
-     changent ce que l'élève et son professeur ont au compteur. */
+  /* Corriger à la main le compteur d'heures suivies — admin uniquement (demande client du
+     2026-11-05). */
   peutCorrigerHeures?: boolean
+  /* Retirer une séance du parcours (demande client du 2026-11-05, ouvert au professeur le
+     2026-11-06). `true` = n'importe quelle séance (admin). Une fonction = seules les séances
+     pour lesquelles elle rend `true` (professeur, restreint par l'appelant à ses propres
+     séances encore planifiées ou annulées). `undefined`/`false` = fonctionnalité absente.
+     Décorrélé de `peutCorrigerHeures` : un professeur peut retirer une séance sans jamais
+     pouvoir corriger un compteur d'heures. */
+  peutRetirerSeance?: boolean | ((seance: SeanceDuParcours) => boolean)
   /* Autorise à cliquer une ligne du planning prévisionnel pour la reprogrammer — admin
      uniquement depuis cette vue (le professeur passe par son propre calendrier, voir
      CalendrierProfesseur.tsx : les forfaits/le programme d'un élève ne lui sont pas ouverts,
@@ -809,6 +834,7 @@ export function DossierEtudiantVue({
   activite = null,
   peutModifierNiveau,
   peutCorrigerHeures,
+  peutRetirerSeance,
   peutModifierPlanning,
   limiterEditionAuProfesseur,
   onDossierChange,
@@ -856,6 +882,11 @@ export function DossierEtudiantVue({
   const [historiqueNiveauOuvert, setHistoriqueNiveauOuvert] = useState(false)
   const [ajustementHeuresOuvert, setAjustementHeuresOuvert] = useState(false)
   const [seanceARetirer, setSeanceARetirer] = useState<SeanceDuParcours | null>(null)
+  /* Normalise les trois formes de `peutRetirerSeance` en un filtre unique — ou `null` quand la
+     fonctionnalité est absente, auquel cas `onRetirerSeance` reste `undefined` (pas de colonne
+     du tout, voir TableauSeances). */
+  const filtreRetraitSeance =
+    peutRetirerSeance === true ? () => true : peutRetirerSeance === false || peutRetirerSeance === undefined ? null : peutRetirerSeance
   const [seanceEnEdition, setSeanceEnEdition] = useState<SeanceDuParcours | null>(null)
   const [seanceEnDetail, setSeanceEnDetail] = useState<SeanceDuParcours | null>(null)
   /* Une séance de classe collective ne se modifie plus depuis la fiche d'UN élève (demande
@@ -1181,7 +1212,8 @@ export function DossierEtudiantVue({
                     professeur={professeurClasse}
                     classe={cohortClasse}
                     onClickSeance={onClickSeance}
-                    onRetirerSeance={peutCorrigerHeures ? setSeanceARetirer : undefined}
+                    onRetirerSeance={filtreRetraitSeance ? setSeanceARetirer : undefined}
+                    peutRetirerSeance={filtreRetraitSeance ?? undefined}
                   />
                 )}
                 {periodes.map((periode) => (
@@ -1195,7 +1227,8 @@ export function DossierEtudiantVue({
                     onClickSeance={onClickSeance}
                     professeursDesSeances={professeursDesSeances}
                     afficherProfesseur={periodesActuelles.length > 1}
-                    onRetirerSeance={peutCorrigerHeures ? setSeanceARetirer : undefined}
+                    onRetirerSeance={filtreRetraitSeance ? setSeanceARetirer : undefined}
+                    peutRetirerSeance={filtreRetraitSeance ?? undefined}
                   />
                 ))}
                 {(diagnostic || diagnosticPartenaire) && (
