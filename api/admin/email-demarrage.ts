@@ -118,15 +118,38 @@ export default async function handler(request: Request): Promise<Response> {
     }
     const emailDe = (id: string | undefined) => (professeurs ?? []).find((x) => x.id === id)?.email ?? ''
 
-    /* Prochaine séance planifiée avec le professeur actuel : c'est la date annoncée dans le mail.
-       Absente, les lignes qui la mentionnent tombent plutôt que d'annoncer une date vide. */
-    const { data: prochaineSeance } = active
-      ? await serviceClient
-          .from('sessions')
-          .select('debut')
-          .eq('teacher_id', active.teacher_id)
-          .eq('statut', 'planifiee')
-          .gte('debut', new Date().toISOString())
+    /* Prochaine séance planifiée DE CET ÉLÈVE : c'est la date annoncée dans le mail.
+       Absente, les lignes qui la mentionnent tombent plutôt que d'annoncer une date vide.
+
+       Le filtre sur les inscriptions de l'élève manquait jusqu'au 2026-11-06 : la requête ne
+       retenait que `teacher_id`, donc la PROCHAINE SÉANCE DU PROFESSEUR, toutes personnes
+       confondues. Un élève qu'on venait de lui attribuer, et qui n'avait encore aucun cours,
+       recevait donc « Nous vous souhaitons un excellent premier cours avec X le <date> » — la
+       date du cours de X avec QUELQU'UN D'AUTRE. Signalé par le client le 2026-11-06, confirmé
+       en base : l'élève concernée n'avait aucune séance, et la date annoncée était celle d'une
+       autre élève de la même professeure. */
+    const { data: inscriptions } = await serviceClient
+      .from('session_enrollments')
+      .select('session_id')
+      .eq('student_id', eleve.id)
+    const idsSeancesDeLEleve = (inscriptions ?? []).map((i) => i.session_id)
+
+    /* Restreinte au professeur concerné quand il y en a un : le mail parle de LUI, annoncer la
+       séance d'un autre professeur sous son nom serait le même défaut à l'envers. Un élève
+       collectif n'a pas d'affectation individuelle (son professeur est celui de sa classe,
+       0074) — sa prochaine séance de classe fait alors foi. */
+    const seancesDeLEleve =
+      idsSeancesDeLEleve.length > 0
+        ? serviceClient
+            .from('sessions')
+            .select('debut')
+            .in('id', idsSeancesDeLEleve)
+            .eq('statut', 'planifiee')
+            .gte('debut', new Date().toISOString())
+        : null
+
+    const { data: prochaineSeance } = seancesDeLEleve
+      ? await (active ? seancesDeLEleve.eq('teacher_id', active.teacher_id) : seancesDeLEleve)
           .order('debut')
           .limit(1)
           .maybeSingle()

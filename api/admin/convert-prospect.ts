@@ -331,13 +331,24 @@ export default async function handler(request: Request): Promise<Response> {
     // page Prospects et depuis la nouvelle page Cours collectifs, sans dupliquer cette logique.
     let niveauDetecte: string | null = null
     let classeAssignee: string | null = null
-    const { data: inscription } = await serviceClient
-      .from('test_positionnement_inscriptions')
-      .select('id, creneau_id, niveau_estime, niveau_final')
-      .eq('prospect_id', prospect.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    /* RÉSERVÉ AU PROGRAMME COLLECTIF (garde-fou ajouté le 2026-11-06). Ce rattachement ne
+       regardait jusqu'ici QUE la présence d'une inscription au test de positionnement, jamais le
+       programme du prospect : n'importe quel dossier portant une telle inscription était inscrit
+       à une vague à la conversion, fût-il « individuel » ou « duo ». Une vague est le programme
+       lui-même pour un élève collectif (il n'a pas de forfait, c'est `cohort_enrollments` qui
+       l'identifie, 0027) : l'y inscrire par erreur fait d'un élève individuel un élève collectif,
+       avec le compteur d'heures et le planning de sa classe. Aucun dossier n'est aujourd'hui dans
+       ce cas en production (vérifié), mais rien n'empêchait d'y tomber. */
+    const { data: inscription } =
+      prospect.type_programme === 'collectif'
+        ? await serviceClient
+            .from('test_positionnement_inscriptions')
+            .select('id, creneau_id, niveau_estime, niveau_final')
+            .eq('prospect_id', prospect.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+        : { data: null as { id: string; creneau_id: string; niveau_estime: string | null; niveau_final: string | null } | null }
     if (inscription) {
       /* Niveau arrêté au test oral (0118) : conservé sur l'inscription elle-même, à côté du
          niveau estimé par le quiz, pour que le suivi des cours collectifs puisse montrer les deux
