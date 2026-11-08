@@ -476,7 +476,10 @@ export function FicheCandidatCollectifModale({
       {convertirOuvert && prospect && (
         <ConvertirCandidatCollectif
           prospect={prospect}
-          niveauEstimeParDefaut={ligne.niveauTest}
+          /* Le niveau arrêté à l'oral prime sur celui du quiz écrit quand il existe (2026-11-08,
+             compte rendu de session enregistrable avant toute conversion) : sans ce repli, la
+             fenêtre repartait du quiz et faisait retrancher un niveau déjà décidé. */
+          niveauEstimeParDefaut={ligne.niveauFinal ?? ligne.niveauTest}
           onFermer={() => setConvertirOuvert(false)}
           onConverti={(resultat) => {
             setConvertirOuvert(false)

@@ -8,6 +8,7 @@ import {
   seancePasseeNonCloturee,
   seanceCloturable,
   seancesHorsAffectation,
+  compteRenduSessionOraleOuvrable,
 } from '../seances'
 
 describe('nomEleveInscrit', () => {
@@ -198,5 +199,38 @@ describe('seanceCloturable', () => {
     expect(seanceCloturable(seance(DEBUT, 60, 'terminee'), apres)).toBe(false)
     expect(seanceCloturable(seance(DEBUT, 60, 'annulee'), apres)).toBe(false)
     expect(seanceCloturable(seance(DEBUT, 60, 'reportee'), apres)).toBe(false)
+  })
+})
+
+/* Demande client du 2026-11-08 : « à 5 min de la fin de la session orale, il faudrait rajouter un
+   bouton sur le pop-up afin que l'admin puisse renseigner le compte rendu de la session ». Même
+   seuil que la clôture d'une séance, et c'est voulu : les deux répondent à la question « le cours
+   touche-t-il à sa fin ? ». Ces tests gardent le seuil ET le fait qu'il se calcule sur la durée
+   réelle du créneau, qui va de 5 à 240 minutes (0051) — un créneau de 15 min ouvrirait son compte
+   rendu au bout de 10, pas au bout de 55. */
+describe('compteRenduSessionOraleOuvrable', () => {
+  const DEBUT = '2026-11-08T10:00:00Z'
+  const creneau = (duree = 60) => ({ debut: DEBUT, duree_minutes: duree })
+
+  it('reste fermé tant qu’il manque plus de cinq minutes avant la fin', () => {
+    expect(compteRenduSessionOraleOuvrable(creneau(), new Date('2026-11-08T09:30:00Z'))).toBe(false)
+    expect(compteRenduSessionOraleOuvrable(creneau(), new Date('2026-11-08T10:00:00Z'))).toBe(false)
+    expect(compteRenduSessionOraleOuvrable(creneau(), new Date('2026-11-08T10:54:59Z'))).toBe(false)
+  })
+
+  it('s’ouvre cinq minutes avant la fin et ne se referme plus', () => {
+    expect(compteRenduSessionOraleOuvrable(creneau(), new Date('2026-11-08T10:55:00Z'))).toBe(true)
+    expect(compteRenduSessionOraleOuvrable(creneau(), new Date('2026-11-08T11:00:00Z'))).toBe(true)
+    // Une session oubliée trois jours doit évidemment rester renseignable.
+    expect(compteRenduSessionOraleOuvrable(creneau(), new Date('2026-11-11T09:00:00Z'))).toBe(true)
+  })
+
+  it('se cale sur la durée réelle du créneau', () => {
+    // Créneau de 15 min : ouvert dès 10h10.
+    expect(compteRenduSessionOraleOuvrable(creneau(15), new Date('2026-11-08T10:09:00Z'))).toBe(false)
+    expect(compteRenduSessionOraleOuvrable(creneau(15), new Date('2026-11-08T10:10:00Z'))).toBe(true)
+    // Créneau de 2 h : encore fermé à 11h00.
+    expect(compteRenduSessionOraleOuvrable(creneau(120), new Date('2026-11-08T11:00:00Z'))).toBe(false)
+    expect(compteRenduSessionOraleOuvrable(creneau(120), new Date('2026-11-08T11:55:00Z'))).toBe(true)
   })
 })

@@ -106,6 +106,24 @@ export function seanceCloturable(
   return maintenant.getTime() >= fin - MINUTES_AVANT_FIN_POUR_CLOTURER * 60_000
 }
 
+/* Même règle, même seuil, pour une session de TEST ORAL collectif (creneaux_test_positionnement)
+   — demande client du 2026-11-08 : « à 5 min de la fin de la session orale, il faudrait rajouter
+   un bouton sur le pop-up afin que l'admin puisse renseigner le compte rendu de la session ».
+   Le seuil est partagé avec la clôture d'une séance et non recopié : les deux répondent à la
+   même question (le cours touche-t-il à sa fin ?) et doivent bouger ensemble si le client change
+   d'avis sur les cinq minutes.
+
+   Une seule différence avec `seanceCloturable` : aucun statut à vérifier ici, un créneau de test
+   n'en porte pas. Et comme pour la clôture, l'ouverture ne se referme jamais — une session
+   oubliée trois jours doit évidemment pouvoir recevoir son compte rendu encore. */
+export function compteRenduSessionOraleOuvrable(
+  creneau: { debut: string; duree_minutes: number },
+  maintenant: Date = new Date(),
+): boolean {
+  const fin = new Date(creneau.debut).getTime() + creneau.duree_minutes * 60_000
+  return maintenant.getTime() >= fin - MINUTES_AVANT_FIN_POUR_CLOTURER * 60_000
+}
+
 /* Séances d'un élève que AUCUNE de ses affectations individuelles ne réclame — demande client du
    2026-10-19 : « il faudrait que tous les étudiants en cours collectifs soient visibles dans la
    section Étudiants afin de bien suivre l'étudiant en cours collectif ». Le parcours d'un dossier

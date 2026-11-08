@@ -168,6 +168,38 @@ export function sectionsIndividuellesDuo(): SectionDiagnostic[] {
   return filtrerSectionsDuo(false)
 }
 
+/* Questions SANS OBJET pour un cours collectif — demande client du 2026-11-08 : « prends la même
+   trame de diagnostic appel comme pour la partie individuel mais uniquement les informations
+   applicables pour un cours collectif (le niveau anglais définitif, heure préférence cours,
+   etc.) ». Les quatre retirées ont toutes la même raison d'être écartées : elles portent sur un
+   cours qui se NÉGOCIE, alors qu'une vague collective arrive avec son rythme, son programme et
+   son professeur déjà fixés. Les proposer donnerait une réponse sans effet, ou pire : un rythme
+   saisi ici contredirait celui de la classe.
+     — heures_par_semaine / duree_session : le rythme de la vague, identique pour tous ;
+     — profil_formateur : c'est le professeur de la classe de niveau (0074) ;
+     — programme_recommande : c'est le parcours collectif lui-même.
+   Tout le reste est conservé tel quel — profil, objectifs, aisance à l'oral, disponibilités —
+   parce que ces réponses décrivent la PERSONNE, pas le format du cours. */
+const CLES_SANS_OBJET_COLLECTIF = new Set(['heures_par_semaine', 'duree_session', 'profil_formateur', 'programme_recommande'])
+
+/* « Niveau estimé » devient le niveau RETENU : à l'individuel, cette case est une estimation
+   d'interviewer que l'élève confirmera au fil des séances ; au collectif, elle est arrêtée à
+   l'issue du test oral et détermine à elle seule la classe de niveau ET le montant des frais
+   d'inscription (0118). Le mot « estimé » ferait hésiter sur une valeur qui, elle, fait foi. */
+const LIBELLES_COLLECTIF: Record<string, string> = {
+  niveau_estime: 'Niveau d’anglais retenu (définitif)',
+}
+
+/** Trame de l'appel diagnostic réduite à ce qui s'applique à un candidat en cours collectif. */
+export function sectionsCollectif(): SectionDiagnostic[] {
+  return SECTIONS_DIAGNOSTIC.map((section) => ({
+    titre: section.titre,
+    questions: section.questions
+      .filter((q) => !CLES_SANS_OBJET_COLLECTIF.has(q.cle))
+      .map((q) => (LIBELLES_COLLECTIF[q.cle] ? { ...q, libelle: LIBELLES_COLLECTIF[q.cle] } : q)),
+  })).filter((section) => section.questions.length > 0)
+}
+
 /* Une réponse est soit une valeur simple, soit une liste de cases cochées. La précision libre
    d'une question « Autre » vit sous la clé `<cle>_precision`, ce qui évite un type imbriqué
    pour un cas de figure marginal. */

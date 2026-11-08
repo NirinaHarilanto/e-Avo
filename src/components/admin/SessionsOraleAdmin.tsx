@@ -13,7 +13,9 @@ import { EtatChargement, MessageErreur, MessageInfo } from '../ui/Etats'
 import { EtatVide } from '../ui/EtatVide'
 import { LABEL_NIVEAU_CLASSE } from '../../lib/classesCollectif'
 import { idsProspectsEtudiantsActifs } from '../../lib/suiviCollectif'
+import { compteRenduSessionOraleOuvrable } from '../../lib/seances'
 import { ConvertirCandidatCollectif } from '../prospects/ConvertirCandidatCollectif'
+import { ResultatsSessionOraleModale } from './ResultatsSessionOraleModale'
 import { Modale } from '../ui/Modale'
 import { Icone } from '../ui/Icones'
 import { ChampDate } from '../ui/ChampDate'
@@ -65,6 +67,10 @@ export function SessionsOraleAdmin() {
   const [creneauEnEdition, setCreneauEnEdition] = useState<CreneauTest | null>(null)
   const [inscritsOuvertPour, setInscritsOuvertPour] = useState<CreneauTest | null>(null)
   const [bilanOuvert, setBilanOuvert] = useState<CandidatInscrit | null>(null)
+  /* Compte rendu de la session, saisi candidat par candidat sans convertir personne — demande
+     client du 2026-11-08. Ouvert depuis la fenêtre des inscrits, à partir de cinq minutes avant
+     la fin de la session (même seuil que la clôture d'une séance, voir lib/seances.ts). */
+  const [resultatsOuvertPour, setResultatsOuvertPour] = useState<CreneauTest | null>(null)
   /* Conversion en deux étapes (résultats de l'oral, puis frais d'inscription) déléguée à
      ConvertirCandidatCollectif depuis le 2026-10-11 — ce composant ne porte plus que « qui est en
      train d'être converti ». */
@@ -345,6 +351,22 @@ export function SessionsOraleAdmin() {
             <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 6px' }}>
               Vague : <strong style={{ color: 'var(--ink-2)' }}>{nomVagueSeul(cohorteParId.get(inscritsOuvertPour.cohort_id)?.nom) || 'supprimée'}</strong>
             </p>
+            {/* Compte rendu de la session — demande client du 2026-11-08 : « à 5 min de la fin de
+                la session orale, il faudrait rajouter un bouton sur le pop-up afin que l'admin
+                puisse renseigner le compte rendu de la session pour chaque prospect ». Le bouton
+                n'apparaît qu'à partir de ce moment-là : avant, il n'y a rien à consigner, et le
+                proposer inviterait à remplir un compte rendu d'oral qui n'a pas eu lieu.
+                Volontairement distinct de « Convertir en étudiant » juste à côté : celui-là crée
+                le compte et encaisse les frais, celui-ci n'écrit que ce qui s'est dit. */}
+            {compteRenduSessionOraleOuvrable(inscritsOuvertPour) &&
+              (candidatsParCreneau.get(inscritsOuvertPour.id) ?? []).length > 0 && (
+                <button
+                  onClick={() => setResultatsOuvertPour(inscritsOuvertPour)}
+                  style={{ ...boutonSecondaireStyle, width: '100%', marginBottom: 8 }}
+                >
+                  Enregistrer les résultats de la session
+                </button>
+              )}
             {(candidatsParCreneau.get(inscritsOuvertPour.id) ?? []).length === 0 ? (
               <p style={{ fontSize: 12.5, color: 'var(--muted-2)', margin: 0 }}>Aucun candidat inscrit pour le moment.</p>
             ) : (
@@ -386,6 +408,21 @@ export function SessionsOraleAdmin() {
         </Modale>
       )}
 
+      {resultatsOuvertPour && (
+        <ResultatsSessionOraleModale
+          creneau={resultatsOuvertPour}
+          candidats={candidatsParCreneau.get(resultatsOuvertPour.id) ?? []}
+          onFermer={() => setResultatsOuvertPour(null)}
+          onEnregistre={(nombre) => {
+            setResultatsOuvertPour(null)
+            setMessageConversion(
+              `Résultats enregistrés pour ${nombre} candidat${nombre > 1 ? 's' : ''}. Aucun compte n’a été créé : la conversion reste à faire.`,
+            )
+            charger()
+          }}
+        />
+      )}
+
       {bilanOuvert && (
         <Modale titre={`Bilan · ${bilanOuvert.prospect ? `${bilanOuvert.prospect.prenom} ${bilanOuvert.prospect.nom}` : 'Candidat'}`} onFermer={() => setBilanOuvert(null)} largeurMax={540}>
           <pre style={{ fontSize: 12.5, lineHeight: 1.65, color: 'var(--ink-2)', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>
@@ -396,7 +433,10 @@ export function SessionsOraleAdmin() {
       {convertirPour?.prospect && (
         <ConvertirCandidatCollectif
           prospect={convertirPour.prospect}
-          niveauEstimeParDefaut={convertirPour.inscription.niveau_estime}
+          /* Le niveau FINAL s'il a déjà été arrêté (compte rendu de session enregistré avant
+             la conversion, 2026-11-08), le quiz écrit à défaut : sans ce repli, la conversion
+             repartait du quiz et faisait ressaisir un niveau déjà tranché à l'oral. */
+          niveauEstimeParDefaut={convertirPour.inscription.niveau_final ?? convertirPour.inscription.niveau_estime}
           scoreQuiz={{ score: convertirPour.inscription.score, total: convertirPour.inscription.total }}
           onFermer={() => setConvertirPour(null)}
           onConverti={(resultat) => {

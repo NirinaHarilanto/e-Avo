@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { jetonAcces } from '../../lib/jetonAcces'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
+import { enregistrerCompteRenduOral } from '../../lib/compteRenduOral'
 import { categorieDepuisNiveauEstime, LABEL_NIVEAU_CLASSE, NIVEAUX_ANGLAIS } from '../../lib/classesCollectif'
 import type { NiveauClasse } from '../../types/database.types'
 import { Champ, champStyle } from '../ui/Champ'
@@ -100,17 +101,21 @@ export function ConvertirCandidatCollectif({
     setEnCours(true)
     setErreur(null)
 
-    const { error: diagnosticError } = await supabase.from('diagnostic_calls').insert({
-      etablissement_id: prospect.etablissement_id,
-      prospect_id: prospect.id,
-      mene_par: profile.id,
-      date_appel: new Date().toISOString(),
-      niveau_evalue: resultatsOral.niveau.trim() || null,
+    /* Complète le compte rendu d'oral EXISTANT quand il y en a un — depuis le 2026-11-08, l'admin
+       peut l'enregistrer dès la fin de la session sans convertir personne. Insérer sans regarder
+       créait alors une seconde ligne pour le même oral, et les écrans divergeaient selon qu'ils
+       lisaient la plus récente ou la première. La trame structurée déjà saisie est conservée :
+       seules les notes libres de cette fenêtre et le niveau retenu sont réécrits. */
+    const { error: diagnosticError } = await enregistrerCompteRenduOral({
+      etablissementId: prospect.etablissement_id,
+      prospectId: prospect.id,
+      meneParProfileId: profile.id,
+      niveau: resultatsOral.niveau.trim() || null,
       notes: formaterNotesTestOral(resultatsOral.profilDetaille, resultatsOral.objectifs),
     })
     if (diagnosticError) {
       setEnCours(false)
-      setErreur(diagnosticError.message)
+      setErreur(diagnosticError)
       return
     }
 
