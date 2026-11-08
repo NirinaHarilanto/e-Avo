@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { jetonAcces } from '../../lib/jetonAcces'
 import { formaterHeures } from '../../lib/heures'
 import { Modale } from '../ui/Modale'
-import { boutonNeutreStyle, boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
+import { boutonNeutreStyle, boutonPrimaireStyle } from '../ui/Boutons'
 import { MessageErreur, MessageInfo, MessageSucces } from '../ui/Etats'
 
 export type TypeCours = 'individuel' | 'collectif'
@@ -71,21 +71,25 @@ export function ChangerTypeCoursModale({
     onChange()
   }
 
+  /* En-tête du dossier, à côté de « Résumer les comptes rendus » — demande client du 2026-11-08,
+     capture à l'appui. Il vivait jusque-là en tête de l'onglet Programme, où il se lisait comme
+     une ligne de formulaire parmi d'autres : le client ne l'a d'abord pas vu, puis l'a trouvé
+     mais délavé. Mêmes dimensions que son voisin, et le dégradé violet plutôt que l'or, pour que
+     deux boutons mis en avant côte à côte ne se disputent pas le regard.
+
+     TOUJOURS actif, même quand la bascule est fermée (« le bouton passer en cours collectif n'est
+     actif que lorsque les conditions sont remplies ») : c'est la fenêtre qui explique la règle et
+     dit où en est l'élève. Un bouton grisé dans un en-tête n'explique rien. */
   if (!ouvert) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <button onClick={() => setOuvert(true)} disabled={!possible} style={{ ...boutonSecondaireStyle, width: '100%', opacity: possible ? 1 : 0.5, cursor: possible ? 'pointer' : 'not-allowed' }}>
-          Changer de type de cours
-        </button>
-        {!possible && (
-          /* Le bouton reste visible, désactivé : le masquer laisserait croire que la
-             fonctionnalité n'existe pas, alors qu'elle rouvrira d'elle-même à la fin du forfait. */
-          <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0, lineHeight: 1.5 }}>
-            Possible uniquement avant la première séance, ou une fois le forfait terminé
-            {heuresForfait != null ? ` (${formaterHeures(heuresConsommees)} sur ${formaterHeures(heuresForfait)} suivies)` : ''}.
-          </p>
-        )}
-      </div>
+      <button
+        type="button"
+        onClick={() => setOuvert(true)}
+        className="btn-shine btn-secondary"
+        style={{ fontSize: 12.5, padding: '9px 16px' }}
+      >
+        Changer de type de cours
+      </button>
     )
   }
 
@@ -181,6 +185,14 @@ export function ChangerTypeCoursModale({
               Aucun règlement déjà encaissé n'est modifié — s'il y en a un sur le forfait quitté, il reste à traiter depuis
               l'onglet Paiements.
             </MessageInfo>
+            {!possible && (
+              <MessageInfo>
+                Possible uniquement avant la première séance, ou une fois le forfait terminé
+                {heuresForfait != null
+                  ? ` — ${formaterHeures(heuresConsommees)} suivies sur ${formaterHeures(heuresForfait)}.`
+                  : '.'}
+              </MessageInfo>
+            )}
             {erreur && <MessageErreur>{erreur}</MessageErreur>}
             <div style={{ display: 'flex', gap: 8 }}>
               <button
@@ -195,9 +207,14 @@ export function ChangerTypeCoursModale({
               </button>
               <button
                 onClick={basculer}
-                disabled={enCours}
+                disabled={enCours || !possible}
                 className="btn-shine"
-                style={{ ...boutonPrimaireStyle, flexGrow: 1, opacity: enCours ? 0.6 : 1 }}
+                style={{
+                  ...boutonPrimaireStyle,
+                  flexGrow: 1,
+                  opacity: enCours || !possible ? 0.6 : 1,
+                  cursor: possible ? 'pointer' : 'not-allowed',
+                }}
               >
                 {enCours ? 'Basculement…' : `Passer en ${titreCible}`}
               </button>

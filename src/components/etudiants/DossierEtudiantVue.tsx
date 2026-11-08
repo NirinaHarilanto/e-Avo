@@ -964,7 +964,12 @@ export function DossierEtudiantVue({
     ...(periodesActuelles.length > 0 || professeurClasse || panneauProfesseur
       ? [{ value: 'professeur' as const, label: periodesActuelles.length > 1 ? 'Professeurs' : 'Professeur' }]
       : []),
-    ...(forfait || cohorte || panneauChoixInitial ? [{ value: 'programme' as const, label: cohorte ? 'Programme' : 'Forfait' }] : []),
+    /* « Programme » dans les deux cas depuis le 2026-11-08. L'onglet s'appelait « Forfait » pour
+       un élève individuel et « Programme » pour un collectif, alors qu'il porte la même chose des
+       deux côtés : le programme suivi, son forfait, et désormais le changement de type de cours
+       lui-même. Le client a cherché « Programme » dans la section Étudiants et ne l'a pas trouvé
+       — un même contenu ne doit pas changer de nom selon la personne qu'on regarde. */
+    ...(forfait || cohorte || panneauChoixInitial ? [{ value: 'programme' as const, label: 'Programme' }] : []),
     /* Forfait et Planning étaient regroupés sous un seul onglet « Forfait & Planning » :
        séparés depuis le 2026-09-21 (demande client), le forfait portant désormais aussi
        l'historique des forfaits successifs.
@@ -1025,9 +1030,17 @@ export function DossierEtudiantVue({
             </div>
           </div>
         </div>
-        {(panneauSynthese || panneauSuppression) && (
+        {(panneauSynthese || panneauSuppression || panneauChangementType) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             {panneauSynthese}
+            {/* Demande client du 2026-11-08, capture à l'appui : « mets le bouton à côté de
+                Résumer les comptes rendus, avec une couleur brillante ». Entre la synthèse et les
+                actions de compte (Pause, Supprimer), qui restent en dernier : ce sont les deux
+                seules destructives, les garder au bout évite un clic de travers.
+
+                Absent tant qu'il n'y a RIEN à changer — un élève sans forfait ni vague CHOISIT
+                son programme dans l'onglet Programme, il n'en « change » pas. */}
+            {(forfait || cohorte) && panneauChangementType}
             {panneauSuppression}
           </div>
         )}
@@ -1293,11 +1306,6 @@ export function DossierEtudiantVue({
         {ongletActif === 'programme' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {!forfait && !cohorte && panneauChoixInitial}
-
-            {/* Au-dessus du détail du programme, jamais en dessous : c'est l'action qui le
-                remplace. Absent tant qu'il n'y a RIEN à changer — un élève sans forfait ni vague
-                choisit son programme juste au-dessus, il n'a pas à en « changer ». */}
-            {(forfait || cohorte) && panneauChangementType}
 
             {cohorte && (
               <>

@@ -9,6 +9,7 @@ import {
   seanceCloturable,
   seancesHorsAffectation,
   compteRenduSessionOraleOuvrable,
+  ouvertureCompteRenduSessionOrale,
 } from '../seances'
 
 describe('nomEleveInscrit', () => {
@@ -232,5 +233,34 @@ describe('compteRenduSessionOraleOuvrable', () => {
     // Créneau de 2 h : encore fermé à 11h00.
     expect(compteRenduSessionOraleOuvrable(creneau(120), new Date('2026-11-08T11:00:00Z'))).toBe(false)
     expect(compteRenduSessionOraleOuvrable(creneau(120), new Date('2026-11-08T11:55:00Z'))).toBe(true)
+  })
+})
+
+/* Capture client du 2026-11-08 : sur la fiche d'un candidat dont la session orale était le
+   14 novembre, le bouton était simplement ABSENT — rien ne distinguait « pas encore l'heure » de
+   « la fonctionnalité n'existe pas ». L'écran annonce désormais la date d'ouverture, et c'est
+   cette date que ce describe verrouille : à la minute près, et jamais décalée d'une heure ou
+   d'un jour (voir la leçon sur les dates locales, récurrente dans ce projet). */
+describe('ouvertureCompteRenduSessionOrale', () => {
+  it('tombe exactement cinq minutes avant la fin de la session', () => {
+    expect(ouvertureCompteRenduSessionOrale({ debut: '2026-11-14T05:00:00Z', duree_minutes: 60 }).toISOString()).toBe(
+      '2026-11-14T05:55:00.000Z',
+    )
+  })
+
+  it('suit la durée du créneau, de 5 à 240 minutes (0051)', () => {
+    expect(ouvertureCompteRenduSessionOrale({ debut: '2026-11-14T05:00:00Z', duree_minutes: 5 }).toISOString()).toBe(
+      '2026-11-14T05:00:00.000Z',
+    )
+    expect(ouvertureCompteRenduSessionOrale({ debut: '2026-11-14T05:00:00Z', duree_minutes: 240 }).toISOString()).toBe(
+      '2026-11-14T08:55:00.000Z',
+    )
+  })
+
+  it('dit la même chose que le booléen qui ouvre le bouton', () => {
+    const creneau = { debut: '2026-11-14T05:00:00Z', duree_minutes: 30 }
+    const ouverture = ouvertureCompteRenduSessionOrale(creneau)
+    expect(compteRenduSessionOraleOuvrable(creneau, new Date(ouverture.getTime() - 1))).toBe(false)
+    expect(compteRenduSessionOraleOuvrable(creneau, ouverture)).toBe(true)
   })
 })

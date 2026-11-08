@@ -56,7 +56,7 @@ function dossierIndividuel(heuresReprises: number): DossierEtudiant {
 describe('DossierEtudiantVue — heures suivies avant la mise en service', () => {
   it('dit quelle part du compteur vient de la reprise, faute de séance à montrer', () => {
     render(<DossierEtudiantVue dossier={dossierIndividuel(14)} peutModifierPlanning={false} />)
-    fireEvent.click(screen.getByRole('tab', { name: 'Forfait' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Programme' }))
 
     expect(screen.getByText('dont suivies avant la mise en service')).toBeTruthy()
     // Le forfait reste celui qui a été souscrit, et le restant s'en déduit : 40 − 14.
@@ -66,7 +66,7 @@ describe('DossierEtudiantVue — heures suivies avant la mise en service', () =>
 
   it('reste muet pour un dossier entièrement né dans l’application', () => {
     render(<DossierEtudiantVue dossier={dossierIndividuel(0)} peutModifierPlanning={false} />)
-    fireEvent.click(screen.getByRole('tab', { name: 'Forfait' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Programme' }))
 
     expect(screen.queryByText('dont suivies avant la mise en service')).toBeNull()
   })

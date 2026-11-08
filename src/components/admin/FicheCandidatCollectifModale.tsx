@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
+import { compteRenduSessionOraleOuvrable, ouvertureCompteRenduSessionOrale } from '../../lib/seances'
 import { nomVagueSeul } from '../../lib/cohortes'
 import { LABEL_NIVEAU_CLASSE, parcoursCollectifTermine } from '../../lib/classesCollectif'
 import { formaterHeures } from '../../lib/heures'
@@ -13,6 +14,7 @@ import { InformationsPersonnelles } from '../shared/InformationsPersonnelles'
 import { EditerIdentiteProspect } from '../prospects/EditerIdentiteProspect'
 import { SupprimerProspect } from '../prospects/SupprimerProspect'
 import { ConvertirCandidatCollectif } from '../prospects/ConvertirCandidatCollectif'
+import { ResultatsSessionOraleModale } from './ResultatsSessionOraleModale'
 import { ReevaluerEtudiantCollectif } from '../prospects/ReevaluerEtudiantCollectif'
 import { FraisInscriptionCollectifModale, type FraisInscription } from '../prospects/FraisInscriptionCollectifModale'
 import { enregistrerFraisCollectif } from '../../lib/enregistrerFraisCollectif'
@@ -32,6 +34,8 @@ type Prospect = Database['public']['Tables']['prospects']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
 type StudentPayment = Database['public']['Tables']['student_payments']['Row']
 type Cohort = Database['public']['Tables']['cohorts']['Row']
+type InscriptionTest = Database['public']['Tables']['test_positionnement_inscriptions']['Row']
+type CreneauTest = Database['public']['Tables']['creneaux_test_positionnement']['Row']
 
 /* Fiche d'une personne du Suivi des cours collectifs, ouverte au clic sur sa ligne — demande
    client du 2026-10-11 : « chaque ligne devrait être cliquable, un pop-up apparaîtra avec toutes
@@ -88,6 +92,15 @@ export function FicheCandidatCollectifModale({
   const [enCoursFrais, setEnCoursFrais] = useState(false)
   const [erreurFrais, setErreurFrais] = useState<string | null>(null)
   const [paiementOuvert, setPaiementOuvert] = useState<StudentPayment | null>(null)
+  /* Compte rendu du test oral saisi depuis CETTE fiche, candidat par candidat — capture
+     client du 2026-11-08 : c'est le pop-up que l'admin ouvre pour une personne donnée, et
+     c'est là qu'il attendait le bouton. Le même formulaire sert aussi à remplir toute une
+     session d'un coup depuis l'onglet Session orale ; seule la liste de candidats change.
+     L'inscription au test et son créneau sont relus ici : `ligne` ne porte que l'heure de
+     DÉBUT de la session, or la règle des cinq minutes se calcule sur sa fin. */
+  const [inscriptionTest, setInscriptionTest] = useState<InscriptionTest | null>(null)
+  const [creneauTest, setCreneauTest] = useState<CreneauTest | null>(null)
+  const [resultatsOuvert, setResultatsOuvert] = useState(false)
 
   const rechargerDossier = useCallback(async () => {
     /* Les deux premières requêtes ne dépendent l'une de l'autre en rien (la seconde cherche par
@@ -129,6 +142,23 @@ export function FicheCandidatCollectifModale({
     // student_id) : dédoublonnée par id plutôt que listée deux fois.
     const fusion = new Map([...(parProspect ?? []), ...(parEtudiant ?? [])].map((p) => [p.id, p]))
     setPaiements([...fusion.values()].sort((a, b) => b.created_at.localeCompare(a.created_at)))
+
+    /* Inscription au test oral et son créneau. Deux requêtes plutôt qu'une jointure imbriquée :
+       le même piège qu'adopter-seances.ts, et la seconde n'a de toute façon de sens que si la
+       première a trouvé quelque chose. La PLUS RÉCENTE : un candidat réinscrit à une autre
+       session est jugé sur celle-là, jamais sur la première qu'il a manquée. */
+    const { data: inscription } = await supabase
+      .from('test_positionnement_inscriptions')
+      .select('*')
+      .eq('prospect_id', ligne.prospectId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    setInscriptionTest(inscription ?? null)
+    const { data: creneau } = inscription
+      ? await supabase.from('creneaux_test_positionnement').select('*').eq('id', inscription.creneau_id).maybeSingle()
+      : { data: null as CreneauTest | null }
+    setCreneauTest(creneau ?? null)
 
     if (profilData) {
       const { data: inscriptionVague } = await supabase
@@ -223,7 +253,14 @@ export function FicheCandidatCollectifModale({
     : prospect
       ? `${prospect.prenom} ${prospect.nom}`
       : ligne.nom
-  const niveauPourFrais = ligne.niveauFinal ?? ligne.niveauTest
+  /* Lus sur l'inscription rechargée par CETTE fiche, pas sur `ligne` — le résumé figé au moment
+     du clic sur la ligne du tableau. Sans ça, enregistrer les résultats du test oral laissait
+     « Niveau — test oral : — » affiché juste en dessous du message de succès, jusqu'à ce que
+     l'admin referme et rouvre la fenêtre. Même principe que le reste de la fiche, qui tient son
+     propre état à jour après chaque action. */
+  const niveauTestAffiche = inscriptionTest?.niveau_estime ?? ligne.niveauTest
+  const niveauOralAffiche = inscriptionTest?.niveau_final ?? ligne.niveauFinal
+  const niveauPourFrais = niveauOralAffiche ?? niveauTestAffiche
   const classeAnnoncee = profilEtudiant ? null : classePrevue(ligne)
 
   return (
@@ -328,10 +365,10 @@ export function FicheCandidatCollectifModale({
                 label="Classe"
                 valeur={ligne.classe ?? (classeAnnoncee ? `${classeAnnoncee} (prévue)` : '—')}
               />
-              <LigneInfo label="Niveau — quiz écrit" valeur={ligne.niveauTest ?? '—'} />
+              <LigneInfo label="Niveau — quiz écrit" valeur={niveauTestAffiche ?? '—'} />
               <LigneInfo
                 label="Niveau — test oral"
-                valeur={ligne.niveauFinal ? <strong style={{ color: 'var(--accent-teal)' }}>{ligne.niveauFinal}</strong> : '—'}
+                valeur={niveauOralAffiche ? <strong style={{ color: 'var(--accent-teal)' }}>{niveauOralAffiche}</strong> : '—'}
               />
               {profilEtudiant && vagueActuelle && (
                 <LigneInfo
@@ -345,6 +382,40 @@ export function FicheCandidatCollectifModale({
                 />
               )}
             </div>
+
+            {/* Compte rendu du test oral — demande client du 2026-11-08 : « à 5 min de la fin de
+                la session orale, il faudrait rajouter un bouton sur le pop-up afin que l'admin
+                puisse renseigner le compte rendu de la session ». Posé juste sous « Niveau — test
+                oral », la ligne que cette saisie remplit précisément.
+
+                Le bouton reste VISIBLE avant l'heure, désactivé et daté : absent, rien ne
+                distinguerait « pas encore l'heure » de « la fonctionnalité n'existe pas » — c'est
+                exactement ce qui a été signalé, capture à l'appui, sur une session du 14 novembre.
+
+                Réservé à un candidat pas encore converti : une fois le compte créé, le niveau se
+                corrige par la réévaluation, qui emporte la classe et la vague avec elle. */}
+            {!profilEtudiant && creneauTest && inscriptionTest && (
+              <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <button
+                  onClick={() => setResultatsOuvert(true)}
+                  disabled={!compteRenduSessionOraleOuvrable(creneauTest)}
+                  style={{
+                    ...boutonSecondaireStyle,
+                    width: '100%',
+                    opacity: compteRenduSessionOraleOuvrable(creneauTest) ? 1 : 0.5,
+                    cursor: compteRenduSessionOraleOuvrable(creneauTest) ? 'pointer' : 'not-allowed',
+                  }}
+                >
+                  Enregistrer les résultats de la session
+                </button>
+                {!compteRenduSessionOraleOuvrable(creneauTest) && (
+                  <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0, lineHeight: 1.5 }}>
+                    Disponible à partir du {formaterDansFuseauEtablissement(ouvertureCompteRenduSessionOrale(creneauTest))},
+                    cinq minutes avant la fin de la session.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Fin de parcours — demande client du 2026-10-11 : « quand toutes les heures seront
                 consommées [...] un bouton évaluer l'étudiant apparaîtra [...] l'admin doit lui
@@ -479,7 +550,7 @@ export function FicheCandidatCollectifModale({
           /* Le niveau arrêté à l'oral prime sur celui du quiz écrit quand il existe (2026-11-08,
              compte rendu de session enregistrable avant toute conversion) : sans ce repli, la
              fenêtre repartait du quiz et faisait retrancher un niveau déjà décidé. */
-          niveauEstimeParDefaut={ligne.niveauFinal ?? ligne.niveauTest}
+          niveauEstimeParDefaut={niveauOralAffiche ?? niveauTestAffiche}
           onFermer={() => setConvertirOuvert(false)}
           onConverti={(resultat) => {
             setConvertirOuvert(false)
@@ -494,6 +565,21 @@ export function FicheCandidatCollectifModale({
         />
       )}
 
+      {resultatsOuvert && creneauTest && inscriptionTest && prospect && (
+        <ResultatsSessionOraleModale
+          creneau={creneauTest}
+          candidats={[{ inscription: inscriptionTest, prospect }]}
+          onFermer={() => setResultatsOuvert(false)}
+          onEnregistre={() => {
+            setResultatsOuvert(false)
+            setSucces(
+              `Les résultats du test oral de ${nom} sont enregistrés. Aucun compte n’a été créé : la conversion reste à faire.`,
+            )
+            toutRecharger()
+          }}
+        />
+      )}
+
       {reevaluerOuvert && profilEtudiant && etablissementId && (
         <ReevaluerEtudiantCollectif
           etudiant={{
@@ -501,7 +587,7 @@ export function FicheCandidatCollectifModale({
             prospectId: ligne.prospectId,
             etablissementId,
             nom,
-            niveauActuel: ligne.niveauFinal ?? ligne.niveauTest,
+            niveauActuel: niveauOralAffiche ?? niveauTestAffiche,
           }}
           onFermer={() => setReevaluerOuvert(false)}
           onEvalue={() => {

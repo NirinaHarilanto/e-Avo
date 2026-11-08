@@ -120,8 +120,18 @@ export function compteRenduSessionOraleOuvrable(
   creneau: { debut: string; duree_minutes: number },
   maintenant: Date = new Date(),
 ): boolean {
+  return maintenant.getTime() >= ouvertureCompteRenduSessionOrale(creneau).getTime()
+}
+
+/* L'instant exact où ce compte rendu s'ouvre — pour le DIRE à l'admin plutôt que de lui laisser
+   un bouton absent. Capture client du 2026-11-08 : la fiche d'un candidat dont la session est le
+   14 novembre ne montrait rien du tout, et rien ne distinguait « pas encore l'heure » de « la
+   fonctionnalité n'existe pas ». C'est la troisième fois qu'un élément invisible passe pour un
+   défaut : un bouton désactivé qui annonce sa date répond à la question sans qu'on ait à la
+   poser. */
+export function ouvertureCompteRenduSessionOrale(creneau: { debut: string; duree_minutes: number }): Date {
   const fin = new Date(creneau.debut).getTime() + creneau.duree_minutes * 60_000
-  return maintenant.getTime() >= fin - MINUTES_AVANT_FIN_POUR_CLOTURER * 60_000
+  return new Date(fin - MINUTES_AVANT_FIN_POUR_CLOTURER * 60_000)
 }
 
 /* Séances d'un élève que AUCUNE de ses affectations individuelles ne réclame — demande client du
