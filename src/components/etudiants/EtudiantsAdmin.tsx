@@ -16,6 +16,7 @@ import { useDemandesForfait } from '../../hooks/useDemandesForfait'
 import { PlanifierSeancesForfait } from './PlanifierSeancesForfait'
 import { NouveauCreneauEtudiant } from './NouveauCreneauEtudiant'
 import { DossierEtudiantVue } from './DossierEtudiantVue'
+import { ChangerTypeCoursModale } from './ChangerTypeCoursModale'
 import { CarteListeEtudiant, TagAucunCoursPlanifie, TagDossierIncomplet } from './CarteListeEtudiant'
 import { useEtatsParcoursEtudiants } from '../../hooks/useEtatsParcoursEtudiants'
 import { activiteEtudiant } from '../../lib/statutProfil'
@@ -456,6 +457,24 @@ function DossierPanel({
           typeProgramme={forfait?.type_programme === 'duo' ? 'duo' : 'individuel'}
           heuresRestantes={heuresRestantes}
           onAjoute={recharger}
+        />
+      }
+      /* Changement de type de cours (demande client du 2026-11-08) — espace admin uniquement.
+         Le type actuel se lit à la vague, jamais à une colonne de `profiles` (convention de
+         toute l'application depuis 0027). Les deux compteurs passés ici sont ceux que l'onglet
+         Programme affiche déjà juste en dessous : le bouton ne doit pas s'ouvrir sur une règle
+         que l'écran contredit. Le serveur revérifie de toute façon, sur sa propre mesure. */
+      panneauChangementType={
+        <ChangerTypeCoursModale
+          studentId={etudiant.id}
+          nomEleve={`${etudiant.prenom} ${etudiant.nom}`}
+          typeActuel={dossier.cohorte ? 'collectif' : 'individuel'}
+          heuresConsommees={dossier.heuresConsommees}
+          heuresForfait={totalHeuresCumulees(dossier.packages) || null}
+          onChange={() => {
+            recharger()
+            rechargerParcours()
+          }}
         />
       }
       peutModifierNiveau

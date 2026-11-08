@@ -766,6 +766,10 @@ interface DossierEtudiantVueProps {
   /* Demande de forfait supplémentaire (0061) — élève uniquement, exclusif avec
      panneauAjoutForfait (jamais les deux à la fois sur un même dossier). */
   panneauDemandeForfait?: ReactNode
+  /* Bouton + pop-up de changement de type de cours (individuel ↔ collectif) — admin uniquement,
+     demande client du 2026-11-08. Rendu en tête de l'onglet Programme, là où se lit justement le
+     type actuel : c'est le seul endroit où la question se pose. */
+  panneauChangementType?: ReactNode
   /* Bouton + pop-up de suppression du compte — admin uniquement, comme les autres panneaux. */
   panneauSuppression?: ReactNode
   /* Bouton brillant de synthèse des comptes rendus (demande client du 2026-09-30) — admin et
@@ -828,6 +832,7 @@ export function DossierEtudiantVue({
   panneauDecisionEssai,
   panneauAjoutForfait,
   panneauDemandeForfait,
+  panneauChangementType,
   panneauSuppression,
   panneauSynthese,
   badgesSupplementaires,
@@ -1288,6 +1293,11 @@ export function DossierEtudiantVue({
         {ongletActif === 'programme' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {!forfait && !cohorte && panneauChoixInitial}
+
+            {/* Au-dessus du détail du programme, jamais en dessous : c'est l'action qui le
+                remplace. Absent tant qu'il n'y a RIEN à changer — un élève sans forfait ni vague
+                choisit son programme juste au-dessus, il n'a pas à en « changer ». */}
+            {(forfait || cohorte) && panneauChangementType}
 
             {cohorte && (
               <>
