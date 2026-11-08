@@ -361,8 +361,10 @@ export function SessionsOraleAdmin() {
             {compteRenduSessionOraleOuvrable(inscritsOuvertPour) &&
               (candidatsParCreneau.get(inscritsOuvertPour.id) ?? []).length > 0 && (
                 <button
+                  type="button"
                   onClick={() => setResultatsOuvertPour(inscritsOuvertPour)}
-                  style={{ ...boutonSecondaireStyle, width: '100%', marginBottom: 8 }}
+                  className="btn-shine btn-secondary"
+                  style={{ width: '100%', marginBottom: 8, fontSize: 12.5, padding: '10px 16px' }}
                 >
                   Enregistrer les résultats de la session
                 </button>

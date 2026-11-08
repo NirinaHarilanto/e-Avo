@@ -396,14 +396,32 @@ export function FicheCandidatCollectifModale({
                 corrige par la réévaluation, qui emporte la classe et la vague avec elle. */}
             {!profilEtudiant && creneauTest && inscriptionTest && (
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {/* Dégradé violet plutôt que le contour délavé d'origine — demande client du
+                    2026-11-08, capture à l'appui : « mets le bouton avec une couleur brillante
+                    élégante ». Violet et non or : l'or est pris par « Convertir en étudiant »
+                    juste en dessous, et les deux ne sont pas du même ordre — l'un prépare la
+                    décision, l'autre la prend. Les distinguer d'un coup d'œil vaut mieux que deux
+                    boutons dorés empilés.
+
+                    Le reflet (`btn-shine`) est retiré quand le bouton est fermé : une brillance
+                    qui balaie un bouton qu'on ne peut pas cliquer invite au clic pour rien. */}
                 <button
+                  type="button"
                   onClick={() => setResultatsOuvert(true)}
                   disabled={!compteRenduSessionOraleOuvrable(creneauTest)}
+                  className={compteRenduSessionOraleOuvrable(creneauTest) ? 'btn-shine btn-secondary' : 'btn-shine'}
                   style={{
-                    ...boutonSecondaireStyle,
                     width: '100%',
-                    opacity: compteRenduSessionOraleOuvrable(creneauTest) ? 1 : 0.5,
-                    cursor: compteRenduSessionOraleOuvrable(creneauTest) ? 'pointer' : 'not-allowed',
+                    fontSize: 12.5,
+                    padding: '10px 16px',
+                    ...(compteRenduSessionOraleOuvrable(creneauTest)
+                      ? {}
+                      : {
+                          background: 'var(--voile-doux, rgba(255,255,255,.03))',
+                          border: '1px solid var(--border-soft)',
+                          color: 'var(--muted-2)',
+                          cursor: 'not-allowed',
+                        }),
                   }}
                 >
                   Enregistrer les résultats de la session
