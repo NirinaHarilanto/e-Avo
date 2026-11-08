@@ -161,7 +161,7 @@ export function FicheCandidat({
     // « Enregistrer » (voir plus bas) — un clic accidentel en dehors de cette fenêtre ne doit
     // jamais faire perdre une évaluation en cours de remplissage (demande client du 2026-09-30 :
     // « le seul moyen de quitter la checklist [doit être] le petit croix en haut à droite »).
-    <Modale titre={`${c.prenom} ${c.nom} · ${etapeCourante?.libelle ?? ''}`} onFermer={onFermer} largeurMax={820} fermetureExterieureDesactivee>
+    <Modale titre={`${c.prenom} ${c.nom} · ${etapeCourante?.libelle ?? ''}`} onFermer={onFermer} largeurMax={820} fermetureEchapDesactivee>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <Frise statut={c.statut} />
 

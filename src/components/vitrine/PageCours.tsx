@@ -337,7 +337,10 @@ function FenetreFormule({
   const ONGLETS = ['Découvrir', 'Tarifs', 'Réserver']
 
   return (
-    <div className="hx-modal open" role="dialog" aria-modal="true" aria-label={programme.titre} onClick={(e) => e.target === e.currentTarget && onFermer()}>
+    /* Aucune fermeture au clic extérieur — règle générale posée par le client le 2026-11-08,
+       appliquée partout dans l'application comme sur la vitrine. La croix reste le geste de
+       sortie. */
+    <div className="hx-modal open" role="dialog" aria-modal="true" aria-label={programme.titre}>
       <div className="box">
         <div className="top">
           <span className="tag">{programme.badge}</span>

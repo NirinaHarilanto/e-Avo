@@ -90,7 +90,12 @@ export function FenetreContact({ ouverte, onFermer }: { ouverte: boolean; onFerm
   }
 
   return (
-    <div className="hx-ct open" role="dialog" aria-modal="true" aria-label="Nous contacter" onClick={(e) => e.target === e.currentTarget && onFermer()}>
+    /* Aucune fermeture au clic extérieur — règle générale posée par le client le 2026-11-08 :
+       « quand un pop-up apparaît et que l'on clique à l'extérieur du pop-up, il ne faut pas fermer
+       le pop-up, c'est une règle à respecter sur tous les pop-up. » Ici plus qu'ailleurs : un
+       visiteur qui a tapé son message et son adresse perdait tout d'un clic à côté. La croix
+       reste le geste de sortie. */
+    <div className="hx-ct open" role="dialog" aria-modal="true" aria-label="Nous contacter">
       <div className="box">
         <button type="button" className="x" aria-label="Fermer" onClick={onFermer}>
           ×

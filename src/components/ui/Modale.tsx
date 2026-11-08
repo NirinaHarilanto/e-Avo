@@ -7,15 +7,11 @@ interface ModaleProps {
   onFermer: () => void
   children: ReactNode
   largeurMax?: number
-  /* Désactive la fermeture par clic à l'extérieur ET par Échap — seule la croix en haut à droite
-     ferme alors la fenêtre (demande client du 2026-09-30, pour les checklists : « le seul moyen
-     de quitter la checklist [doit être] le petit croix en haut à droite. Toute clique à
-     l'extérieure ne la fermera pas »). Un clic accidentel en dehors d'une longue évaluation en
-     cours de saisie (fiche candidat, par exemple) ne doit jamais la faire disparaître. Faux par
-     défaut : ce comportement reste l'exception, pas la règle, pour les popups ponctuelles de
-     l'application (confirmation, détail en lecture seule…) où fermer d'un clic extérieur est un
-     raccourci attendu. */
-  fermetureExterieureDesactivee?: boolean
+  /* Retire AUSSI la fermeture par Échap — ne restent alors que la croix en haut à droite et les
+     boutons de la fenêtre (demande client du 2026-09-30, pour les checklists : « le seul moyen de
+     quitter la checklist [doit être] le petit croix en haut à droite »). Le clic extérieur, lui,
+     ne ferme plus aucune fenêtre de l'application, ce réglage ou non — voir le voile plus bas. */
+  fermetureEchapDesactivee?: boolean
 }
 
 /* Rang d'empilement d'une fenêtre parmi celles déjà ouvertes : la fiche d'un prospect ouvre
@@ -32,12 +28,12 @@ const ProfondeurModale = createContext(0)
    classe de thème. Utilisée en premier lieu pour le détail d'un prospect (carte de pipeline
    repliée par défaut), réutilisable partout où une action ponctuelle ne justifie pas une page
    dédiée. */
-export function Modale({ titre, onFermer, children, largeurMax = 480, fermetureExterieureDesactivee = false }: ModaleProps) {
+export function Modale({ titre, onFermer, children, largeurMax = 480, fermetureEchapDesactivee = false }: ModaleProps) {
   const voile = useRef<HTMLDivElement>(null)
   const profondeur = useContext(ProfondeurModale)
 
   useEffect(() => {
-    if (fermetureExterieureDesactivee) return
+    if (fermetureEchapDesactivee) return
     /* Échap ne referme que la fenêtre du dessus : les deux écoutent `document`, sans ce filtre
        elles se fermeraient ensemble et l'admin perdrait la fiche à chaque acompte saisi. Le rang
        est relu dans le DOM au moment de la frappe — une pile alimentée au montage donnerait
@@ -57,7 +53,7 @@ export function Modale({ titre, onFermer, children, largeurMax = 480, fermetureE
     }
     document.addEventListener('keydown', surEchap)
     return () => document.removeEventListener('keydown', surEchap)
-  }, [onFermer, fermetureExterieureDesactivee])
+  }, [onFermer, fermetureEchapDesactivee])
 
   /* Monté dans `document.body` plutôt qu'à l'endroit où le composant est écrit : un ancêtre
      portant `transform` (`.card-lift:hover` soulève la carte de 2 px) devient le bloc conteneur
@@ -69,7 +65,20 @@ export function Modale({ titre, onFermer, children, largeurMax = 480, fermetureE
     <div
       ref={voile}
       data-modale={profondeur}
-      onClick={fermetureExterieureDesactivee ? undefined : onFermer}
+      /* RÈGLE GÉNÉRALE posée par le client le 2026-11-08 : « quand un pop-up apparaît et que l'on
+         clique à l'extérieur du pop-up, il ne faut pas fermer le pop-up, c'est une règle à
+         respecter sur tous les pop-up. » Elle existait déjà au cas par cas — la réservation
+         publique depuis le 2026-10-19 (un clic à côté effaçait un quiz de 67 questions), les
+         checklists depuis le 2026-09-30 — et devient le comportement par défaut de toutes les
+         fenêtres. Fermer reste possible par la croix, par Échap et par les boutons de la fenêtre :
+         trois gestes délibérés, là où le clic extérieur est le seul qui parte tout seul.
+
+         Le `stopPropagation` ne protège plus seulement d'une fermeture : les événements d'un
+         portail remontent l'arbre REACT, pas le DOM. Sans lui, un clic n'importe où dans la
+         fenêtre atteindrait l'élément qui l'a ouverte — souvent une ligne de tableau cliquable,
+         qui rouvrirait ou basculerait quelque chose dans le dos de l'utilisateur. Posé sur le
+         voile, il couvre la fenêtre comme son extérieur. */
+      onClick={(e) => e.stopPropagation()}
       style={{
         position: 'fixed',
         inset: 0,
@@ -88,7 +97,6 @@ export function Modale({ titre, onFermer, children, largeurMax = 480, fermetureE
         role="dialog"
         aria-modal="true"
         aria-label={typeof titre === 'string' ? titre : undefined}
-        onClick={(e) => e.stopPropagation()}
         className="card"
         style={{ width: '100%', maxWidth: largeurMax, padding: 0, overflow: 'hidden' }}
       >

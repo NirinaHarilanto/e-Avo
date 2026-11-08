@@ -380,7 +380,7 @@ export function UtiliserTemplateModale({
       : null
 
   return (
-    <Modale titre={titre} onFermer={onFermer} largeurMax={720} fermetureExterieureDesactivee>
+    <Modale titre={titre} onFermer={onFermer} largeurMax={720} fermetureEchapDesactivee>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
         {template?.quand && <MessageInfo>Quand l’utiliser : {template.quand}</MessageInfo>}
 

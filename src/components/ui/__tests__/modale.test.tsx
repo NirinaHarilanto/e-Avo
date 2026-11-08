@@ -28,8 +28,8 @@ describe('Modale', () => {
   /* Fiche prospect → fenêtre de paiement ou de planification : deux Modale emboîtées, désormais
      montées côte à côte dans `document.body`. Refermer celle du dessus ne doit pas refermer
      celle du dessous, sans quoi l'admin perdrait la fiche à chaque acompte saisi. React propage
-     les événements d'un portail le long de l'arbre React, donc le `stopPropagation` du cadre de
-     la fenêtre parente continue de les intercepter — ce test le verrouille. */
+     les événements d'un portail le long de l'arbre React, donc le `stopPropagation` du voile de
+     la fenêtre enfant continue de les intercepter — ce test le verrouille. */
   it('ne referme pas la fenêtre parente quand on ferme une fenêtre imbriquée', () => {
     const fermerParent = vi.fn()
     const fermerEnfant = vi.fn()
@@ -42,8 +42,10 @@ describe('Modale', () => {
       </Modale>,
     )
 
-    const voileEnfant = screen.getByRole('dialog', { name: 'Paiement' }).parentElement!
-    fireEvent.click(voileEnfant)
+    /* Par la croix, et non plus par le voile : depuis le 2026-11-08 aucun clic extérieur ne
+       ferme plus rien (voir le bloc « règle générale » en fin de fichier). */
+    const croixEnfant = screen.getByRole('dialog', { name: 'Paiement' }).querySelector('button[aria-label="Fermer"]')!
+    fireEvent.click(croixEnfant)
 
     expect(fermerEnfant).toHaveBeenCalledTimes(1)
     expect(fermerParent).not.toHaveBeenCalled()
@@ -108,13 +110,13 @@ describe('Modale', () => {
     expect(fermerParent).toHaveBeenCalledTimes(1)
   })
 
-  /* `fermetureExterieureDesactivee` (demande client du 2026-09-30, pour les checklists : « le
-     seul moyen de quitter la checklist [doit être] le petit croix en haut à droite. Toute clique
-     à l'extérieure ne la fermera pas ») — comportement par défaut d'abord (inchangé), puis le
-     comportement dédié. Une régression ici romprait silencieusement soit les dizaines de popups
-     existantes qui ferment au clic extérieur/Échap, soit la protection anti-perte de saisie
-     qu'on vient d'ajouter pour la fiche candidat. */
-  it('se ferme par défaut au clic sur le voile extérieur', () => {
+  /* RÈGLE GÉNÉRALE posée par le client le 2026-11-08 : « quand un pop-up apparaît et que l'on
+     clique à l'extérieur du pop-up, il ne faut pas fermer le pop-up, c'est une règle à respecter
+     sur tous les pop-up. » Elle vivait jusque-là au cas par cas — la réservation publique depuis
+     le 2026-10-19 (un clic à côté effaçait un quiz de 67 questions), les checklists depuis le
+     2026-09-30 — et c'est ce bloc qui l'impose maintenant à toute fenêtre passant par ce
+     composant, soit la quasi-totalité de l'application. */
+  it('ne se ferme JAMAIS au clic sur le voile extérieur', () => {
     const onFermer = vi.fn()
     render(
       <Modale titre="Titre" onFermer={onFermer}>
@@ -122,40 +124,61 @@ describe('Modale', () => {
       </Modale>,
     )
     fireEvent.click(screen.getByRole('dialog').parentElement as HTMLElement)
-    expect(onFermer).toHaveBeenCalledTimes(1)
-  })
-
-  it('ignore le clic extérieur et Échap quand fermetureExterieureDesactivee est posé', () => {
-    const onFermer = vi.fn()
-    render(
-      <Modale titre="Checklist" onFermer={onFermer} fermetureExterieureDesactivee>
-        <p>Contenu</p>
-      </Modale>,
-    )
-    fireEvent.click(screen.getByRole('dialog').parentElement as HTMLElement)
-    fireEvent.keyDown(document, { key: 'Escape' })
     expect(onFermer).not.toHaveBeenCalled()
   })
 
-  it('la croix ferme toujours la fenêtre, même avec fermetureExterieureDesactivee', () => {
+  it('un clic à l’intérieur de la fenêtre ne la ferme pas davantage', () => {
     const onFermer = vi.fn()
     render(
-      <Modale titre="Checklist" onFermer={onFermer} fermetureExterieureDesactivee>
-        <p>Contenu</p>
-      </Modale>,
-    )
-    fireEvent.click(screen.getByRole('button', { name: 'Fermer' }))
-    expect(onFermer).toHaveBeenCalledTimes(1)
-  })
-
-  it('un clic à l’intérieur de la fenêtre ne la ferme jamais, avec ou sans le réglage', () => {
-    const onFermer = vi.fn()
-    render(
-      <Modale titre="Titre" onFermer={onFermer} fermetureExterieureDesactivee>
+      <Modale titre="Titre" onFermer={onFermer}>
         <p>Contenu</p>
       </Modale>,
     )
     fireEvent.click(screen.getByText('Contenu'))
     expect(onFermer).not.toHaveBeenCalled()
+  })
+
+  /* Un clic ne doit pas non plus ATTEINDRE ce qui a ouvert la fenêtre : les événements d'un
+     portail remontent l'arbre React, pas le DOM. Sans `stopPropagation` sur le voile, un clic
+     dans une fenêtre ouverte depuis une ligne de tableau cliquable rejouerait le clic de la
+     ligne — invisible en développement, déroutant en production. */
+  it('ne laisse aucun clic remonter jusqu’à l’élément qui l’a ouverte', () => {
+    const clicAncetre = vi.fn()
+    render(
+      <div onClick={clicAncetre}>
+        <Modale titre="Titre" onFermer={() => {}}>
+          <p>Contenu</p>
+        </Modale>
+      </div>,
+    )
+
+    fireEvent.click(screen.getByText('Contenu'))
+    fireEvent.click(screen.getByRole('dialog').parentElement as HTMLElement)
+    expect(clicAncetre).not.toHaveBeenCalled()
+  })
+
+  /* Échap reste un geste DÉLIBÉRÉ, donc toujours actif — sauf là où le client a demandé que seule
+     la croix ferme (checklists, 2026-09-30), ce que porte désormais `fermetureEchapDesactivee`,
+     renommé puisque la part « extérieure » est devenue inconditionnelle. */
+  it('ignore Échap quand fermetureEchapDesactivee est posé', () => {
+    const onFermer = vi.fn()
+    render(
+      <Modale titre="Checklist" onFermer={onFermer} fermetureEchapDesactivee>
+        <p>Contenu</p>
+      </Modale>,
+    )
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onFermer).not.toHaveBeenCalled()
+  })
+
+  it('la croix ferme toujours la fenêtre, réglage ou non', () => {
+    const onFermer = vi.fn()
+    render(
+      <Modale titre="Checklist" onFermer={onFermer} fermetureEchapDesactivee>
+        <p>Contenu</p>
+      </Modale>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Fermer' }))
+    expect(onFermer).toHaveBeenCalledTimes(1)
   })
 })

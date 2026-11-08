@@ -66,7 +66,7 @@ function EditerTemplateModale({
   }
 
   return (
-    <Modale titre={template ? `Modifier « ${template.nom} »` : 'Nouveau modèle d’e-mail'} onFermer={onFermer} largeurMax={720} fermetureExterieureDesactivee>
+    <Modale titre={template ? `Modifier « ${template.nom} »` : 'Nouveau modèle d’e-mail'} onFermer={onFermer} largeurMax={720} fermetureEchapDesactivee>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <MessageInfo>
           Écrivez les champs à compléter entre doubles accolades, par exemple {'{{prenom}}'}. Ceux que l’application

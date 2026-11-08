@@ -41,9 +41,10 @@ export function ModaleReservation({
        un clic accidentel à côté du quiz de positionnement (jusqu'à 67 questions chronométrées)
        ou du formulaire de réservation (nom, e-mail, téléphone, objectif, parfois un binôme
        entier) effaçait tout sans confirmation. Seule la croix « Fermer » ferme désormais cette
-       fenêtre — même règle que `Modale.tsx` applique déjà ailleurs dans l'app pour une longue
-       saisie en cours (`fermetureExterieureDesactivee`), simplement inconditionnelle ici : ce
-       balisage-ci est propre à cette seule fenêtre publique, pas partagé. */
+       fenêtre. Cette exception est devenue la règle générale le 2026-11-08 (« c'est une règle à
+       respecter sur tous les pop-up ») : `Modale.tsx` l'applique désormais partout. Ce balisage-ci
+       reste propre à cette seule fenêtre publique, pas partagé — d'où la règle écrite deux fois,
+       et ce commentaire pour qu'on les retrouve ensemble. */
     <div className="voile-modale">
       <div
         role="dialog"

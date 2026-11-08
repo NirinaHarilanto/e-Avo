@@ -537,7 +537,12 @@ function FormulaireTemoignage({ temoignage, etablissementId, dossierAssets, onFe
       role="dialog"
       aria-modal="true"
       aria-label={temoignage ? 'Modifier le témoignage' : 'Ajouter un témoignage'}
-      onClick={onFerme}
+      /* Aucune fermeture au clic extérieur — règle générale posée par le client le 2026-11-08 :
+         « c'est une règle à respecter sur tous les pop-up. » Ce formulaire porte un témoignage
+         rédigé à la main et parfois une photo déposée : le perdre d'un clic à côté était le pire
+         cas. « Annuler », en bas, reste le geste de sortie. Le `stopPropagation` évite en plus
+         qu'un clic dans la fenêtre n'atteigne la carte d'avis qui l'a ouverte. */
+      onClick={(e) => e.stopPropagation()}
       style={{
         position: 'fixed',
         inset: 0,
