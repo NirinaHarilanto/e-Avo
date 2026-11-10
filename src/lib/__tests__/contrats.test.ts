@@ -10,6 +10,7 @@ import {
   substituerVariablesDuo,
   valeursChampsIdentiteDuo,
   type VariableResolue,
+  SOURCES_VARIABLE,
 } from '../contrats'
 import type { Database } from '../../types/database.types'
 
@@ -212,6 +213,48 @@ describe('preparerVariables', () => {
   it('retombe sur la saisie quand la donnée est absente de la fiche', () => {
     const resolues = preparerVariables('{{taux_horaire}}', [{ cle: 'taux_horaire', label: 'Taux horaire' }], etudiant, etablissement)
     expect(resolues[0].valeurAuto).toBeUndefined()
+  })
+
+  /* Les trois taux du professeur, chacun à sa place (2026-11-10) : le contrat de prestation
+     fourni par le client cite séparément « X par heure pour les cours individuels et Y par heure
+     pour les cours collectifs », là où `taux_horaire` seul ne résout que l'individuel. Les faire
+     saisir à la main pour chaque professeur, alors que sa fiche les porte, c'était inviter la
+     faute de frappe dans un document signé. */
+  describe('taux horaires détaillés du professeur', () => {
+    const profTroisTaux: Profile = { ...professeur, taux_horaire_individuel: 15000, taux_horaire_duo: 12000, taux_horaire_collectif: 8000 }
+
+    function resoudre(cle: string, source: string, p: Profile = profTroisTaux) {
+      return preparerVariables(`{{${cle}}}`, [{ cle, label: cle, source }], p, etablissement)[0]
+    }
+
+    it('reprend chacun des trois taux depuis la fiche', () => {
+      // `toLocaleString('fr-FR')` sépare les milliers par une espace fine insécable (U+202F),
+      // jamais une espace ordinaire — écrite ici en toutes lettres pour que l'attente soit lisible.
+      const FINE = ' '
+      expect(resoudre('taux_individuel', 'taux_horaire_individuel').valeurAuto).toBe(`15${FINE}000 Ar`)
+      expect(resoudre('taux_duo', 'taux_horaire_duo').valeurAuto).toBe(`12${FINE}000 Ar`)
+      expect(resoudre('taux_collectif', 'taux_horaire_collectif').valeurAuto).toBe(`8${FINE}000 Ar`)
+    })
+
+    /* La phrase du contrat dit « une rémunération de {{taux_horaire_individuel}} par heure » :
+       elle ne porte pas la devise, le montant doit donc l'apporter. */
+    it('rend le montant avec son unité, contrairement au taux horaire historique', () => {
+      expect(resoudre('taux_individuel', 'taux_horaire_individuel').valeurAuto).toContain('Ar')
+      expect(resoudre('taux', 'taux_horaire').valeurAuto).toBe('15000')
+    })
+
+    /* Jamais « 0 Ar » : un taux absent redevient un champ à saisir, il n'affirme pas la gratuité. */
+    it('redevient un champ à saisir quand la fiche ne porte pas ce taux', () => {
+      const sansCollectif: Profile = { ...profTroisTaux, taux_horaire_collectif: null }
+      expect(resoudre('taux_collectif', 'taux_horaire_collectif', sansCollectif).valeurAuto).toBeUndefined()
+    })
+
+    it('est proposé dans le sélecteur de l’éditeur de modèle', () => {
+      const valeurs = SOURCES_VARIABLE.map((s) => s.valeur)
+      expect(valeurs).toContain('taux_horaire_individuel')
+      expect(valeurs).toContain('taux_horaire_duo')
+      expect(valeurs).toContain('taux_horaire_collectif')
+    })
   })
 })
 

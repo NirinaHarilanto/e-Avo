@@ -34,6 +34,15 @@ export type SourceVariable =
   | 'lieu_naissance'
   | 'age'
   | 'taux_horaire'
+  /* Les trois taux du professeur, chacun à sa place (2026-11-10). `taux_horaire` seul ne résout
+     que l'individuel : il datait d'un temps où la fiche n'en portait qu'un (0126). Le contrat de
+     prestation fourni par le client les cite désormais séparément — « une rémunération de X par
+     heure pour les cours individuels et de Y par heure pour les cours collectifs » — et les
+     faire saisir à la main pour chaque professeur, alors que sa fiche les porte, c'était inviter
+     la faute de frappe dans un document signé. */
+  | 'taux_horaire_individuel'
+  | 'taux_horaire_duo'
+  | 'taux_horaire_collectif'
   /* Second membre d'un binôme DUO (0066, demande client du 2026-09-23 : « mettre étudiant 1 avec
      ses informations et étudiant 2 avec ses informations, dans le même contrat »). Un contrat
      étudiant DUO résout ces sources depuis le second profil transmis à `preparerVariables`, en
@@ -91,6 +100,9 @@ export const SOURCES_VARIABLE: { valeur: SourceVariable; label: string; groupe: 
   { valeur: 'adresse', label: 'Adresse', groupe: 'Personne concernée' },
   { valeur: 'ville', label: 'Ville', groupe: 'Personne concernée' },
   { valeur: 'taux_horaire', label: 'Taux horaire', groupe: 'Personne concernée' },
+  { valeur: 'taux_horaire_individuel', label: 'Taux horaire — cours individuels', groupe: 'Personne concernée' },
+  { valeur: 'taux_horaire_duo', label: 'Taux horaire — cours duo', groupe: 'Personne concernée' },
+  { valeur: 'taux_horaire_collectif', label: 'Taux horaire — cours collectifs', groupe: 'Personne concernée' },
   { valeur: 'nom_complet_2', label: 'Prénom et nom (étudiant 2)', groupe: 'Second membre du duo' },
   { valeur: 'prenom_2', label: 'Prénom (étudiant 2)', groupe: 'Second membre du duo' },
   { valeur: 'nom_2', label: 'Nom (étudiant 2)', groupe: 'Second membre du duo' },
@@ -193,6 +205,13 @@ export interface ContexteProgramme {
    une saisie manuelle plutôt que d'insérer une chaîne vide dans le contrat. Le taux horaire est
    rendu sans symbole monétaire : les établissements ne facturent pas tous dans la même devise,
    c'est au texte du modèle de porter l'unité. */
+/* Un montant en ariary tel qu'il doit apparaître dans un document signé : séparateurs de
+   milliers français et unité explicite. `null` (et non « 0 Ar ») quand la fiche ne porte rien —
+   la variable redevient alors un champ à saisir, au lieu d'affirmer un taux nul. */
+function montantAriary(valeur: number | null): string | null {
+  return valeur === null ? null : `${valeur.toLocaleString('fr-FR')} Ar`
+}
+
 export function resoudreSource(
   source: string,
   destinataire: Profile,
@@ -242,6 +261,18 @@ export function resoudreSource(
       // conception — les variables manuelles `taux_horaire_individuel`/`taux_horaire_collectif`
       // de 0103 restent le seul endroit où un contrat détaille les 3, saisies à la main.
       return destinataire.taux_horaire_individuel === null ? null : String(destinataire.taux_horaire_individuel)
+    /* Rendus AVEC leur unité, contrairement à `taux_horaire` ci-dessus : la phrase du contrat de
+       prestation dit « une rémunération de {{taux_horaire_individuel}} par heure », elle ne porte
+       donc pas la devise — « de 15 000 par heure » laisserait le montant sans unité dans un
+       document signé. Même raisonnement que `montant_programme` plus bas. `taux_horaire`, lui,
+       reste brut : des modèles déjà émis l'entourent de leur propre mention d'unité, et la
+       changer réécrirait leur phrase. */
+    case 'taux_horaire_individuel':
+      return montantAriary(destinataire.taux_horaire_individuel)
+    case 'taux_horaire_duo':
+      return montantAriary(destinataire.taux_horaire_duo)
+    case 'taux_horaire_collectif':
+      return montantAriary(destinataire.taux_horaire_collectif)
     case 'etablissement_nom':
       return etablissement?.nom ?? null
     case 'etablissement_specialite':

@@ -149,19 +149,26 @@ describe('api/admin/email-demarrage — date du premier cours', () => {
   })
 
   it('annonce la séance de l’élève quand elle en a une', async () => {
+    /* Dates calculées à partir de MAINTENANT, et non écrites en dur : la route ne retient que
+       les séances encore à venir (`gte('debut', now)`), si bien que des dates fixes finissent
+       par tomber dans le passé — ce test est passé au rouge tout seul deux jours après avoir été
+       écrit, sans qu'une ligne de code ait bougé. */
+    const dans = (jours: number) => new Date(Date.now() + jours * 86_400_000)
+    const seanceAutre = dans(2)
+    const seanceAElle = dans(6)
     seances = [
-      { id: 'seance-autre-eleve', debut: '2026-11-06T09:00:00.000Z', teacher_id: 'prof-1', statut: 'planifiee' },
-      { id: 'seance-a-elle', debut: '2026-11-10T07:00:00.000Z', teacher_id: 'prof-1', statut: 'planifiee' },
+      { id: 'seance-autre-eleve', debut: seanceAutre.toISOString(), teacher_id: 'prof-1', statut: 'planifiee' },
+      { id: 'seance-a-elle', debut: seanceAElle.toISOString(), teacher_id: 'prof-1', statut: 'planifiee' },
     ]
     inscriptionsParEleve = { 'eleve-1': ['seance-a-elle'] }
 
     await handler(requete())
 
     const envoi = valeursEnvoyees()
-    /* La SIENNE (10 novembre), pas celle de la professeure avec quelqu'un d'autre (6 novembre),
+    /* La SIENNE (la plus LOINTAINE des deux), pas celle de la professeure avec quelqu'un d'autre,
        pourtant plus proche — c'est précisément ce que l'ancienne requête retenait. */
-    expect(envoi.valeurs.date_debut_formation).toContain('10')
-    expect(envoi.valeurs.date_debut_formation).toContain('novembre')
+    const attendue = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Indian/Antananarivo', day: 'numeric', month: 'long' }).format(seanceAElle)
+    expect(envoi.valeurs.date_debut_formation).toContain(attendue)
   })
 
   /* Le mail nomme UN professeur : annoncer la séance d'un autre sous son nom serait le même
