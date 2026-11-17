@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AdminLayout } from '../layout/AdminLayout'
 import { useProfesseurDetailAdmin, type EleveDuProfesseur } from '../../hooks/useProfesseurDetailAdmin'
@@ -10,12 +11,16 @@ import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { EnTetePage, BoutonRetour } from '../ui/EnTetePage'
 import { GrilleStats, Stat } from '../ui/Stat'
+import { boutonSecondaireStyle } from '../ui/Boutons'
 import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { formaterHeures } from '../../lib/heures'
 import { LABEL_TYPE_PROGRAMME } from '../../lib/paiements'
 import { KpiSatisfaction } from './KpiSatisfaction'
+import { BonusProfesseurModale } from './BonusProfesseurModale'
+import { totalBonus } from '../../lib/bonusProfesseur'
+import { formaterMontant } from '../../lib/paiements'
 import { PrestationsExternes } from './PrestationsExternes'
 import { DetacherVisioEtablissement } from './DetacherVisioEtablissement'
 import { TimesheetsAdmin } from '../admin/TimesheetsAdmin'
@@ -31,6 +36,10 @@ export function ProfesseurDetailAdmin() {
   const { derniereNotification } = useProfileContext()
   useRafraichirSurNotification(derniereNotification, ['timesheet_soumis', 'timesheet_valide', 'timesheet_refuse'], rechargerTimesheets)
   const timesheetsProfesseur = timesheets.filter((t) => t.timesheet.teacher_id === id)
+  /* Bonus (0162, demande client du 2026-11-17) : la tuile somme ce qui reste dû, le pop-up
+     détaille et laisse l'admin en accorder, en corriger ou en retirer. */
+  const [bonusOuvert, setBonusOuvert] = useState(false)
+  const totauxBonus = totalBonus(detail?.bonus ?? [])
 
   return (
     <AdminLayout actif="Professeurs">
@@ -53,7 +62,12 @@ export function ProfesseurDetailAdmin() {
             }
           />
 
-          <GrilleStats>
+          {/* 150 px et non les 190 par défaut : à huit tuiles, la dernière passait à la ligne.
+              Demande client du 2026-11-17 — « tous les blocs devraient s'afficher sur une seule
+              ligne même s'il faut réduire un peu les dimensions ». 8 × 150 + 7 × 14 d'écart =
+              1 298 px, qui tiennent dans la zone de contenu de l'écran admin. En dessous, la
+              grille `auto-fit` reprend la main et replie proprement. */}
+          <GrilleStats min={150}>
             <Stat libelle="Élèves actifs" valeur={detail.eleves.length} ton="bleu" aide="Attributions en cours" />
             <Stat libelle="Heures enseignées" valeur={formaterHeures(detail.heuresTotalEnseignees)} ton="or" aide="Total depuis son arrivée" />
             <Stat
@@ -89,7 +103,33 @@ export function ProfesseurDetailAdmin() {
               unite={detail.professeur.taux_horaire_chat_chill ? 'Ar/h' : undefined}
               ton={detail.professeur.taux_horaire_chat_chill ? 'teal' : 'neutre'}
             />
+            {/* Bonus (0162) — demande client du 2026-11-17. La tuile montre ce qui RESTE DÛ, pas
+                le cumul de toujours : c'est le chiffre qui appelle une action. Ce qui a déjà été
+                payé se lit juste en dessous, et le détail ligne par ligne dans le pop-up. */}
+            <Stat
+              libelle="Bonus"
+              valeur={formaterMontant(totauxBonus.enAttente)}
+              ton={totauxBonus.enAttente > 0 ? 'or' : 'neutre'}
+              aide={totauxBonus.paye > 0 ? `${formaterMontant(totauxBonus.paye)} déjà payés` : 'En attente de paiement'}
+              pied={
+                <button onClick={() => setBonusOuvert(true)} style={{ ...boutonSecondaireStyle, fontSize: 11, padding: '5px 10px' }}>
+                  Modifier
+                </button>
+              }
+            />
           </GrilleStats>
+
+          {bonusOuvert && (
+            <BonusProfesseurModale
+              teacherId={detail.professeur.id}
+              nomProfesseur={`${detail.professeur.prenom} ${detail.professeur.nom}`}
+              etablissementId={detail.professeur.etablissement_id}
+              eleves={detail.eleves.map((e) => ({ eleve: e.eleve, packages: e.packages }))}
+              bonus={detail.bonus}
+              onFermer={() => setBonusOuvert(false)}
+              onChange={recharger}
+            />
+          )}
 
           <KpiSatisfaction teacherId={detail.professeur.id} />
 

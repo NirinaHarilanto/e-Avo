@@ -35,6 +35,9 @@ let paiementCapture: Record<string, unknown> | null = null
 let factureCapturee: Record<string, unknown> | null = null
 let timesheetMiseAJour: Record<string, unknown> | null = null
 let ledgerPaiementIds: string[] = []
+/* Bonus (0162) : ce que la base rend, et ce que la route y ecrit. */
+let bonusRetournes: Record<string, unknown>[] = []
+let bonusMarques: { ids: string[]; valeurs: Record<string, unknown> } | null = null
 
 function clientFactice() {
   return {
@@ -61,6 +64,21 @@ function clientFactice() {
             in: async (_colonne: string, ids: string[]) => {
               if (valeurs.timesheet_id === null) liberationIds = ids
               if (valeurs.teacher_payment_id) ledgerPaiementIds = ids
+              return { error: null }
+            },
+          }),
+        }
+      }
+      if (table === 'bonus_professeur') {
+        return {
+          select: () => ({
+            eq: () => ({
+              is: () => ({ order: async () => ({ data: bonusRetournes }) }),
+            }),
+          }),
+          update: (valeurs: Record<string, unknown>) => ({
+            in: async (_colonne: string, ids: string[]) => {
+              bonusMarques = { ids, valeurs }
               return { error: null }
             },
           }),
@@ -115,6 +133,8 @@ beforeEach(() => {
   factureCapturee = null
   timesheetMiseAJour = null
   ledgerPaiementIds = []
+  bonusRetournes = []
+  bonusMarques = null
   creerNotification.mockClear()
 })
 
@@ -235,5 +255,101 @@ describe('api/admin/traiter-timesheet — validation (0126)', () => {
     timesheetRetourne = { id: 'ts-5', statut: 'valide' }
     const reponse = await handler(requete({ timesheetId: 'ts-5', decision: 'valide' }))
     expect(reponse.status).toBe(409)
+  })
+})
+
+/* Demande client du 2026-11-17 : « ces bonus apparaîtront sur le timesheet du professeur
+   concerné ». Repris à la VALIDATION et non à l'envoi du relevé : c'est l'administration qui les
+   accorde, et c'est la validation qui crée la rémunération et la facture. Ce bloc garde les
+   quatre conséquences de ce choix — le montant versé, les lignes de la facture, le marquage
+   « payé », et le fait qu'un relevé sans bonus ne bouge pas d'un ariary. */
+describe('api/admin/traiter-timesheet — bonus (0162)', () => {
+  beforeEach(() => {
+    timesheetRetourne = {
+      id: 'ts-1',
+      teacher_id: 'prof-1',
+      numero: 'TS-0001',
+      statut: 'soumis',
+      periode_debut: '2026-10-01',
+      periode_fin: '2026-10-31',
+      total_heures: 2,
+      lignes: [
+        { hour_ledger_id: 'h1', session_id: 's1', debut: '2026-10-01T08:00:00.000Z', eleves: 'Élève A', heures: 2, type: 'individuel', taux: 15000, montant: 30000 },
+      ],
+      lignes_retirees: [],
+      commentaire: null,
+    }
+    professeurRetourne = { taux_horaire_individuel: 15000, taux_horaire_duo: 15000, taux_horaire_collectif: 15000 }
+    ecrituresRetournees = [{ id: 'h1', heures: 2, type_facturation: 'individuel', teacher_payment_id: null }]
+  })
+
+  it('ajoute les bonus en attente à la rémunération et à la facture', async () => {
+    bonusRetournes = [
+      { id: 'b-1', montant: 10000, motif: 'Renouvellement du forfait de Aina', accorde_le: '2026-11-10' },
+      { id: 'b-2', montant: 5000, motif: 'Bonus exceptionnel', accorde_le: '2026-11-12' },
+    ]
+
+    const reponse = await handler(requete({ timesheetId: 'ts-1', decision: 'valide' }))
+    expect(reponse.status).toBe(200)
+
+    // 2 h x 15 000 = 30 000 d'heures, plus 15 000 de bonus.
+    expect(paiementCapture?.montant).toBe(45000)
+    expect(factureCapturee?.montant_ttc).toBe(45000)
+
+    const lignes = factureCapturee?.lignes as { description: string; quantite: number; prix_unitaire_ht: number }[]
+    const lignesBonus = lignes.filter((l) => l.description.startsWith('Bonus'))
+    expect(lignesBonus).toHaveLength(2)
+    // Pas d'heures sur un bonus : quantité 1, le montant en prix unitaire.
+    expect(lignesBonus[0]).toMatchObject({ quantite: 1, prix_unitaire_ht: 10000 })
+    expect(lignesBonus[0].description).toContain('Renouvellement du forfait de Aina')
+  })
+
+  /* « Payé », c'est être rattaché à une rémunération — même geste que pour les heures (0029).
+     Le relevé est noté au passage, sans quoi un relevé validé afficherait les bonus accordés
+     DEPUIS, et son total ne correspondrait plus à la facture émise. */
+  it('marque les bonus payés et note le relevé qui les porte', async () => {
+    bonusRetournes = [{ id: 'b-1', montant: 10000, motif: 'Renouvellement', accorde_le: '2026-11-10' }]
+
+    await handler(requete({ timesheetId: 'ts-1', decision: 'valide' }))
+
+    expect(bonusMarques).toEqual({
+      ids: ['b-1'],
+      valeurs: { teacher_payment_id: 'paiement-1', timesheet_id: 'ts-1' },
+    })
+  })
+
+  it('n’écrit rien et ne change aucun montant sans bonus en attente', async () => {
+    bonusRetournes = []
+
+    await handler(requete({ timesheetId: 'ts-1', decision: 'valide' }))
+
+    expect(bonusMarques).toBeNull()
+    expect(paiementCapture?.montant).toBe(30000)
+    const lignes = factureCapturee?.lignes as { description: string }[]
+    expect(lignes.every((l) => !l.description.startsWith('Bonus'))).toBe(true)
+  })
+
+  /* Le montant des HEURES reste celui des heures sur le relevé : l'y mêler ferait un relevé dont
+     le total ne correspond plus à heures x taux, et qui se lirait comme une erreur de calcul. */
+  it('laisse au relevé le montant de ses seules heures', async () => {
+    bonusRetournes = [{ id: 'b-1', montant: 10000, motif: 'Renouvellement', accorde_le: '2026-11-10' }]
+
+    await handler(requete({ timesheetId: 'ts-1', decision: 'valide' }))
+
+    expect(timesheetMiseAJour?.montant).toBe(30000)
+  })
+
+  it('annonce le nombre de bonus repris et leur total dans sa réponse', async () => {
+    bonusRetournes = [
+      { id: 'b-1', montant: 10000, motif: 'Renouvellement', accorde_le: '2026-11-10' },
+      { id: 'b-2', montant: 10000, motif: 'Renouvellement', accorde_le: '2026-11-11' },
+    ]
+
+    const corps = (await (await handler(requete({ timesheetId: 'ts-1', decision: 'valide' }))).json()) as {
+      bonusRepris: number
+      montantBonus: number
+    }
+
+    expect(corps).toMatchObject({ bonusRepris: 2, montantBonus: 20000 })
   })
 })

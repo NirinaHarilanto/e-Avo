@@ -5,6 +5,7 @@ import { LIBELLE_TYPE_FACTURATION } from '../../lib/remuneration'
 import type { Database } from '../../types/database.types'
 
 type Timesheet = Database['public']['Tables']['timesheets']['Row']
+type BonusProfesseur = Database['public']['Tables']['bonus_professeur']['Row']
 
 export const LABEL_STATUT_TIMESHEET: Record<Timesheet['statut'], string> = {
   soumis: 'En attente de validation',
@@ -24,9 +25,22 @@ const montant = (v: number) => `${v.toLocaleString('fr-FR', { minimumFractionDig
    montant — plus de taux unique affiché en pied de page, un relevé mélange souvent plusieurs
    types de séance. `l.montant`/`l.type` sont absents sur les relevés antérieurs à ce chantier :
    la ligne retombe alors sur le total déjà figé du TimeSheet, jamais recalculée après coup. */
-export function TimesheetDocument({ timesheet, nomProfesseur }: { timesheet: Timesheet; nomProfesseur: string }) {
+export function TimesheetDocument({
+  timesheet,
+  nomProfesseur,
+  /* Bonus à faire figurer sur ce relevé (0162). C'est l'APPELANT qui choisit lesquels, parce que
+     la réponse dépend de l'état du relevé : une fois validé, ceux qu'il a réellement portés
+     (`timesheet_id`) ; tant qu'il attend, ceux encore en attente du professeur — un aperçu de ce
+     que la validation ajoutera. Le document, lui, affiche ce qu'on lui donne. */
+  bonus = [],
+}: {
+  timesheet: Timesheet
+  nomProfesseur: string
+  bonus?: Pick<BonusProfesseur, 'id' | 'montant' | 'motif'>[]
+}) {
   const etablissement = useEtablissement(timesheet.etablissement_id)
   const cellule = { padding: '7px 4px', borderBottom: '1px solid #ddd', fontSize: 12.5 } as const
+  const totalBonusDocument = bonus.reduce((total, b) => total + Number(b.montant), 0)
 
   return (
     <div style={{ color: '#111' }}>
@@ -78,9 +92,41 @@ export function TimesheetDocument({ timesheet, nomProfesseur }: { timesheet: Tim
         </tbody>
       </table>
 
+      {/* Bonus (0162, demande client du 2026-11-17 : « ces bonus apparaîtront sur le timesheet du
+          professeur concerné »). Un bloc à part, et non des lignes du tableau des séances : un
+          bonus n'a ni date de séance, ni élève, ni heures — l'y glisser fausserait les colonnes
+          et le total des heures juste en dessous. */}
+      {bonus.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <h3 style={{ fontSize: 13, margin: '0 0 6px', color: '#111' }}>Bonus</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              {bonus.map((b) => (
+                <tr key={b.id}>
+                  <td style={cellule}>{b.motif}</td>
+                  <td style={{ ...cellule, textAlign: 'right', whiteSpace: 'nowrap' }}>{montant(Number(b.montant))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div style={{ marginTop: 16, textAlign: 'right', fontSize: 14, display: 'flex', flexDirection: 'column', gap: 3 }}>
         <span>Total des heures : {formaterHeures(Number(timesheet.total_heures))}</span>
-        <span style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>Total à payer : {timesheet.montant != null ? montant(timesheet.montant) : '—'}</span>
+        {/* Le montant des heures garde son intitulé propre dès qu'un bonus s'y ajoute : sans
+            cette distinction, « Total à payer » ne correspondrait plus au produit heures × taux
+            et se lirait comme une erreur de calcul. */}
+        <span>
+          {bonus.length > 0 ? 'Rémunération des heures' : 'Total à payer'} :{' '}
+          {timesheet.montant != null ? montant(timesheet.montant) : '—'}
+        </span>
+        {bonus.length > 0 && <span>Bonus : {montant(totalBonusDocument)}</span>}
+        {bonus.length > 0 && (
+          <span style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>
+            Total à payer : {timesheet.montant != null ? montant(Number(timesheet.montant) + totalBonusDocument) : '—'}
+          </span>
+        )}
         {timesheet.statut !== 'valide' && timesheet.montant != null && (
           <span style={{ fontSize: 11, color: '#666' }}>Montant estimé : définitif, ligne par ligne, à la validation par l’établissement.</span>
         )}

@@ -5,11 +5,15 @@ import { LIBELLE_TYPE_PRESTATION } from '../lib/prestationsExternes'
 import { useCacheRequete } from './useCacheRequete'
 
 type Timesheet = Database['public']['Tables']['timesheets']['Row']
+type BonusProfesseur = Database['public']['Tables']['bonus_professeur']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
 
 export interface TimesheetAvecProfesseur {
   timesheet: Timesheet
   professeur: Pick<Profile, 'id' | 'prenom' | 'nom' | 'taux_horaire_individuel' | 'taux_horaire_duo' | 'taux_horaire_collectif'> | null
+  /* Bonus figurant sur ce relevé (0162) — ceux qu'il a portés s'il est validé, ceux encore en
+     attente du professeur sinon. Voir le calcul dans le hook. */
+  bonus: BonusProfesseur[]
 }
 
 /* TimeSheets visibles par l'utilisateur (0081) : tous ceux de l'établissement pour l'admin, les
@@ -20,15 +24,32 @@ export function useTimesheets(cleSuffixe: string | undefined) {
        nommer demandait d'attendre les TimeSheets, soit deux allers-retours successifs au lieu d'un
        — voir lib/profilsEtablissement.ts. Pas de filtre sur `status` ici, volontairement : le nom
        d'un professeur supprimé doit rester lisible sur ses anciens TimeSheets. */
-    const [{ data, error }, profilsTous] = await Promise.all([
+    const [{ data, error }, profilsTous, { data: tousBonus }] = await Promise.all([
       supabase.from('timesheets').select('*').order('soumis_le', { ascending: false }),
       chargerProfilsEtablissement(),
+      /* Bonus (0162) : partent avec le reste plutôt qu'après, même raison que les profils —
+         les attacher au relevé n'a aucune dépendance sur son contenu. La RLS borne déjà la
+         lecture (l'admin voit ceux de son établissement, un professeur les siens). */
+      supabase.from('bonus_professeur').select('*').order('accorde_le'),
     ])
     if (error) throw new Error(error.message)
     const parId = new Map(profilsTous.map((p) => [p.id, p]))
+    const bonus = tousBonus ?? []
     const ordre = { soumis: 0, refuse: 1, valide: 2 } as const
     return (data ?? [])
-      .map((timesheet) => ({ timesheet, professeur: parId.get(timesheet.teacher_id) ?? null }))
+      .map((timesheet) => ({
+        timesheet,
+        professeur: parId.get(timesheet.teacher_id) ?? null,
+        /* Lesquels figurent sur CE relevé : une fois validé, ceux qu'il a réellement portés ;
+           tant qu'il attend, ceux encore en attente du professeur — un aperçu de ce que la
+           validation y ajoutera. Sans cette distinction, un relevé validé en janvier afficherait
+           les bonus accordés depuis, et son total ne correspondrait plus à la facture émise. */
+        bonus: bonus.filter((b) =>
+          timesheet.statut === 'valide'
+            ? b.timesheet_id === timesheet.id
+            : b.teacher_id === timesheet.teacher_id && b.teacher_payment_id === null,
+        ),
+      }))
       .sort((a, b) => ordre[a.timesheet.statut] - ordre[b.timesheet.statut])
   })
   return { timesheets: valeur ?? [], loading, erreur, recharger }

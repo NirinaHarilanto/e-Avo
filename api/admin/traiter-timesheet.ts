@@ -121,12 +121,33 @@ export default async function handler(request: Request): Promise<Response> {
     }
     const tauxParLigne = new Map(lignesCalculees.map((l) => [l.ligne.id, l]))
 
+    /* Bonus en attente de ce professeur (0162, demande client du 2026-11-17 : « ces bonus
+       apparaîtront sur le timesheet du professeur concerné »). Repris ICI, à la validation, et
+       pas à l'envoi du relevé : c'est l'administration qui les accorde, et c'est la validation
+       qui crée la rémunération. Un bonus accordé pendant que le relevé attendait entre donc dans
+       celui-ci ; un bonus accordé après partira avec le suivant.
+
+       `teacher_payment_id is null` est la seule définition de « en attente » (même convention
+       que le grand livre, 0029) : un bonus déjà rattaché à une rémunération a déjà été payé. */
+    const { data: bonusEnAttente } = await serviceClient
+      .from('bonus_professeur')
+      .select('id, montant, motif, accorde_le')
+      .eq('teacher_id', ts.teacher_id)
+      .is('teacher_payment_id', null)
+      .order('accorde_le')
+    const bonus = bonusEnAttente ?? []
+    const montantBonus = bonus.reduce((total, b) => total + Number(b.montant), 0)
+    /* Arrondi au centime comme le reste des montants de l'application : additionner des `numeric`
+       relus en nombres flottants peut sinon produire un total à 0,000000001 près, qui se verrait
+       sur la facture. */
+    const montantTotal = Math.round((montant + montantBonus) * 100) / 100
+
     const { data: paiement, error: erreurPaiement } = await serviceClient
       .from('teacher_payments')
       .insert({
         etablissement_id: etablissementId,
         teacher_id: ts.teacher_id,
-        montant,
+        montant: montantTotal,
         periode_debut: ts.periode_debut,
         periode_fin: ts.periode_fin,
         mode_remuneration: 'horaire',
@@ -144,6 +165,16 @@ export default async function handler(request: Request): Promise<Response> {
       .from('hour_ledger')
       .update({ teacher_payment_id: paiement.id })
       .in('id', ecrituresRetenues.map((e) => e.id))
+
+    /* Le même geste que pour les heures : rattacher à la rémunération, c'est marquer payé. Le
+       relevé est noté au passage, pour que le document sache quels bonus il a portés — sans
+       quoi un relevé validé afficherait les bonus accordés DEPUIS. */
+    if (bonus.length > 0) {
+      await serviceClient
+        .from('bonus_professeur')
+        .update({ teacher_payment_id: paiement.id, timesheet_id: ts.id })
+        .in('id', bonus.map((b) => b.id))
+    }
 
     // Lignes finalisées : taux/montant figés au taux EN VIGUEUR à la validation (plus l'estimation
     // de l'envoi), lignes exclues retirées de `lignes` et tracées à part dans `lignes_retirees`.
@@ -163,6 +194,17 @@ export default async function handler(request: Request): Promise<Response> {
       prix_unitaire_ht: l.taux ?? 0,
       tva_pct: 0,
     }))
+    /* Une ligne par bonus, après les séances : la facture doit dire d'où vient chaque ariary.
+       Quantité 1 et prix unitaire = le montant, puisqu'un bonus n'a pas d'heures. */
+    for (const b of bonus) {
+      lignesFacture.push({
+        description: `Bonus — ${b.motif}`,
+        quantite: 1,
+        prix_unitaire_ht: Number(b.montant),
+        tva_pct: 0,
+      })
+    }
+
     const numero = await numeroSuivant(serviceClient, 'invoices', 'FAC', etablissementId)
     const { data: facture, error: erreurFacture } = await serviceClient
       .from('invoices')
@@ -174,9 +216,9 @@ export default async function handler(request: Request): Promise<Response> {
         statut: 'emise',
         objet,
         lignes: lignesFacture,
-        montant_ht: montant,
+        montant_ht: montantTotal,
         montant_tva: 0,
-        montant_ttc: montant,
+        montant_ttc: montantTotal,
         notes: ts.commentaire ? `Commentaire du professeur : ${ts.commentaire}` : null,
         created_by_profile_id: profileId,
       })
@@ -185,6 +227,13 @@ export default async function handler(request: Request): Promise<Response> {
     if (erreurFacture || !facture) {
       return Response.json({ error: erreurFacture?.message ?? 'La facture n’a pas pu être créée.' }, { status: 500 })
     }
+
+    /* Le professeur doit comprendre un total supérieur à ses heures sans avoir à ouvrir la
+       facture : sans cette mention, un bonus ressemblerait à une erreur de calcul. */
+    const mentionBonus =
+      bonus.length > 0
+        ? `, dont ${montantBonus.toLocaleString('fr-FR')} Ar de bonus (${bonus.length})`
+        : ''
 
     await serviceClient
       .from('timesheets')
@@ -212,12 +261,19 @@ export default async function handler(request: Request): Promise<Response> {
       titre: `TimeSheet ${ts.numero} validé`,
       message:
         exclus.size > 0
-          ? `Facture ${facture.numero} émise : ${montant.toLocaleString('fr-FR')} Ar pour ${heures} h. ${exclus.size} ligne(s) retirée(s) par l'administration : ${justificatif}.`
-          : `Facture ${facture.numero} émise : ${montant.toLocaleString('fr-FR')} Ar pour ${heures} h.`,
+          ? `Facture ${facture.numero} émise : ${montantTotal.toLocaleString('fr-FR')} Ar pour ${heures} h${mentionBonus}. ${exclus.size} ligne(s) retirée(s) par l'administration : ${justificatif}.`
+          : `Facture ${facture.numero} émise : ${montantTotal.toLocaleString('fr-FR')} Ar pour ${heures} h${mentionBonus}.`,
       lien: '/professeur/factures',
     })
 
-    return Response.json({ ok: true, factureId: facture.id, numero: facture.numero, paiementId: paiement.id })
+    return Response.json({
+      ok: true,
+      factureId: facture.id,
+      numero: facture.numero,
+      paiementId: paiement.id,
+      bonusRepris: bonus.length,
+      montantBonus,
+    })
   } catch (erreur) {
     if (erreur instanceof AdminAuthError) {
       return Response.json({ error: erreur.message }, { status: erreur.status })

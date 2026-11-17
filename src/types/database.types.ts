@@ -1149,6 +1149,47 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['candidatures_formateurs']['Insert']>
         Relationships: []
       }
+      /* Bonus accordé à un professeur au renouvellement ou au prolongement du forfait d'un de
+         ses élèves (0162, demande client du 2026-11-17). Pas d'heures : un bonus ne peut pas
+         vivre dans `hour_ledger`, dont chaque ligne est un volume horaire qui sert aussi à
+         calculer les heures restantes d'un élève. Il emprunte en revanche sa convention de
+         « payé » — `teacher_payment_id` renseigné (0029). */
+      bonus_professeur: {
+        Row: {
+          id: string
+          etablissement_id: string
+          teacher_id: string
+          montant: number
+          motif: string
+          /* Le forfait qui a motivé le bonus. Null pour un bonus saisi librement, ou dont le
+             forfait d'origine a été supprimé depuis (`on delete set null`). */
+          package_id: string | null
+          student_id: string | null
+          /* Renseigné à la validation du relevé qui porte ce bonus : c'est ce qui le rend
+             « payé », et ce qui interdit dès lors d'en modifier le montant (trigger 0162). */
+          teacher_payment_id: string | null
+          timesheet_id: string | null
+          accorde_le: string
+          accorde_par: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          teacher_id: string
+          montant: number
+          motif: string
+          package_id?: string | null
+          student_id?: string | null
+          teacher_payment_id?: string | null
+          timesheet_id?: string | null
+          accorde_le?: string
+          accorde_par: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['bonus_professeur']['Insert']>
+        Relationships: []
+      }
       timesheets: {
         Row: {
           id: string

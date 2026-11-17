@@ -7,6 +7,7 @@ import { statutReglement, type StatutReglement } from '../lib/paiements'
 type Profile = Database['public']['Tables']['profiles']['Row']
 type TeacherAssignment = Database['public']['Tables']['teacher_assignments']['Row']
 type Package = Database['public']['Tables']['packages']['Row']
+type BonusProfesseur = Database['public']['Tables']['bonus_professeur']['Row']
 
 export interface EleveDuProfesseur {
   eleve: Profile
@@ -37,6 +38,9 @@ export interface ProfesseurDetail {
      Google » (api/admin/detacher-visio-etablissement.ts) que lorsqu'il y a effectivement quelque
      chose à détacher. */
   seancesHergeesParEtablissement: number
+  /* Bonus accordés à ce professeur (0162), du plus récent au plus ancien — payés et en attente
+     mêlés : c'est le pop-up qui les distingue, et la tuile qui somme ce qui reste dû. */
+  bonus: BonusProfesseur[]
 }
 
 export function useProfesseurDetailAdmin(teacherId: string | undefined) {
@@ -59,6 +63,7 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
       { data: integrationEtab },
       { data: toutesInscriptions },
       { data: toutesVisios },
+      { data: bonus },
     ] = await Promise.all([
       chargerProfilsEtablissement(),
       supabase
@@ -79,6 +84,7 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
          pouvoir nommer leurs identifiants — c'était la vague en trop. */
       supabase.from('session_enrollments').select('session_id, student_id, present, sessions!inner(teacher_id)').eq('sessions.teacher_id', teacherId as string).eq('present', true),
       supabase.from('video_sessions').select('session_id, organisateur_email, sessions!inner(teacher_id)').eq('sessions.teacher_id', teacherId as string),
+      supabase.from('bonus_professeur').select('*').eq('teacher_id', teacherId as string).order('accorde_le', { ascending: false }),
     ])
 
     // Un accès direct par URL à un professeur supprimé (il n'apparaît plus dans aucune liste
@@ -186,6 +192,7 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
       eleves,
       heuresTotalEnseignees: [...heuresParEleve.values()].reduce((total, h) => total + h, 0),
       seancesHergeesParEtablissement,
+      bonus: bonus ?? [],
     }
   })
 

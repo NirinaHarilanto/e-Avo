@@ -87,7 +87,7 @@ export function TimesheetsAdmin({
       )}
       {impression && (
         <OverlayImpression onFermer={() => setImpression(null)} nomFichier={`TimeSheet ${impression.item.timesheet.numero}`} actionInitiale={impression.action}>
-          <TimesheetDocument timesheet={impression.item.timesheet} nomProfesseur={nomDe(impression.item)} />
+          <TimesheetDocument timesheet={impression.item.timesheet} nomProfesseur={nomDe(impression.item)} bonus={impression.item.bonus} />
         </OverlayImpression>
       )}
     </>
@@ -163,7 +163,7 @@ function FenetreTimesheet({
     <Modale titre={`TimeSheet ${t.numero} · ${nomDe(item)}`} onFermer={onFermer} largeurMax={760}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ background: '#fff', borderRadius: 8, padding: 28, maxHeight: '55vh', overflowY: 'auto' }}>
-          <TimesheetDocument timesheet={t} nomProfesseur={nomDe(item)} />
+          <TimesheetDocument timesheet={t} nomProfesseur={nomDe(item)} bonus={item.bonus} />
         </div>
 
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
