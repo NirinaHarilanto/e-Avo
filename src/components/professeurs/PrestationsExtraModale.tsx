@@ -160,7 +160,10 @@ export function PrestationsExtraModale({
                 style={champStyle}
               />
             </Champ>
-            <Champ label="Montant" obligatoire>
+            {/* « Coût de la prestation », pas « Montant » seul — demande client du 2026-11-17,
+                capture à l'appui : un montant isolé ne dit pas s'il s'agit d'un coût pour
+                l'établissement ou d'un autre chiffre lié à la prestation. */}
+            <Champ label="Coût de la prestation" obligatoire>
               <input type="number" min={1} value={montant} onChange={(e) => setMontant(e.target.value)} style={champStyle} />
             </Champ>
             <Champ label="Durée (minutes)" aide="Facultative : certaines prestations se paient au forfait.">
