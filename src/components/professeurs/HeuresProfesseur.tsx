@@ -1,21 +1,34 @@
+import { useState } from 'react'
 import { seanceCloturable } from '../../lib/seances'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur } from '../../hooks/useCalendrierProfesseur'
+import { useBonusProfesseur } from '../../hooks/useBonusProfesseur'
+import { totalBonus } from '../../lib/bonusProfesseur'
+import { formaterMontant } from '../../lib/paiements'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GrilleStats, Stat } from '../ui/Stat'
 import { Section } from '../ui/Section'
 import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, EtatChargementStats } from '../ui/Etats'
+import { boutonSecondaireStyle } from '../ui/Boutons'
 import { formaterHeures } from '../../lib/heures'
 import { KpiSatisfaction } from './KpiSatisfaction'
 import { PrestationsExternes } from './PrestationsExternes'
 import { TimesheetProfesseur } from './TimesheetProfesseur'
+import { HistoriqueBonusModale } from './HistoriqueBonusModale'
 
 export function HeuresProfesseur() {
   const { profile } = useProfileContext()
   const { seances, heuresEnseignees, loading } = useCalendrierProfesseur(profile?.id)
+  /* Bonus (0162) — demande client du 2026-11-18 : « est-ce que tu as rajouté le bloc Bonus du
+     côté espace professeurs, en mode lecture uniquement ? [...] le professeur aurait le bouton
+     "Voir" pour voir l'historique. » Jamais « Modifier » ici : accorder ou corriger un bonus
+     reste une décision de l'administration (voir ProfesseurDetailAdmin.tsx). */
+  const { bonus } = useBonusProfesseur(profile?.id)
+  const [bonusOuvert, setBonusOuvert] = useState(false)
+  const totauxBonus = totalBonus(bonus)
 
   const parEtudiant = new Map<string, { prenom: string | null; nom: string | null; heures: number; seances: number }>()
   for (const seance of seances) {
@@ -60,7 +73,26 @@ export function HeuresProfesseur() {
               ton={aCloturer > 0 ? 'alerte' : 'neutre'}
               aide={aCloturer > 0 ? 'Elles ne sont pas encore comptées dans votre total' : 'Vous êtes à jour'}
             />
+            <Stat
+              libelle="Bonus"
+              valeur={formaterMontant(totauxBonus.enAttente)}
+              ton={totauxBonus.enAttente > 0 ? 'or' : 'neutre'}
+              aide={totauxBonus.paye > 0 ? `${formaterMontant(totauxBonus.paye)} déjà payés` : 'En attente de paiement'}
+              pied={
+                <button onClick={() => setBonusOuvert(true)} style={{ ...boutonSecondaireStyle, fontSize: 11, padding: '5px 10px' }}>
+                  Voir
+                </button>
+              }
+            />
           </GrilleStats>
+
+          {bonusOuvert && profile && (
+            <HistoriqueBonusModale
+              nomProfesseur={`${profile.prenom} ${profile.nom}`}
+              bonus={bonus}
+              onFermer={() => setBonusOuvert(false)}
+            />
+          )}
 
           <TimesheetProfesseur />
 
