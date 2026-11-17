@@ -128,6 +128,15 @@ beforeEach(() => {
   seances = []
 })
 
+/* Dates calculées à partir de MAINTENANT, jamais écrites en dur : la route ne retient que les
+   séances encore à venir (`gte('debut', now)`), si bien qu'une date fixe finit par tomber dans
+   le passé et fait virer le test au rouge sans qu'une ligne de code ait bougé. C'est arrivé deux
+   fois : le 2026-11-10 sur un test, puis le 2026-11-17 sur les deux autres du même fichier,
+   parce que la première correction était restée locale à son test. */
+const dans = (jours: number) => new Date(Date.now() + jours * 86_400_000)
+const jourLisible = (date: Date) =>
+  new Intl.DateTimeFormat('fr-FR', { timeZone: 'Indian/Antananarivo', day: 'numeric', month: 'long' }).format(date)
+
 describe('api/admin/email-demarrage — date du premier cours', () => {
   /* Le cas exact signalé : la professeure a des cours avec d'AUTRES élèves, la nouvelle élève
      n'en a aucun. Aucune date ne doit être annoncée. */
@@ -149,11 +158,6 @@ describe('api/admin/email-demarrage — date du premier cours', () => {
   })
 
   it('annonce la séance de l’élève quand elle en a une', async () => {
-    /* Dates calculées à partir de MAINTENANT, et non écrites en dur : la route ne retient que
-       les séances encore à venir (`gte('debut', now)`), si bien que des dates fixes finissent
-       par tomber dans le passé — ce test est passé au rouge tout seul deux jours après avoir été
-       écrit, sans qu'une ligne de code ait bougé. */
-    const dans = (jours: number) => new Date(Date.now() + jours * 86_400_000)
     const seanceAutre = dans(2)
     const seanceAElle = dans(6)
     seances = [
@@ -167,34 +171,37 @@ describe('api/admin/email-demarrage — date du premier cours', () => {
     const envoi = valeursEnvoyees()
     /* La SIENNE (la plus LOINTAINE des deux), pas celle de la professeure avec quelqu'un d'autre,
        pourtant plus proche — c'est précisément ce que l'ancienne requête retenait. */
-    const attendue = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Indian/Antananarivo', day: 'numeric', month: 'long' }).format(seanceAElle)
-    expect(envoi.valeurs.date_debut_formation).toContain(attendue)
+    expect(envoi.valeurs.date_debut_formation).toContain(jourLisible(seanceAElle))
   })
 
   /* Le mail nomme UN professeur : annoncer la séance d'un autre sous son nom serait le même
      défaut à l'envers. */
   it('ignore une séance de l’élève donnée par un autre professeur', async () => {
+    const autreProf = dans(2)
+    const bonProf = dans(5)
     seances = [
-      { id: 'seance-autre-prof', debut: '2026-11-07T09:00:00.000Z', teacher_id: 'prof-2', statut: 'planifiee' },
-      { id: 'seance-bon-prof', debut: '2026-11-12T07:00:00.000Z', teacher_id: 'prof-1', statut: 'planifiee' },
+      { id: 'seance-autre-prof', debut: autreProf.toISOString(), teacher_id: 'prof-2', statut: 'planifiee' },
+      { id: 'seance-bon-prof', debut: bonProf.toISOString(), teacher_id: 'prof-1', statut: 'planifiee' },
     ]
     inscriptionsParEleve = { 'eleve-1': ['seance-autre-prof', 'seance-bon-prof'] }
 
     await handler(requete())
 
-    expect(valeursEnvoyees().valeurs.date_debut_formation).toContain('12')
+    expect(valeursEnvoyees().valeurs.date_debut_formation).toContain(jourLisible(bonProf))
   })
 
   /* Une séance annulée ou déjà clôturée n'est pas « le premier cours à venir ». */
   it('ne retient qu’une séance encore planifiée', async () => {
+    const annulee = dans(2)
+    const planifiee = dans(5)
     seances = [
-      { id: 'seance-annulee', debut: '2026-11-07T09:00:00.000Z', teacher_id: 'prof-1', statut: 'annulee' },
-      { id: 'seance-ok', debut: '2026-11-14T07:00:00.000Z', teacher_id: 'prof-1', statut: 'planifiee' },
+      { id: 'seance-annulee', debut: annulee.toISOString(), teacher_id: 'prof-1', statut: 'annulee' },
+      { id: 'seance-ok', debut: planifiee.toISOString(), teacher_id: 'prof-1', statut: 'planifiee' },
     ]
     inscriptionsParEleve = { 'eleve-1': ['seance-annulee', 'seance-ok'] }
 
     await handler(requete())
 
-    expect(valeursEnvoyees().valeurs.date_debut_formation).toContain('14')
+    expect(valeursEnvoyees().valeurs.date_debut_formation).toContain(jourLisible(planifiee))
   })
 })

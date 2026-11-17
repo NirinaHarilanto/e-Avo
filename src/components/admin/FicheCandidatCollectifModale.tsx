@@ -15,6 +15,7 @@ import { EditerIdentiteProspect } from '../prospects/EditerIdentiteProspect'
 import { SupprimerProspect } from '../prospects/SupprimerProspect'
 import { ConvertirCandidatCollectif } from '../prospects/ConvertirCandidatCollectif'
 import { ResultatsSessionOraleModale } from './ResultatsSessionOraleModale'
+import { ModifierParcoursCollectif } from './ModifierParcoursCollectif'
 import { ReevaluerEtudiantCollectif } from '../prospects/ReevaluerEtudiantCollectif'
 import { FraisInscriptionCollectifModale, type FraisInscription } from '../prospects/FraisInscriptionCollectifModale'
 import { enregistrerFraisCollectif } from '../../lib/enregistrerFraisCollectif'
@@ -101,6 +102,12 @@ export function FicheCandidatCollectifModale({
   const [inscriptionTest, setInscriptionTest] = useState<InscriptionTest | null>(null)
   const [creneauTest, setCreneauTest] = useState<CreneauTest | null>(null)
   const [resultatsOuvert, setResultatsOuvert] = useState(false)
+  /* Édition du parcours collectif — demande client du 2026-11-17 : « il faudrait que
+     l'utilisateur admin puisse modifier les informations dans le parcours collectif de la
+     personne ». Même pliage que « Informations du candidat » juste au-dessus
+     (EditerIdentiteProspect) : un bouton dans l'en-tête de section, qui remplace la liste
+     en lecture par le formulaire. */
+  const [editionParcours, setEditionParcours] = useState(false)
 
   const rechargerDossier = useCallback(async () => {
     /* Les deux premières requêtes ne dépendent l'une de l'autre en rien (la seconde cherche par
@@ -351,7 +358,29 @@ export function FicheCandidatCollectifModale({
           {/* Parcours collectif : lecture seule pour la session orale et les niveaux (déjà
               couverts par Session orale/la conversion elle-même), modifiable pour la vague et la
               classe une fois converti. */}
-          <GroupeSection titre="Parcours collectif">
+          <GroupeSection
+            titre="Parcours collectif"
+            actions={
+              inscriptionTest && !editionParcours ? (
+                <button onClick={() => setEditionParcours(true)} style={boutonSecondaireStyle}>
+                  Modifier
+                </button>
+              ) : undefined
+            }
+          >
+            {editionParcours && inscriptionTest ? (
+              <ModifierParcoursCollectif
+                inscription={inscriptionTest}
+                creneauActuel={creneauTest}
+                estConverti={!!profilEtudiant}
+                onAnnuler={() => setEditionParcours(false)}
+                onEnregistre={() => {
+                  setEditionParcours(false)
+                  setSucces('Le parcours collectif a été mis à jour.')
+                  toutRecharger()
+                }}
+              />
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <LigneInfo
                 label="Session orale"
@@ -382,6 +411,7 @@ export function FicheCandidatCollectifModale({
                 />
               )}
             </div>
+            )}
 
             {/* Compte rendu du test oral — demande client du 2026-11-08 : « à 5 min de la fin de
                 la session orale, il faudrait rajouter un bouton sur le pop-up afin que l'admin
