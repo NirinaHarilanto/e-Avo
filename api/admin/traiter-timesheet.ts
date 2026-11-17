@@ -140,7 +140,22 @@ export default async function handler(request: Request): Promise<Response> {
     /* Arrondi au centime comme le reste des montants de l'application : additionner des `numeric`
        relus en nombres flottants peut sinon produire un total à 0,000000001 près, qui se verrait
        sur la facture. */
-    const montantTotal = Math.round((montant + montantBonus) * 100) / 100
+    /* Prestations « Extra » (0163, demande client du 2026-11-17 : « pour les prestations
+       validées, le montant validé sera rajouté automatiquement dans le timesheet du professeur
+       également »). Deux conditions, et les deux comptent : `statut = 'validee'` — une
+       prestation seulement planifiée est convenue mais pas encore reconnue comme due — et
+       `teacher_payment_id is null`, qui dit qu'elle n'a pas déjà été payée (0029). */
+    const { data: extrasValides } = await serviceClient
+      .from('prestations_extra')
+      .select('id, montant, type_prestation, date_prestation, lieu')
+      .eq('teacher_id', ts.teacher_id)
+      .eq('statut', 'validee')
+      .is('teacher_payment_id', null)
+      .order('date_prestation')
+    const extras = extrasValides ?? []
+    const montantExtras = extras.reduce((total, e) => total + Number(e.montant), 0)
+
+    const montantTotal = Math.round((montant + montantBonus + montantExtras) * 100) / 100
 
     const { data: paiement, error: erreurPaiement } = await serviceClient
       .from('teacher_payments')
@@ -176,6 +191,14 @@ export default async function handler(request: Request): Promise<Response> {
         .in('id', bonus.map((b) => b.id))
     }
 
+    // Même geste pour les prestations Extra : rattacher à la rémunération, c'est marquer payé.
+    if (extras.length > 0) {
+      await serviceClient
+        .from('prestations_extra')
+        .update({ teacher_payment_id: paiement.id, timesheet_id: ts.id })
+        .in('id', extras.map((e) => e.id))
+    }
+
     // Lignes finalisées : taux/montant figés au taux EN VIGUEUR à la validation (plus l'estimation
     // de l'envoi), lignes exclues retirées de `lignes` et tracées à part dans `lignes_retirees`.
     const lignesOrigine = ts.lignes as LigneTimesheet[]
@@ -205,6 +228,19 @@ export default async function handler(request: Request): Promise<Response> {
       })
     }
 
+    /* Une ligne par prestation, après les bonus. Quantité 1 et prix unitaire = le montant :
+       un Extra porte son propre montant, il ne se calcule pas à partir d'une durée (0163). */
+    for (const e of extras) {
+      const quand = new Date(e.date_prestation).toLocaleDateString('fr-FR')
+      const ou = e.lieu && e.lieu.trim() ? ` · ${e.lieu.trim()}` : ''
+      lignesFacture.push({
+        description: `Prestation — ${e.type_prestation} (${quand})${ou}`,
+        quantite: 1,
+        prix_unitaire_ht: Number(e.montant),
+        tva_pct: 0,
+      })
+    }
+
     const numero = await numeroSuivant(serviceClient, 'invoices', 'FAC', etablissementId)
     const { data: facture, error: erreurFacture } = await serviceClient
       .from('invoices')
@@ -230,10 +266,11 @@ export default async function handler(request: Request): Promise<Response> {
 
     /* Le professeur doit comprendre un total supérieur à ses heures sans avoir à ouvrir la
        facture : sans cette mention, un bonus ressemblerait à une erreur de calcul. */
-    const mentionBonus =
-      bonus.length > 0
-        ? `, dont ${montantBonus.toLocaleString('fr-FR')} Ar de bonus (${bonus.length})`
-        : ''
+    const mentionBonus = [
+      bonus.length > 0 ? `${montantBonus.toLocaleString('fr-FR')} Ar de bonus (${bonus.length})` : null,
+      extras.length > 0 ? `${montantExtras.toLocaleString('fr-FR')} Ar de prestations (${extras.length})` : null,
+    ].filter((p): p is string => p !== null)
+    const mentionSupplements = mentionBonus.length > 0 ? `, dont ${mentionBonus.join(' et ')}` : ''
 
     await serviceClient
       .from('timesheets')
@@ -261,8 +298,8 @@ export default async function handler(request: Request): Promise<Response> {
       titre: `TimeSheet ${ts.numero} validé`,
       message:
         exclus.size > 0
-          ? `Facture ${facture.numero} émise : ${montantTotal.toLocaleString('fr-FR')} Ar pour ${heures} h${mentionBonus}. ${exclus.size} ligne(s) retirée(s) par l'administration : ${justificatif}.`
-          : `Facture ${facture.numero} émise : ${montantTotal.toLocaleString('fr-FR')} Ar pour ${heures} h${mentionBonus}.`,
+          ? `Facture ${facture.numero} émise : ${montantTotal.toLocaleString('fr-FR')} Ar pour ${heures} h${mentionSupplements}. ${exclus.size} ligne(s) retirée(s) par l'administration : ${justificatif}.`
+          : `Facture ${facture.numero} émise : ${montantTotal.toLocaleString('fr-FR')} Ar pour ${heures} h${mentionSupplements}.`,
       lien: '/professeur/factures',
     })
 
@@ -273,6 +310,8 @@ export default async function handler(request: Request): Promise<Response> {
       paiementId: paiement.id,
       bonusRepris: bonus.length,
       montantBonus,
+      extrasRepris: extras.length,
+      montantExtras,
     })
   } catch (erreur) {
     if (erreur instanceof AdminAuthError) {

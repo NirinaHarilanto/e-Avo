@@ -8,6 +8,7 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 type TeacherAssignment = Database['public']['Tables']['teacher_assignments']['Row']
 type Package = Database['public']['Tables']['packages']['Row']
 type BonusProfesseur = Database['public']['Tables']['bonus_professeur']['Row']
+type PrestationExtra = Database['public']['Tables']['prestations_extra']['Row']
 
 export interface EleveDuProfesseur {
   eleve: Profile
@@ -41,6 +42,8 @@ export interface ProfesseurDetail {
   /* Bonus accordés à ce professeur (0162), du plus récent au plus ancien — payés et en attente
      mêlés : c'est le pop-up qui les distingue, et la tuile qui somme ce qui reste dû. */
   bonus: BonusProfesseur[]
+  /* Prestations ponctuelles hors catalogue (0163), de la plus récente a la plus ancienne. */
+  extras: PrestationExtra[]
 }
 
 export function useProfesseurDetailAdmin(teacherId: string | undefined) {
@@ -64,6 +67,7 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
       { data: toutesInscriptions },
       { data: toutesVisios },
       { data: bonus },
+      { data: extras },
     ] = await Promise.all([
       chargerProfilsEtablissement(),
       supabase
@@ -85,6 +89,7 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
       supabase.from('session_enrollments').select('session_id, student_id, present, sessions!inner(teacher_id)').eq('sessions.teacher_id', teacherId as string).eq('present', true),
       supabase.from('video_sessions').select('session_id, organisateur_email, sessions!inner(teacher_id)').eq('sessions.teacher_id', teacherId as string),
       supabase.from('bonus_professeur').select('*').eq('teacher_id', teacherId as string).order('accorde_le', { ascending: false }),
+      supabase.from('prestations_extra').select('*').eq('teacher_id', teacherId as string).order('date_prestation', { ascending: false }),
     ])
 
     // Un accès direct par URL à un professeur supprimé (il n'apparaît plus dans aucune liste
@@ -193,6 +198,7 @@ export function useProfesseurDetailAdmin(teacherId: string | undefined) {
       heuresTotalEnseignees: [...heuresParEleve.values()].reduce((total, h) => total + h, 0),
       seancesHergeesParEtablissement,
       bonus: bonus ?? [],
+      extras: extras ?? [],
     }
   })
 

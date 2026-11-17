@@ -6,6 +6,7 @@ import type { Database } from '../../types/database.types'
 
 type Timesheet = Database['public']['Tables']['timesheets']['Row']
 type BonusProfesseur = Database['public']['Tables']['bonus_professeur']['Row']
+type PrestationExtra = Database['public']['Tables']['prestations_extra']['Row']
 
 export const LABEL_STATUT_TIMESHEET: Record<Timesheet['statut'], string> = {
   soumis: 'En attente de validation',
@@ -33,14 +34,19 @@ export function TimesheetDocument({
      (`timesheet_id`) ; tant qu'il attend, ceux encore en attente du professeur — un aperçu de ce
      que la validation ajoutera. Le document, lui, affiche ce qu'on lui donne. */
   bonus = [],
+  /* Prestations « Extra » portées par ce relevé (0163), même principe que `bonus`. */
+  extras = [],
 }: {
   timesheet: Timesheet
   nomProfesseur: string
   bonus?: Pick<BonusProfesseur, 'id' | 'montant' | 'motif'>[]
+  extras?: Pick<PrestationExtra, 'id' | 'montant' | 'type_prestation' | 'date_prestation' | 'lieu'>[]
 }) {
   const etablissement = useEtablissement(timesheet.etablissement_id)
   const cellule = { padding: '7px 4px', borderBottom: '1px solid #ddd', fontSize: 12.5 } as const
   const totalBonusDocument = bonus.reduce((total, b) => total + Number(b.montant), 0)
+  const totalExtrasDocument = extras.reduce((total, e) => total + Number(e.montant), 0)
+  const supplements = totalBonusDocument + totalExtrasDocument
 
   return (
     <div style={{ color: '#111' }}>
@@ -112,19 +118,41 @@ export function TimesheetDocument({
         </div>
       )}
 
+      {/* Prestations Extra (0163) : même traitement que les bonus — un bloc à part, puisqu'une
+          prestation n'a ni élève ni heures décomptées du forfait. */}
+      {extras.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <h3 style={{ fontSize: 13, margin: '0 0 6px', color: '#111' }}>Prestations</h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              {extras.map((e) => (
+                <tr key={e.id}>
+                  <td style={cellule}>
+                    {e.type_prestation} ({new Date(e.date_prestation).toLocaleDateString('fr-FR')})
+                    {e.lieu && e.lieu.trim() ? ` · ${e.lieu.trim()}` : ''}
+                  </td>
+                  <td style={{ ...cellule, textAlign: 'right', whiteSpace: 'nowrap' }}>{montant(Number(e.montant))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div style={{ marginTop: 16, textAlign: 'right', fontSize: 14, display: 'flex', flexDirection: 'column', gap: 3 }}>
         <span>Total des heures : {formaterHeures(Number(timesheet.total_heures))}</span>
         {/* Le montant des heures garde son intitulé propre dès qu'un bonus s'y ajoute : sans
             cette distinction, « Total à payer » ne correspondrait plus au produit heures × taux
             et se lirait comme une erreur de calcul. */}
         <span>
-          {bonus.length > 0 ? 'Rémunération des heures' : 'Total à payer'} :{' '}
+          {supplements > 0 ? 'Rémunération des heures' : 'Total à payer'} :{' '}
           {timesheet.montant != null ? montant(timesheet.montant) : '—'}
         </span>
-        {bonus.length > 0 && <span>Bonus : {montant(totalBonusDocument)}</span>}
-        {bonus.length > 0 && (
+        {totalBonusDocument > 0 && <span>Bonus : {montant(totalBonusDocument)}</span>}
+        {totalExtrasDocument > 0 && <span>Prestations : {montant(totalExtrasDocument)}</span>}
+        {supplements > 0 && (
           <span style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>
-            Total à payer : {timesheet.montant != null ? montant(Number(timesheet.montant) + totalBonusDocument) : '—'}
+            Total à payer : {timesheet.montant != null ? montant(Number(timesheet.montant) + supplements) : '—'}
           </span>
         )}
         {timesheet.statut !== 'valide' && timesheet.montant != null && (

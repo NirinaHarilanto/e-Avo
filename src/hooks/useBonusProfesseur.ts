@@ -19,3 +19,19 @@ export function useBonusProfesseur(teacherId: string | undefined) {
   })
   return { bonus: valeur ?? [], loading, erreur, recharger }
 }
+
+/* Les prestations « Extra » du professeur connecté (0163), même principe et même garantie que
+   ci-dessus : la RLS (`prestations_extra_professeur_select`) borne la lecture à ses propres
+   lignes, et aucune policy d'écriture ne lui est ouverte. */
+export function usePrestationsExtra(teacherId: string | undefined) {
+  const { valeur, loading, erreur, recharger } = useCacheRequete(teacherId && `extras-professeur-${teacherId}`, async () => {
+    const { data, error } = await supabase
+      .from('prestations_extra')
+      .select('*')
+      .eq('teacher_id', teacherId as string)
+      .order('date_prestation', { ascending: false })
+    if (error) throw new Error(error.message)
+    return data ?? []
+  })
+  return { extras: valeur ?? [], loading, erreur, recharger }
+}

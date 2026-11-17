@@ -38,6 +38,12 @@ let ledgerPaiementIds: string[] = []
 /* Bonus (0162) : ce que la base rend, et ce que la route y ecrit. */
 let bonusRetournes: Record<string, unknown>[] = []
 let bonusMarques: { ids: string[]; valeurs: Record<string, unknown> } | null = null
+/* Prestations Extra (0163) : ce que la base rend, les filtres qu'on lui a demandes, et ce
+   que la route y ecrit. Les FILTRES sont captures parce que c'est eux qui portent la regle
+   du client — seule une prestation validee et non encore payee part au releve. */
+let extrasRetournes: Record<string, unknown>[] = []
+let extrasFiltres: Record<string, unknown> = {}
+let extrasMarques: { ids: string[]; valeurs: Record<string, unknown> } | null = null
 
 function clientFactice() {
   return {
@@ -64,6 +70,30 @@ function clientFactice() {
             in: async (_colonne: string, ids: string[]) => {
               if (valeurs.timesheet_id === null) liberationIds = ids
               if (valeurs.teacher_payment_id) ledgerPaiementIds = ids
+              return { error: null }
+            },
+          }),
+        }
+      }
+      if (table === 'prestations_extra') {
+        return {
+          select: () => {
+            const chainon = {
+              eq: (colonne: string, valeur: unknown) => {
+                extrasFiltres[colonne] = valeur
+                return chainon
+              },
+              is: (colonne: string, valeur: unknown) => {
+                extrasFiltres[colonne] = valeur
+                return chainon
+              },
+              order: async () => ({ data: extrasRetournes }),
+            }
+            return chainon
+          },
+          update: (valeurs: Record<string, unknown>) => ({
+            in: async (_colonne: string, ids: string[]) => {
+              extrasMarques = { ids, valeurs }
               return { error: null }
             },
           }),
@@ -135,6 +165,9 @@ beforeEach(() => {
   ledgerPaiementIds = []
   bonusRetournes = []
   bonusMarques = null
+  extrasRetournes = []
+  extrasFiltres = {}
+  extrasMarques = null
   creerNotification.mockClear()
 })
 
@@ -351,5 +384,116 @@ describe('api/admin/traiter-timesheet — bonus (0162)', () => {
     }
 
     expect(corps).toMatchObject({ bonusRepris: 2, montantBonus: 20000 })
+  })
+})
+
+/* Demande client du 2026-11-17 : « pour les prestations VALIDÉES, le montant validé sera rajouté
+   automatiquement dans le timesheet du professeur également ». Tout tient à ce mot : une
+   prestation planifiée est convenue mais pas encore due, une annulée ne le sera jamais. */
+describe('api/admin/traiter-timesheet — prestations Extra (0163)', () => {
+  beforeEach(() => {
+    timesheetRetourne = {
+      id: 'ts-1',
+      teacher_id: 'prof-1',
+      numero: 'TS-0001',
+      statut: 'soumis',
+      periode_debut: '2026-10-01',
+      periode_fin: '2026-10-31',
+      total_heures: 2,
+      lignes: [
+        { hour_ledger_id: 'h1', session_id: 's1', debut: '2026-10-01T08:00:00.000Z', eleves: 'Élève A', heures: 2, type: 'individuel', taux: 15000, montant: 30000 },
+      ],
+      lignes_retirees: [],
+      commentaire: null,
+    }
+    professeurRetourne = { taux_horaire_individuel: 15000, taux_horaire_duo: 15000, taux_horaire_collectif: 15000 }
+    ecrituresRetournees = [{ id: 'h1', heures: 2, type_facturation: 'individuel', teacher_payment_id: null }]
+  })
+
+  /* Le garde-fou le plus important : la route ne demande QUE les prestations validées et non
+     encore payées. Si ce filtre sautait, une prestation seulement planifiée — ou déjà réglée —
+     partirait en paiement sans que rien ne le signale. */
+  it('ne réclame que les prestations validées et non encore payées', async () => {
+    await handler(requete({ timesheetId: 'ts-1', decision: 'valide' }))
+
+    expect(extrasFiltres).toMatchObject({
+      teacher_id: 'prof-1',
+      statut: 'validee',
+      teacher_payment_id: null,
+    })
+  })
+
+  it('ajoute les prestations à la rémunération et à la facture', async () => {
+    extrasRetournes = [
+      { id: 'e-1', montant: 50000, type_prestation: 'Atelier', date_prestation: '2026-10-15', lieu: 'En ligne' },
+      { id: 'e-2', montant: 20000, type_prestation: 'Traduction', date_prestation: '2026-10-20', lieu: null },
+    ]
+
+    const reponse = await handler(requete({ timesheetId: 'ts-1', decision: 'valide' }))
+    expect(reponse.status).toBe(200)
+
+    // 2 h x 15 000 = 30 000 d'heures, plus 70 000 de prestations.
+    expect(paiementCapture?.montant).toBe(100000)
+    expect(factureCapturee?.montant_ttc).toBe(100000)
+
+    const lignes = factureCapturee?.lignes as { description: string; quantite: number; prix_unitaire_ht: number }[]
+    const lignesExtra = lignes.filter((l) => l.description.startsWith('Prestation'))
+    expect(lignesExtra).toHaveLength(2)
+    // Un Extra porte son propre montant : quantité 1, jamais une durée.
+    expect(lignesExtra[0]).toMatchObject({ quantite: 1, prix_unitaire_ht: 50000 })
+    expect(lignesExtra[0].description).toContain('Atelier')
+    expect(lignesExtra[0].description).toContain('En ligne')
+    // Sans lieu, pas de séparateur orphelin.
+    expect(lignesExtra[1].description).not.toContain('·')
+  })
+
+  it('marque les prestations payées et note le relevé qui les porte', async () => {
+    extrasRetournes = [{ id: 'e-1', montant: 50000, type_prestation: 'Atelier', date_prestation: '2026-10-15', lieu: null }]
+
+    await handler(requete({ timesheetId: 'ts-1', decision: 'valide' }))
+
+    expect(extrasMarques).toEqual({
+      ids: ['e-1'],
+      valeurs: { teacher_payment_id: 'paiement-1', timesheet_id: 'ts-1' },
+    })
+  })
+
+  it('n’écrit rien et ne change aucun montant sans prestation validée', async () => {
+    extrasRetournes = []
+
+    await handler(requete({ timesheetId: 'ts-1', decision: 'valide' }))
+
+    expect(extrasMarques).toBeNull()
+    expect(paiementCapture?.montant).toBe(30000)
+  })
+
+  /* Le relevé garde le montant de ses seules heures : l'y mêler ferait un total qui ne
+     correspond plus à heures x taux. */
+  it('laisse au relevé le montant de ses seules heures', async () => {
+    extrasRetournes = [{ id: 'e-1', montant: 50000, type_prestation: 'Atelier', date_prestation: '2026-10-15', lieu: null }]
+
+    await handler(requete({ timesheetId: 'ts-1', decision: 'valide' }))
+
+    expect(timesheetMiseAJour?.montant).toBe(30000)
+  })
+
+  /* Bonus ET prestations sur le même relevé : les deux s'additionnent, chacun garde ses lignes. */
+  it('cumule bonus et prestations sans les confondre', async () => {
+    bonusRetournes = [{ id: 'b-1', montant: 10000, motif: 'Renouvellement', accorde_le: '2026-10-05' }]
+    extrasRetournes = [{ id: 'e-1', montant: 50000, type_prestation: 'Atelier', date_prestation: '2026-10-15', lieu: null }]
+
+    const corps = (await (await handler(requete({ timesheetId: 'ts-1', decision: 'valide' }))).json()) as {
+      bonusRepris: number
+      montantBonus: number
+      extrasRepris: number
+      montantExtras: number
+    }
+
+    expect(paiementCapture?.montant).toBe(90000)
+    expect(corps).toMatchObject({ bonusRepris: 1, montantBonus: 10000, extrasRepris: 1, montantExtras: 50000 })
+
+    const lignes = factureCapturee?.lignes as { description: string }[]
+    expect(lignes.filter((l) => l.description.startsWith('Bonus'))).toHaveLength(1)
+    expect(lignes.filter((l) => l.description.startsWith('Prestation'))).toHaveLength(1)
   })
 })

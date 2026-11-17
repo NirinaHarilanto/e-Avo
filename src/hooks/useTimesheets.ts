@@ -6,6 +6,7 @@ import { useCacheRequete } from './useCacheRequete'
 
 type Timesheet = Database['public']['Tables']['timesheets']['Row']
 type BonusProfesseur = Database['public']['Tables']['bonus_professeur']['Row']
+type PrestationExtra = Database['public']['Tables']['prestations_extra']['Row']
 type Profile = Database['public']['Tables']['profiles']['Row']
 
 export interface TimesheetAvecProfesseur {
@@ -14,6 +15,9 @@ export interface TimesheetAvecProfesseur {
   /* Bonus figurant sur ce relevé (0162) — ceux qu'il a portés s'il est validé, ceux encore en
      attente du professeur sinon. Voir le calcul dans le hook. */
   bonus: BonusProfesseur[]
+  /* Prestations « Extra » figurant sur ce relevé (0163), même règle que les bonus : celles
+     qu'il a portées s'il est validé, celles encore dues sinon. */
+  extras: PrestationExtra[]
 }
 
 /* TimeSheets visibles par l'utilisateur (0081) : tous ceux de l'établissement pour l'admin, les
@@ -24,17 +28,19 @@ export function useTimesheets(cleSuffixe: string | undefined) {
        nommer demandait d'attendre les TimeSheets, soit deux allers-retours successifs au lieu d'un
        — voir lib/profilsEtablissement.ts. Pas de filtre sur `status` ici, volontairement : le nom
        d'un professeur supprimé doit rester lisible sur ses anciens TimeSheets. */
-    const [{ data, error }, profilsTous, { data: tousBonus }] = await Promise.all([
+    const [{ data, error }, profilsTous, { data: tousBonus }, { data: tousExtras }] = await Promise.all([
       supabase.from('timesheets').select('*').order('soumis_le', { ascending: false }),
       chargerProfilsEtablissement(),
       /* Bonus (0162) : partent avec le reste plutôt qu'après, même raison que les profils —
          les attacher au relevé n'a aucune dépendance sur son contenu. La RLS borne déjà la
          lecture (l'admin voit ceux de son établissement, un professeur les siens). */
       supabase.from('bonus_professeur').select('*').order('accorde_le'),
+      supabase.from('prestations_extra').select('*').order('date_prestation'),
     ])
     if (error) throw new Error(error.message)
     const parId = new Map(profilsTous.map((p) => [p.id, p]))
     const bonus = tousBonus ?? []
+    const extras = tousExtras ?? []
     const ordre = { soumis: 0, refuse: 1, valide: 2 } as const
     return (data ?? [])
       .map((timesheet) => ({
@@ -48,6 +54,14 @@ export function useTimesheets(cleSuffixe: string | undefined) {
           timesheet.statut === 'valide'
             ? b.timesheet_id === timesheet.id
             : b.teacher_id === timesheet.teacher_id && b.teacher_payment_id === null,
+        ),
+        /* Même règle, à une condition près : seule une prestation VALIDÉE est due. Une
+           prestation planifiée est convenue mais pas encore reconnue — l'afficher sur un relevé
+           en attente annoncerait un montant que l'admin n'a pas arrêté. */
+        extras: extras.filter((e) =>
+          timesheet.statut === 'valide'
+            ? e.timesheet_id === timesheet.id
+            : e.teacher_id === timesheet.teacher_id && e.statut === 'validee' && e.teacher_payment_id === null,
         ),
       }))
       .sort((a, b) => ordre[a.timesheet.statut] - ordre[b.timesheet.statut])

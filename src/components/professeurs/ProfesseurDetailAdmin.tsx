@@ -19,7 +19,9 @@ import { formaterHeures } from '../../lib/heures'
 import { LABEL_TYPE_PROGRAMME } from '../../lib/paiements'
 import { KpiSatisfaction } from './KpiSatisfaction'
 import { BonusProfesseurModale } from './BonusProfesseurModale'
+import { PrestationsExtraModale } from './PrestationsExtraModale'
 import { totalBonus } from '../../lib/bonusProfesseur'
+import { totauxExtra } from '../../lib/prestationsExtra'
 import { formaterMontant } from '../../lib/paiements'
 import { PrestationsExternes } from './PrestationsExternes'
 import { DetacherVisioEtablissement } from './DetacherVisioEtablissement'
@@ -40,6 +42,10 @@ export function ProfesseurDetailAdmin() {
      détaille et laisse l'admin en accorder, en corriger ou en retirer. */
   const [bonusOuvert, setBonusOuvert] = useState(false)
   const totauxBonus = totalBonus(detail?.bonus ?? [])
+  /* Extra (0163, demande client du 2026-11-17) : prestations ponctuelles hors catalogue. La
+     tuile somme ce qui est VALIDÉ et pas encore paye — pas le planifie, qui n'est pas encore du. */
+  const [extraOuvert, setExtraOuvert] = useState(false)
+  const totauxDesExtras = totauxExtra(detail?.extras ?? [])
 
   return (
     <AdminLayout actif="Professeurs">
@@ -67,7 +73,7 @@ export function ProfesseurDetailAdmin() {
               ligne même s'il faut réduire un peu les dimensions ». 8 × 150 + 7 × 14 d'écart =
               1 298 px, qui tiennent dans la zone de contenu de l'écran admin. En dessous, la
               grille `auto-fit` reprend la main et replie proprement. */}
-          <GrilleStats min={150}>
+          <GrilleStats min={140}>
             <Stat libelle="Élèves actifs" valeur={detail.eleves.length} ton="bleu" aide="Attributions en cours" />
             <Stat libelle="Heures enseignées" valeur={formaterHeures(detail.heuresTotalEnseignees)} ton="or" aide="Total depuis son arrivée" />
             <Stat
@@ -117,6 +123,26 @@ export function ProfesseurDetailAdmin() {
                 </button>
               }
             />
+            {/* Extra (0163) — demande client du 2026-11-17. La tuile montre ce qui est VALIDÉ et
+                reste a payer : le planifie n'est pas encore du, l'afficher ici ferait croire a
+                une dette qui n'existe pas. Le detail des trois etats est dans le pop-up. */}
+            <Stat
+              libelle="Extra"
+              valeur={formaterMontant(totauxDesExtras.aPayer)}
+              ton={totauxDesExtras.aPayer > 0 ? 'or' : 'neutre'}
+              aide={
+                totauxDesExtras.planifie > 0
+                  ? `${formaterMontant(totauxDesExtras.planifie)} planifiés`
+                  : totauxDesExtras.paye > 0
+                    ? `${formaterMontant(totauxDesExtras.paye)} déjà payés`
+                    : 'Prestations hors catalogue'
+              }
+              pied={
+                <button onClick={() => setExtraOuvert(true)} style={{ ...boutonSecondaireStyle, fontSize: 11, padding: '5px 10px' }}>
+                  Voir
+                </button>
+              }
+            />
           </GrilleStats>
 
           {bonusOuvert && (
@@ -127,6 +153,17 @@ export function ProfesseurDetailAdmin() {
               eleves={detail.eleves.map((e) => ({ eleve: e.eleve, packages: e.packages }))}
               bonus={detail.bonus}
               onFermer={() => setBonusOuvert(false)}
+              onChange={recharger}
+            />
+          )}
+
+          {extraOuvert && (
+            <PrestationsExtraModale
+              teacherId={detail.professeur.id}
+              nomProfesseur={`${detail.professeur.prenom} ${detail.professeur.nom}`}
+              etablissementId={detail.professeur.etablissement_id}
+              extras={detail.extras}
+              onFermer={() => setExtraOuvert(false)}
               onChange={recharger}
             />
           )}

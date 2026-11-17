@@ -3,8 +3,9 @@ import { seanceCloturable } from '../../lib/seances'
 import { ProfesseurLayout } from '../layout/ProfesseurLayout'
 import { useProfileContext } from '../../context/ProfileContext'
 import { useCalendrierProfesseur } from '../../hooks/useCalendrierProfesseur'
-import { useBonusProfesseur } from '../../hooks/useBonusProfesseur'
+import { useBonusProfesseur, usePrestationsExtra } from '../../hooks/useBonusProfesseur'
 import { totalBonus } from '../../lib/bonusProfesseur'
+import { totauxExtra } from '../../lib/prestationsExtra'
 import { formaterMontant } from '../../lib/paiements'
 import { initiales } from '../etudiants/DossierEtudiantVue'
 import { EnTetePage } from '../ui/EnTetePage'
@@ -18,6 +19,7 @@ import { KpiSatisfaction } from './KpiSatisfaction'
 import { PrestationsExternes } from './PrestationsExternes'
 import { TimesheetProfesseur } from './TimesheetProfesseur'
 import { HistoriqueBonusModale } from './HistoriqueBonusModale'
+import { HistoriqueExtraModale } from './HistoriqueExtraModale'
 
 export function HeuresProfesseur() {
   const { profile } = useProfileContext()
@@ -29,6 +31,10 @@ export function HeuresProfesseur() {
   const { bonus } = useBonusProfesseur(profile?.id)
   const [bonusOuvert, setBonusOuvert] = useState(false)
   const totauxBonus = totalBonus(bonus)
+  /* Extra (0163) : même traitement que les bonus — visible, en lecture seule. */
+  const { extras } = usePrestationsExtra(profile?.id)
+  const [extraOuvert, setExtraOuvert] = useState(false)
+  const totauxDesExtras = totauxExtra(extras)
 
   const parEtudiant = new Map<string, { prenom: string | null; nom: string | null; heures: number; seances: number }>()
   for (const seance of seances) {
@@ -84,7 +90,32 @@ export function HeuresProfesseur() {
                 </button>
               }
             />
+            <Stat
+              libelle="Extra"
+              valeur={formaterMontant(totauxDesExtras.aPayer)}
+              ton={totauxDesExtras.aPayer > 0 ? 'or' : 'neutre'}
+              aide={
+                totauxDesExtras.planifie > 0
+                  ? `${formaterMontant(totauxDesExtras.planifie)} planifiés`
+                  : totauxDesExtras.paye > 0
+                    ? `${formaterMontant(totauxDesExtras.paye)} déjà payés`
+                    : 'Prestations ponctuelles'
+              }
+              pied={
+                <button onClick={() => setExtraOuvert(true)} style={{ ...boutonSecondaireStyle, fontSize: 11, padding: '5px 10px' }}>
+                  Voir
+                </button>
+              }
+            />
           </GrilleStats>
+
+          {extraOuvert && profile && (
+            <HistoriqueExtraModale
+              nomProfesseur={`${profile.prenom} ${profile.nom}`}
+              extras={extras}
+              onFermer={() => setExtraOuvert(false)}
+            />
+          )}
 
           {bonusOuvert && profile && (
             <HistoriqueBonusModale

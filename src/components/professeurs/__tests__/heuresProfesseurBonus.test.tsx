@@ -20,8 +20,12 @@ vi.mock('../../../hooks/useCalendrierProfesseur', () => ({
 const bonusRetournes = [
   { id: 'b-1', montant: 10000, motif: 'Renouvellement du forfait de Aina', accorde_le: '2026-11-10', teacher_payment_id: null },
 ]
+const extrasRetournes = [
+  { id: 'e-1', montant: 50000, type_prestation: 'Atelier', date_prestation: '2026-11-15', lieu: 'En ligne', duree_minutes: 90, statut: 'validee', teacher_payment_id: null },
+]
 vi.mock('../../../hooks/useBonusProfesseur', () => ({
   useBonusProfesseur: () => ({ bonus: bonusRetournes, loading: false, erreur: null, recharger: () => {} }),
+  usePrestationsExtra: () => ({ extras: extrasRetournes, loading: false, erreur: null, recharger: () => {} }),
 }))
 
 vi.mock('../KpiSatisfaction', () => ({ KpiSatisfaction: () => null }))
@@ -39,7 +43,8 @@ describe('HeuresProfesseur — tuile Bonus', () => {
     )
 
     expect(screen.getByText('Bonus')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Voir' })).toBeTruthy()
+    // Deux tuiles portent « Voir » (Bonus puis Extra) : aucune ne doit porter « Modifier ».
+    expect(screen.getAllByRole('button', { name: 'Voir' }).length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'Modifier' })).toBeNull()
   })
 
@@ -50,10 +55,43 @@ describe('HeuresProfesseur — tuile Bonus', () => {
       </MemoryRouter>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Voir' }))
+    // La première tuile « Voir » est celle des bonus, qui précède Extra dans la grille.
+    fireEvent.click(screen.getAllByRole('button', { name: 'Voir' })[0])
 
     expect(screen.getByText('Bonus · Patricia ANDRIAMIFIDISOA')).toBeTruthy()
     expect(screen.getByText('Renouvellement du forfait de Aina')).toBeTruthy()
     expect(screen.queryByText('Renouvellements repérés')).toBeNull()
+  })
+})
+
+/* Demande client du 2026-11-17 : le bloc Extra est « visible du côté professeur en mode lecture
+   uniquement », et son bouton dit « Voir » comme celui des bonus. */
+describe('HeuresProfesseur — tuile Extra', () => {
+  it('affiche la tuile Extra à côté de celle des bonus', () => {
+    render(
+      <MemoryRouter>
+        <HeuresProfesseur />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Extra')).toBeTruthy()
+    // Deux tuiles portent désormais « Voir » : les bonus et les prestations.
+    expect(screen.getAllByRole('button', { name: 'Voir' })).toHaveLength(2)
+    expect(screen.queryByRole('button', { name: 'Modifier' })).toBeNull()
+  })
+
+  it('ouvre l’historique des prestations en lecture seule', () => {
+    render(
+      <MemoryRouter>
+        <HeuresProfesseur />
+      </MemoryRouter>,
+    )
+
+    // La seconde tuile « Voir » est celle des prestations (Bonus vient avant Extra).
+    fireEvent.click(screen.getAllByRole('button', { name: 'Voir' })[1])
+
+    expect(screen.getByText('Extra · Patricia ANDRIAMIFIDISOA')).toBeTruthy()
+    expect(screen.getByText('Atelier (15/11/2026) · En ligne')).toBeTruthy()
+    expect(screen.queryByText('Attribuer la prestation')).toBeNull()
   })
 })

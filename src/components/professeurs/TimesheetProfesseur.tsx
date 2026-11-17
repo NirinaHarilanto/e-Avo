@@ -218,7 +218,7 @@ export function TimesheetProfesseur() {
 
       {ouvert && (
         <OverlayImpression onFermer={() => setOuvert(null)} nomFichier={`TimeSheet ${ouvert.item.timesheet.numero}`} actionInitiale={ouvert.action}>
-          <TimesheetDocument timesheet={ouvert.item.timesheet} nomProfesseur={nomProfesseur} bonus={ouvert.item.bonus} />
+          <TimesheetDocument timesheet={ouvert.item.timesheet} nomProfesseur={nomProfesseur} bonus={ouvert.item.bonus} extras={ouvert.item.extras} />
         </OverlayImpression>
       )}
     </>

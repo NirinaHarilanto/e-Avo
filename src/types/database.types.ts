@@ -1190,6 +1190,51 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['bonus_professeur']['Insert']>
         Relationships: []
       }
+      /* Prestation ponctuelle attribuee par l'administration a un professeur, hors catalogue
+         (0163, demande client du 2026-11-17). A ne pas confondre avec `prestations_externes`
+         (0131) : celle-la se remunere AUX HEURES au taux corporate/chat & chill, celle-ci porte
+         son PROPRE montant, decide au cas par cas — c'est precisement ce qui la fait sortir de
+         ce qui est deja defini dans HOC. Payee comme un bonus : `teacher_payment_id` renseigne
+         a la validation du releve (0029). */
+      prestations_extra: {
+        Row: {
+          id: string
+          etablissement_id: string
+          teacher_id: string
+          /* Libre : la table existe pour accueillir ce qu'aucune liste fermee ne prevoit. */
+          type_prestation: string
+          montant: number
+          /* Informative : elle decrit la prestation, elle ne calcule pas le montant. */
+          duree_minutes: number | null
+          date_prestation: string
+          lieu: string | null
+          /* Seule `validee` part au releve d'heures. */
+          statut: 'planifiee' | 'validee' | 'annulee'
+          notes: string | null
+          teacher_payment_id: string | null
+          timesheet_id: string | null
+          cree_par: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          etablissement_id: string
+          teacher_id: string
+          type_prestation: string
+          montant: number
+          duree_minutes?: number | null
+          date_prestation: string
+          lieu?: string | null
+          statut?: 'planifiee' | 'validee' | 'annulee'
+          notes?: string | null
+          teacher_payment_id?: string | null
+          timesheet_id?: string | null
+          cree_par: string
+          created_at?: string
+        }
+        Update: Partial<Database['public']['Tables']['prestations_extra']['Insert']>
+        Relationships: []
+      }
       timesheets: {
         Row: {
           id: string
