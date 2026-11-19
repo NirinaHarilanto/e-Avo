@@ -26,6 +26,9 @@ let inscriptions: Ligne[] = []
 let effectifCible = 0
 let seancesParClasse: Record<string, Ligne[]> = {}
 let forfaitEnCours: Ligne | null = null
+/* Les heures du forfait que vend la vague d'arrivée — `null` pour une vague qui n'en annonce
+   aucun, cas où la route doit se replier sur le volume du forfait soldé. */
+let heuresForfaitVague: number | null = 32
 let inscriptionsSeancesExistantes: Ligne[] = []
 
 const journal = {
@@ -144,8 +147,8 @@ function clientFactice() {
           }),
         }
       }
-      if (table === 'cohorts') return { select: () => requete({ heures_forfait: 32 }) }
-      if (table === 'etablissements') return { select: () => requete({ heures_forfait_collectif: 32 }) }
+      if (table === 'cohorts') return { select: () => requete({ heures_forfait: heuresForfaitVague }) }
+      if (table === 'etablissements') return { select: () => requete({ heures_forfait_collectif: heuresForfaitVague }) }
       if (table === 'tarifs') return { select: () => requete([{ prix: 150_000, heures: 32 }]) }
 
       if (table === 'sessions') {
@@ -236,6 +239,7 @@ beforeEach(() => {
     'classe-intermediate': [{ id: 'seance-i1', debut: '2026-11-05T16:30:00Z' }],
   }
   forfaitEnCours = { id: 'forfait-1', cohort_class_id: null }
+  heuresForfaitVague = 32
   inscriptionsSeancesExistantes = []
   parcoursMesure = { forfait: 32, consommees: 32 }
   journal.classesMisesAJour = []
@@ -462,6 +466,23 @@ describe('deplacer-etudiants-classe', () => {
 
       expect(reponse.status).toBe(200)
       expect(journal.forfaitsOuverts).toEqual([expect.objectContaining({ total_heures: 12, montant: null })])
+    })
+
+    /* Solder sans rouvrir laisserait l'élève SANS forfait, et rien ne le lui dirait. Le cas
+       arrive quand la vague d'arrivée n'annonce aucun forfait : avant ce chantier, cette absence
+       empêchait aussi le solde et les deux manques s'annulaient ; maintenant que le solde est ce
+       qui autorise le déplacement (0164), il faut rouvrir explicitement — sur le volume de
+       celui qu'on vient de solder, à défaut de mieux. */
+    it('ne laisse jamais un élève sans forfait quand la vague n’en annonce aucun', async () => {
+      vaguesDifferentes()
+      heuresForfaitVague = null
+      forfaitEnCours = { id: 'forfait-1', cohort_class_id: 'classe-beginner', total_heures: 24 }
+
+      const reponse = await appel({ classeSourceId: 'classe-beginner', classeCibleId: 'classe-intermediate', studentIds: ['eleve-1'] })
+
+      expect(reponse.status).toBe(200)
+      expect(journal.forfaitsSoldes).toHaveLength(1)
+      expect(journal.forfaitsOuverts).toEqual([expect.objectContaining({ total_heures: 24, montant: null })])
     })
 
     /* Le forfait est soldé AVANT que l'inscription ne bouge, et cet ordre n'est pas cosmétique :

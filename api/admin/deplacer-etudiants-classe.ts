@@ -305,6 +305,13 @@ export default async function handler(request: Request): Promise<Response> {
           Les heures déjà faites ne bougent jamais : elles restent inscrites aux séances de la
           classe quittée, c'est leur place. */
     const heuresRestantesParEleve = new Map<string, number>()
+    /* Le volume du forfait que l'on solde, retenu comme dernier recours pour en ouvrir un
+       successeur. Il ne sert que si la vague d'arrivée n'annonce aucun forfait : solder sans
+       rouvrir laisserait l'élève SANS forfait du tout, et rien ne le lui dirait — ni à lui, ni à
+       l'administration. Avant ce chantier, l'absence de forfait de vague empêchait aussi le
+       solde, et les deux manques s'annulaient ; maintenant que le solde est ce qui autorise le
+       déplacement (0164), il faut rouvrir explicitement. */
+    const totalDuForfaitSolde = new Map<string, number>()
     for (const inscription of aDeplacer) {
       /* Le forfait collectif en cours de CET élève : le plus récent non soldé. Un élève sans
          forfait (cas théorique, le trigger 0071 en crée un à l'inscription) n'a rien à solder. */
@@ -319,6 +326,9 @@ export default async function handler(request: Request): Promise<Response> {
         .maybeSingle()
 
       if (!enCours) continue
+
+      const totalSolde = Number(enCours.total_heures)
+      if (Number.isFinite(totalSolde) && totalSolde > 0) totalDuForfaitSolde.set(inscription.student_id, totalSolde)
 
       /* Ce qu'il lui restait, pour le reporter si l'admin a choisi de conserver le compteur.
          Les heures consommées viennent de la règle partagée (`mesurerParcours`), jamais
@@ -380,11 +390,15 @@ export default async function handler(request: Request): Promise<Response> {
             — RÉINITIALISER : forfait complet de la vague, au tarif correspondant. Les heures non
               suivies du forfait soldé sont abandonnées, et c'est le sens du mot réinitialiser.
           Pour tous les autres (aucune heure suivie, ou forfait déjà terminé), rien ne change :
-          forfait complet, comme avant. */
+          forfait complet, comme avant.
+
+          Et si la vague d'arrivée n'annonce aucun forfait, on reprend le volume de celui que
+          l'on vient de solder : un élève ne doit jamais sortir d'un déplacement sans forfait,
+          puisque c'est lui qui borne ses heures et déclenche sa fin de parcours. */
     let forfaitsOuverts = 0
     for (const inscription of aDeplacer) {
       const restantes = heuresRestantesParEleve.get(inscription.student_id)
-      const heuresDuNouveau = restantes ?? heuresForfait
+      const heuresDuNouveau = restantes ?? heuresForfait ?? totalDuForfaitSolde.get(inscription.student_id) ?? null
       if (heuresDuNouveau == null || heuresDuNouveau <= 0) continue
 
       const { error: erreurForfait } = await serviceClient.from('packages').insert({
