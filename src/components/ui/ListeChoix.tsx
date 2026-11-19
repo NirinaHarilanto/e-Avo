@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { champStyle } from './Champ'
 import { Icone } from './Icones'
 
@@ -39,13 +40,61 @@ export function ListeChoix({
   const [surligne, setSurligne] = useState(0)
   const conteneurRef = useRef<HTMLDivElement>(null)
   const boutonRef = useRef<HTMLButtonElement>(null)
+  const listeRef = useRef<HTMLDivElement>(null)
+  /* Position de la liste dans la FENÊTRE, pas dans la page : voir le portail plus bas. */
+  const [position, setPosition] = useState<{ gauche: number; haut: number; largeur: number; hauteurMax: number } | null>(null)
+
+  /* Mesurée à l'ouverture, puis à chaque défilement ou redimensionnement — une liste en
+     `position: fixed` ne suit pas son déclencheur toute seule.
+
+     Elle s'ouvre VERS LE HAUT quand le bas de l'écran est trop proche : sans ce basculement,
+     une liste ouverte en bas de fenêtre se retrouve tronquée par le bord de l'écran, ce que le
+     portail ne corrige pas à lui seul. */
+  const calculerPosition = useCallback(() => {
+    const bouton = boutonRef.current
+    if (!bouton) return
+    const r = bouton.getBoundingClientRect()
+    const marge = 8
+    const placeDessous = window.innerHeight - r.bottom - marge
+    const placeDessus = r.top - marge
+    const versLeHaut = placeDessous < 180 && placeDessus > placeDessous
+    const hauteurMax = Math.max(120, Math.min(280, versLeHaut ? placeDessus : placeDessous))
+    const hauteurListe = listeRef.current?.offsetHeight ?? 0
+    setPosition({
+      gauche: r.left,
+      largeur: r.width,
+      haut: versLeHaut ? Math.max(marge, r.top - marge - Math.min(hauteurListe || hauteurMax, hauteurMax)) : r.bottom + 4,
+      hauteurMax,
+    })
+  }, [])
+
+  useLayoutEffect(() => {
+    if (!ouvert) {
+      setPosition(null)
+      return
+    }
+    calculerPosition()
+    /* `true` : on écoute aussi les défilements des conteneurs intermédiaires (le voile de la
+       fenêtre modale défile, pas la page). */
+    window.addEventListener('scroll', calculerPosition, true)
+    window.addEventListener('resize', calculerPosition)
+    return () => {
+      window.removeEventListener('scroll', calculerPosition, true)
+      window.removeEventListener('resize', calculerPosition)
+    }
+  }, [ouvert, calculerPosition])
 
   const choisie = options.find((o) => o.id === valeur) ?? null
 
   useEffect(() => {
     if (!ouvert) return
     function surClicExterieur(e: MouseEvent) {
-      if (!conteneurRef.current?.contains(e.target as Node)) setOuvert(false)
+      /* La liste vit désormais dans un portail, donc HORS du conteneur : la tester séparément,
+         sans quoi tout clic sur une option serait pris pour un clic extérieur et refermerait la
+         liste avant que le choix ne soit enregistré. */
+      const cible = e.target as Node
+      if (conteneurRef.current?.contains(cible) || listeRef.current?.contains(cible)) return
+      setOuvert(false)
     }
     document.addEventListener('mousedown', surClicExterieur)
     return () => document.removeEventListener('mousedown', surClicExterieur)
@@ -81,6 +130,12 @@ export function ListeChoix({
       if (options[surligne]) choisir(options[surligne].id)
     } else if (e.key === 'Escape') {
       e.preventDefault()
+      /* Et SURTOUT : empêcher l'événement d'atteindre la fenêtre modale qui porte cette liste.
+         `Modale` écoute Échap au niveau du document (voir son `surEchap`) — sans cet arrêt,
+         refermer une liste déroulante refermait la fenêtre entière, et la saisie en cours
+         partait avec elle. */
+      e.stopPropagation()
+      e.nativeEvent.stopImmediatePropagation()
       setOuvert(false)
     }
   }
@@ -114,21 +169,41 @@ export function ListeChoix({
         <Icone nom="chevron" taille={13} style={{ color: 'var(--muted)', transform: ouvert ? 'rotate(-90deg)' : 'rotate(90deg)', transition: 'transform .12s' }} />
       </button>
 
-      {ouvert && (
+      {/* Montée dans `document.body` plutôt que sous son déclencheur — défaut mesuré en
+          production le 2026-11-19, capture client à l'appui : « je ne peux pas voir toutes les
+          options possibles ». Le cadre d'une fenêtre modale porte `overflow: hidden` (voir
+          Modale.tsx, pour ses coins arrondis) ; une liste en `position: absolute` qui dépasse ce
+          cadre est donc ROGNÉE. Mesuré sur la liste des classes : 55 px hors cadre, 3 options
+          sur 4 invisibles et inatteignables.
+
+          Le portail rend la liste insensible au conteneur qui l'ouvre, quel qu'il soit — comme
+          le fait déjà la fenêtre modale elle-même pour la même raison. Elle est alors positionnée
+          en coordonnées de FENÊTRE (`position: fixed`), recalculées au défilement.
+
+          `zIndex` bien au-dessus des fenêtres (300 + profondeur × 10) et de l'aperçu
+          d'impression (1000) : une liste ouverte doit passer devant ce qui l'a ouverte. */}
+      {ouvert && position &&
+        createPortal(
         <div
+          ref={listeRef}
           role="listbox"
           style={{
-            position: 'absolute',
-            zIndex: 40,
-            top: 'calc(100% + 4px)',
-            left: 0,
-            right: 0,
-            maxHeight: 280,
+            position: 'fixed',
+            zIndex: 2000,
+            top: position.haut,
+            left: position.gauche,
+            width: position.largeur,
+            maxHeight: position.hauteurMax,
             overflowY: 'auto',
             borderRadius: 12,
-            border: '1px solid var(--border)',
+            /* Bord et ombre nettement plus marqués que le reste des surfaces : mesuré en
+               production, le fond de la liste (#f7f4ff) et celui de la fenêtre (#fefffa) ne
+               présentaient qu'un rapport de contraste de 1,08 — la liste se fondait dans la
+               fenêtre, d'où « la liste déroulante n'est pas très visible ». Le texte, lui, était
+               déjà à 6,77 : ce n'était pas lui le problème, mais la SÉPARATION du panneau. */
+            border: '1px solid var(--ink)',
             background: 'var(--surface-alt)',
-            boxShadow: '0 14px 34px rgba(0,0,0,.18)',
+            boxShadow: '0 18px 44px rgba(28,17,57,.30), 0 2px 8px rgba(28,17,57,.16)',
             padding: 4,
           }}
         >
@@ -157,7 +232,8 @@ export function ListeChoix({
               <span style={{ color: i === surligne ? '#fff' : 'inherit' }}>{o.libelle}</span>
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
