@@ -938,7 +938,10 @@ function ClassesVague({
    n'est pas une écriture mais cinq, dont trois hors de portée du navigateur (ouvrir un forfait,
    désinscrire des séances déjà planifiées, mettre à jour les invitations Google). Cet écran se
    contente de choisir qui part et où, et de dire ce qui va se passer AVANT de le faire. */
-function DeplacerEtudiantsModale({
+/* Exportée pour ses tests (__tests__/deplacerEtudiantsCompteur.test.tsx) : le choix du sort des
+   heures restantes touche à de l'argent déjà encaissé, et se vérifie donc au niveau du
+   formulaire, pas à travers tout l'écran Cours collectifs. */
+export function DeplacerEtudiantsModale({
   classe,
   studentIds,
   onFermer,
@@ -956,6 +959,16 @@ function DeplacerEtudiantsModale({
   /* La vague d'arrivée, celle de la classe de départ par défaut : le cas de loin le plus
      fréquent reste le passage à la classe suivante de la même promotion. */
   const [vagueCibleId, setVagueCibleId] = useState(classe.cohort_id)
+  /* Sort des heures restantes d'un élève à mi-parcours — décision client du 2026-11-19 :
+     « il faut alors l'avertir et lui donner le choix [...] il faut que l'admin valide son
+     choix ». Volontairement sans valeur par défaut : tant que rien n'est coché, le bouton reste
+     fermé. Pré-cocher l'une des deux options reviendrait à décider à sa place du sort d'heures
+     déjà payées. */
+  const [choixCompteur, setChoixCompteur] = useState<'conserver' | 'reinitialiser' | null>(null)
+  /* Heures suivies et forfait de chaque élève de la classe : de quoi savoir lesquels sont à
+     mi-parcours, et ANNONCER les volumes en jeu — « 12 h suivies sur 20 h » dit ce qui se joue
+     là où « des heures restantes » ne dit rien. */
+  const [parcours, setParcours] = useState<Map<string, { consommees: number; forfait: number }>>(new Map())
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -978,6 +991,63 @@ function DeplacerEtudiantsModale({
     }
   }, [studentIds])
 
+  /* Les heures réellement suivies DANS CETTE CLASSE (0146) et le forfait de chaque élève : la
+     même jointure manuelle sessions → hour_ledger qu'api/_lib/finDeForfait.ts et que la fiche
+     candidat collectif — c'est la même question posée au même endroit, elle doit donner la même
+     réponse partout. */
+  useEffect(() => {
+    let annule = false
+    async function charger() {
+      if (studentIds.length === 0) return
+      const [{ data: seances }, { data: vague }, { data: forfaitsOuverts }] = await Promise.all([
+        supabase.from('sessions').select('id').eq('cohort_class_id', classe.id),
+        supabase.from('cohorts').select('heures_forfait').eq('id', classe.cohort_id).maybeSingle(),
+        /* Le forfait PROPRE à chaque élève, pas celui que vend la vague. Un élève déjà déplacé
+           une fois en conservant son compteur porte un forfait réduit — 20 h dans une vague qui
+           en vend 32 — et c'est ce total-là que la route reprendra. Annoncer celui de la vague
+           ferait promettre à l'écran des heures que le déplacement n'accordera pas. */
+        supabase
+          .from('packages')
+          .select('student_id, total_heures')
+          .eq('type_programme', 'collectif')
+          .is('clos_le', null)
+          .in('student_id', studentIds),
+      ])
+      const idsSeances = (seances ?? []).map((s) => s.id)
+      const { data: debits } = idsSeances.length
+        ? await supabase
+            .from('hour_ledger')
+            .select('student_id, heures')
+            .eq('type_ecriture', 'debit_etudiant')
+            .in('student_id', studentIds)
+            .in('session_id', idsSeances)
+        : { data: [] as { student_id: string; heures: number }[] }
+      if (annule) return
+      const forfaitVague = vague?.heures_forfait ?? 0
+      const forfaitDe = new Map<string, number>()
+      for (const f of forfaitsOuverts ?? []) {
+        if (!f.student_id) continue
+        const total = Number(f.total_heures)
+        if (Number.isFinite(total) && total > 0) forfaitDe.set(f.student_id, total)
+      }
+      const parEleve = new Map<string, { consommees: number; forfait: number }>()
+      for (const id of studentIds) parEleve.set(id, { consommees: 0, forfait: forfaitDe.get(id) ?? forfaitVague })
+      for (const d of debits ?? []) {
+        // `hour_ledger.student_id` est nullable (0011) : les écritures de crédit professeur n'en
+        // portent aucun. Le filtre `type_ecriture` les écarte déjà, la garde ici le redit au
+        // typage.
+        if (!d.student_id) continue
+        const ligne = parEleve.get(d.student_id)
+        if (ligne) ligne.consommees += Number(d.heures)
+      }
+      setParcours(parEleve)
+    }
+    charger()
+    return () => {
+      annule = true
+    }
+  }, [studentIds, classe.id, classe.cohort_id])
+
   const { creneaux: creneauxClasses } = useCreneauxClasses()
   /* TOUTES les classes de l'établissement, et non les seules sœurs de la vague en cours —
      demande client du 2026-11-19 : « l'admin doit pouvoir choisir la vague et la classe dans
@@ -997,6 +1067,20 @@ function DeplacerEtudiantsModale({
 
   const cible = classesDeLaVague.find((c) => c.classe.id === classeCibleId)?.classe ?? null
   const changeDeVague = vagueCibleId !== classe.cohort_id
+
+  /* À mi-parcours = des heures suivies, mais pas toutes. Ni l'élève vierge de toute heure (rien
+     à arbitrer), ni celui qui a fini son forfait (rien à reporter). Même définition que la base
+     (0074 / 0147 / 0164) et que la route. */
+  const miParcours = useMemo(
+    () =>
+      (eleves ?? []).filter((e) => {
+        const p = parcours.get(e.id)
+        return !!p && p.forfait > 0 && p.consommees > 0 && p.consommees < p.forfait && selection.has(e.id)
+      }),
+    [eleves, parcours, selection],
+  )
+  const choixRequis = miParcours.length > 0
+  const choixManquant = choixRequis && choixCompteur === null
   /* Places restantes dans la classe visée, affichées avant le clic : la base refuse un 8e élève
      (trigger 0074) et la route refuse le lot entier plutôt que d'en déplacer la moitié — autant
      que l'admin le voie pendant qu'il coche, pas après. */
@@ -1019,7 +1103,12 @@ function DeplacerEtudiantsModale({
     const reponse = await fetch('/api/admin/deplacer-etudiants-classe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await jetonAcces()}` },
-      body: JSON.stringify({ classeSourceId: classe.id, classeCibleId, studentIds: [...selection] }),
+      body: JSON.stringify({
+        classeSourceId: classe.id,
+        classeCibleId,
+        studentIds: [...selection],
+        ...(choixCompteur ? { compteurHeures: choixCompteur } : {}),
+      }),
     })
     const resultat = (await reponse.json().catch(() => ({}))) as { error?: string }
     setEnCours(false)
@@ -1150,14 +1239,15 @@ function DeplacerEtudiantsModale({
                   />
                 </Champ>
 
-                {/* Dit AVANT le clic, pas après : la base retient dans sa vague tout élève qui a
-                    commencé son forfait sans le terminer (garde-fou 0074, assoupli par 0147), et
-                    la route nomme alors ceux qui bloquent. Prévenir ici évite de composer une
-                    sélection entière pour se la voir refuser. */}
+                {/* Ce paragraphe disait jusqu'au 2026-11-19 que changer de vague à mi-parcours
+                    était refusé. Ce n'est plus vrai : le client a tranché que l'admin décide à
+                    la place du refus, et le bloc de choix juste en dessous porte désormais cette
+                    décision. Il ne reste ici que ce qui change vraiment de nature quand on
+                    quitte la promotion — la période de cours et le planning. */}
                 {changeDeVague && (
                   <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
-                    Changer de vague n’est possible que pour un étudiant qui n’a encore suivi aucune heure dans sa
-                    vague actuelle, ou qui a terminé son forfait. Les autres resteront refusés, nommément.
+                    Changer de vague rattache aussi l’étudiant à la période de cours et au planning de la vague
+                    d’arrivée.
                   </p>
                 )}
 
@@ -1182,6 +1272,93 @@ function DeplacerEtudiantsModale({
                   />
                 </Champ>
                 )}
+                {/* L'avertissement et le choix — demande client du 2026-11-19 : « il faut alors
+                    l'avertir et lui donner le choix [...] il faut mettre en valeur ce choix. Il
+                    faut que l'admin valide son choix. » Encadré, en teinte d'alerte, avec les
+                    VOLUMES RÉELS de chaque élève : « 12 h sur 32 h » dit ce qui est en jeu là où
+                    « des heures restantes » ne dit rien. */}
+                {choixRequis && (
+                  <div
+                    style={{
+                      borderRadius: 14,
+                      border: '1px solid rgba(233,207,148,.55)',
+                      background: 'rgba(233,207,148,.12)',
+                      padding: '13px 15px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10,
+                    }}
+                  >
+                    <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--accent-gold, #e9cf94)' }}>
+                      {miParcours.length > 1
+                        ? 'Ces étudiants n’ont pas terminé leur forfait'
+                        : 'Cet étudiant n’a pas terminé son forfait'}
+                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {miParcours.map((e) => {
+                        const p = parcours.get(e.id)
+                        const restantes = p ? p.forfait - p.consommees : 0
+                        return (
+                          <span key={e.id} style={{ fontSize: 12, color: 'var(--ink-2)' }}>
+                            {e.prenom} {e.nom} — {formaterHeures(p?.consommees ?? 0)} suivies sur{' '}
+                            {formaterHeures(p?.forfait ?? 0)}, <strong>{formaterHeures(restantes)} restantes</strong>
+                          </span>
+                        )
+                      })}
+                    </div>
+                    <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.55 }}>
+                      Choisissez ce que deviennent ces heures. Ce choix est définitif : il est appliqué au moment du
+                      déplacement.
+                    </span>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                      {(
+                        [
+                          {
+                            valeur: 'conserver' as const,
+                            titre: 'Conserver le compteur',
+                            detail:
+                              'Le nouveau forfait reprend les heures restantes. Rien n’est perdu, rien n’est refacturé.',
+                          },
+                          {
+                            valeur: 'reinitialiser' as const,
+                            titre: 'Réinitialiser le compteur',
+                            detail:
+                              'Le nouveau forfait repart complet, au tarif de la vague. Les heures restantes sont abandonnées.',
+                          },
+                        ]
+                      ).map((option) => (
+                        <label
+                          key={option.valeur}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 9,
+                            padding: '9px 11px',
+                            borderRadius: 10,
+                            cursor: 'pointer',
+                            border: `1px solid ${choixCompteur === option.valeur ? 'var(--accent-blue)' : 'var(--border)'}`,
+                            background:
+                              choixCompteur === option.valeur ? 'rgba(169,140,255,.14)' : 'var(--surface)',
+                          }}
+                        >
+                          <input
+                            type="radio"
+                            name="compteur-heures"
+                            checked={choixCompteur === option.valeur}
+                            onChange={() => setChoixCompteur(option.valeur)}
+                            style={{ marginTop: 2, width: 15, height: 15, accentColor: 'var(--accent-blue)', flexShrink: 0 }}
+                          />
+                          <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>{option.titre}</span>
+                            <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.5 }}>{option.detail}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {tropDEleves && (
                   <MessageErreur>
                     {placesCible === 0
@@ -1193,12 +1370,12 @@ function DeplacerEtudiantsModale({
             {erreur && <MessageErreur>{erreur}</MessageErreur>}
             <button
               onClick={deplacer}
-              disabled={enCours || !classeCibleId || tropDEleves}
+              disabled={enCours || !classeCibleId || tropDEleves || choixManquant}
               className="btn-shine"
               style={{
                 ...boutonPrimaireStyle,
                 alignSelf: 'flex-start',
-                opacity: enCours || !classeCibleId || tropDEleves ? 0.6 : 1,
+                opacity: enCours || !classeCibleId || tropDEleves || choixManquant ? 0.6 : 1,
               }}
             >
               {enCours

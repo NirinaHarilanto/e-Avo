@@ -16,6 +16,11 @@ const CAPACITE_MAX_CLASSE = 7
 interface Corps {
   classeSourceId?: string
   classeCibleId?: string
+  /* Sort des heures restantes d'un élève à mi-parcours — décision client du 2026-11-19.
+     `conserver` : le forfait suivant reprend les heures qui lui restent, rien n'est perdu ni
+     revendu. `reinitialiser` : forfait complet, les heures non suivies sont abandonnées.
+     Exigé dès qu'au moins un élève déplacé est à mi-parcours (voir plus bas). */
+  compteurHeures?: 'conserver' | 'reinitialiser'
   studentIds?: string[]
 }
 
@@ -172,48 +177,60 @@ export default async function handler(request: Request): Promise<Response> {
       }
     }
 
-    /* Changement de VAGUE : qui peut partir, et qui reste. Les deux fonctions appelées ici sont
-       exactement celles du garde-fou en base (0074 pour la première, 0147 pour la seconde) —
-       appelées plutôt que réécrites, pour que l'écran et la base ne puissent pas diverger. Sans
-       ce contrôle, un seul élève à mi-parcours ferait échouer le lot entier sur le message brut
-       du trigger, sans dire lequel.
+    /* Qui est À MI-PARCOURS — ni vierge de toute heure, ni au bout de son forfait. C'est pour
+       eux, et pour eux seuls, que le sort des heures restantes se décide (demande client du
+       2026-11-19). La question est posée pour TOUT déplacement, dans la même vague comme vers
+       une autre : des heures payées et non suivies se perdent aussi bien en changeant de classe
+       qu'en changeant de promotion, et le client parle des deux dans la même phrase.
 
-       `mesurerParcours` ne suffirait pas ici : il compte les heures de la CLASSE (0146), quand
-       le garde-fou regarde toute la PROMOTION — un élève déjà passé d'une classe à l'autre dans
-       la même vague aurait un compteur de classe à zéro et serait annoncé partant à tort. */
-    const changeDeVague = aDeplacer.filter((i) => i.cohort_id !== cible.cohort_id)
-    if (changeDeVague.length > 0) {
-      const retenus: string[] = []
-      for (const inscription of changeDeVague) {
-        const [{ data: aConsomme }, { data: forfaitTermine }] = await Promise.all([
-          serviceClient.rpc('etudiant_a_consomme_heures_promotion', {
-            p_student_id: inscription.student_id,
-            p_cohort_id: inscription.cohort_id,
-          }),
-          serviceClient.rpc('forfait_collectif_entierement_consomme', {
-            p_student_id: inscription.student_id,
-            p_cohort_id: inscription.cohort_id,
-            p_cohort_class_id: inscription.cohort_class_id,
-          }),
-        ])
-        if (aConsomme && !forfaitTermine) retenus.push(inscription.student_id)
-      }
-
-      if (retenus.length > 0) {
-        /* Les noms, pas les identifiants : c'est l'admin qui lit ce message, et il doit savoir
-           sur qui revenir. */
-        const { data: profils } = await serviceClient.from('profiles').select('id, prenom, nom').in('id', retenus)
-        const noms = (profils ?? [])
-          .map((p) => [p.prenom, p.nom].filter(Boolean).join(' '))
-          .filter((n) => n.length > 0)
-        return Response.json(
-          {
-            error: `Changement de vague impossible pour ${noms.length > 1 ? 'ces élèves' : 'cet élève'} : ${noms.join(', ')}. ${noms.length > 1 ? 'Ils ont' : 'Il a'} commencé ${noms.length > 1 ? 'leur' : 'son'} forfait dans la vague actuelle sans l'avoir terminé. Une autre classe de la MÊME vague reste possible.`,
-          },
-          { status: 409 },
-        )
-      }
+       Les deux fonctions appelées ici sont exactement celles du garde-fou en base (0074, assoupli
+       par 0147 puis 0164) : appelées plutôt que réécrites, pour que l'écran et la base ne puissent
+       pas diverger. `mesurerParcours` ne conviendrait pas pour cette question-ci — il compte les
+       heures de la CLASSE (0146) quand le garde-fou regarde toute la PROMOTION, et un élève déjà
+       passé d'une classe à l'autre dans la même vague aurait un compteur de classe à zéro. */
+    const aMiParcours: typeof aDeplacer = []
+    for (const inscription of aDeplacer) {
+      const [{ data: aConsomme }, { data: forfaitTermine }] = await Promise.all([
+        serviceClient.rpc('etudiant_a_consomme_heures_promotion', {
+          p_student_id: inscription.student_id,
+          p_cohort_id: inscription.cohort_id,
+        }),
+        serviceClient.rpc('forfait_collectif_entierement_consomme', {
+          p_student_id: inscription.student_id,
+          p_cohort_id: inscription.cohort_id,
+          p_cohort_class_id: inscription.cohort_class_id,
+        }),
+      ])
+      if (aConsomme && !forfaitTermine) aMiParcours.push(inscription)
     }
+
+    /* Le choix est EXIGÉ, pas deviné : déplacer un élève à mi-parcours sans l'avoir tranché
+       reviendrait à décider à sa place du sort d'heures déjà payées. L'écran le demande
+       (DeplacerEtudiantsModale) et la route le réclame aussi — une règle qui touche à l'argent
+       ne doit pas dépendre du chemin emprunté pour y arriver. */
+    const choixCompteur = body.compteurHeures
+    if (aMiParcours.length > 0 && choixCompteur !== 'conserver' && choixCompteur !== 'reinitialiser') {
+      /* Les noms, pas les identifiants : c'est l'admin qui lit ce message, et il doit savoir sur
+         qui revenir. */
+      const { data: profils } = await serviceClient
+        .from('profiles')
+        .select('id, prenom, nom')
+        .in(
+          'id',
+          aMiParcours.map((i) => i.student_id),
+        )
+      const noms = (profils ?? []).map((p) => [p.prenom, p.nom].filter(Boolean).join(' ')).filter((n) => n.length > 0)
+      const pluriel = noms.length > 1
+      return Response.json(
+        {
+          error: `${noms.join(', ')} n'${pluriel ? 'ont' : 'a'} pas terminé ${pluriel ? 'leur' : 'son'} forfait d'heures : précisez s'il faut conserver ou réinitialiser le compteur avant de déplacer.`,
+          choixRequis: true,
+          elevesMiParcours: noms,
+        },
+        { status: 409 },
+      )
+    }
+    const idsMiParcours = new Set(aMiParcours.map((i) => i.student_id))
 
     const { count: effectifCible } = await serviceClient
       .from('cohort_enrollments')
@@ -278,9 +295,71 @@ export default async function handler(request: Request): Promise<Response> {
     const idsSeancesCible = (seancesCible ?? []).map((s) => s.id)
     const idsDeplaces = aDeplacer.map((i) => i.student_id)
 
-    /* 1. L'inscription à la classe — et à la vague, quand l'élève en change. Le garde-fou 0074
-          refuserait l'écriture si son forfait n'était pas terminé ; il l'est, c'est la condition
-          vérifiée plus haut, et 0147 lève le garde-fou pour exactement ce cas. */
+    /* 1. Le forfait en cours est SOLDÉ — et c'est bien la première écriture, avant même de
+          déplacer l'inscription. Deux raisons, et la seconde est structurelle :
+            — le garde-fou en base (0074, assoupli par 0147 puis 0164) ne laisse quitter une
+              promotion que si plus aucun forfait collectif n'y reste ouvert : solder est donc
+              littéralement ce qui AUTORISE le déplacement qui suit ;
+            — solder, c'est trancher le sort des heures restantes, et ce choix doit être acté
+              avant que l'élève ne change de classe, pas après.
+          Les heures déjà faites ne bougent jamais : elles restent inscrites aux séances de la
+          classe quittée, c'est leur place. */
+    const heuresRestantesParEleve = new Map<string, number>()
+    for (const inscription of aDeplacer) {
+      /* Le forfait collectif en cours de CET élève : le plus récent non soldé. Un élève sans
+         forfait (cas théorique, le trigger 0071 en crée un à l'inscription) n'a rien à solder. */
+      const { data: enCours } = await serviceClient
+        .from('packages')
+        .select('id, cohort_class_id, total_heures')
+        .eq('student_id', inscription.student_id)
+        .eq('type_programme', 'collectif')
+        .is('clos_le', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (!enCours) continue
+
+      /* Ce qu'il lui restait, pour le reporter si l'admin a choisi de conserver le compteur.
+         Les heures consommées viennent de la règle partagée (`mesurerParcours`), jamais
+         recalculées ici — c'est la même question que partout ailleurs, elle doit donner la même
+         réponse.
+
+         Le TOTAL, en revanche, est celui du forfait que l'on solde à l'instant, pas celui de la
+         vague que `mesurerParcours` renvoie. La nuance se paie cher au deuxième déplacement :
+         un élève déjà déplacé une fois en conservant son compteur porte un forfait réduit
+         (20 h, mettons) dans une vague qui en vend 32 ; partir du forfait de la vague lui
+         rendrait 32 − consommées, soit plus d'heures qu'il n'en a jamais payées. On ne reporte
+         que ce qui reste de SON forfait. Le forfait de la vague ne sert que de repli, pour un
+         forfait sans total lisible. */
+      if (idsMiParcours.has(inscription.student_id) && choixCompteur === 'conserver') {
+        const { forfait: forfaitVague, consommees } = await mesurerParcours(
+          serviceClient,
+          inscription.student_id,
+          inscription.cohort_id,
+          etablissementId,
+          inscription.cohort_class_id,
+        )
+        const totalDuForfait = Number(enCours.total_heures)
+        const total = Number.isFinite(totalDuForfait) && totalDuForfait > 0 ? totalDuForfait : forfaitVague
+        const restantes = total != null ? Math.max(0, total - consommees) : 0
+        if (restantes > 0) heuresRestantesParEleve.set(inscription.student_id, restantes)
+      }
+
+      await serviceClient
+        .from('packages')
+        .update({
+          clos_le: maintenant,
+          // Un forfait d'avant 0146 peut ne pas savoir quelle classe il couvrait : c'est
+          // celle qu'on quitte, et il faut le figer avant de le solder, sinon les heures
+          // reprises à la mise en service (0140) qu'il porte se retrouveraient orphelines.
+          cohort_class_id: enCours.cohort_class_id ?? inscription.cohort_class_id,
+        })
+        .eq('id', enCours.id)
+    }
+
+    /* 2. L'inscription à la classe — et à la vague, quand l'élève en change. Le forfait venant
+          d'être soldé, le garde-fou laisse passer. */
     const { error: erreurClasse } = await serviceClient
       .from('cohort_enrollments')
       .update({ cohort_class_id: cible.id, cohort_id: cible.cohort_id })
@@ -292,46 +371,31 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: erreurClasse.message }, { status: 409 })
     }
 
-    // 3. Le forfait : l'actuel soldé, un neuf ouvert sur la nouvelle classe.
+    /* 3. Le forfait neuf, ouvert sur la nouvelle classe. Son volume dépend du choix de l'admin
+          pour les élèves à mi-parcours :
+            — CONSERVER : il reprend les heures qui restaient, et rien n'est facturé — ce n'est
+              pas une nouvelle vente, c'est la suite de la même. Le compteur affichera donc
+              « 0 h / <ce qui restait> », ce qui est exactement ce que l'élève a encore droit de
+              suivre ;
+            — RÉINITIALISER : forfait complet de la vague, au tarif correspondant. Les heures non
+              suivies du forfait soldé sont abandonnées, et c'est le sens du mot réinitialiser.
+          Pour tous les autres (aucune heure suivie, ou forfait déjà terminé), rien ne change :
+          forfait complet, comme avant. */
     let forfaitsOuverts = 0
-    if (heuresForfait != null && heuresForfait > 0) {
-      for (const inscription of aDeplacer) {
-        /* Le forfait collectif en cours de CET élève : le plus récent non soldé. Un élève sans
-           forfait (cas théorique, le trigger 0071 en crée un à l'inscription) en reçoit un ici
-           quand même — c'est le cycle qu'il commence. */
-        const { data: enCours } = await serviceClient
-          .from('packages')
-          .select('id, cohort_class_id')
-          .eq('student_id', inscription.student_id)
-          .eq('type_programme', 'collectif')
-          .is('clos_le', null)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+    for (const inscription of aDeplacer) {
+      const restantes = heuresRestantesParEleve.get(inscription.student_id)
+      const heuresDuNouveau = restantes ?? heuresForfait
+      if (heuresDuNouveau == null || heuresDuNouveau <= 0) continue
 
-        if (enCours) {
-          await serviceClient
-            .from('packages')
-            .update({
-              clos_le: maintenant,
-              // Un forfait d'avant 0146 peut ne pas savoir quelle classe il couvrait : c'est
-              // celle qu'on quitte, et il faut le figer avant de le solder, sinon les heures
-              // reprises à la mise en service (0140) qu'il porte se retrouveraient orphelines.
-              cohort_class_id: enCours.cohort_class_id ?? inscription.cohort_class_id,
-            })
-            .eq('id', enCours.id)
-        }
-
-        const { error: erreurForfait } = await serviceClient.from('packages').insert({
-          etablissement_id: etablissementId,
-          student_id: inscription.student_id,
-          type_programme: 'collectif',
-          total_heures: heuresForfait,
-          montant: montantForfait,
-          cohort_class_id: cible.id,
-        })
-        if (!erreurForfait) forfaitsOuverts += 1
-      }
+      const { error: erreurForfait } = await serviceClient.from('packages').insert({
+        etablissement_id: etablissementId,
+        student_id: inscription.student_id,
+        type_programme: 'collectif',
+        total_heures: heuresDuNouveau,
+        montant: restantes != null ? null : montantForfait,
+        cohort_class_id: cible.id,
+      })
+      if (!erreurForfait) forfaitsOuverts += 1
     }
 
     // 4. Le planning : sorti des séances à venir de l'ancienne classe, inscrit à celles de la
@@ -414,6 +478,7 @@ export default async function handler(request: Request): Promise<Response> {
       ok: true,
       deplaces: aDeplacer.length,
       forfaitsOuverts,
+      compteurConserve: heuresRestantesParEleve.size,
       seancesQuittees: idsSeancesSource.length,
       seancesRejointes: inscriptionsPosees,
     })

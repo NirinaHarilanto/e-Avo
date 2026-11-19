@@ -322,12 +322,18 @@ describe('deplacer-etudiants-classe', () => {
     expect(journal.forfaitsOuverts).toEqual([])
   })
 
-  /* Demande client du 2026-11-19 : « on doit pouvoir déplacer l'étudiant dans une classe d'une
-     AUTRE VAGUE également ». Le refus en bloc d'avant est levé — mais la règle de fond ne bouge
-     pas : c'est la base qui tranche (garde-fou 0074, assoupli par 0147), et la route pose
-     exactement sa question avant d'écrire, pour nommer qui bloque au lieu de laisser échouer le
-     lot entier sur une exception Postgres anonyme. */
-  describe('changement de vague', () => {
+  /* Demande client du 2026-11-19, en deux temps. D'abord : « on doit pouvoir déplacer l'étudiant
+     dans une classe d'une AUTRE VAGUE également » — le refus en bloc d'avant est levé. Ensuite :
+     « alors qu'il n'a pas encore terminé tout son forfait d'heures en cours, il faut alors
+     l'avertir et lui donner le choix s'il souhaite garder le compteur actuel ou souhaite
+     réinitialiser le compteur [...] Il faut que l'admin valide son choix. »
+
+     La route EXIGE donc ce choix au lieu de refuser : déplacer un élève à mi-parcours sans
+     l'avoir tranché reviendrait à décider à sa place du sort d'heures déjà payées. Et elle le
+     réclame pour TOUT déplacement, même vague comprise — le client parle des deux dans la même
+     phrase, et des heures se perdent aussi bien d'une classe à l'autre que d'une vague à
+     l'autre. */
+  describe('choix du compteur d’heures (élève à mi-parcours)', () => {
     function vaguesDifferentes() {
       classes = [
         { id: 'classe-beginner', cohort_id: 'vague-1', etablissement_id: 'etab-1', teacher_id: 'prof-1' },
@@ -335,7 +341,13 @@ describe('deplacer-etudiants-classe', () => {
       ]
     }
 
-    it('accepte un élève qui n’a encore suivi aucune heure dans sa vague', async () => {
+    function aMiParcours(eleve = 'eleve-1') {
+      aConsommeHeures = { [eleve]: true }
+      forfaitTermine = { [eleve]: false }
+      parcoursMesure = { forfait: 32, consommees: 12 }
+    }
+
+    it('accepte un changement de vague sans rien demander à un élève qui n’a suivi aucune heure', async () => {
       vaguesDifferentes()
       aConsommeHeures = { 'eleve-1': false }
 
@@ -346,9 +358,11 @@ describe('deplacer-etudiants-classe', () => {
       expect(journal.classesMisesAJour).toEqual([
         { valeurs: { cohort_class_id: 'classe-intermediate', cohort_id: 'vague-2' }, ids: ['insc-1'] },
       ])
+      // Forfait complet, comme avant : il n'avait aucune heure à reporter.
+      expect(journal.forfaitsOuverts).toEqual([expect.objectContaining({ total_heures: 32, montant: 150_000 })])
     })
 
-    it('accepte un élève qui a terminé son forfait', async () => {
+    it('accepte sans rien demander à un élève qui a terminé son forfait', async () => {
       vaguesDifferentes()
       aConsommeHeures = { 'eleve-1': true }
       forfaitTermine = { 'eleve-1': true }
@@ -356,29 +370,127 @@ describe('deplacer-etudiants-classe', () => {
       const reponse = await appel({ classeSourceId: 'classe-beginner', classeCibleId: 'classe-intermediate', studentIds: ['eleve-1'] })
 
       expect(reponse.status).toBe(200)
+      expect(journal.forfaitsOuverts).toEqual([expect.objectContaining({ total_heures: 32 })])
     })
 
-    /* Le cœur du garde-fou : ouvrir un forfait neuf dans la vague d'arrivée laisserait derrière
-       lui des heures payées et jamais suivies. */
-    it('retient un élève à mi-parcours, et le NOMME', async () => {
+    /* « Il faut que l'admin valide son choix » : sans choix, rien ne bouge. Le 409 porte un
+       drapeau que l'écran peut reconnaître, et les NOMS — c'est l'admin qui lit, et il doit
+       savoir sur qui revenir. */
+    it('refuse de déplacer un élève à mi-parcours tant que le choix n’est pas fait, et le NOMME', async () => {
       vaguesDifferentes()
-      aConsommeHeures = { 'eleve-1': true }
-      forfaitTermine = { 'eleve-1': false }
+      aMiParcours()
 
       const reponse = await appel({ classeSourceId: 'classe-beginner', classeCibleId: 'classe-intermediate', studentIds: ['eleve-1'] })
-      const erreur = ((await reponse.json()) as { error?: string }).error ?? ''
+      const corps = (await reponse.json()) as { error?: string; choixRequis?: boolean; elevesMiParcours?: string[] }
 
       expect(reponse.status).toBe(409)
-      expect(erreur).toContain('Aina RAKOTO')
-      expect(erreur).toContain('MÊME vague')
+      expect(corps.choixRequis).toBe(true)
+      expect(corps.elevesMiParcours).toEqual(['Aina RAKOTO'])
+      expect(corps.error).toContain('Aina RAKOTO')
       // Rien n'a bougé : ni l'inscription, ni le forfait.
       expect(journal.classesMisesAJour).toEqual([])
+      expect(journal.forfaitsSoldes).toEqual([])
       expect(journal.forfaitsOuverts).toEqual([])
     })
 
-    /* Un seul élève retenu suffit à refuser le lot — même esprit que le contrôle de capacité,
-       qui refuse l'ensemble plutôt que d'en déplacer la moitié. */
-    it('refuse tout le lot dès qu’un seul élève est retenu', async () => {
+    /* La question se pose aussi DANS LA MÊME vague : c'est la montée de classe ordinaire, et un
+       élève qui la fait à mi-parcours y perdrait ses heures tout autant. */
+    it('réclame le choix même pour une classe de la même vague', async () => {
+      aMiParcours()
+
+      const reponse = await appel({ classeSourceId: 'classe-beginner', classeCibleId: 'classe-intermediate', studentIds: ['eleve-1'] })
+
+      expect(reponse.status).toBe(409)
+      expect(((await reponse.json()) as { choixRequis?: boolean }).choixRequis).toBe(true)
+      expect(journal.classesMisesAJour).toEqual([])
+    })
+
+    /* CONSERVER : le nouveau forfait reprend les heures restantes (32 − 12 = 20), et rien n'est
+       facturé — ce n'est pas une nouvelle vente, c'est la suite de la même. */
+    it('conserver : nouveau forfait des heures restantes, sans montant', async () => {
+      vaguesDifferentes()
+      aMiParcours()
+
+      const reponse = await appel({
+        classeSourceId: 'classe-beginner',
+        classeCibleId: 'classe-intermediate',
+        studentIds: ['eleve-1'],
+        compteurHeures: 'conserver',
+      })
+
+      expect(reponse.status).toBe(200)
+      expect(journal.forfaitsOuverts).toEqual([expect.objectContaining({ total_heures: 20, montant: null })])
+      expect(await reponse.json()).toMatchObject({ ok: true, compteurConserve: 1 })
+    })
+
+    /* RÉINITIALISER : forfait complet de la vague, au tarif correspondant. Les heures non suivies
+       du forfait soldé sont abandonnées, et c'est le sens du mot. */
+    it('réinitialiser : forfait complet au tarif de la vague', async () => {
+      vaguesDifferentes()
+      aMiParcours()
+
+      const reponse = await appel({
+        classeSourceId: 'classe-beginner',
+        classeCibleId: 'classe-intermediate',
+        studentIds: ['eleve-1'],
+        compteurHeures: 'reinitialiser',
+      })
+
+      expect(reponse.status).toBe(200)
+      expect(journal.forfaitsOuverts).toEqual([expect.objectContaining({ total_heures: 32, montant: 150_000 })])
+      expect(await reponse.json()).toMatchObject({ compteurConserve: 0 })
+    })
+
+    /* Le piège du DEUXIÈME déplacement. Un élève déjà déplacé une fois en conservant son
+       compteur porte un forfait réduit — 20 h ici — dans une vague qui en vend 32. Reporter
+       « le forfait de la vague moins les heures suivies » lui rendrait 24 h, soit 4 de plus
+       qu'il n'en a jamais payées, et le ferait à chaque déplacement. On part de SON forfait :
+       20 − 8 = 12. */
+    it('conserver : repart du forfait de l’élève, pas de celui de la vague', async () => {
+      vaguesDifferentes()
+      aConsommeHeures = { 'eleve-1': true }
+      forfaitTermine = { 'eleve-1': false }
+      forfaitEnCours = { id: 'forfait-1', cohort_class_id: 'classe-beginner', total_heures: 20 }
+      parcoursMesure = { forfait: 32, consommees: 8 }
+
+      const reponse = await appel({
+        classeSourceId: 'classe-beginner',
+        classeCibleId: 'classe-intermediate',
+        studentIds: ['eleve-1'],
+        compteurHeures: 'conserver',
+      })
+
+      expect(reponse.status).toBe(200)
+      expect(journal.forfaitsOuverts).toEqual([expect.objectContaining({ total_heures: 12, montant: null })])
+    })
+
+    /* Le forfait est soldé AVANT que l'inscription ne bouge, et cet ordre n'est pas cosmétique :
+       le garde-fou en base (0164) ne laisse quitter une promotion que si plus aucun forfait
+       collectif n'y reste ouvert. Inverser les deux ferait échouer le déplacement en production
+       sans qu'aucun test ne s'en aperçoive — d'où cette vérification d'ordre. */
+    it('solde le forfait AVANT de déplacer l’inscription', async () => {
+      vaguesDifferentes()
+      aMiParcours()
+
+      await appel({
+        classeSourceId: 'classe-beginner',
+        classeCibleId: 'classe-intermediate',
+        studentIds: ['eleve-1'],
+        compteurHeures: 'conserver',
+      })
+
+      expect(journal.forfaitsSoldes).toHaveLength(1)
+      const premierForfait = journal.tablesEcrites.indexOf('packages')
+      const deplacement = journal.tablesEcrites.indexOf('cohort_enrollments')
+      expect(premierForfait).toBeGreaterThanOrEqual(0)
+      expect(deplacement).toBeGreaterThanOrEqual(0)
+      expect(premierForfait).toBeLessThan(deplacement)
+    })
+
+    /* Un seul élève à mi-parcours suffit à réclamer le choix, et il est le seul nommé — même
+       esprit que le contrôle de capacité, qui refuse le lot entier plutôt que d'en déplacer la
+       moitié. */
+    it('réclame le choix pour le lot entier dès qu’un seul élève est à mi-parcours', async () => {
       vaguesDifferentes()
       inscriptions = [
         { id: 'insc-1', student_id: 'eleve-1', cohort_id: 'vague-1', cohort_class_id: 'classe-beginner' },
@@ -388,24 +500,31 @@ describe('deplacer-etudiants-classe', () => {
       forfaitTermine = { 'eleve-2': false }
 
       const reponse = await appel({ classeSourceId: 'classe-beginner', classeCibleId: 'classe-intermediate', studentIds: ['eleve-1', 'eleve-2'] })
-      const erreur = ((await reponse.json()) as { error?: string }).error ?? ''
+      const corps = (await reponse.json()) as { error?: string; elevesMiParcours?: string[] }
 
       expect(reponse.status).toBe(409)
-      expect(erreur).toContain('Miary RABE')
-      expect(erreur).not.toContain('Aina RAKOTO')
+      expect(corps.elevesMiParcours).toEqual(['Miary RABE'])
+      expect(corps.error).not.toContain('Aina RAKOTO')
       expect(journal.classesMisesAJour).toEqual([])
     })
 
-    /* Déplacer DANS LA MÊME vague n'a jamais rien à demander au garde-fou : c'est la montée de
-       classe ordinaire, et l'interroger ferait deux appels inutiles par élève. */
-    it('ne pose aucune question au garde-fou pour une classe de la même vague', async () => {
+    /* « Conserver » quand il ne reste rien à reporter ne doit pas ouvrir un forfait de 0 h :
+       l'élève serait bloqué sans que rien ne l'explique. Repli sur le forfait de la vague. */
+    it('n’ouvre pas de forfait vide quand il ne reste aucune heure à reporter', async () => {
+      vaguesDifferentes()
       aConsommeHeures = { 'eleve-1': true }
       forfaitTermine = { 'eleve-1': false }
+      parcoursMesure = { forfait: 32, consommees: 32 }
 
-      const reponse = await appel({ classeSourceId: 'classe-beginner', classeCibleId: 'classe-intermediate', studentIds: ['eleve-1'] })
+      const reponse = await appel({
+        classeSourceId: 'classe-beginner',
+        classeCibleId: 'classe-intermediate',
+        studentIds: ['eleve-1'],
+        compteurHeures: 'conserver',
+      })
 
       expect(reponse.status).toBe(200)
-      expect(appelsRpc).toEqual([])
+      expect(journal.forfaitsOuverts).toEqual([expect.objectContaining({ total_heures: 32 })])
     })
   })
 
