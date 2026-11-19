@@ -2533,6 +2533,18 @@ export interface Database {
         Args: { p_cle: string; p_max: number; p_fenetre_secondes: number }
         Returns: boolean
       }
+      /* Les deux fonctions du garde-fou « changement de promotion » (0074, assoupli par 0147).
+         Appelées telles quelles par api/admin/deplacer-etudiants-classe.ts plutôt que réécrites
+         en TypeScript : c'est le trigger qui tranche en dernier ressort, l'écran doit donner
+         exactement la même réponse que lui. */
+      etudiant_a_consomme_heures_promotion: {
+        Args: { p_student_id: string; p_cohort_id: string }
+        Returns: boolean
+      }
+      forfait_collectif_entierement_consomme: {
+        Args: { p_student_id: string; p_cohort_id: string; p_cohort_class_id: string | null }
+        Returns: boolean
+      }
     }
   }
 }

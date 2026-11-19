@@ -95,8 +95,22 @@ function requete(donnees: unknown, filtres: Record<string, unknown> = {}) {
   return builder
 }
 
+/* Les deux fonctions du garde-fou « changement de promotion » (0074 / 0147), telles que la route
+   les interroge. Par defaut : aucune heure consommee, donc rien ne retient l'eleve. */
+let aConsommeHeures: Record<string, boolean> = {}
+let forfaitTermine: Record<string, boolean> = {}
+let appelsRpc: { nom: string; args: Record<string, unknown> }[] = []
+let profilsEleves: { id: string; prenom: string; nom: string }[] = []
+
 function clientFactice() {
   return {
+    rpc(nom: string, args: Record<string, unknown>) {
+      appelsRpc.push({ nom, args })
+      const eleve = String(args.p_student_id)
+      const valeur =
+        nom === 'etudiant_a_consomme_heures_promotion' ? (aConsommeHeures[eleve] ?? false) : (forfaitTermine[eleve] ?? false)
+      return Promise.resolve({ data: valeur, error: null })
+    },
     from(table: string) {
       if (table === 'cohort_classes') return { select: () => requete(classes) }
 
@@ -116,6 +130,20 @@ function clientFactice() {
         }
       }
 
+      /* Les noms des eleves retenus, pour le message de refus du changement de vague. Le filtre
+         `.in('id', …)` est applique POUR DE VRAI ici, contrairement au builder generique : sans
+         cela, le faux client nommerait tout le monde et le test ne verrait pas la difference
+         entre « nomme ceux qui bloquent » et « nomme tout le lot ». */
+      if (table === 'profiles') {
+        return {
+          select: () => ({
+            in: async (_colonne: string, ids: string[]) => ({
+              data: profilsEleves.filter((p) => ids.includes(p.id)),
+              error: null,
+            }),
+          }),
+        }
+      }
       if (table === 'cohorts') return { select: () => requete({ heures_forfait: 32 }) }
       if (table === 'etablissements') return { select: () => requete({ heures_forfait_collectif: 32 }) }
       if (table === 'tarifs') return { select: () => requete([{ prix: 150_000, heures: 32 }]) }
@@ -198,6 +226,10 @@ beforeEach(() => {
     { id: 'classe-intermediate', cohort_id: 'vague-1', etablissement_id: 'etab-1', teacher_id: 'prof-2' },
   ]
   inscriptions = [{ id: 'insc-1', student_id: 'eleve-1', cohort_id: 'vague-1', cohort_class_id: 'classe-beginner' }]
+  aConsommeHeures = {}
+  forfaitTermine = {}
+  appelsRpc = []
+  profilsEleves = [{ id: 'eleve-1', prenom: 'Aina', nom: 'RAKOTO' }, { id: 'eleve-2', prenom: 'Miary', nom: 'RABE' }]
   effectifCible = 2
   seancesParClasse = {
     'classe-beginner': [{ id: 'seance-b1', debut: '2026-11-04T16:00:00Z' }],
@@ -290,21 +322,91 @@ describe('deplacer-etudiants-classe', () => {
     expect(journal.forfaitsOuverts).toEqual([])
   })
 
-  it('refuse une classe d’arrivée située dans une autre vague', async () => {
-    classes = [
-      { id: 'classe-beginner', cohort_id: 'vague-1', etablissement_id: 'etab-1', teacher_id: 'prof-1' },
-      { id: 'classe-intermediate', cohort_id: 'vague-2', etablissement_id: 'etab-1', teacher_id: 'prof-2' },
-    ]
+  /* Demande client du 2026-11-19 : « on doit pouvoir déplacer l'étudiant dans une classe d'une
+     AUTRE VAGUE également ». Le refus en bloc d'avant est levé — mais la règle de fond ne bouge
+     pas : c'est la base qui tranche (garde-fou 0074, assoupli par 0147), et la route pose
+     exactement sa question avant d'écrire, pour nommer qui bloque au lieu de laisser échouer le
+     lot entier sur une exception Postgres anonyme. */
+  describe('changement de vague', () => {
+    function vaguesDifferentes() {
+      classes = [
+        { id: 'classe-beginner', cohort_id: 'vague-1', etablissement_id: 'etab-1', teacher_id: 'prof-1' },
+        { id: 'classe-intermediate', cohort_id: 'vague-2', etablissement_id: 'etab-1', teacher_id: 'prof-2' },
+      ]
+    }
 
-    const reponse = await appel({
-      classeSourceId: 'classe-beginner',
-      classeCibleId: 'classe-intermediate',
-      studentIds: ['eleve-1'],
+    it('accepte un élève qui n’a encore suivi aucune heure dans sa vague', async () => {
+      vaguesDifferentes()
+      aConsommeHeures = { 'eleve-1': false }
+
+      const reponse = await appel({ classeSourceId: 'classe-beginner', classeCibleId: 'classe-intermediate', studentIds: ['eleve-1'] })
+
+      expect(reponse.status).toBe(200)
+      // La vague de l'inscription suit la classe d'arrivée : c'est tout l'objet du déplacement.
+      expect(journal.classesMisesAJour).toEqual([
+        { valeurs: { cohort_class_id: 'classe-intermediate', cohort_id: 'vague-2' }, ids: ['insc-1'] },
+      ])
     })
 
-    expect(reponse.status).toBe(409)
-    expect(((await reponse.json()) as { error?: string }).error).toContain('autre vague')
-    expect(journal.classesMisesAJour).toEqual([])
+    it('accepte un élève qui a terminé son forfait', async () => {
+      vaguesDifferentes()
+      aConsommeHeures = { 'eleve-1': true }
+      forfaitTermine = { 'eleve-1': true }
+
+      const reponse = await appel({ classeSourceId: 'classe-beginner', classeCibleId: 'classe-intermediate', studentIds: ['eleve-1'] })
+
+      expect(reponse.status).toBe(200)
+    })
+
+    /* Le cœur du garde-fou : ouvrir un forfait neuf dans la vague d'arrivée laisserait derrière
+       lui des heures payées et jamais suivies. */
+    it('retient un élève à mi-parcours, et le NOMME', async () => {
+      vaguesDifferentes()
+      aConsommeHeures = { 'eleve-1': true }
+      forfaitTermine = { 'eleve-1': false }
+
+      const reponse = await appel({ classeSourceId: 'classe-beginner', classeCibleId: 'classe-intermediate', studentIds: ['eleve-1'] })
+      const erreur = ((await reponse.json()) as { error?: string }).error ?? ''
+
+      expect(reponse.status).toBe(409)
+      expect(erreur).toContain('Aina RAKOTO')
+      expect(erreur).toContain('MÊME vague')
+      // Rien n'a bougé : ni l'inscription, ni le forfait.
+      expect(journal.classesMisesAJour).toEqual([])
+      expect(journal.forfaitsOuverts).toEqual([])
+    })
+
+    /* Un seul élève retenu suffit à refuser le lot — même esprit que le contrôle de capacité,
+       qui refuse l'ensemble plutôt que d'en déplacer la moitié. */
+    it('refuse tout le lot dès qu’un seul élève est retenu', async () => {
+      vaguesDifferentes()
+      inscriptions = [
+        { id: 'insc-1', student_id: 'eleve-1', cohort_id: 'vague-1', cohort_class_id: 'classe-beginner' },
+        { id: 'insc-2', student_id: 'eleve-2', cohort_id: 'vague-1', cohort_class_id: 'classe-beginner' },
+      ]
+      aConsommeHeures = { 'eleve-1': false, 'eleve-2': true }
+      forfaitTermine = { 'eleve-2': false }
+
+      const reponse = await appel({ classeSourceId: 'classe-beginner', classeCibleId: 'classe-intermediate', studentIds: ['eleve-1', 'eleve-2'] })
+      const erreur = ((await reponse.json()) as { error?: string }).error ?? ''
+
+      expect(reponse.status).toBe(409)
+      expect(erreur).toContain('Miary RABE')
+      expect(erreur).not.toContain('Aina RAKOTO')
+      expect(journal.classesMisesAJour).toEqual([])
+    })
+
+    /* Déplacer DANS LA MÊME vague n'a jamais rien à demander au garde-fou : c'est la montée de
+       classe ordinaire, et l'interroger ferait deux appels inutiles par élève. */
+    it('ne pose aucune question au garde-fou pour une classe de la même vague', async () => {
+      aConsommeHeures = { 'eleve-1': true }
+      forfaitTermine = { 'eleve-1': false }
+
+      const reponse = await appel({ classeSourceId: 'classe-beginner', classeCibleId: 'classe-intermediate', studentIds: ['eleve-1'] })
+
+      expect(reponse.status).toBe(200)
+      expect(appelsRpc).toEqual([])
+    })
   })
 
   /* Mode AJOUT — zone de recherche du formulaire « Nouvelle classe », demande client du

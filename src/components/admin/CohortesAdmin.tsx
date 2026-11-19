@@ -14,6 +14,7 @@ import { TagAucunCoursPlanifie } from '../etudiants/CarteListeEtudiant'
 import type { Database, StatutCohorte, NiveauClasse, CreneauClasse } from '../../types/database.types'
 import { LABEL_NIVEAU_CLASSE, libelleCreneau, COULEUR_NIVEAU_CLASSE, CAPACITE_MIN_CLASSE, CAPACITE_MAX_CLASSE, periodeClasse } from '../../lib/classesCollectif'
 import { useCreneauxClasses } from '../../hooks/useCreneauxClasses'
+import { useClassesAvecMembres } from '../../hooks/useClassesAvecMembres'
 import { niveauDefinitif } from '../../lib/niveauEtudiant'
 import { EnTetePage } from '../ui/EnTetePage'
 import { GrilleStats, Stat } from '../ui/Stat'
@@ -24,6 +25,7 @@ import { Icone } from '../ui/Icones'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { Onglets } from '../ui/Onglets'
 import { Modale } from '../ui/Modale'
+import { ListeChoix } from '../ui/ListeChoix'
 import { ChampSelectionPersonnes } from '../ui/ChampSelectionPersonnes'
 import { useEtudiantsForfaitTermine } from '../../hooks/useEtudiantsForfaitTermine'
 import { PanneauPlanningClasse } from '../shared/PanneauPlanningClasse'
@@ -839,12 +841,13 @@ function ClassesVague({
               />
             )}
 
+            {/* Plus de `classesCibles` ni d'`effectifs` passés depuis cet écran : la fenêtre
+                charge elle-même TOUTES les classes de l'établissement, puisqu'elle doit
+                désormais proposer celles des autres vagues (2026-11-19). */}
             {classePourDeplacement === classe.id && (
               <DeplacerEtudiantsModale
                 classe={classe}
-                classesCibles={classes.filter((c) => c.id !== classe.id)}
                 studentIds={ids}
-                effectifs={effectifs}
                 onFermer={() => setClassePourDeplacement(null)}
                 onChange={() => {
                   recharger()
@@ -937,16 +940,12 @@ function ClassesVague({
    contente de choisir qui part et où, et de dire ce qui va se passer AVANT de le faire. */
 function DeplacerEtudiantsModale({
   classe,
-  classesCibles,
   studentIds,
-  effectifs,
   onFermer,
   onChange,
 }: {
   classe: CohortClassRow
-  classesCibles: CohortClassRow[]
   studentIds: string[]
-  effectifs: Map<string, string[]>
   onFermer: () => void
   onChange: () => void
 }) {
@@ -954,6 +953,9 @@ function DeplacerEtudiantsModale({
   const [eleves, setEleves] = useState<Profile[] | null>(null)
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const [classeCibleId, setClasseCibleId] = useState('')
+  /* La vague d'arrivée, celle de la classe de départ par défaut : le cas de loin le plus
+     fréquent reste le passage à la classe suivante de la même promotion. */
+  const [vagueCibleId, setVagueCibleId] = useState(classe.cohort_id)
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
@@ -977,11 +979,28 @@ function DeplacerEtudiantsModale({
   }, [studentIds])
 
   const { creneaux: creneauxClasses } = useCreneauxClasses()
-  const cible = classesCibles.find((c) => c.id === classeCibleId) ?? null
+  /* TOUTES les classes de l'établissement, et non les seules sœurs de la vague en cours —
+     demande client du 2026-11-19 : « l'admin doit pouvoir choisir la vague et la classe dans
+     laquelle l'étudiant sera déplacé ». Le hook rend aussi les inscrits de chaque classe, ce qui
+     donne la place restante sans requête de plus. */
+  const { classes: toutesClasses } = useClassesAvecMembres()
+  const vagues = useMemo(
+    () => trierVaguesChronologiquement([...new Map(toutesClasses.map((c) => [c.classe.cohort_id, c.cohorte])).values()].filter((v): v is Cohort => !!v)),
+    [toutesClasses],
+  )
+  const classesDeLaVague = useMemo(
+    () => toutesClasses.filter((c) => c.classe.cohort_id === vagueCibleId && c.classe.id !== classe.id),
+    [toutesClasses, vagueCibleId, classe.id],
+  )
+  const placesDe = (classeId: string) =>
+    CAPACITE_MAX_CLASSE - (toutesClasses.find((c) => c.classe.id === classeId)?.membreIds.length ?? 0)
+
+  const cible = classesDeLaVague.find((c) => c.classe.id === classeCibleId)?.classe ?? null
+  const changeDeVague = vagueCibleId !== classe.cohort_id
   /* Places restantes dans la classe visée, affichées avant le clic : la base refuse un 8e élève
      (trigger 0074) et la route refuse le lot entier plutôt que d'en déplacer la moitié — autant
      que l'admin le voie pendant qu'il coche, pas après. */
-  const placesCible = cible ? CAPACITE_MAX_CLASSE - (effectifs.get(cible.id)?.length ?? 0) : null
+  const placesCible = cible ? placesDe(cible.id) : null
   const tropDEleves = placesCible !== null && selection.size > placesCible
 
   function basculer(id: string) {
@@ -1019,10 +1038,14 @@ function DeplacerEtudiantsModale({
       largeurMax={560}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Reformulé le 2026-11-19 : « on doit pouvoir déplacer un étudiant en classe supérieure
+            mais on doit pouvoir le déplacer dans une autre classe de même niveau également. »
+            Le mécanisme acceptait déjà n'importe quelle classe — c'est cette phrase, et elle
+            seule, qui laissait croire le contraire. */}
         <p style={{ margin: 0, fontSize: 12.5, color: 'var(--ink-2)', lineHeight: 1.6 }}>
-          Cette fonctionnalité permet de faire passer un ou plusieurs étudiants à une classe supérieure. Cochez les
-          étudiants concernés, choisissez leur nouvelle classe, et toutes leurs informations suivront : niveau,
-          professeurs, période de cours et planning.
+          Cette fonctionnalité déplace un ou plusieurs étudiants vers une autre classe : niveau supérieur, même
+          niveau, ou classe d'une autre vague. Cochez les étudiants concernés, choisissez la vague et la classe
+          d'arrivée, et toutes leurs informations suivront : niveau, professeurs, période de cours et planning.
         </p>
         <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6 }}>
           Leur compteur d’heures suivies repart de zéro dans la nouvelle classe, sur un nouveau forfait — les heures
@@ -1105,29 +1128,58 @@ function DeplacerEtudiantsModale({
             <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--accent-gold, #e9cf94)' }}>
               {selection.size} étudiant{selection.size > 1 ? 's' : ''} sélectionné{selection.size > 1 ? 's' : ''}
             </span>
-            {classesCibles.length === 0 ? (
-              <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0, lineHeight: 1.5 }}>
-                Cette promotion n’a pas d’autre classe. Créez la classe de destination (bouton{' '}
-                <strong>+ Nouvelle classe</strong>) avant de déplacer des étudiants.
-              </p>
-            ) : (
-              <>
+            <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span style={etiquetteStyle}>Nouvelle vague</span>
+                  <ListeChoix
+                    options={vagues.map((v) => ({
+                      id: v.id,
+                      libelle: `${nomVagueSeul(v.nom)}${v.id === classe.cohort_id ? ' · vague actuelle' : ''}`,
+                    }))}
+                    valeur={vagueCibleId}
+                    onChange={(id) => {
+                      setVagueCibleId(id)
+                      // La classe choisie appartenait à l'autre vague : la garder sélectionnée
+                      // afficherait un nom qui ne figure plus dans la liste d'en dessous.
+                      setClasseCibleId('')
+                    }}
+                    placeholder="Choisir une vague…"
+                  />
+                </div>
+
+                {/* Dit AVANT le clic, pas après : la base retient dans sa vague tout élève qui a
+                    commencé son forfait sans le terminer (garde-fou 0074, assoupli par 0147), et
+                    la route nomme alors ceux qui bloquent. Prévenir ici évite de composer une
+                    sélection entière pour se la voir refuser. */}
+                {changeDeVague && (
+                  <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+                    Changer de vague n’est possible que pour un étudiant qui n’a encore suivi aucune heure dans sa
+                    vague actuelle, ou qui a terminé son forfait. Les autres resteront refusés, nommément.
+                  </p>
+                )}
+
+                {classesDeLaVague.length === 0 ? (
+                  <p style={{ fontSize: 12, color: 'var(--muted-2)', margin: 0, lineHeight: 1.5 }}>
+                    Cette vague n’a pas d’autre classe. Créez la classe de destination (bouton{' '}
+                    <strong>+ Nouvelle classe</strong>) avant de déplacer des étudiants.
+                  </p>
+                ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <span style={etiquetteStyle}>Nouvelle classe</span>
-                  <select value={classeCibleId} onChange={(e) => setClasseCibleId(e.target.value)} style={champStyle}>
-                    <option value="">Choisir une classe…</option>
-                    {classesCibles.map((c) => {
-                      const places = CAPACITE_MAX_CLASSE - (effectifs.get(c.id)?.length ?? 0)
-                      return (
-                        <option key={c.id} value={c.id} disabled={places <= 0}>
-                          {LABEL_NIVEAU_CLASSE[c.niveau]}
-                          {c.nom ? ` — ${c.nom}` : ''} · {libelleCreneau(creneauxClasses, c.creneau)} ·{' '}
-                          {places <= 0 ? 'complet' : `${places} place${places > 1 ? 's' : ''}`}
-                        </option>
-                      )
+                  <ListeChoix
+                    options={classesDeLaVague.map(({ classe: c }) => {
+                      const places = placesDe(c.id)
+                      return {
+                        id: c.id,
+                        libelle: `${LABEL_NIVEAU_CLASSE[c.niveau]}${c.nom ? ` — ${c.nom}` : ''} · ${libelleCreneau(creneauxClasses, c.creneau)} · ${places <= 0 ? 'complet' : `${places} place${places > 1 ? 's' : ''}`}`,
+                      }
                     })}
-                  </select>
+                    valeur={classeCibleId}
+                    onChange={setClasseCibleId}
+                    placeholder="Choisir une classe…"
+                  />
                 </div>
+                )}
                 {tropDEleves && (
                   <MessageErreur>
                     {placesCible === 0
@@ -1135,8 +1187,7 @@ function DeplacerEtudiantsModale({
                       : `Cette classe ne peut accueillir que ${placesCible} étudiant${placesCible && placesCible > 1 ? 's' : ''} de plus.`}
                   </MessageErreur>
                 )}
-              </>
-            )}
+            </>
             {erreur && <MessageErreur>{erreur}</MessageErreur>}
             <button
               onClick={deplacer}

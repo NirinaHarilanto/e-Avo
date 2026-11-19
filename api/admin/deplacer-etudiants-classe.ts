@@ -103,12 +103,17 @@ export default async function handler(request: Request): Promise<Response> {
     if (!cible || cible.etablissement_id !== etablissementId || (!modeAjout && (!source || source.etablissement_id !== etablissementId))) {
       return Response.json({ error: 'Classe introuvable.' }, { status: 404 })
     }
-    if (source && source.cohort_id !== cible.cohort_id) {
-      return Response.json(
-        { error: "La classe de destination appartient à une autre vague. Un élève ne change pas de vague une fois ses heures entamées." },
-        { status: 409 },
-      )
-    }
+    /* Le changement de vague N'EST PLUS refusé d'emblée — demande client du 2026-11-19 : « on
+       doit pouvoir déplacer l'étudiant dans une classe d'une autre vague également. C'est-à-dire
+       que l'admin doit pouvoir choisir la vague ET la classe dans laquelle l'étudiant sera
+       déplacé. »
+
+       La règle de fond, elle, ne bouge pas : c'est toujours la base qui tranche (garde-fou 0074,
+       assoupli par 0147). Un élève ne quitte sa promotion que s'il n'y a consommé AUCUNE heure,
+       ou s'il a terminé son forfait — à mi-parcours il reste retenu, parce que l'ouverture d'un
+       forfait neuf dans la vague d'arrivée laisserait derrière lui des heures payées et jamais
+       suivies. Le contrôle est seulement REMONTÉ ici, plus bas, pour nommer les élèves concernés
+       au lieu de laisser remonter une exception Postgres anonyme sur un lot entier. */
 
     /* Les inscriptions réellement concernées, relues en base plutôt que crues sur parole : la
        liste envoyée par l'écran peut avoir vieilli (un autre admin a déplacé le même élève) et
@@ -161,6 +166,49 @@ export default async function handler(request: Request): Promise<Response> {
         return Response.json(
           {
             error: `${refuses.length} élève${refuses.length > 1 ? 's n’ont' : " n’a"} pas encore consommé toutes les heures de son forfait : ${refuses.length > 1 ? 'ils ne peuvent' : 'il ne peut'} pas rejoindre une nouvelle classe.`,
+          },
+          { status: 409 },
+        )
+      }
+    }
+
+    /* Changement de VAGUE : qui peut partir, et qui reste. Les deux fonctions appelées ici sont
+       exactement celles du garde-fou en base (0074 pour la première, 0147 pour la seconde) —
+       appelées plutôt que réécrites, pour que l'écran et la base ne puissent pas diverger. Sans
+       ce contrôle, un seul élève à mi-parcours ferait échouer le lot entier sur le message brut
+       du trigger, sans dire lequel.
+
+       `mesurerParcours` ne suffirait pas ici : il compte les heures de la CLASSE (0146), quand
+       le garde-fou regarde toute la PROMOTION — un élève déjà passé d'une classe à l'autre dans
+       la même vague aurait un compteur de classe à zéro et serait annoncé partant à tort. */
+    const changeDeVague = aDeplacer.filter((i) => i.cohort_id !== cible.cohort_id)
+    if (changeDeVague.length > 0) {
+      const retenus: string[] = []
+      for (const inscription of changeDeVague) {
+        const [{ data: aConsomme }, { data: forfaitTermine }] = await Promise.all([
+          serviceClient.rpc('etudiant_a_consomme_heures_promotion', {
+            p_student_id: inscription.student_id,
+            p_cohort_id: inscription.cohort_id,
+          }),
+          serviceClient.rpc('forfait_collectif_entierement_consomme', {
+            p_student_id: inscription.student_id,
+            p_cohort_id: inscription.cohort_id,
+            p_cohort_class_id: inscription.cohort_class_id,
+          }),
+        ])
+        if (aConsomme && !forfaitTermine) retenus.push(inscription.student_id)
+      }
+
+      if (retenus.length > 0) {
+        /* Les noms, pas les identifiants : c'est l'admin qui lit ce message, et il doit savoir
+           sur qui revenir. */
+        const { data: profils } = await serviceClient.from('profiles').select('id, prenom, nom').in('id', retenus)
+        const noms = (profils ?? [])
+          .map((p) => [p.prenom, p.nom].filter(Boolean).join(' '))
+          .filter((n) => n.length > 0)
+        return Response.json(
+          {
+            error: `Changement de vague impossible pour ${noms.length > 1 ? 'ces élèves' : 'cet élève'} : ${noms.join(', ')}. ${noms.length > 1 ? 'Ils ont' : 'Il a'} commencé ${noms.length > 1 ? 'leur' : 'son'} forfait dans la vague actuelle sans l'avoir terminé. Une autre classe de la MÊME vague reste possible.`,
           },
           { status: 409 },
         )
