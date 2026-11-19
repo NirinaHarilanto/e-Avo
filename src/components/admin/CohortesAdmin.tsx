@@ -22,7 +22,7 @@ import { EtatVide } from '../ui/EtatVide'
 import { EtatChargement, MessageErreur } from '../ui/Etats'
 import { boutonPrimaireStyle, boutonSecondaireStyle, boutonDangerStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
-import { champStyle, etiquetteStyle } from '../ui/Champ'
+import { Champ, champStyle, etiquetteStyle } from '../ui/Champ'
 import { Onglets } from '../ui/Onglets'
 import { Modale } from '../ui/Modale'
 import { ListeChoix } from '../ui/ListeChoix'
@@ -1129,8 +1129,11 @@ function DeplacerEtudiantsModale({
               {selection.size} étudiant{selection.size > 1 ? 's' : ''} sélectionné{selection.size > 1 ? 's' : ''}
             </span>
             <>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={etiquetteStyle}>Nouvelle vague</span>
+                {/* `Champ` et non un `<span>` d'etiquette comme avant : il enveloppe le
+                    controle dans un vrai `<label>`. Le declencheur de ListeChoix est un
+                    `<button>` — sans cette association, il s'annonce sans nom aux lecteurs
+                    d'ecran, et aucun test ne peut le viser par son intitule. */}
+                <Champ label="Nouvelle vague">
                   <ListeChoix
                     options={vagues.map((v) => ({
                       id: v.id,
@@ -1145,7 +1148,7 @@ function DeplacerEtudiantsModale({
                     }}
                     placeholder="Choisir une vague…"
                   />
-                </div>
+                </Champ>
 
                 {/* Dit AVANT le clic, pas après : la base retient dans sa vague tout élève qui a
                     commencé son forfait sans le terminer (garde-fou 0074, assoupli par 0147), et
@@ -1164,8 +1167,7 @@ function DeplacerEtudiantsModale({
                     <strong>+ Nouvelle classe</strong>) avant de déplacer des étudiants.
                   </p>
                 ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={etiquetteStyle}>Nouvelle classe</span>
+                <Champ label="Nouvelle classe">
                   <ListeChoix
                     options={classesDeLaVague.map(({ classe: c }) => {
                       const places = placesDe(c.id)
@@ -1178,7 +1180,7 @@ function DeplacerEtudiantsModale({
                     onChange={setClasseCibleId}
                     placeholder="Choisir une classe…"
                   />
-                </div>
+                </Champ>
                 )}
                 {tropDEleves && (
                   <MessageErreur>
