@@ -1137,8 +1137,9 @@ export function DeplacerEtudiantsModale({
           d'arrivée, et toutes leurs informations suivront : niveau, professeurs, période de cours et planning.
         </p>
         <p style={{ margin: 0, fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.6 }}>
-          Leur compteur d’heures suivies repart de zéro dans la nouvelle classe, sur un nouveau forfait — les heures
-          déjà faites restent inscrites à leur dossier, au titre de la classe précédente.
+          Les heures déjà faites restent inscrites à leur dossier, au titre de la classe précédente. Un nouveau
+          forfait s’ouvre sur la classe d’arrivée ; pour un étudiant qui n’a pas terminé le sien, vous choisirez
+          plus bas si ce forfait reprend ses heures restantes ou repart complet.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1274,22 +1275,44 @@ export function DeplacerEtudiantsModale({
                 )}
                 {/* L'avertissement et le choix — demande client du 2026-11-19 : « il faut alors
                     l'avertir et lui donner le choix [...] il faut mettre en valeur ce choix. Il
-                    faut que l'admin valide son choix. » Encadré, en teinte d'alerte, avec les
-                    VOLUMES RÉELS de chaque élève : « 12 h sur 32 h » dit ce qui est en jeu là où
-                    « des heures restantes » ne dit rien. */}
+                    faut que l'admin valide son choix. » Avec les VOLUMES RÉELS de chaque élève :
+                    « 10h suivies sur 32h, 22h restantes » dit ce qui est en jeu là où « des
+                    heures restantes » ne dit rien.
+
+                    La première version de ce cadre ne se voyait pas : mesuré en production, son
+                    fond translucide donnait 1,05 de contraste avec la carte blanche — autant dire
+                    rien, exactement le défaut relevé deux jours plus tôt sur les listes
+                    déroulantes. Un aplat pâle ne suffit pas à « mettre en valeur » sur fond clair.
+                    Ce qui le fait, et qui est repris des maquettes du client : le bandeau d'or de
+                    l'attention (`--fond-bandeau-avertissement`), un REPÈRE vertical plein à gauche
+                    (`--hoc-repere-or`, contraste ~2,6 sur blanc) et un titre en or sombre
+                    (`--warning`, #8a5e12 dans l'espace clair) précédé de l'icône d'alerte. */}
                 {choixRequis && (
                   <div
                     style={{
                       borderRadius: 14,
-                      border: '1px solid rgba(233,207,148,.55)',
-                      background: 'rgba(233,207,148,.12)',
+                      border: '1px solid var(--hoc-repere-or, rgba(233,207,148,.55))',
+                      borderLeft: '5px solid var(--hoc-repere-or, #e9cf94)',
+                      background: 'var(--fond-bandeau-avertissement, rgba(233,207,148,.14))',
                       padding: '13px 15px',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 10,
                     }}
                   >
-                    <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--accent-gold, #e9cf94)' }}>
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 800,
+                        color: 'var(--warning, #e9cf94)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 7,
+                      }}
+                    >
+                      {/* Icône SVG en `currentColor`, jamais un glyphe emoji : « ⚠ » se rend en
+                          orange quoi qu'on demande (Segoe UI Emoji). */}
+                      <Icone nom="alerte" taille={16} />
                       {miParcours.length > 1
                         ? 'Ces étudiants n’ont pas terminé leur forfait'
                         : 'Cet étudiant n’a pas terminé son forfait'}
@@ -1299,14 +1322,14 @@ export function DeplacerEtudiantsModale({
                         const p = parcours.get(e.id)
                         const restantes = p ? p.forfait - p.consommees : 0
                         return (
-                          <span key={e.id} style={{ fontSize: 12, color: 'var(--ink-2)' }}>
+                          <span key={e.id} style={{ fontSize: 12.5, color: 'var(--ink, #ece7fa)', lineHeight: 1.6 }}>
                             {e.prenom} {e.nom} — {formaterHeures(p?.consommees ?? 0)} suivies sur{' '}
                             {formaterHeures(p?.forfait ?? 0)}, <strong>{formaterHeures(restantes)} restantes</strong>
                           </span>
                         )
                       })}
                     </div>
-                    <span style={{ fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.55 }}>
+                    <span style={{ fontSize: 11.5, color: 'var(--ink-2)', lineHeight: 1.55 }}>
                       Choisissez ce que deviennent ces heures. Ce choix est définitif : il est appliqué au moment du
                       déplacement.
                     </span>
@@ -1334,12 +1357,22 @@ export function DeplacerEtudiantsModale({
                             display: 'flex',
                             alignItems: 'flex-start',
                             gap: 9,
-                            padding: '9px 11px',
                             borderRadius: 10,
                             cursor: 'pointer',
-                            border: `1px solid ${choixCompteur === option.valeur ? 'var(--accent-blue)' : 'var(--border)'}`,
+                            /* Le choix coché doit se voir d'un coup d'œil, puisque c'est lui qui
+                               sera appliqué : bordure violette de 2 px, et non 1 px comme au
+                               repos — sans quoi seule la pastille du bouton radio distingue les
+                               deux cartes. */
+                            border:
+                              choixCompteur === option.valeur
+                                ? '2px solid var(--accent-blue)'
+                                : '1px solid var(--border)',
+                            padding: choixCompteur === option.valeur ? '9px 11px' : '10px 12px',
                             background:
-                              choixCompteur === option.valeur ? 'rgba(169,140,255,.14)' : 'var(--surface)',
+                              choixCompteur === option.valeur
+                                ? 'var(--fond-bandeau-info, rgba(169,140,255,.16))'
+                                : 'var(--surface)',
+                            boxShadow: 'var(--shadow-card, none)',
                           }}
                         >
                           <input
