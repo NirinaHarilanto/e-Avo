@@ -53,7 +53,8 @@ begin
   end if;
 
   -- Antériorité reprise : voir le garde-fou des 7 jours, plus haut.
-  if new.date_emission < (current_date - interval '7 days') then
+  -- `date_emission` est de type `date` : on compare a une date, sans promotion implicite.
+  if new.date_emission < (current_date - 7) then
     return new;
   end if;
 
