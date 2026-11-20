@@ -48,9 +48,21 @@ export function ListeChoix({
   /* Mesurée à l'ouverture, puis à chaque défilement ou redimensionnement — une liste en
      `position: fixed` ne suit pas son déclencheur toute seule.
 
-     Elle s'ouvre VERS LE HAUT quand le bas de l'écran est trop proche : sans ce basculement,
-     une liste ouverte en bas de fenêtre se retrouve tronquée par le bord de l'écran, ce que le
-     portail ne corrige pas à lui seul.
+     TOUJOURS JUSTE SOUS SON CHAMP, sans exception — règle posée par le client le 2026-11-20 :
+     « la liste déroulante devrait s'afficher juste en dessous de la zone concernée, c'est
+     toujours comme cela que l'on a fait, il faut pas changer ».
+
+     Une version précédente basculait vers le haut quand le bas de la fenêtre approchait. L'idée
+     était d'éviter qu'une liste ouverte en bas d'écran soit tronquée, mais elle introduisait un
+     comportement imprévisible — et une liste mal placée, parce que la poser par le haut suppose
+     de connaître sa hauteur AVANT de la dessiner, ce qui est impossible au premier calcul : le
+     panneau n'est pas encore monté. On réservait donc la hauteur MAXIMALE faute de mieux, et une
+     liste de deux options flottait loin au-dessus de son champ, par-dessus le reste de la
+     fenêtre.
+
+     Le débordement se règle autrement, et sans déplacer quoi que ce soit : la hauteur est bornée
+     à la place réellement disponible sous le champ, et la liste défile à l'intérieur. Elle reste
+     donc où on l'attend, et entière.
 
      TOUT se calcule ici en pixels ÉCRAN — `getBoundingClientRect` et `window.innerHeight` en
      rendent, et seuls des pixels de même nature se comparent. La conversion vers le repère du
@@ -58,28 +70,23 @@ export function ListeChoix({
      connectés sont rendus à `zoom: 0.74`, et une coordonnée écran recopiée telle quelle dans
      une propriété CSS s'y retrouve rapprochée de l'origine d'autant (voir lib/zoomEcran.ts).
      C'est ce qui plaçait cette liste 197 px trop à gauche et 105 px trop haut, mesuré en
-     production le 2026-11-20. */
+     production le même jour. */
   const calculerPosition = useCallback(() => {
     const bouton = boutonRef.current
     if (!bouton) return
     const r = bouton.getBoundingClientRect()
+    const ecart = 4
     const marge = 8
-    const placeDessous = window.innerHeight - r.bottom - marge
-    const placeDessus = r.top - marge
-    const versLeHaut = placeDessous < 180 && placeDessus > placeDessous
-    const hauteurMax = Math.max(120, Math.min(280, versLeHaut ? placeDessus : placeDessous))
-    /* `getBoundingClientRect().height` et non `offsetHeight` : le premier rend des pixels écran,
-       comme `r`, le second les pixels du repère de la liste. Les mélanger fausserait le
-       basculement vers le haut d'exactement le facteur de zoom. */
-    const hauteurListe = listeRef.current?.getBoundingClientRect().height ?? 0
-    const hautEcran = versLeHaut
-      ? Math.max(marge, r.top - marge - Math.min(hauteurListe || hauteurMax, hauteurMax))
-      : r.bottom + 4
+    /* Ce qui reste sous le champ, jusqu'au bord de la fenêtre. Le plancher de 72 px garde deux
+       options atteignables dans les cas extrêmes, au prix d'un léger débordement — préférable à
+       une liste réduite à une fente illisible. */
+    const placeDessous = window.innerHeight - r.bottom - ecart - marge
+    const hauteurMax = Math.max(72, Math.min(280, placeDessous))
     const conteneurDuPortail = document.body
     setPosition({
       gauche: versReperede(r.left, conteneurDuPortail),
       largeur: versReperede(r.width, conteneurDuPortail),
-      haut: versReperede(hautEcran, conteneurDuPortail),
+      haut: versReperede(r.bottom + ecart, conteneurDuPortail),
       hauteurMax: versReperede(hauteurMax, conteneurDuPortail),
     })
   }, [])

@@ -105,14 +105,40 @@ describe('ListeChoix — position du panneau dans un espace zoomé', () => {
     expect(parseFloat(panneau.style.width)).toBeCloseTo(CHAMP.width, 1)
   })
 
-  /* Le basculement vers le haut se décide sur des pixels ÉCRAN (la place restante sous le champ
-     dans la FENÊTRE, qui n'est pas zoomée). Un champ tout en bas doit donc ouvrir vers le haut
-     même dans un espace zoomé, et le panneau rester au-dessus du champ une fois rendu. */
-  it('ouvre vers le haut quand le champ est en bas de fenêtre, zoom compris', () => {
+  /* Règle posée par le client le 2026-11-20 : « la liste déroulante devrait s'afficher juste en
+     dessous de la zone concernée, c'est toujours comme cela que l'on a fait, il faut pas
+     changer ». Une version précédente basculait vers le haut quand le bas de la fenêtre
+     approchait — comportement imprévisible, et mal placé de surcroît, puisque poser la liste par
+     le haut suppose de connaître sa hauteur avant de la dessiner. */
+  it('reste sous le champ même lorsque la fenêtre est courte', () => {
     simulerEspaceZoome(ZOOM)
     window.innerHeight = 500
     const panneau = monterEtOuvrir()
 
-    expect(parseFloat(panneau.style.top) * ZOOM).toBeLessThan(CHAMP.top)
+    expect(parseFloat(panneau.style.top) * ZOOM).toBeCloseTo(CHAMP.bottom + 4, 1)
+    // Et jamais ancrée par le bas : c'est ce qui la faisait remonter.
+    expect(panneau.style.bottom).toBe('')
+  })
+
+  /* Le débordement se règle par la HAUTEUR, pas par un déplacement : la liste tient dans la
+     place restante sous le champ, et défile à l'intérieur. */
+  it('borne sa hauteur à la place restante sous le champ, et y défile', () => {
+    simulerEspaceZoome(ZOOM)
+    window.innerHeight = 500
+    const panneau = monterEtOuvrir()
+
+    // Place écran sous le champ : 500 − 413 − 4 (écart) − 8 (marge) = 75.
+    expect(parseFloat(panneau.style.maxHeight) * ZOOM).toBeCloseTo(75, 0)
+    expect(panneau.style.overflowY).toBe('auto')
+  })
+
+  /* Dans une fenêtre haute, la hauteur reste plafonnée pour qu'une longue liste ne couvre pas
+     tout l'écran. */
+  it('plafonne sa hauteur quand la place ne manque pas', () => {
+    simulerEspaceZoome(ZOOM)
+    window.innerHeight = 2000
+    const panneau = monterEtOuvrir()
+
+    expect(parseFloat(panneau.style.maxHeight) * ZOOM).toBeCloseTo(280, 0)
   })
 })
