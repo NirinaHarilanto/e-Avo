@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Keyboar
 import { createPortal } from 'react-dom'
 import { champStyle } from './Champ'
 import { Icone } from './Icones'
+import { versReperede } from '../../lib/zoomEcran'
 
 export interface OptionListeChoix {
   /* Chaîne vide acceptée : c'est la valeur d'une option « Aucun(e) » / « Autre », comme un
@@ -49,7 +50,15 @@ export function ListeChoix({
 
      Elle s'ouvre VERS LE HAUT quand le bas de l'écran est trop proche : sans ce basculement,
      une liste ouverte en bas de fenêtre se retrouve tronquée par le bord de l'écran, ce que le
-     portail ne corrige pas à lui seul. */
+     portail ne corrige pas à lui seul.
+
+     TOUT se calcule ici en pixels ÉCRAN — `getBoundingClientRect` et `window.innerHeight` en
+     rendent, et seuls des pixels de même nature se comparent. La conversion vers le repère du
+     conteneur du portail n'intervient qu'à la toute fin, en un seul endroit : les espaces
+     connectés sont rendus à `zoom: 0.74`, et une coordonnée écran recopiée telle quelle dans
+     une propriété CSS s'y retrouve rapprochée de l'origine d'autant (voir lib/zoomEcran.ts).
+     C'est ce qui plaçait cette liste 197 px trop à gauche et 105 px trop haut, mesuré en
+     production le 2026-11-20. */
   const calculerPosition = useCallback(() => {
     const bouton = boutonRef.current
     if (!bouton) return
@@ -59,12 +68,19 @@ export function ListeChoix({
     const placeDessus = r.top - marge
     const versLeHaut = placeDessous < 180 && placeDessus > placeDessous
     const hauteurMax = Math.max(120, Math.min(280, versLeHaut ? placeDessus : placeDessous))
-    const hauteurListe = listeRef.current?.offsetHeight ?? 0
+    /* `getBoundingClientRect().height` et non `offsetHeight` : le premier rend des pixels écran,
+       comme `r`, le second les pixels du repère de la liste. Les mélanger fausserait le
+       basculement vers le haut d'exactement le facteur de zoom. */
+    const hauteurListe = listeRef.current?.getBoundingClientRect().height ?? 0
+    const hautEcran = versLeHaut
+      ? Math.max(marge, r.top - marge - Math.min(hauteurListe || hauteurMax, hauteurMax))
+      : r.bottom + 4
+    const conteneurDuPortail = document.body
     setPosition({
-      gauche: r.left,
-      largeur: r.width,
-      haut: versLeHaut ? Math.max(marge, r.top - marge - Math.min(hauteurListe || hauteurMax, hauteurMax)) : r.bottom + 4,
-      hauteurMax,
+      gauche: versReperede(r.left, conteneurDuPortail),
+      largeur: versReperede(r.width, conteneurDuPortail),
+      haut: versReperede(hautEcran, conteneurDuPortail),
+      hauteurMax: versReperede(hauteurMax, conteneurDuPortail),
     })
   }, [])
 
@@ -181,7 +197,11 @@ export function ListeChoix({
           en coordonnées de FENÊTRE (`position: fixed`), recalculées au défilement.
 
           `zIndex` bien au-dessus des fenêtres (300 + profondeur × 10) et de l'aperçu
-          d'impression (1000) : une liste ouverte doit passer devant ce qui l'a ouverte. */}
+          d'impression (1000) : une liste ouverte doit passer devant ce qui l'a ouverte.
+
+          `document.body` porte le zoom des espaces connectés, et le panneau en hérite : les
+          coordonnées posées ici sont donc exprimées dans CE repère, pas en pixels écran. La
+          conversion est faite dans `calculerPosition`, une fois. */}
       {ouvert && position &&
         createPortal(
         <div
