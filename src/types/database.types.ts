@@ -1823,6 +1823,7 @@ export interface Database {
              null = jamais annoncé. Le reçu naît d'un trigger (0030), qui ne peut pas envoyer
              d'e-mail : c'est le cron quotidien qui reprend les reçus non marqués. */
           email_envoye_le: string | null
+          notifie_le: string | null
           created_by_profile_id: string
           created_at: string
         }
@@ -1846,6 +1847,7 @@ export interface Database {
           date_paiement?: string | null
           notes?: string | null
           email_envoye_le?: string | null
+          notifie_le?: string | null
           created_by_profile_id: string
           created_at?: string
         }

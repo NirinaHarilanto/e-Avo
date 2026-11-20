@@ -5,16 +5,18 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
    toujours visible alors que les factures sont déjà partagées avec les étudiants ? »
  *
  * L'état « envoyée » vivait dans un `useState(false)` — donc dans la mémoire de l'onglet, et
- * nulle part ailleurs. Deux conséquences, vérifiées en production :
+ * nulle part ailleurs : il repartait à zéro à chaque rechargement, et ignorait aussi bien les
+ * envois faits depuis un autre poste que les e-mails postés par le cron de 6h.
  *
- *   — un reçu annoncé par le cron de 6h (modèle 2.3) s'affichait « Envoyer », invitant
- *     l'administration à un envoi de plus ;
- *   — un reçu envoyé à la main n'écrivait pas `email_envoye_le`, et le cron, qui reprend
- *     justement les reçus dont cette colonne est nulle, le RÉANNONÇAIT le lendemain matin.
- *     REC-2026-bc94d1a4, celui de la capture marqué « Envoyée ✓ », était dans ce cas.
- *
- * Ces tests gardent les deux sens, parce que c'est leur combinaison qui envoyait deux fois le
- * même message à un élève. */
+ * Ce que ces tests gardent surtout, c'est la DISTINCTION DES CANAUX, parce qu'elle a failli être
+ * perdue en corrigeant : le bouton pose une NOTIFICATION dans l'application
+ * (api/admin/notifier.ts → creerNotification, qui n'envoie aucun e-mail), tandis que le cron
+ * poste un E-MAIL (modèle 2.3) en reprenant les reçus dont `email_envoye_le` est nul. Inscrire
+ * `email_envoye_le` depuis le bouton aurait empêché cet e-mail de partir, alors que l'élève
+ * n'aurait eu qu'une cloche dans l'application — un document annoncé à moitié, et une colonne
+ * qui affirme un envoi qui n'a pas eu lieu. D'où `notifie_le` (0166), séparée. L'écran, lui,
+ * réunit les deux : l'administration se demande si le destinataire a été prévenu, pas par quel
+ * tuyau. */
 
 const etat = vi.hoisted(() => ({
   update: vi.fn(async (_valeurs: unknown) => ({ error: null as { message: string } | null })),
@@ -33,7 +35,10 @@ vi.mock('../../../lib/jetonAcces', () => ({ jetonAcces: async () => 'jeton' }))
 
 const { LigneFacture } = await import('../FacturationAdmin')
 
-function monter(emailEnvoyeLe: string | null, onChange = () => {}) {
+function monter(
+  marqueurs: { emailEnvoyeLe?: string | null; notifieLe?: string | null } = {},
+  onChange = () => {},
+) {
   const item = {
     facture: {
       id: 'facture-1',
@@ -44,7 +49,8 @@ function monter(emailEnvoyeLe: string | null, onChange = () => {}) {
       montant_ttc: 400000,
       payment_id: null,
       teacher_id: null,
-      email_envoye_le: emailEnvoyeLe,
+      email_envoye_le: marqueurs.emailEnvoyeLe ?? null,
+      notifie_le: marqueurs.notifieLe ?? null,
     },
     destinataire: { id: 'etu-1', prenom: 'Mbolatiana', nom: 'RAKOTOBE' },
     duoPartenaire: null,
@@ -61,36 +67,46 @@ beforeEach(() => {
 })
 
 describe('bouton « Envoyer » d’un reçu', () => {
-  /* Le sens que le client a vu : le cron avait déjà annoncé ces reçus, l'écran l'ignorait. */
-  it('affiche « Envoyée ✓ », désactivé, pour un reçu déjà annoncé', () => {
-    monter('2026-11-18T06:09:28.849+00:00')
+  /* Le cas exact de la capture : le cron avait déjà posté l'e-mail, l'écran l'ignorait et
+     proposait un envoi de plus. */
+  it('affiche « Envoyée ✓ », désactivé, pour un reçu déjà annoncé par e-mail', () => {
+    monter({ emailEnvoyeLe: '2026-11-18T06:09:28.849+00:00' })
 
     expect(bouton().textContent).toContain('Envoyée')
     expect(bouton().disabled).toBe(true)
-    // La date au survol : « envoyée » sans quand ne permet pas de trancher si l'élève qui dit
-    // n'avoir rien reçu a raison.
-    expect(bouton().title).toMatch(/18\/11\/2026/)
+    /* La date ET le canal au survol : une notification et un e-mail ne se cherchent pas au même
+       endroit, et l'élève qui dit n'avoir rien reçu doit pouvoir être démenti précisément. */
+    expect(bouton().title).toMatch(/Annoncé par e-mail le 18\/11\/2026/)
+  })
+
+  it('affiche « Envoyée ✓ » pour un reçu déjà notifié dans l’application', () => {
+    monter({ notifieLe: '2026-11-19T10:00:00.000+00:00' })
+
+    expect(bouton().disabled).toBe(true)
+    expect(bouton().title).toMatch(/Notifié dans l’application le 19\/11\/2026/)
   })
 
   it('affiche « Envoyer », actif, pour un reçu jamais annoncé', () => {
-    monter(null)
+    monter()
 
     expect(bouton().textContent).toBe('Envoyer')
     expect(bouton().disabled).toBe(false)
     expect(bouton().title).toBe('')
   })
 
-  /* Le sens le plus coûteux : sans cette écriture, le cron de 6h renvoie le même message. */
-  it('inscrit l’annonce en base après un envoi réussi', async () => {
+  /* L'inscription porte sur `notifie_le`, et SURTOUT PAS sur `email_envoye_le` : le cron doit
+     rester libre de poster l'e-mail, que ce bouton n'envoie pas. */
+  it('inscrit la notification en base, sans toucher au marqueur d’e-mail', async () => {
     const onChange = vi.fn()
-    monter(null, onChange)
+    monter({}, onChange)
 
     fireEvent.click(bouton())
 
     await waitFor(() => expect(etat.update).toHaveBeenCalled())
-    const valeurs = etat.update.mock.calls[0][0] as { email_envoye_le: string }
-    expect(valeurs.email_envoye_le).toBeTruthy()
-    expect(Number.isNaN(Date.parse(valeurs.email_envoye_le))).toBe(false)
+    const valeurs = etat.update.mock.calls[0][0] as Record<string, unknown>
+    expect(typeof valeurs.notifie_le).toBe('string')
+    expect(Number.isNaN(Date.parse(valeurs.notifie_le as string))).toBe(false)
+    expect(valeurs).not.toHaveProperty('email_envoye_le')
     await waitFor(() => expect(bouton().textContent).toContain('Envoyée'))
     expect(onChange).toHaveBeenCalled()
   })
@@ -99,7 +115,7 @@ describe('bouton « Envoyer » d’un reçu', () => {
      automatique doit encore pouvoir prendre le relais. */
   it('n’inscrit rien quand l’envoi échoue, et laisse le bouton actif', async () => {
     etat.reponseNotifier = { ok: false }
-    monter(null)
+    monter()
 
     fireEvent.click(bouton())
 
@@ -109,14 +125,14 @@ describe('bouton « Envoyer » d’un reçu', () => {
   })
 
   /* L'envoi a bien eu lieu ; seule son inscription a échoué. On ne prétend pas le contraire,
-     mais on prévient — la conséquence (un second e-mail demain matin) regarde l'administration. */
+     mais on prévient — le bouton reproposera l'envoi au prochain chargement. */
   it('signale quand l’envoi a réussi mais n’a pas pu être inscrit', async () => {
     etat.update.mockResolvedValueOnce({ error: { message: 'RLS' } })
-    monter(null)
+    monter()
 
     fireEvent.click(bouton())
 
-    expect(await screen.findByText(/le rappel automatique risque de le renvoyer/)).toBeTruthy()
+    expect(await screen.findByText(/la reproposera au prochain chargement/)).toBeTruthy()
     // Le bouton reste marqué envoyé : le message est bien parti.
     expect(bouton().textContent).toContain('Envoyée')
   })

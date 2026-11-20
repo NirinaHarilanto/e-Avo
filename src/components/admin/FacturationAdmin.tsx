@@ -449,17 +449,20 @@ export function LigneFacture({
   const { facture, destinataire, duoPartenaire } = item
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
-  /* L'annonce faite au destinataire se lit en base (`email_envoye_le`, 0095), jamais dans la
-     mémoire de l'onglet. Un `useState(false)` vivait ici jusqu'au 2026-11-20, avec deux effets
-     fâcheux relevés en production :
-       — le bouton redevenait « Envoyer » à chaque rechargement, et ne savait rien de ce qui
-         avait été envoyé depuis un autre poste ou un autre jour ;
-       — surtout, le cron de 6h reprend les reçus dont `email_envoye_le` est nul (modèle 2.3) :
-         un reçu envoyé à la main n'écrivant pas cette colonne, il était RÉANNONCÉ le lendemain
-         matin, et l'élève recevait deux fois le même message.
-     Dans l'autre sens, un reçu déjà annoncé par le cron s'affichait « Envoyer », invitant
-     l'administration à un troisième envoi. */
-  const [envoyeLe, setEnvoyeLe] = useState<string | null>(facture.email_envoye_le)
+  /* L'annonce faite au destinataire se lit en BASE, jamais dans la mémoire de l'onglet. Un
+     `useState(false)` vivait ici jusqu'au 2026-11-20 : le bouton redevenait « Envoyer » à chaque
+     rechargement, et ne savait rien de ce qui avait été envoyé depuis un autre poste ou la
+     veille. Le client l'a signalé ainsi : « pourquoi le bouton envoyer est toujours visible
+     alors que les factures sont déjà partagées avec les concernés étudiants ? »
+
+     DEUX colonnes, parce qu'il y a deux canaux, et que les confondre en ferait mentir un :
+       — `email_envoye_le` (0095) : l'E-MAIL du modèle 2.3, posté par le cron de 6h ;
+       — `notifie_le` (0166) : la NOTIFICATION dans l'application, posée par ce bouton, qui
+         n'envoie aucun e-mail (api/admin/notifier.ts → creerNotification).
+     L'écran les réunit sous un seul état, parce que la question que se pose l'administration
+     est « le destinataire a-t-il été prévenu ? », et non « par quel tuyau ? ». */
+  const [notifieLe, setNotifieLe] = useState<string | null>(facture.notifie_le)
+  const envoyeLe = notifieLe ?? facture.email_envoye_le
   const envoyee = envoyeLe != null
   // Numéro modifiable (demande client du 2026-10-05) : édition en ligne, pas de pop-up séparée
   // pour un changement aussi ponctuel.
@@ -561,14 +564,17 @@ export function LigneFacture({
       setErreur(corps?.error ?? "L'envoi a échoué.")
       return
     }
-    /* L'annonce est faite : on l'inscrit, pour que le cron ne la refasse pas et que l'écran s'en
-       souvienne. Une écriture qui échoue n'annule pas l'envoi — il a bien eu lieu — mais elle est
-       signalée, car la conséquence (un second e-mail demain matin) regarde l'administration. */
+    /* La notification est posée : on l'inscrit, pour que l'écran s'en souvienne demain et sur les
+       autres postes. `notifie_le` et non `email_envoye_le` : le cron doit rester libre d'envoyer
+       l'e-mail, que ce bouton n'envoie pas.
+
+       Une écriture qui échoue n'annule pas l'envoi — il a bien eu lieu — mais elle est
+       signalée : sans elle, l'administration renverra la même notification demain. */
     const horodatage = new Date().toISOString()
-    const { error } = await supabase.from('invoices').update({ email_envoye_le: horodatage }).eq('id', facture.id)
-    setEnvoyeLe(horodatage)
+    const { error } = await supabase.from('invoices').update({ notifie_le: horodatage }).eq('id', facture.id)
+    setNotifieLe(horodatage)
     if (error) {
-      setErreur("Envoi effectué, mais l'enregistrement a échoué : le rappel automatique risque de le renvoyer.")
+      setErreur("Notification envoyée, mais l'enregistrement a échoué : le bouton la reproposera au prochain chargement.")
       return
     }
     onChange()
@@ -654,9 +660,14 @@ export function LigneFacture({
         enCours={enCours}
         disabled={envoyee || !destinataire}
         libelle={envoyee ? 'Envoyée ✓' : 'Envoyer'}
-        /* La DATE au survol : « envoyée » sans quand ne permet pas de trancher si l'élève qui
-           dit n'avoir rien reçu a raison. */
-        title={envoyeLe ? `Annoncée au destinataire le ${new Date(envoyeLe).toLocaleString('fr-FR')}` : undefined}
+        /* La DATE et le CANAL au survol : « envoyée » sans quand ni comment ne permet pas de
+           trancher si l'élève qui dit n'avoir rien reçu a raison — une notification dans
+           l'application et un e-mail ne se cherchent pas au même endroit. */
+        title={
+          envoyeLe
+            ? `${notifieLe ? 'Notifié dans l’application' : 'Annoncé par e-mail'} le ${new Date(envoyeLe).toLocaleString('fr-FR')}`
+            : undefined
+        }
         libelleEnCours="Envoi…"
         style={{ fontSize: 12, fontWeight: 700, color: envoyee ? 'var(--accent-teal)' : 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: envoyee ? 'default' : 'pointer' }}
       />
