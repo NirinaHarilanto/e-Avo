@@ -27,10 +27,12 @@ const ELEVES = [
   { id: 'eleve-1', prenom: 'Aina', nom: 'RAKOTO' },
   { id: 'eleve-2', prenom: 'Miary', nom: 'RABE' },
 ]
-/* `forfaitsOuverts` = ce que chaque élève a réellement acheté ; `heuresForfaitVague` = ce que la
-   vague vend. Les deux diffèrent exprès, pour que les tests puissent dire lequel est lu. */
+/* `forfaits` = ce que chaque élève a réellement acheté ; `heuresForfaitVague` = ce que la vague
+   vend. Les deux diffèrent exprès, pour que les tests puissent dire lequel est lu. */
 let heuresForfaitVague: number | null = 32
-let forfaitsOuverts: Ligne[] = []
+let forfaits: Ligne[] = []
+/* Les écritures d'heures, avec leur rattachement : `session_id` pour une séance suivie dans
+   l'application, `package_id` pour une reprise d'antériorité (0140), qui n'a aucune séance. */
 let debitsHeures: Ligne[] = []
 
 vi.mock('../../../lib/supabaseClient', () => {
@@ -51,7 +53,7 @@ vi.mock('../../../lib/supabaseClient', () => {
         if (table === 'profiles') return requete(ELEVES)
         if (table === 'sessions') return requete([{ id: 'seance-1' }])
         if (table === 'cohorts') return requete({ heures_forfait: heuresForfaitVague })
-        if (table === 'packages') return requete(forfaitsOuverts)
+        if (table === 'packages') return requete(forfaits)
         if (table === 'hour_ledger') return requete(debitsHeures)
         throw new Error('table inattendue dans ce test : ' + table)
       },
@@ -125,11 +127,11 @@ async function cocher(nom: RegExp) {
 beforeEach(() => {
   heuresForfaitVague = 32
   // Aina a un forfait de 20 h (déjà déplacée une fois) dont elle a suivi 8 h → 12 h restantes.
-  forfaitsOuverts = [
-    { student_id: 'eleve-1', total_heures: 20 },
-    { student_id: 'eleve-2', total_heures: 32 },
+  forfaits = [
+    { id: 'forfait-1', student_id: 'eleve-1', total_heures: 20, cohort_class_id: 'classe-beginner', clos_le: null },
+    { id: 'forfait-2', student_id: 'eleve-2', total_heures: 32, cohort_class_id: 'classe-beginner', clos_le: null },
   ]
-  debitsHeures = [{ student_id: 'eleve-1', heures: 8 }]
+  debitsHeures = [{ student_id: 'eleve-1', heures: 8, session_id: 'seance-1', package_id: null }]
   globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })) as never
 })
 
@@ -220,10 +222,63 @@ describe('déplacement : choix du sort des heures restantes', () => {
     expect(boutonDeplacer().disabled).toBe(false)
   })
 
+  /* L'incident du 2026-11-20, signalé par le client capture à l'appui : la fiche de Larissa
+     RAOELIMBOLOLONA annonçait 32h/32 — forfait terminé — quand cette fenêtre la présentait à 4h
+     sur 32, donc à mi-parcours, et lui aurait offert 28 h gratuites en « conservant » son
+     compteur. 28 de ses 32 heures viennent d'une REPRISE D'ANTÉRIORITÉ (0140) : suivies avant la
+     mise en service, elles n'ont aucune séance derrière elles et se rattachent au forfait. Cet
+     écran les ignorait. */
+  it('compte les heures reprises à l’import, qui n’ont aucune séance', async () => {
+    debitsHeures = [
+      { student_id: 'eleve-1', heures: 16, session_id: null, package_id: 'forfait-1' },
+      { student_id: 'eleve-1', heures: 1, session_id: 'seance-1', package_id: null },
+    ]
+
+    monter()
+    await cocher(/Aina RAKOTO/)
+    await waitFor(() => expect(screen.getByLabelText(/^Nouvelle classe/)).toBeTruthy())
+
+    // 16 reprises + 1 séance = 17 sur 20, et non 1 sur 20.
+    expect(screen.getByText(/Aina RAKOTO —/).textContent).toContain('17h suivies sur 20h')
+    expect(screen.getByText(/Aina RAKOTO —/).textContent).toContain('3h restantes')
+  })
+
+  /* Et quand la reprise suffit à solder le forfait, plus aucun choix n'est demandé : l'élève a
+     fini, il n'a rien à arbitrer. C'est exactement le cas de Larissa. */
+  it('ne demande aucun choix quand les heures reprises soldent le forfait', async () => {
+    debitsHeures = [{ student_id: 'eleve-1', heures: 20, session_id: null, package_id: 'forfait-1' }]
+
+    monter()
+    await cocher(/Aina RAKOTO/)
+    await waitFor(() => expect(screen.getByLabelText(/^Nouvelle classe/)).toBeTruthy())
+
+    expect(screen.queryByText(/pas terminé son forfait/)).toBeNull()
+    expect(screen.queryByRole('radio')).toBeNull()
+  })
+
+  /* La reprise d'un forfait d'une AUTRE classe ne compte pas davantage qu'une séance d'ailleurs :
+     la portée « classe » de 0146 vaut pour les deux chemins. */
+  it('ignore une reprise rattachée au forfait d’une autre classe', async () => {
+    forfaits = [
+      { id: 'forfait-1', student_id: 'eleve-1', total_heures: 20, cohort_class_id: 'classe-beginner', clos_le: null },
+      { id: 'forfait-ancien', student_id: 'eleve-1', total_heures: 32, cohort_class_id: 'classe-ailleurs', clos_le: '2026-10-01' },
+    ]
+    debitsHeures = [
+      { student_id: 'eleve-1', heures: 30, session_id: null, package_id: 'forfait-ancien' },
+      { student_id: 'eleve-1', heures: 8, session_id: 'seance-1', package_id: null },
+    ]
+
+    monter()
+    await cocher(/Aina RAKOTO/)
+    await waitFor(() => expect(screen.getByLabelText(/^Nouvelle classe/)).toBeTruthy())
+
+    expect(screen.getByText(/Aina RAKOTO —/).textContent).toContain('8h suivies sur 20h')
+  })
+
   /* Un élève sans forfait propre lisible retombe sur celui de la vague : l'écran ne doit pas
      annoncer « sur 0h », qui ferait croire à un compteur vide. */
   it('retombe sur le forfait de la vague quand l’élève n’en a pas', async () => {
-    forfaitsOuverts = []
+    forfaits = []
     monter()
     await cocher(/Aina RAKOTO/)
 

@@ -30,6 +30,7 @@ import { ChampSelectionPersonnes } from '../ui/ChampSelectionPersonnes'
 import { useEtudiantsForfaitTermine } from '../../hooks/useEtudiantsForfaitTermine'
 import { PanneauPlanningClasse } from '../shared/PanneauPlanningClasse'
 import { formaterHeures } from '../../lib/heures'
+import { heuresDeLaClasse } from '../../lib/heuresCollectif'
 import { SessionsOraleAdmin } from './SessionsOraleAdmin'
 import { SuiviCollectifAdmin } from './SuiviCollectifAdmin'
 import { QuizPositionnementAdmin } from './QuizPositionnementAdmin'
@@ -999,46 +1000,50 @@ export function DeplacerEtudiantsModale({
     let annule = false
     async function charger() {
       if (studentIds.length === 0) return
-      const [{ data: seances }, { data: vague }, { data: forfaitsOuverts }] = await Promise.all([
+      const [{ data: seances }, { data: vague }, { data: forfaitsEleves }] = await Promise.all([
         supabase.from('sessions').select('id').eq('cohort_class_id', classe.id),
         supabase.from('cohorts').select('heures_forfait').eq('id', classe.cohort_id).maybeSingle(),
-        /* Le forfait PROPRE à chaque élève, pas celui que vend la vague. Un élève déjà déplacé
-           une fois en conservant son compteur porte un forfait réduit — 20 h dans une vague qui
-           en vend 32 — et c'est ce total-là que la route reprendra. Annoncer celui de la vague
-           ferait promettre à l'écran des heures que le déplacement n'accordera pas. */
+        /* TOUS les forfaits collectifs de ces élèves, et non les seuls encore ouverts : les
+           ouverts donnent le volume à atteindre, et les soldés comme les ouverts servent à
+           rattacher les reprises d'antériorité (0140) à leur classe. */
         supabase
           .from('packages')
-          .select('student_id, total_heures')
+          .select('id, student_id, total_heures, cohort_class_id, clos_le')
           .eq('type_programme', 'collectif')
-          .is('clos_le', null)
           .in('student_id', studentIds),
       ])
       const idsSeances = (seances ?? []).map((s) => s.id)
-      const { data: debits } = idsSeances.length
-        ? await supabase
-            .from('hour_ledger')
-            .select('student_id, heures')
-            .eq('type_ecriture', 'debit_etudiant')
-            .in('student_id', studentIds)
-            .in('session_id', idsSeances)
-        : { data: [] as { student_id: string; heures: number }[] }
+      /* Toutes les écritures de ces élèves, triées en mémoire par la règle partagée : filtrer
+         sur `session_id` en base perdrait justement les reprises, qui n'en ont pas. */
+      const { data: debits } = await supabase
+        .from('hour_ledger')
+        .select('student_id, heures, session_id, package_id')
+        .eq('type_ecriture', 'debit_etudiant')
+        .in('student_id', studentIds)
       if (annule) return
+
+      const classeParSeance = new Map<string, string | null>(idsSeances.map((id) => [id, classe.id]))
+      const classeParForfait = new Map<string, string | null>(
+        (forfaitsEleves ?? []).map((f) => [f.id, f.cohort_class_id]),
+      )
       const forfaitVague = vague?.heures_forfait ?? 0
+      /* Le forfait PROPRE à chaque élève, pas celui que vend la vague. Un élève déjà déplacé une
+         fois en conservant son compteur porte un forfait réduit — 20 h dans une vague qui en
+         vend 32 — et c'est ce total-là que la route reprendra. */
       const forfaitDe = new Map<string, number>()
-      for (const f of forfaitsOuverts ?? []) {
-        if (!f.student_id) continue
+      for (const f of forfaitsEleves ?? []) {
+        if (!f.student_id || f.clos_le != null) continue
         const total = Number(f.total_heures)
         if (Number.isFinite(total) && total > 0) forfaitDe.set(f.student_id, total)
       }
+
       const parEleve = new Map<string, { consommees: number; forfait: number }>()
-      for (const id of studentIds) parEleve.set(id, { consommees: 0, forfait: forfaitDe.get(id) ?? forfaitVague })
-      for (const d of debits ?? []) {
-        // `hour_ledger.student_id` est nullable (0011) : les écritures de crédit professeur n'en
-        // portent aucun. Le filtre `type_ecriture` les écarte déjà, la garde ici le redit au
-        // typage.
-        if (!d.student_id) continue
-        const ligne = parEleve.get(d.student_id)
-        if (ligne) ligne.consommees += Number(d.heures)
+      for (const id of studentIds) {
+        const siennes = (debits ?? []).filter((d) => d.student_id === id)
+        parEleve.set(id, {
+          consommees: heuresDeLaClasse(siennes, classeParSeance, classeParForfait, classe.id),
+          forfait: forfaitDe.get(id) ?? forfaitVague,
+        })
       }
       setParcours(parEleve)
     }

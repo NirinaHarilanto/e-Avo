@@ -47,7 +47,9 @@ export function useEtatsParcoursEtudiants(studentIds: string[]) {
     const maintenant = new Date().toISOString()
 
     const [{ data: forfaits }, { data: resumes }, { data: inscriptionsVague }, { data: seancesAVenir }] = await Promise.all([
-      supabase.from('packages').select('student_id, total_heures').in('student_id', studentIds),
+      /* `id` et `cohort_class_id` en plus du total : ils rattachent les reprises d'antériorité
+         (0140) à leur classe, ces écritures n'ayant aucune séance derrière elles. */
+      supabase.from('packages').select('id, student_id, total_heures, cohort_class_id, type_programme').in('student_id', studentIds),
       supabase.from('student_hours_summary').select('student_id, heures_consommees').in('student_id', studentIds),
       supabase.from('cohort_enrollments').select('student_id, cohort_id, cohort_class_id').in('student_id', studentIds),
       /* Seules les séances encore « planifiée » comptent comme un cours à venir : une séance
@@ -96,27 +98,55 @@ export function useEtatsParcoursEtudiants(studentIds: string[]) {
     const vagueParSeance = new Map((seancesDesVagues ?? []).map((s) => [s.id, s.cohort_id]))
     const classeParSeance = new Map((seancesDesVagues ?? []).map((s) => [s.id, s.cohort_class_id]))
 
-    const { data: debitsVague } = await selectionParLots<{ student_id: string | null; heures: number; session_id: string | null }>(
-      [...vagueParSeance.keys()],
-      (lot) =>
-        supabase
-          .from('hour_ledger')
-          .select('student_id, heures, session_id')
-          .in('student_id', etudiantsEnVague)
-          .eq('type_ecriture', 'debit_etudiant')
-          .in('session_id', lot),
+    /* TOUTES les écritures de ces élèves, et non les seules rattachées à une séance des vagues :
+       les reprises d'antériorité (0140) n'en ont aucune, et un filtre `in('session_id', ...)`
+       les écarte en silence. C'est ce filtre qui, jusqu'au 2026-11-20, faisait passer pour
+       débutants 21 élèves sur 25 — voir src/lib/heuresCollectif.ts. Le tri se fait ensuite en
+       mémoire, élève par élève. */
+    const { data: debitsVague } = await selectionParLots<{
+      student_id: string | null
+      heures: number
+      session_id: string | null
+      package_id: string | null
+    }>(etudiantsEnVague, (lot) =>
+      supabase
+        .from('hour_ledger')
+        .select('student_id, heures, session_id, package_id')
+        .eq('type_ecriture', 'debit_etudiant')
+        .in('student_id', lot),
     )
+
+    const classeParForfait = new Map<string, string | null>((forfaits ?? []).map((f) => [f.id, f.cohort_class_id]))
+    const forfaitsCollectifsDe = new Map<string, Set<string>>()
+    for (const f of forfaits ?? []) {
+      if (!f.student_id || f.type_programme !== 'collectif') continue
+      const sienS = forfaitsCollectifsDe.get(f.student_id) ?? new Set<string>()
+      sienS.add(f.id)
+      forfaitsCollectifsDe.set(f.student_id, sienS)
+    }
 
     const consommeesDansVague = new Map<string, number>()
     for (const debit of debitsVague ?? []) {
-      if (!debit.student_id || !debit.session_id) continue
+      if (!debit.student_id) continue
       const classeDeLEleve = classeParEtudiant.get(debit.student_id)
-      if (classeDeLEleve) {
-        if (classeParSeance.get(debit.session_id) !== classeDeLEleve) continue
+      const vagueDeLEleve = vagueParEtudiant.get(debit.student_id)
+      let compte: boolean
+      if (debit.session_id) {
+        // Chemin ordinaire : la séance décomptée dit où l'heure a été suivie.
+        compte = classeDeLEleve
+          ? classeParSeance.get(debit.session_id) === classeDeLEleve
+          : !!vagueDeLEleve && vagueParSeance.get(debit.session_id) === vagueDeLEleve
+      } else if (debit.package_id) {
+        /* Reprise d'antériorité : c'est le forfait alimenté qui situe l'écriture. En portée
+           vague, un forfait collectif de l'élève suffit — il ne peut relever que de la vague où
+           il est inscrit. */
+        compte = classeDeLEleve
+          ? classeParForfait.get(debit.package_id) === classeDeLEleve
+          : !!vagueDeLEleve && (forfaitsCollectifsDe.get(debit.student_id)?.has(debit.package_id) ?? false)
       } else {
-        const vagueDeLEleve = vagueParEtudiant.get(debit.student_id)
-        if (!vagueDeLEleve || vagueParSeance.get(debit.session_id) !== vagueDeLEleve) continue
+        compte = false
       }
+      if (!compte) continue
       consommeesDansVague.set(debit.student_id, (consommeesDansVague.get(debit.student_id) ?? 0) + Number(debit.heures))
     }
 

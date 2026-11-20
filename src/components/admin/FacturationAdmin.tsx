@@ -433,7 +433,9 @@ export function LigneDevis({
   )
 }
 
-function LigneFacture({
+/* Exportée pour ses tests (__tests__/factureBoutonEnvoyer.test.tsx), comme LigneDevis : l'état
+   « déjà annoncée » commande un e-mail automatique, et se vérifie au niveau de la ligne. */
+export function LigneFacture({
   item,
   paiementsEtudiant,
   onImprimer,
@@ -447,7 +449,18 @@ function LigneFacture({
   const { facture, destinataire, duoPartenaire } = item
   const [enCours, setEnCours] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
-  const [envoyee, setEnvoyee] = useState(false)
+  /* L'annonce faite au destinataire se lit en base (`email_envoye_le`, 0095), jamais dans la
+     mémoire de l'onglet. Un `useState(false)` vivait ici jusqu'au 2026-11-20, avec deux effets
+     fâcheux relevés en production :
+       — le bouton redevenait « Envoyer » à chaque rechargement, et ne savait rien de ce qui
+         avait été envoyé depuis un autre poste ou un autre jour ;
+       — surtout, le cron de 6h reprend les reçus dont `email_envoye_le` est nul (modèle 2.3) :
+         un reçu envoyé à la main n'écrivant pas cette colonne, il était RÉANNONCÉ le lendemain
+         matin, et l'élève recevait deux fois le même message.
+     Dans l'autre sens, un reçu déjà annoncé par le cron s'affichait « Envoyer », invitant
+     l'administration à un troisième envoi. */
+  const [envoyeLe, setEnvoyeLe] = useState<string | null>(facture.email_envoye_le)
+  const envoyee = envoyeLe != null
   // Numéro modifiable (demande client du 2026-10-05) : édition en ligne, pas de pop-up séparée
   // pour un changement aussi ponctuel.
   const [editionNumero, setEditionNumero] = useState(false)
@@ -548,7 +561,17 @@ function LigneFacture({
       setErreur(corps?.error ?? "L'envoi a échoué.")
       return
     }
-    setEnvoyee(true)
+    /* L'annonce est faite : on l'inscrit, pour que le cron ne la refasse pas et que l'écran s'en
+       souvienne. Une écriture qui échoue n'annule pas l'envoi — il a bien eu lieu — mais elle est
+       signalée, car la conséquence (un second e-mail demain matin) regarde l'administration. */
+    const horodatage = new Date().toISOString()
+    const { error } = await supabase.from('invoices').update({ email_envoye_le: horodatage }).eq('id', facture.id)
+    setEnvoyeLe(horodatage)
+    if (error) {
+      setErreur("Envoi effectué, mais l'enregistrement a échoué : le rappel automatique risque de le renvoyer.")
+      return
+    }
+    onChange()
   }
 
   return (
@@ -631,6 +654,9 @@ function LigneFacture({
         enCours={enCours}
         disabled={envoyee || !destinataire}
         libelle={envoyee ? 'Envoyée ✓' : 'Envoyer'}
+        /* La DATE au survol : « envoyée » sans quand ne permet pas de trancher si l'élève qui
+           dit n'avoir rien reçu a raison. */
+        title={envoyeLe ? `Annoncée au destinataire le ${new Date(envoyeLe).toLocaleString('fr-FR')}` : undefined}
         libelleEnCours="Envoi…"
         style={{ fontSize: 12, fontWeight: 700, color: envoyee ? 'var(--accent-teal)' : 'var(--accent-blue)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 999, padding: '7px 13px', cursor: envoyee ? 'default' : 'pointer' }}
       />

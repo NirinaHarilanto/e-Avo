@@ -4,6 +4,7 @@ import type { Database } from '../../src/types/database.types.js'
 import { creerNotification } from './notifications.js'
 import { avecPartenairesDuo } from './duo.js'
 import { forfaitEntierementConsomme } from '../../src/lib/heures.js'
+import { heuresDeLaVague } from '../../src/lib/heuresCollectif.js'
 
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
@@ -24,28 +25,58 @@ export const TYPE_NOTIFICATION_AVIS = 'avis_invitation'
    `cohortClassId` à null (vague legacy sans classes, affectation en attente) retombe sur la
    portée vague d'avant, inchangée.
 
-   Même jointure manuelle sessions → hour_ledger que la fiche candidat collectif
-   (FicheCandidatCollectifModale.tsx) et que useEtatsParcoursEtudiants.ts — c'est la même question
-   posée au même endroit, elle doit donner la même réponse partout. */
+   Le RATTACHEMENT d'une écriture à sa classe n'est pas refait ici : il vit dans
+   src/lib/heuresCollectif.ts, avec les autres écrans qui posent la même question. Cette règle y
+   a été centralisée le 2026-11-20 après avoir existé en six exemplaires dont cinq faux : tous
+   joignaient hour_ledger aux séances par `session_id` seul, et perdaient donc les reprises
+   d'antériorité (0140), qui n'ont aucune séance. 21 élèves sur 25 avaient un compteur faux, et
+   11 d'entre eux, forfait terminé, passaient pour être à mi-parcours. */
 export async function heuresConsommeesDansVague(
   serviceClient: ServiceClient,
   studentId: string,
   cohortId: string,
   cohortClassId?: string | null,
 ): Promise<number> {
+  /* Les séances de la portée demandée : la classe (0146) quand elle est connue, la vague
+     entière sinon. */
   const requeteSeances = serviceClient.from('sessions').select('id')
   const { data: seances } = await (cohortClassId
     ? requeteSeances.eq('cohort_class_id', cohortClassId)
     : requeteSeances.eq('cohort_id', cohortId))
-  const ids = (seances ?? []).map((s) => s.id)
-  if (ids.length === 0) return 0
+  const idsSeances = new Set((seances ?? []).map((s) => s.id))
+
+  /* Et les FORFAITS de la même portée, pour les reprises d'antériorité (0140), qui n'ont
+     aucune séance derrière elles. Sans eux, l'essentiel du parcours d'un élève repris à
+     l'import disparaît du compteur — voir heuresCollectif.ts pour l'incident du 2026-11-20. */
+  const { data: forfaits } = await serviceClient
+    .from('packages')
+    .select('id, cohort_class_id')
+    .eq('student_id', studentId)
+    .eq('type_programme', 'collectif')
+  let idsForfaits: Set<string>
+  if (cohortClassId) {
+    idsForfaits = new Set((forfaits ?? []).filter((f) => f.cohort_class_id === cohortClassId).map((f) => f.id))
+  } else {
+    /* Portée vague : les forfaits rattachés à une de ses classes, plus ceux qui n'en nomment
+       aucune — souscrits avant 0146, ils ne peuvent relever que de la vague où l'élève est
+       inscrit, et les écarter effacerait l'antériorité des plus anciens dossiers. */
+    const { data: classesVague } = await serviceClient.from('cohort_classes').select('id').eq('cohort_id', cohortId)
+    const idsClasses = new Set((classesVague ?? []).map((c) => c.id))
+    idsForfaits = new Set(
+      (forfaits ?? []).filter((f) => f.cohort_class_id == null || idsClasses.has(f.cohort_class_id)).map((f) => f.id),
+    )
+  }
+
+  if (idsSeances.size === 0 && idsForfaits.size === 0) return 0
+
+  /* Toutes les écritures de l'élève, triées en mémoire : un élève en a quelques dizaines au
+     plus, et filtrer en base obligerait à deux requêtes dont l'une sur `session_id is null`. */
   const { data: debits } = await serviceClient
     .from('hour_ledger')
-    .select('heures')
+    .select('heures, session_id, package_id')
     .eq('student_id', studentId)
     .eq('type_ecriture', 'debit_etudiant')
-    .in('session_id', ids)
-  return (debits ?? []).reduce((total, d) => total + Number(d.heures), 0)
+  return heuresDeLaVague(debits ?? [], idsSeances, idsForfaits)
 }
 
 /* Parcours terminé ? Deux règles, selon le programme — ce sont celles qui existaient déjà côté

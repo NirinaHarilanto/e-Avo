@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useProfileContext } from '../../context/ProfileContext'
 import { supabase } from '../../lib/supabaseClient'
+import { heuresDeLaVague } from '../../lib/heuresCollectif'
 import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { compteRenduSessionOraleOuvrable, ouvertureCompteRenduSessionOrale } from '../../lib/seances'
 import { nomVagueSeul } from '../../lib/cohortes'
@@ -177,22 +178,42 @@ export function FicheCandidatCollectifModale({
       setClasseId(inscriptionVague?.cohort_class_id ?? null)
 
       /* Heures consommées DANS SA CLASSE précisément (à défaut, dans sa vague) : jointure
-         manuelle sessions→hour_ledger (pas de select imbriqué, piège déjà rencontré sur
-         adopter-seances.ts) plutôt que `student_hours_summary`, qui cumule TOUTE la vie du
-         dossier — compterait aussi les heures d'une vague précédente si l'élève en a déjà changé,
-         déclarant un parcours terminé avant même d'avoir commencé le nouveau. Portée rétrécie de
-         la vague à la classe le 2026-10-30 (0146) : une montée de niveau fait repartir le
-         compteur de zéro, même question, même réponse qu'api/_lib/finDeForfait.ts. */
+         manuelle plutôt que `student_hours_summary`, qui cumule TOUTE la vie du dossier — il
+         compterait aussi les heures d'une vague précédente si l'élève en a déjà changé,
+         déclarant un parcours terminé avant même d'avoir commencé le nouveau. Portée rétrécie
+         de la vague à la classe le 2026-10-30 (0146) : une montée de niveau fait repartir le
+         compteur de zéro.
+
+         Le rattachement de chaque écriture passe par la règle partagée (heuresCollectif.ts) :
+         jusqu'au 2026-11-20, cet écran filtrait sur `session_id` seul et perdait les reprises
+         d'antériorité (0140), qui n'ont aucune séance — l'essentiel du parcours des élèves
+         repris à l'import. */
       if (inscriptionVague?.cohort_id) {
         const requeteSeances = supabase.from('sessions').select('id')
-        const { data: seancesVague } = await (inscriptionVague.cohort_class_id
-          ? requeteSeances.eq('cohort_class_id', inscriptionVague.cohort_class_id)
-          : requeteSeances.eq('cohort_id', inscriptionVague.cohort_id))
-        const sessionIds = (seancesVague ?? []).map((s) => s.id)
-        const { data: debits } = sessionIds.length
-          ? await supabase.from('hour_ledger').select('heures').eq('student_id', profilData.id).eq('type_ecriture', 'debit_etudiant').in('session_id', sessionIds)
-          : { data: [] as { heures: number }[] }
-        setHeuresConsommeesVague((debits ?? []).reduce((total, d) => total + Number(d.heures), 0))
+        const [{ data: seancesVague }, { data: forfaitsEleve }, { data: debits }] = await Promise.all([
+          inscriptionVague.cohort_class_id
+            ? requeteSeances.eq('cohort_class_id', inscriptionVague.cohort_class_id)
+            : requeteSeances.eq('cohort_id', inscriptionVague.cohort_id),
+          supabase
+            .from('packages')
+            .select('id, cohort_class_id')
+            .eq('student_id', profilData.id)
+            .eq('type_programme', 'collectif'),
+          supabase
+            .from('hour_ledger')
+            .select('heures, session_id, package_id')
+            .eq('student_id', profilData.id)
+            .eq('type_ecriture', 'debit_etudiant'),
+        ])
+        const idsSeances = new Set((seancesVague ?? []).map((s) => s.id))
+        /* En portée classe, seuls les forfaits de CETTE classe rattachent une reprise ; en
+           portée vague, tous les forfaits collectifs de l'élève, puisque la vague les englobe. */
+        const idsForfaits = new Set(
+          (forfaitsEleve ?? [])
+            .filter((f) => !inscriptionVague.cohort_class_id || f.cohort_class_id === inscriptionVague.cohort_class_id)
+            .map((f) => f.id),
+        )
+        setHeuresConsommeesVague(heuresDeLaVague(debits ?? [], idsSeances, idsForfaits))
       } else {
         setHeuresConsommeesVague(null)
       }

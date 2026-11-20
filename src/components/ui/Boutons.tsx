@@ -49,6 +49,7 @@ export function Bouton({
   style = boutonNeutreStyle,
   type = 'button',
   className,
+  title,
 }: {
   onClick: () => void
   enCours?: boolean
@@ -58,6 +59,9 @@ export function Bouton({
   style?: CSSProperties
   type?: 'button' | 'submit'
   className?: string
+  /* Infobulle native : pour la précision qui n'a pas sa place dans le libellé — la DATE
+     derrière un « Envoyée ✓ », par exemple. */
+  title?: string
 }) {
   const texteEnCours = libelleEnCours ?? (typeof libelle === 'string' ? `${libelle}…` : libelle)
   return (
@@ -66,6 +70,7 @@ export function Bouton({
       onClick={onClick}
       disabled={disabled || enCours}
       className={className}
+      title={title}
       style={{ ...style, opacity: enCours || disabled ? 0.6 : 1 }}
     >
       {enCours ? texteEnCours : libelle}
