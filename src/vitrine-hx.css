@@ -4260,17 +4260,29 @@ body.vitrine-hx {
   }
 }
 
-/* ── Bande de références « Ils ont formé leurs équipes avec Hari Online Club » ─────────────
-   Ajoutée le 2026-11-21 en bas de la page À propos, maquette du client à l'appui. Elle vient
-   APRÈS le bloc sombre « Elle se vit. » : le contraste clair qui suit ferme la page sur une
-   preuve concrète plutôt que sur une formule.
+/* ── Bande de références « Ils ont formé leurs équipes avec HOC » ──────────────────────────
+   Ajoutée le 2026-11-21 sur la page À propos, maquette du client à l'appui, juste AVANT le bloc
+   sombre « Elle se vit. » qui ferme la page.
 
    Les logos sont grisés au repos et reprennent leurs couleurs au survol. Ce n'est pas un effet
    décoratif : six logos de marques, chacun avec sa palette, se disputeraient l'attention au
    milieu d'une page qui n'est pas la leur. Grisés, ils forment une frise lisible d'un coup
    d'œil ; en couleur, ils redeviennent identifiables quand on s'y arrête. */
+
+/* La section qui précède porte 140 px de rembourrage bas, calibrés quand c'était le bloc SOMBRE
+   « Elle se vit. » qui suivait : une rupture de fond mérite ce souffle. Les deux sections étant
+   désormais claires, ces 140 px s'ajoutaient aux 92 px de la bande — 232 px de vide, mesurés en
+   production, que le client a signalés comme un trou. Ramenés à la respiration d'un simple
+   changement de sujet.
+
+   Ciblé par `:has(+ .refs)` plutôt qu'en touchant `.duo` : la règle ne vaut que là où cette
+   bande suit, et aucune autre page n'en est affectée. Un navigateur sans `:has()` ignore
+   simplement la règle et garde l'espacement d'avant — plus large, jamais cassé. */
+.hx .light:has(+ .refs) {
+  padding-bottom: clamp(28px, 3.5vw, 48px);
+}
 .hx .refs {
-  padding: clamp(56px, 7vw, 92px) 0 clamp(64px, 8vw, 104px);
+  padding: clamp(24px, 3vw, 40px) 0 clamp(64px, 8vw, 104px);
   text-align: center;
 }
 .hx .refs .h-l {
