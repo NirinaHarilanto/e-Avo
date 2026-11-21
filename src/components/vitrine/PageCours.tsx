@@ -37,7 +37,12 @@ const PROGRAMMES: { type: TypeProgrammeProspect; badge: string; titre: string; t
   {
     type: 'collectif',
     badge: 'COLLECTIF',
-    titre: 'Cours en petit groupe',
+    /* « Cours collectif » et non « Cours en petit groupe » — wording fixé par le client le
+       2026-11-21. C'est le nom employé partout ailleurs dans l'application (badge COLLECTIF,
+       type_programme, espace admin), et l'une des trois intentions de recherche visées par la
+       vitrine. « En petit groupe » reste dans les DESCRIPTIONS, où il dit une caractéristique
+       — un groupe de 3 à 7 — et non le nom de la formule. */
+    titre: 'Cours collectif',
     texte:
       'Progressez en petit groupe, échangez avec d’autres apprenants et développez votre aisance à l’oral dans un environnement stimulant.',
   },

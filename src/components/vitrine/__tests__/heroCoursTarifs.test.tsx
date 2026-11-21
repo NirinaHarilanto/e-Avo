@@ -70,7 +70,7 @@ describe('Fenêtre des formules', () => {
     afficher('1er novembre')
     fireEvent.click(screen.getByRole('button', { name: /passer le test de niveau/i }))
 
-    const dialogue = screen.getByRole('dialog', { name: 'Cours en petit groupe' })
+    const dialogue = screen.getByRole('dialog', { name: 'Cours collectif' })
     const ongletActif = dialogue.querySelector('.steps button[aria-current="step"]')
     expect(ongletActif?.textContent).toContain('Réserver')
     expect(screen.getByText('module de test de positionnement')).toBeTruthy()
@@ -86,10 +86,10 @@ describe('Fenêtre des formules', () => {
 
   it('annonce le questionnaire écrit avant la réservation du test oral (collectif)', () => {
     afficher('1er novembre')
-    fireEvent.click(screen.getByRole('button', { name: /cours en petit groupe/i }))
+    fireEvent.click(screen.getByRole('button', { name: /cours collectif/i }))
 
     const etapes = Array.from(
-      screen.getByRole('dialog', { name: 'Cours en petit groupe' }).querySelectorAll('ol li'),
+      screen.getByRole('dialog', { name: 'Cours collectif' }).querySelectorAll('ol li'),
       (li) => li.textContent ?? '',
     )
     expect(etapes[0]).toContain('questionnaire écrit de positionnement')

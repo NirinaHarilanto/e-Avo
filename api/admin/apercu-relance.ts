@@ -53,14 +53,29 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: compose.erreur }, { status: 404 })
     }
 
+    /* Les variables restées sans valeur, nommées comme l'administration les connaît. Afficher
+       `lien_google_form` lui demanderait de traduire un identifiant de code ; son écran de
+       réglages, lui, dit « Lien du formulaire du test écrit ». La clé technique reste le repli,
+       pour une variable qui n'aurait pas de libellé. */
+    let manquantes = compose.manquantes
+    if (manquantes.length > 0) {
+      const { data: connues } = await serviceClient
+        .from('email_variables')
+        .select('cle, libelle')
+        .eq('etablissement_id', etablissementId)
+        .in('cle', manquantes)
+      const libelleDe = new Map((connues ?? []).map((v) => [v.cle, v.libelle]))
+      manquantes = manquantes.map((cle) => libelleDe.get(cle) ?? cle)
+    }
+
     return Response.json({
       destinataire: contexte.email,
       reference: contexte.reference,
       objet: compose.objet,
       corps: compose.corps,
-      /* Les variables restées sans valeur : l'administration les voit AVANT l'envoi et peut
-         compléter la phrase à la main, plutôt que de découvrir un trou dans le message reçu. */
-      manquantes: compose.manquantes,
+      /* Vu AVANT l'envoi : l'administration peut compléter la phrase à la main, plutôt que de
+         découvrir un trou dans le message reçu. */
+      manquantes,
     })
   } catch (erreur) {
     if (erreur instanceof AdminAuthError) {

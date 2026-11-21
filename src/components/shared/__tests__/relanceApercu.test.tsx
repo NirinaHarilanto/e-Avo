@@ -141,15 +141,30 @@ describe('relance : relire avant d’envoyer', () => {
     expect(boutonEnvoyer().disabled).toBe(true)
   })
 
-  /* Une variable sans valeur laisse un blanc dans la phrase. C'est ici, et seulement ici, qu'on
-     peut encore le combler. */
-  it('signale les variables restées sans valeur', async () => {
-    etat.apercu = { ...etat.apercu, manquantes: ['montant_a_regler', 'formule_choisie'] }
+  /* Une information sans valeur laisse un blanc au milieu d'une phrase — « le test oral l'un de
+     ces samedis : , , , . » C'est ici, et seulement ici, qu'on peut encore le combler.
+
+     Le client a demandé le 2026-11-21 si cet avertissement pouvait disparaître. Il reste, mais
+     il nomme désormais la CONSÉQUENCE et le chemin pour la régler une bonne fois : le faire
+     corriger à la main à chaque envoi reviendrait à faire refaire indéfiniment le même geste. */
+  it('annonce les informations manquantes, en clair, et où les régler', async () => {
+    etat.apercu = { ...etat.apercu, manquantes: ['Lien du formulaire du test écrit'] }
     monter()
     await ouvrir()
 
-    expect(screen.getByText(/montant_a_regler, formule_choisie/)).toBeTruthy()
+    expect(screen.getByText(/laisseront un blanc dans le message/)).toBeTruthy()
+    expect(screen.getByText('Lien du formulaire du test écrit')).toBeTruthy()
+    expect(screen.getByText(/Liens et numéros réutilisés/)).toBeTruthy()
     etat.apercu = { ...etat.apercu, manquantes: [] }
+  })
+
+  /* Et rien ne s'affiche quand il n'y a rien à signaler : un avertissement permanent n'avertit
+     plus de rien. */
+  it('ne dit rien quand toutes les informations sont renseignées', async () => {
+    monter()
+    await ouvrir()
+
+    expect(screen.queryByText(/laisseront un blanc/)).toBeNull()
   })
 
   it('dit pourquoi le message n’a pas pu être préparé, sans rien envoyer', async () => {

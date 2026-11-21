@@ -167,6 +167,35 @@ export async function chargerConstantes(
   for (const v of data ?? []) {
     if (v.valeur?.trim()) constantes[v.cle] = v.valeur.trim()
   }
+
+  /* Les DATES de test oral (`samedi_1` à `samedi_4`, 0093) se remplissent toutes seules depuis
+     les créneaux réellement programmés.
+
+     Saisies à la main, elles étaient condamnées à devenir fausses : ce sont des dates, elles
+     changent chaque semaine, et personne ne pense à rouvrir un écran de réglages pour les
+     décaler. Constat du 2026-11-21 : les quatre étaient VIDES en production, et le modèle 1.2
+     partait aux prospects avec « le test oral à 8h l'un de ces samedis : , , , . » — un message
+     troué, que seule la fenêtre de relecture a rendu visible.
+
+     Les valeurs saisies à la main restent prioritaires : on ne remplit que ce qui manque, pour
+     qu'une date forcée volontairement ne soit jamais écrasée. Et la requête n'a lieu que si une
+     date manque, donc jamais pour les modèles qui n'en parlent pas. */
+  const CLES_SAMEDIS = ['samedi_1', 'samedi_2', 'samedi_3', 'samedi_4']
+  if (CLES_SAMEDIS.some((cle) => !constantes[cle])) {
+    const { data: creneaux } = await serviceClient
+      .from('creneaux_test_positionnement')
+      .select('debut')
+      .eq('etablissement_id', etablissementId)
+      .eq('actif', true)
+      .gte('debut', new Date().toISOString())
+      .order('debut')
+      .limit(CLES_SAMEDIS.length)
+    const prochains = (creneaux ?? []).map((c) => dateLisible(c.debut))
+    CLES_SAMEDIS.forEach((cle, rang) => {
+      if (!constantes[cle] && prochains[rang]) constantes[cle] = prochains[rang]
+    })
+  }
+
   return constantes
 }
 

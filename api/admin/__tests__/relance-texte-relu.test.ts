@@ -29,6 +29,11 @@ vi.mock('../../_lib/adminAuth.js', () => ({
 
 const relancesEcrites: Record<string, unknown>[] = []
 
+/* Constantes de la maison et créneaux de test de positionnement : pilotables, pour distinguer
+   « valeur saisie à la main » et « valeur déduite des créneaux ». */
+let variablesEmail: { cle: string; valeur: string | null }[] = []
+let creneauxTest: { debut: string }[] = []
+
 /* Le modèle enregistré porte une variable que le dossier ne renseigne pas : c'est exactement la
    ligne que `preparerEmail` retire, et donc le meilleur révélateur d'une resubstitution. */
 const MODELE = {
@@ -37,6 +42,16 @@ const MODELE = {
   actif: true,
   piece_jointe_document_id: null,
 }
+
+/* Le vrai modèle 1.2 écrit cette phrase-là, et c'est elle qui partait trouée : « le test oral à
+   8h l'un de ces samedis : , , , . » */
+const MODELE_AVEC_SAMEDIS = {
+  objet: 'Votre projet d’anglais',
+  corps: 'Bonjour {{prenom}},\nLe test oral à 8h l’un de ces samedis : {{samedi_1}}, {{samedi_2}}.\nÀ bientôt.',
+  actif: true,
+  piece_jointe_document_id: null,
+}
+let modeleUtilise = MODELE
 
 function requete(donnees: unknown) {
   const builder: Record<string, unknown> = {}
@@ -52,11 +67,12 @@ function clientFactice() {
       if (table === 'prospects') {
         return requete({ id: 'prospect-1', etablissement_id: 'etab-1', prenom: 'Wadjeedah', email: 'w@exemple.test', statut: 'diagnostic_realise', type_programme: 'individuel', tarif_choisi_id: null })
       }
-      if (table === 'email_templates') return requete(MODELE)
+      if (table === 'email_templates') return requete(modeleUtilise)
       if (table === 'etablissements') return requete({ nom: 'Hari Online Club', telephone: '+261', email: 'admin@exemple.test' })
       if (table === 'cohorts') return requete(null)
       if (table === 'tarifs') return requete(null)
-      if (table === 'email_variables') return requete([])
+      if (table === 'email_variables') return requete(variablesEmail)
+      if (table === 'creneaux_test_positionnement') return requete(creneauxTest)
       if (table === 'relances') {
         return { insert: async (valeurs: Record<string, unknown>) => { relancesEcrites.push(valeurs); return { error: null } } }
       }
@@ -83,6 +99,9 @@ const dernierEnvoi = () => envoyerEmail.mock.calls[0][0] as { sujet: string; htm
 beforeEach(() => {
   envoyerEmail.mockClear()
   relancesEcrites.length = 0
+  variablesEmail = []
+  creneauxTest = []
+  modeleUtilise = MODELE
 })
 
 /* Vu a l'ecran le 2026-11-21 en relisant une relance de reglement : le message annoncait
@@ -110,6 +129,41 @@ describe('libelle d’une formule', () => {
      « 150h » passerait pour deja complet. */
   it('ne confond pas un volume avec la fin d’un autre nombre', () => {
     expect(libelleFormule({ titre: '150h', heures: 50 })).toBe('150h — 50 h')
+  })
+})
+
+/* Constat du 2026-11-21, en relisant une relance : les quatre dates de test oral (`samedi_1` a
+   `samedi_4`, 0093) etaient VIDES en production, et le modele 1.2 partait avec « le test oral a
+   8h l'un de ces samedis : , , , . » — la ligne ne tombe pas, puisqu'elle porte du texte autour
+   de ses variables.
+
+   Saisies a la main, ces dates etaient condamnees a devenir fausses : elles changent chaque
+   semaine, et personne ne pense a rouvrir un ecran de reglages pour les decaler. Elles se
+   remplissent maintenant depuis les creneaux de test reellement programmes. */
+describe('dates de test oral', () => {
+  it('reprend les prochains creneaux programmes quand les dates ne sont pas saisies', async () => {
+    modeleUtilise = MODELE_AVEC_SAMEDIS
+    creneauxTest = [{ debut: '2026-11-28T05:00:00Z' }, { debut: '2026-12-05T05:00:00Z' }]
+
+    await appel({ prospectId: 'prospect-1', motif: 'forfait_a_choisir' })
+
+    expect(dernierEnvoi().html).toContain('28 novembre')
+    expect(dernierEnvoi().html).toContain('5 décembre')
+    // Et surtout : plus de « : , . » a la place des dates.
+    expect(dernierEnvoi().html).not.toMatch(/samedis\s*:\s*,/)
+  })
+
+  /* Une date saisie volontairement l'emporte : la deduction comble un manque, elle ne decide
+     pas a la place de l'administration. */
+  it('ne remplace jamais une date saisie a la main', async () => {
+    modeleUtilise = MODELE_AVEC_SAMEDIS
+    variablesEmail = [{ cle: 'samedi_1', valeur: 'le 24 décembre, exceptionnellement' }]
+    creneauxTest = [{ debut: '2026-11-28T05:00:00Z' }, { debut: '2026-12-05T05:00:00Z' }]
+
+    await appel({ prospectId: 'prospect-1', motif: 'forfait_a_choisir' })
+
+    expect(dernierEnvoi().html).toContain('24 décembre, exceptionnellement')
+    expect(dernierEnvoi().html).not.toContain('28 novembre')
   })
 })
 

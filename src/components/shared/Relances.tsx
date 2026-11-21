@@ -164,11 +164,18 @@ function FenetreRelance({
             </p>
 
             {apercu.manquantes.length > 0 && (
-              /* Dit AVANT l'envoi, pas après : une variable sans valeur laisse un blanc dans la
-                 phrase, et c'est ici — et seulement ici — qu'on peut encore le combler. */
+              /* Dit AVANT l'envoi, pas après : sans valeur, ces informations laissent un blanc
+                 au milieu d'une phrase — « le test oral l'un de ces samedis : , , , . » — et
+                 c'est ici, et seulement ici, qu'on peut encore le combler.
+
+                 Le message nomme la conséquence (un blanc dans le texte) plutôt que la cause
+                 technique, et dit où la régler une bonne fois : laisser l'administration
+                 corriger à la main à chaque envoi reviendrait à lui faire refaire indéfiniment
+                 le même geste. */
               <p style={{ margin: 0, fontSize: 11.5, color: 'var(--warning, #8a5e12)', lineHeight: 1.55 }}>
-                Sans valeur dans ce dossier : {apercu.manquantes.join(', ')}. Complétez la phrase à la main si elle
-                doit partir.
+                Ces informations manquent et laisseront un blanc dans le message :{' '}
+                <strong>{apercu.manquantes.join(', ')}</strong>. Complétez le texte ci-dessous, ou renseignez-les une
+                fois pour toutes dans Messages → Template e-mails → « Liens et numéros réutilisés ».
               </p>
             )}
 
