@@ -1,11 +1,13 @@
-/* À propos, d'après hoc-a-propos.html. Cinq temps : le hero avec la photo d'équipe en cadre
+/* À propos, d'après hoc-a-propos.html. Six temps : le hero avec la photo d'équipe en cadre
    incliné qui déborde sur la section suivante, la citation géante, le récit, les deux cartes,
-   puis la chute sur fond violet.
+   la chute sur fond violet, puis la bande de références ajoutée le 2026-11-21.
 
    Le texte est celui de la fondatrice, fourni mot pour mot (demande 10 du 2026-10-08), découpé
    ici selon le rythme que la maquette lui donne : la citation d'ouverture, les respirations en
    relief (« J'ai fait le pari inverse. », « Ainsi est né Hari Online Club. »), les deux
    convictions en cartes, et la chute. */
+
+import { BandeReferences } from './BandeReferences'
 
 export function PageAPropos({ dossierAssets }: { dossierAssets: string }) {
   return (
@@ -139,6 +141,12 @@ export function PageAPropos({ dossierAssets }: { dossierAssets: string }) {
           </div>
         </div>
       </section>
+
+      {/* Les références en dernier, après la signature : la page se termine sur une preuve
+          concrète plutôt que sur une formule, et le contraste clair qui suit le bloc sombre
+          marque la fin du récit. Emplacement désigné par le client le 2026-11-21, flèche à
+          l'appui sur sa capture. */}
+      <BandeReferences dossierAssets={dossierAssets} />
     </div>
   )
 }

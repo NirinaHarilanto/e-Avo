@@ -4259,3 +4259,108 @@ body.vitrine-hx {
     opacity: 0.8;
   }
 }
+
+/* ── Bande de références « Ils ont formé leurs équipes avec Hari Online Club » ─────────────
+   Ajoutée le 2026-11-21 en bas de la page À propos, maquette du client à l'appui. Elle vient
+   APRÈS le bloc sombre « Elle se vit. » : le contraste clair qui suit ferme la page sur une
+   preuve concrète plutôt que sur une formule.
+
+   Les logos sont grisés au repos et reprennent leurs couleurs au survol. Ce n'est pas un effet
+   décoratif : six logos de marques, chacun avec sa palette, se disputeraient l'attention au
+   milieu d'une page qui n'est pas la leur. Grisés, ils forment une frise lisible d'un coup
+   d'œil ; en couleur, ils redeviennent identifiables quand on s'y arrête. */
+.hx .refs {
+  padding: clamp(56px, 7vw, 92px) 0 clamp(64px, 8vw, 104px);
+  text-align: center;
+}
+.hx .refs .h-l {
+  margin: 0 auto;
+  /* Assez large pour que la phrase tienne sur une ligne au-dessus de 1200 px, comme la maquette :
+     a 20ch, « avec » se retrouvait seul en tete de deuxieme ligne. */
+  max-width: 30ch;
+  text-wrap: balance;
+}
+/* Le nom de la maison en Fraunces italique, comme la maquette — et comme le reste de la marque
+   (voir le bloc Fraunces plus haut dans ce fichier). */
+.hx .refs .refs-marque {
+  font-family: Fraunces, Georgia, serif;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.hx .refs .refs-orne {
+  display: block;
+  width: 96px;
+  height: 12px;
+  margin: 18px auto clamp(28px, 4vw, 44px);
+  fill: none;
+  stroke: var(--gold);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hx .refs .refs-bande {
+  list-style: none;
+  margin: 0;
+  padding: 0 4px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(26px, 4.5vw, 64px);
+  /* Les six logos tiennent sur une ligne dès 900 px ; en dessous, la bande se fait défiler au
+     doigt plutôt que de se casser en plusieurs rangées inégales. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.hx .refs .refs-bande::-webkit-scrollbar {
+  display: none;
+}
+.hx .refs .refs-bande li {
+  flex: 0 0 auto;
+  scroll-snap-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Hauteur commune, largeur libre : c'est la hauteur qui donne l'impression d'alignement. */
+  height: 60px;
+}
+.hx .refs .refs-bande img {
+  max-height: 100%;
+  width: auto;
+  object-fit: contain;
+  filter: grayscale(1);
+  /* Assez present pour se lire, assez discret pour ne pas voler la vedette au texte. Mesure a
+     l'ecran : en dessous de 0,7, les logos clairs (L.O.I, Solidis) viraient au gris fantome. */
+  opacity: 0.74;
+  transition:
+    filter 0.25s ease,
+    opacity 0.25s ease;
+}
+.hx .refs .refs-bande img:hover {
+  filter: none;
+  opacity: 1;
+}
+/* Un survol n'existe pas au doigt : sur écran tactile, les logos restent en couleur, sans quoi
+   la moitié des visiteurs ne verrait jamais que des taches grises. */
+@media (hover: none) {
+  .hx .refs .refs-bande img {
+    filter: none;
+    opacity: 0.86;
+  }
+}
+@media (max-width: 720px) {
+  .hx .refs .refs-bande {
+    justify-content: flex-start;
+    /* La bande deborde a l'ecran etroit et se fait defiler au doigt. Le fondu sur les bords dit
+       qu'il reste quelque chose a voir : sans lui, une frise coupee net passe pour une frise
+       complete, et personne ne pense a la faire glisser. */
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+  }
+  .hx .refs .refs-bande li {
+    height: 46px;
+  }
+}
