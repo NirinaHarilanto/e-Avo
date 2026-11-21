@@ -17,10 +17,14 @@ import { BandeReferences } from '../BandeReferences'
 const SOCIETES = ['Tana Boutique Hotel', 'Carrefour', 'Concentrix', 'L.O.I Confection', 'Foundever', 'Solidis']
 
 describe('bande de références', () => {
-  it('nomme le titre voulu, avec la maison en évidence', () => {
+  /* « HOC » et non « Hari Online Club », demandé par le client le 2026-11-21 : le sigle doit se
+     lire comme un mot ordinaire de la phrase, sans style qui le détache des autres. */
+  it('nomme le titre voulu, avec HOC comme un mot de la phrase', () => {
     render(<BandeReferences dossierAssets="/etablissements/hari-online-course" />)
 
-    expect(screen.getByRole('heading', { name: /Ils ont formé leurs équipes avec Hari Online Club/ })).toBeTruthy()
+    const titre = screen.getByRole('heading', { name: /Ils ont formé leurs équipes avec HOC/ })
+    expect(titre).toBeTruthy()
+    expect(titre.querySelector('span')).toBeNull()
   })
 
   it('affiche les six sociétés, chacune avec son texte de remplacement', () => {

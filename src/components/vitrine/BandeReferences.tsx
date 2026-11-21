@@ -1,5 +1,5 @@
-/* « Ils ont formé leurs équipes avec Hari Online Club » — bande de références en bas de la page
-   À propos, demandée par le client le 2026-11-21 avec une maquette et la liste des six sociétés.
+/* « Ils ont formé leurs équipes avec HOC » — bande de références de la page À propos, demandée
+   par le client le 2026-11-21 avec une maquette et la liste des six sociétés.
 
    Les logos sont servis depuis `public/references/`, et non chargés depuis les sites d'origine :
    un logo distant disparaît le jour où son propriétaire refait son site, et chaque visite de la
@@ -35,8 +35,12 @@ export function BandeReferences({ dossierAssets }: { dossierAssets: string }) {
   return (
     <section className="light refs" aria-labelledby="refs-titre">
       <div className="wrap reveal">
+        {/* « HOC » et non « Hari Online Club », demandé par le client le 2026-11-21 : il doit se
+            lire comme un mot ordinaire de la phrase, pas comme un nom mis en évidence — d'où
+            l'absence de tout style particulier, contrairement à la version précédente qui le
+            détachait en Fraunces italique. */}
         <h2 className="h-l rv" id="refs-titre">
-          Ils ont formé leurs équipes avec <span className="refs-marque">Hari Online Club</span>
+          Ils ont formé leurs équipes avec HOC
         </h2>
 
         <ul className="refs-bande rv">

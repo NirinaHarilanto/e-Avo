@@ -1,6 +1,7 @@
 /* À propos, d'après hoc-a-propos.html. Six temps : le hero avec la photo d'équipe en cadre
    incliné qui déborde sur la section suivante, la citation géante, le récit, les deux cartes,
-   la chute sur fond violet, puis la bande de références ajoutée le 2026-11-21.
+   la bande de références (2026-11-21), puis la chute sur fond violet — ordre inversé le
+   2026-11-21 pour que la page se clôt sur « Elle se vit. » et non sur la preuve sociale.
 
    Le texte est celui de la fondatrice, fourni mot pour mot (demande 10 du 2026-10-08), découpé
    ici selon le rythme que la maquette lui donne : la citation d'ouverture, les respirations en
@@ -123,6 +124,11 @@ export function PageAPropos({ dossierAssets }: { dossierAssets: string }) {
         </div>
       </section>
 
+      {/* Les références AVANT le bloc final — ordre inversé le 2026-11-21 à la demande du
+          client, capture à l'appui : la page se clôt désormais sur « Elle se vit. », pas sur
+          la preuve sociale. */}
+      <BandeReferences dossierAssets={dossierAssets} />
+
       <section className="dark finale">
         <div className="glow g1" />
         <div className="spot" />
@@ -141,12 +147,6 @@ export function PageAPropos({ dossierAssets }: { dossierAssets: string }) {
           </div>
         </div>
       </section>
-
-      {/* Les références en dernier, après la signature : la page se termine sur une preuve
-          concrète plutôt que sur une formule, et le contraste clair qui suit le bloc sombre
-          marque la fin du récit. Emplacement désigné par le client le 2026-11-21, flèche à
-          l'appui sur sa capture. */}
-      <BandeReferences dossierAssets={dossierAssets} />
     </div>
   )
 }

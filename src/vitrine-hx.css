@@ -4283,14 +4283,6 @@ body.vitrine-hx {
      2026-11-21 à la demande du client (elle ne figurait pas sur sa maquette). */
   margin-bottom: clamp(28px, 4vw, 44px);
 }
-/* Le nom de la maison en Fraunces italique, comme la maquette — et comme le reste de la marque
-   (voir le bloc Fraunces plus haut dans ce fichier). */
-.hx .refs .refs-marque {
-  font-family: Fraunces, Georgia, serif;
-  font-style: italic;
-  font-weight: 600;
-  letter-spacing: 0;
-}
 
 .hx .refs .refs-bande {
   list-style: none;
