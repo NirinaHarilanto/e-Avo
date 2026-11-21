@@ -1,11 +1,15 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { creerNotification } from '../_lib/notifications.js'
 import { envoyerDepuisModele } from '../_lib/templatesEmail.js'
+import { contexteRelanceEtudiant } from '../_lib/relance.js'
 
 export const config = { runtime: 'edge' }
 
 interface Corps {
   studentId?: string
+  /* Le message relu, et le cas échéant retouché, dans la fenêtre d'aperçu (2026-11-21). */
+  objet?: string
+  corpsEmail?: string
 }
 
 /**
@@ -33,30 +37,31 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: 'studentId est requis.' }, { status: 400 })
     }
 
-    const { data: eleve } = await serviceClient
-      .from('profiles')
-      .select('id, role, etablissement_id, prenom, email, status')
-      .eq('id', corps.studentId)
-      .maybeSingle()
-    if (!eleve || eleve.etablissement_id !== etablissementId || eleve.role !== 'etudiant') {
+    const { contexte, erreur: erreurContexte } = await contexteRelanceEtudiant(serviceClient, etablissementId, corps.studentId)
+    if (erreurContexte) {
+      return Response.json({ error: erreurContexte }, { status: 400 })
+    }
+    if (!contexte) {
       return Response.json({ error: 'Étudiant introuvable pour cet établissement.' }, { status: 404 })
     }
-    if (!eleve.email) {
-      return Response.json({ error: "Cet étudiant n'a pas d'adresse e-mail enregistrée." }, { status: 400 })
-    }
+
+    /* Un texte relu à l'écran part TEL QUEL : le resubstituer ne pourrait que défaire les
+       retouches de l'administration. */
+    const relu = corps.objet?.trim() && corps.corpsEmail?.trim() ? { objet: corps.objet, corps: corps.corpsEmail } : undefined
 
     const resultat = await envoyerDepuisModele(serviceClient, {
       etablissementId,
-      reference: '4.7',
-      destinataires: [eleve.email],
-      valeurs: { prenom: eleve.prenom },
+      reference: contexte.reference,
+      destinataires: [contexte.email],
+      valeurs: contexte.valeurs,
+      texte: relu,
     })
 
     await serviceClient.from('relances').insert({
       etablissement_id: etablissementId,
-      student_id: eleve.id,
+      student_id: contexte.studentId,
       motif: 'reprise_apres_pause',
-      destinataire_email: eleve.email,
+      destinataire_email: contexte.email,
       modele_reference: resultat.envoye ? '4.7' : null,
       succes: resultat.envoye,
       erreur: resultat.envoye ? null : (resultat.erreur ?? 'Envoi refusé.'),
@@ -75,7 +80,7 @@ export default async function handler(request: Request): Promise<Response> {
        avoir lu son courrier ne verrait rien. */
     await creerNotification(serviceClient, {
       etablissementId,
-      destinataireProfileId: eleve.id,
+      destinataireProfileId: contexte.studentId,
       type: 'relance_reprise',
       titre: 'Reprise de vos cours',
       message: 'Hari Online Club vous invite à reprendre votre parcours. Répondez à l’e-mail reçu ou écrivez à l’administration.',

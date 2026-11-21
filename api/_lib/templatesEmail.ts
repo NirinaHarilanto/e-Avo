@@ -7,6 +7,44 @@ import { envoyerEmail } from './email.js'
 type ServiceClient = ReturnType<typeof createClient<Database>>
 
 /**
+ * Le message tel qu'il PARTIRAIT, sans l'envoyer : modèle lu, variables substituées, lignes
+ * orphelines retirées. Ajouté le 2026-11-21 pour l'aperçu que l'administration relit avant
+ * d'envoyer une relance.
+ *
+ * Partage sa substitution avec `envoyerDepuisModele` ci-dessous : montrer un texte et en envoyer
+ * un autre serait pire que de ne rien montrer.
+ */
+export async function composerDepuisModele(
+  serviceClient: ServiceClient,
+  params: {
+    etablissementId: string
+    reference: string
+    valeurs: Record<string, string | null | undefined>
+  },
+): Promise<
+  | { ok: true; objet: string; corps: string; manquantes: string[] }
+  | { ok: false; erreur: string }
+> {
+  const { data: modele } = await serviceClient
+    .from('email_templates')
+    .select('objet, corps, actif')
+    .eq('etablissement_id', params.etablissementId)
+    .eq('reference', params.reference)
+    .maybeSingle()
+
+  /* Modèle absent ou désactivé : l'admin l'a peut-être supprimé ou mis de côté volontairement.
+     On ne le remplace par rien — un e-mail automatique qui part avec un texte de secours que
+     personne n'a relu serait pire que pas d'e-mail du tout. */
+  if (!modele || !modele.actif) {
+    return { ok: false, erreur: `Modèle ${params.reference} introuvable ou désactivé.` }
+  }
+
+  const constantes = await chargerConstantes(serviceClient, params.etablissementId)
+  const prepare = preparerEmail(modele, { ...constantes, ...params.valeurs })
+  return { ok: true, objet: prepare.objet, corps: prepare.corps, manquantes: prepare.manquantes }
+}
+
+/**
  * Envoi d'un e-mail à partir d'un modèle enregistré (0091), côté serveur.
  *
  * Même chemin pour l'envoi manuel (l'admin clique « Utiliser ») et pour les six envois
@@ -19,6 +57,11 @@ type ServiceClient = ReturnType<typeof createClient<Database>>
  * injectées d'office et complétées par les valeurs propres au destinataire. Une valeur manquante
  * fait tomber la ligne de liste qui la porte (voir src/lib/templatesEmail.ts) : un envoi
  * automatique ne peut pas partir avec un « {{lien_drive}} » en clair.
+ *
+ * `texte` court-circuite la composition : c'est le message que l'administration vient de relire
+ * et, le cas échéant, de retoucher à l'écran (2026-11-21). Le modèle sert alors uniquement à
+ * retrouver sa pièce jointe — le texte relu est envoyé tel quel, sans nouvelle substitution, qui
+ * ne pourrait que le défaire.
  */
 export async function envoyerDepuisModele(
   serviceClient: ServiceClient,
@@ -30,6 +73,7 @@ export async function envoyerDepuisModele(
     copies?: string[]
     valeurs: Record<string, string | null | undefined>
     piecesJointes?: { nom: string; contenuBase64: string }[]
+    texte?: { objet: string; corps: string }
   },
 ): Promise<{ envoye: boolean; erreur?: string; manquantes?: string[] }> {
   const { data: modele } = await serviceClient
@@ -39,17 +83,14 @@ export async function envoyerDepuisModele(
     .eq('reference', params.reference)
     .maybeSingle()
 
-  /* Modèle absent ou désactivé : l'admin l'a peut-être supprimé ou mis de côté volontairement.
-     On ne le remplace par rien — un e-mail automatique qui part avec un texte de secours que
-     personne n'a relu serait pire que pas d'e-mail du tout. L'appelant, lui, continue : aucun
-     envoi d'e-mail ne doit faire échouer l'action métier qui l'accompagne (même principe que
-     `envoyerEmail`, inerte sans clé Resend). */
   if (!modele || !modele.actif) {
     return { envoye: false, erreur: `Modèle ${params.reference} introuvable ou désactivé.` }
   }
 
   const constantes = await chargerConstantes(serviceClient, params.etablissementId)
-  const prepare = preparerEmail(modele, { ...constantes, ...params.valeurs })
+  const prepare = params.texte
+    ? { objet: params.texte.objet, corps: params.texte.corps, manquantes: [] as string[] }
+    : preparerEmail(modele, { ...constantes, ...params.valeurs })
 
   /* Coordonnées du Profil HOC, ajoutées en pied de TOUS les messages (demande client du
      2026-10-19) : un modèle que l'admin réécrit depuis son écran ne doit pas pouvoir perdre le

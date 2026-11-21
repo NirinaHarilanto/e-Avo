@@ -1,8 +1,7 @@
-import { jourDansFuseauEtablissement } from '../../src/lib/etablissement.js'
-import { nomVagueSeul } from '../../src/lib/cohortes.js'
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { envoyerEmail, modeleRelanceProspect } from '../_lib/email.js'
-import { dateLisible, envoyerDepuisModele } from '../_lib/templatesEmail.js'
+import { envoyerDepuisModele } from '../_lib/templatesEmail.js'
+import { contexteRelanceProspect, motifProspect, REFERENCE_MODELE, type MotifProspect } from '../_lib/relance.js'
 
 export const config = { runtime: 'edge' }
 
@@ -13,26 +12,19 @@ export const config = { runtime: 'edge' }
      call, on doit pouvoir le relancer via un bouton et un mail automatique » (modèle 1.3, ajouté
      par la migration 0130).
    Un seul endpoint : l'authentification, la vérification d'appartenance à l'établissement et la
-   trace dans `relances` sont identiques, seul le modèle d'e-mail diffère. */
-type MotifProspect = 'forfait_a_choisir' | 'absence_diagnostic' | 'paiement_a_regler'
+   trace dans `relances` sont identiques, seul le modèle d'e-mail diffère.
+
+   Le rassemblement des valeurs vit dans `_lib/relance.ts` depuis le 2026-11-21 : l'aperçu que
+   l'administration relit avant d'envoyer doit composer EXACTEMENT le même message. */
 
 interface Corps {
   prospectId?: string
   motif?: MotifProspect
+  /* Le message relu, et le cas échéant retouché, dans la fenêtre d'aperçu. Absent, la route
+     compose comme avant — l'ancien appel, qui envoyait sans relire, continue de fonctionner. */
+  objet?: string
+  corpsEmail?: string
 }
-
-const REFERENCE_MODELE: Record<MotifProspect, string> = {
-  forfait_a_choisir: '1.2',
-  absence_diagnostic: '1.3',
-  /* Ajouté le 2026-10-19 (migration 0133) : le prospect a passé son diagnostic ET choisi sa
-     formule, il ne manque que le règlement pour qu'il devienne étudiant. Le modèle 1.2 ne
-     convenait plus à ce stade — il explique les chemins possibles à quelqu'un qui n'a encore
-     rien tranché, alors qu'ici tout l'est. Demande client : « féliciter la personne d'être
-     arrivée à ce stade et l'inviter à payer les frais de cours pour commencer son parcours ». */
-  paiement_a_regler: '1.4',
-}
-
-const MOTIFS: MotifProspect[] = ['forfait_a_choisir', 'absence_diagnostic', 'paiement_a_regler']
 
 /**
  * Relance manuelle d'un prospect. Passe par le serveur (comme les autres envois Resend) pour
@@ -54,66 +46,27 @@ export default async function handler(request: Request): Promise<Response> {
     if (!corps.prospectId) {
       return Response.json({ error: 'prospectId est requis.' }, { status: 400 })
     }
-    /* Motif par défaut à la relance d'origine : l'ancien appel du pipeline n'en envoyait aucun,
-       et c'est bien ce cas-là qu'il visait. */
-    const motif: MotifProspect = MOTIFS.includes(corps.motif as MotifProspect) ? (corps.motif as MotifProspect) : 'forfait_a_choisir'
+    const motif = motifProspect(corps.motif)
 
-    const { data: prospect } = await serviceClient
-      .from('prospects')
-      .select('id, etablissement_id, prenom, email, statut, type_programme, tarif_choisi_id')
-      .eq('id', corps.prospectId)
-      .maybeSingle()
-    if (!prospect || prospect.etablissement_id !== etablissementId) {
+    const contexte = await contexteRelanceProspect(serviceClient, etablissementId, corps.prospectId, motif)
+    if (!contexte) {
       return Response.json({ error: 'Prospect introuvable pour cet établissement.' }, { status: 404 })
     }
 
     const { data: etablissement } = await serviceClient.from('etablissements').select('nom').eq('id', etablissementId).maybeSingle()
 
-    /* Texte repris du modèle « 1.2 Relance » (0091, document client du 23 septembre 2026), bien
-       plus complet que le gabarit de code d'origine : il donne les deux chemins (diagnostic call
-       pour l'individuel/duo, test écrit puis test oral pour le collectif) au lieu d'un simple
-       rappel. L'admin peut le corriger depuis son écran Template e-mails, et cette relance suit.
-       La prochaine vague à venir alimente les variables de la partie collectif ; si aucune n'est
-       programmée, les lignes concernées tombent d'elles-mêmes (voir preparerEmail). */
-    const { data: prochaineVague } = await serviceClient
-      .from('cohorts')
-      .select('nom, date_debut, date_fin')
-      .eq('etablissement_id', etablissementId)
-      .gte('date_fin', jourDansFuseauEtablissement())
-      .order('date_debut')
-      .limit(1)
-      .maybeSingle()
+    /* Un texte relu à l'écran part TEL QUEL : le resubstituer ne pourrait que défaire les
+       retouches de l'administration. Sans texte fourni, la route compose depuis le modèle comme
+       elle l'a toujours fait. */
+    const relu = corps.objet?.trim() && corps.corpsEmail?.trim() ? { objet: corps.objet, corps: corps.corpsEmail } : undefined
 
-    /* Formule retenue et somme attendue, pour la relance de règlement (1.4) : le message doit
-       rappeler précisément ce que la personne a choisi, sinon « réglez vos frais » ne lui dit pas
-       de quoi il s'agit. Une ligne dont la variable reste vide disparaît d'elle-même du modèle
-       (voir preparerEmail), donc un prospect sans tarif choisi reçoit le même message sans ces
-       deux lignes plutôt qu'un texte à trous. */
-    const { data: tarifChoisi } = prospect.tarif_choisi_id
-      ? await serviceClient.from('tarifs').select('titre, prix, unite, heures').eq('id', prospect.tarif_choisi_id).maybeSingle()
-      : { data: null }
-
-    const formuleChoisie = tarifChoisi
-      ? `${tarifChoisi.titre}${tarifChoisi.heures ? ` — ${tarifChoisi.heures} h` : ''}`
-      : undefined
-    const montantARegler = tarifChoisi?.prix ? `${Number(tarifChoisi.prix).toLocaleString('fr-FR')} ${tarifChoisi.unite || 'Ar'}` : undefined
-
-    const reference = REFERENCE_MODELE[motif]
+    const reference = contexte.reference
     const parModele = await envoyerDepuisModele(serviceClient, {
       etablissementId,
       reference,
-      destinataires: [prospect.email],
-      valeurs: {
-        prenom: prospect.prenom,
-        /* Les modèles écrivent déjà le mot autour de la variable (« la vague {{numero_vague}}
-           démarre le… », migration 0091) : y injecter « Vague Novembre » tel qu'il est nommé en
-           base donnerait « la vague Vague Novembre démarre ». */
-        numero_vague: nomVagueSeul(prochaineVague?.nom) || undefined,
-        date_debut_vague: dateLisible(prochaineVague?.date_debut),
-        date_fin_vague: dateLisible(prochaineVague?.date_fin),
-        formule_choisie: formuleChoisie,
-        montant_a_regler: montantARegler,
-      },
+      destinataires: [contexte.email],
+      valeurs: contexte.valeurs,
+      texte: relu,
     })
 
     /* Repli sur le gabarit de code si le modèle a été supprimé ou désactivé : la relance est une
@@ -126,9 +79,9 @@ export default async function handler(request: Request): Promise<Response> {
       ? parModele
       : motif === 'forfait_a_choisir'
         ? await envoyerEmail({
-            destinataire: prospect.email,
+            destinataire: contexte.email,
             sujet: `On vous attend chez ${etablissement?.nom ?? 'Hari Online Club'} !`,
-            html: modeleRelanceProspect({ prenom: prospect.prenom, etablissement: etablissement?.nom ?? 'Hari Online Club' }),
+            html: modeleRelanceProspect({ prenom: contexte.valeurs.prenom ?? '', etablissement: etablissement?.nom ?? 'Hari Online Club' }),
           })
         : parModele
 
@@ -137,9 +90,9 @@ export default async function handler(request: Request): Promise<Response> {
        tenté — c'est précisément ce qu'il a besoin de savoir pour décider d'appeler. */
     await serviceClient.from('relances').insert({
       etablissement_id: etablissementId,
-      prospect_id: prospect.id,
+      prospect_id: contexte.prospectId,
       motif,
-      destinataire_email: prospect.email,
+      destinataire_email: contexte.email,
       modele_reference: parModele.envoye ? reference : null,
       succes: resultat.envoye,
       erreur: resultat.envoye ? null : (resultat.erreur ?? 'Envoi refusé.'),
