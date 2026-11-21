@@ -39,12 +39,6 @@ export function BandeReferences({ dossierAssets }: { dossierAssets: string }) {
           Ils ont formé leurs équipes avec <span className="refs-marque">Hari Online Club</span>
         </h2>
 
-        {/* L'ondulation dorée de la maquette. En SVG plutôt qu'en caractères (« 〰 ») : un glyphe
-            dépend de la police installée et se rend en couleur emoji sur certains systèmes. */}
-        <svg className="refs-orne rv" viewBox="0 0 96 12" aria-hidden="true" focusable="false">
-          <path d="M2 8 L14 3 L26 8 L38 3 L50 8 L62 3 L74 8 L86 3 L94 7" />
-        </svg>
-
         <ul className="refs-bande rv">
           {REFERENCES.map((reference) => (
             <li key={reference.fichier}>

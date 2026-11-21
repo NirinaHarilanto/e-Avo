@@ -4279,6 +4279,9 @@ body.vitrine-hx {
      a 20ch, « avec » se retrouvait seul en tete de deuxieme ligne. */
   max-width: 30ch;
   text-wrap: balance;
+  /* Reprend l'espacement vers les logos que portait l'ondulation décorative, retirée le
+     2026-11-21 à la demande du client (elle ne figurait pas sur sa maquette). */
+  margin-bottom: clamp(28px, 4vw, 44px);
 }
 /* Le nom de la maison en Fraunces italique, comme la maquette — et comme le reste de la marque
    (voir le bloc Fraunces plus haut dans ce fichier). */
@@ -4287,17 +4290,6 @@ body.vitrine-hx {
   font-style: italic;
   font-weight: 600;
   letter-spacing: 0;
-}
-.hx .refs .refs-orne {
-  display: block;
-  width: 96px;
-  height: 12px;
-  margin: 18px auto clamp(28px, 4vw, 44px);
-  fill: none;
-  stroke: var(--gold);
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .hx .refs .refs-bande {
