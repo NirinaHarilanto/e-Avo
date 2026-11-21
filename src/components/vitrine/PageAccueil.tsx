@@ -99,7 +99,7 @@ export function PageAccueil({ nomEtablissement }: { nomEtablissement: string }) 
               <p className="lead rv" style={{ transitionDelay: '.4s' }}>
                 {nomEtablissement} vous accompagne dans votre apprentissage de l’anglais grâce à des cours en ligne
                 adaptés à vos objectifs, votre niveau et votre disponibilité. Choisissez entre des cours individuels,
-                en duo ou en collectif, et développez vos compétences grâce à une approche interactive axée sur la
+                en duo ou en petit groupe, et développez vos compétences grâce à une approche interactive axée sur la
                 communication et la pratique réelle de l’anglais.
               </p>
               <div className="btns rv" style={{ transitionDelay: '.55s' }}>

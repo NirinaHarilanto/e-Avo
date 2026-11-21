@@ -57,7 +57,7 @@ export const PAGES_VITRINE: PageVitrine[] = [
     fichier: 'cours.html',
     titre: `Cours d’anglais en ligne : formules et tarifs | ${NOM_ETABLISSEMENT}`,
     description:
-      'Cours d’anglais individuel, en duo ou en collectif, en visioconférence. Comparez les formules, les rythmes et les tarifs, et réservez votre appel diagnostic.',
+      'Cours d’anglais individuel, en duo ou en petit groupe, en visioconférence. Comparez les formules, les rythmes et les tarifs, et réservez votre appel diagnostic.',
   },
   {
     chemin: '/professeurs',
@@ -126,7 +126,7 @@ export function donneesStructureesEtablissement(): Record<string, unknown> {
     logo: `${SITE}/logo-hoc.png`,
     image: IMAGE_PARTAGE,
     description:
-      'Hari Online Club propose des cours d’anglais en ligne, en individuel, en duo ou en collectif, avec des professeurs certifiés et une approche centrée sur la pratique orale.',
+      'Hari Online Club propose des cours d’anglais en ligne, en individuel, en duo ou en petit groupe, avec des professeurs certifiés et une approche centrée sur la pratique orale.',
     foundingDate: '2022',
     areaServed: { '@type': 'Country', name: 'Madagascar' },
     knowsLanguage: ['fr', 'en'],
