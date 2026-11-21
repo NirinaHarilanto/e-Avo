@@ -30,6 +30,25 @@ export const REFERENCE_MODELE: Record<MotifProspect, string> = {
   paiement_a_regler: '1.4',
 }
 
+/**
+ * Le libellé d'une formule tel qu'il se lit dans un e-mail.
+ *
+ * Les tarifs de HOC portent déjà leur volume dans leur TITRE — « 50h », « 20h », « 1h » : les
+ * dix-huit en base sont ainsi, seuls les trois tarifs collectifs (Beginner, Intermediate,
+ * Advanced) n'ont pas d'heures. Recoller le nombre derrière le titre donnait donc
+ * « 50h — 50 h » dans le message envoyé au prospect, vu à l'écran le 2026-11-21 en relisant une
+ * relance de règlement.
+ *
+ * Le volume n'est ajouté que lorsqu'il manque vraiment, ce qui laisse la porte ouverte à un
+ * tarif futur nommé autrement (« Formule intensive », par exemple) sans réécrire ceci.
+ */
+export function libelleFormule(tarif: { titre: string; heures: number | null }): string {
+  const titre = tarif.titre.trim()
+  if (!tarif.heures) return titre
+  const dejaDitDansLeTitre = new RegExp(`(^|[^0-9])${tarif.heures}\\s*h`, 'i').test(titre)
+  return dejaDitDansLeTitre ? titre : `${titre} — ${tarif.heures} h`
+}
+
 export interface ContexteRelance {
   /* Le destinataire, pour l'afficher à l'écran avant l'envoi — relire un message sans savoir à
      qui il part ne protège qu'à moitié. */
@@ -93,7 +112,7 @@ export async function contexteRelanceProspect(
       numero_vague: nomVagueSeul(prochaineVague?.nom) || undefined,
       date_debut_vague: dateLisible(prochaineVague?.date_debut),
       date_fin_vague: dateLisible(prochaineVague?.date_fin),
-      formule_choisie: tarifChoisi ? `${tarifChoisi.titre}${tarifChoisi.heures ? ` — ${tarifChoisi.heures} h` : ''}` : undefined,
+      formule_choisie: tarifChoisi ? libelleFormule(tarifChoisi) : undefined,
       montant_a_regler: tarifChoisi?.prix ? `${Number(tarifChoisi.prix).toLocaleString('fr-FR')} ${tarifChoisi.unite || 'Ar'}` : undefined,
     },
   }

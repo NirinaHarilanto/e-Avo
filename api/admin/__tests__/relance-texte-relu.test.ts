@@ -65,6 +65,7 @@ function clientFactice() {
   }
 }
 
+const { libelleFormule } = await import('../../_lib/relance.js')
 const { default: handler } = await import('../relancer-prospect.js')
 
 function appel(corps: Record<string, unknown>) {
@@ -82,6 +83,34 @@ const dernierEnvoi = () => envoyerEmail.mock.calls[0][0] as { sujet: string; htm
 beforeEach(() => {
   envoyerEmail.mockClear()
   relancesEcrites.length = 0
+})
+
+/* Vu a l'ecran le 2026-11-21 en relisant une relance de reglement : le message annoncait
+   « VOTRE FORMULE / 50h — 50 h ». Les tarifs de HOC portent deja leur volume dans leur TITRE
+   (les quinze tarifs individuels en base s'appellent « 1h », « 20h », « 50h »…), et recoller le
+   nombre derriere produisait ce doublon. Aucune relance 1.4 n'etait encore partie — personne ne
+   l'a recu. */
+describe('libelle d’une formule', () => {
+  it('n’ajoute pas le volume quand le titre le dit deja', () => {
+    expect(libelleFormule({ titre: '50h', heures: 50 })).toBe('50h')
+    expect(libelleFormule({ titre: '1h', heures: 1 })).toBe('1h')
+    expect(libelleFormule({ titre: '20 H', heures: 20 })).toBe('20 H')
+  })
+
+  it('l’ajoute quand le titre n’en parle pas', () => {
+    expect(libelleFormule({ titre: 'Formule intensive', heures: 40 })).toBe('Formule intensive — 40 h')
+  })
+
+  /* Un tarif collectif n'a pas d'heures : son titre suffit, et rien ne doit s'y coller. */
+  it('laisse un tarif sans heures tel quel', () => {
+    expect(libelleFormule({ titre: 'Intermediate', heures: null })).toBe('Intermediate')
+  })
+
+  /* « 150h » contient « 50h » : sans la garde sur le chiffre precedent, un tarif de 50 h nomme
+     « 150h » passerait pour deja complet. */
+  it('ne confond pas un volume avec la fin d’un autre nombre', () => {
+    expect(libelleFormule({ titre: '150h', heures: 50 })).toBe('150h — 50 h')
+  })
 })
 
 describe('relance d’un prospect — texte relu à l’écran', () => {
