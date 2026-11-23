@@ -72,14 +72,29 @@ export function dejaInstallee(): boolean {
   return enMode || safariIOS
 }
 
-/** Safari sur iPhone, où l'installation passe obligatoirement par le menu Partager. */
-export function estSafariIOS(): boolean {
+/**
+ * Un appareil iOS, quel que soit le navigateur — iPhone, iPod, et les iPad qui se font passer
+ * pour des Mac depuis iPadOS 13 (d'où le test tactile).
+ *
+ * TOUS les navigateurs d'iOS sont concernés, pas seulement Safari : Apple leur impose son
+ * moteur, et tous proposent l'ajout à l'écran d'accueil depuis leur menu Partager. La première
+ * version de ce code n'y reconnaissait que Safari, ce qui privait de l'offre quiconque navigue
+ * avec Chrome ou Firefox sur iPhone — sans que rien ne le signale, puisque l'absence d'un
+ * bouton ne se remarque pas.
+ *
+ * Aucun d'eux n'émet `beforeinstallprompt` : sur iOS, l'installation reste un geste manuel, et
+ * c'est pourquoi on l'explique au lieu d'ouvrir une fenêtre qui n'existe pas.
+ */
+export function estIOS(): boolean {
   if (typeof navigator === 'undefined') return false
   const ua = navigator.userAgent
-  const iOS = /iPhone|iPod/.test(ua) || (/iPad/.test(ua) && 'ontouchend' in document)
-  // Chrome et Firefox sur iOS embarquent le moteur de Safari mais pas son menu d'installation.
-  const safari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)
-  return iOS && safari
+  if (/iPhone|iPod/.test(ua)) return true
+  /* Un iPad récent se présente comme « Macintosh » : seul le tactile le trahit. On compte les
+     points de contact plutôt que de chercher `ontouchend` sur le document — cette propriété
+     existe dans des environnements qui n'ont aucun écran tactile (jsdom, entre autres), et le
+     test y reconnaissait un Mac de bureau comme un iPad. */
+  const tactile = navigator.maxTouchPoints > 1
+  return /iPad|Macintosh/.test(ua) && tactile
 }
 
 /** L'invite d'installation est-elle disponible maintenant ? */

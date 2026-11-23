@@ -3,7 +3,7 @@ import { Modale } from '../ui/Modale'
 import { boutonPrimaireStyle, boutonSecondaireStyle } from '../ui/Boutons'
 import {
   dejaInstallee,
-  estSafariIOS,
+  estIOS,
   estUnTelephone,
   invitationDisponible,
   proposerInstallation,
@@ -47,9 +47,9 @@ export function InvitationInstallation() {
       setVisible(false)
       return
     }
-    /* Sur iPhone, aucun événement n'annonce l'installabilité : Safari n'en émet pas. On propose
-       donc dès qu'on le reconnaît, et le clic explique le geste. */
-    setVisible(invitationDisponible() || estSafariIOS())
+    /* Sur iPhone, aucun événement n'annonce l'installabilité : aucun navigateur d'iOS n'en
+       émet. On propose donc dès qu'on reconnaît l'appareil, et le clic explique le geste. */
+    setVisible(invitationDisponible() || estIOS())
   }, [])
 
   useEffect(() => {
@@ -77,7 +77,7 @@ export function InvitationInstallation() {
   }
 
   async function installer() {
-    if (estSafariIOS() && !invitationDisponible()) {
+    if (estIOS() && !invitationDisponible()) {
       setInstructionsIOS(true)
       return
     }
@@ -110,13 +110,15 @@ export function InvitationInstallation() {
       </div>
 
       {instructionsIOS && (
-        /* Safari n'ouvre aucune fenêtre d'installation : le geste est manuel et se trouve dans
-           un menu que rien ne signale. On le décrit, plutôt que de laisser un bouton sans
-           effet. */
+        /* Aucun navigateur d'iOS n'ouvre de fenêtre d'installation : le geste est manuel et se
+           trouve dans un menu que rien ne signale. On le décrit, plutôt que de laisser un bouton
+           sans effet. Le chemin est le même dans Safari, Chrome et Firefox, qui partagent tous
+           le moteur imposé par Apple. */
         <Modale titre="Installer sur votre iPhone" onFermer={() => setInstructionsIOS(false)} largeurMax={420}>
           <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13.5, lineHeight: 1.6 }}>
             <li>
-              Touchez l’icône <strong>Partager</strong> en bas de Safari (un carré avec une flèche vers le haut).
+              Touchez l’icône <strong>Partager</strong> — un carré avec une flèche vers le haut, en bas de l’écran
+              dans Safari, en haut à droite dans Chrome.
             </li>
             <li>
               Faites défiler, puis choisissez <strong>« Sur l’écran d’accueil »</strong>.

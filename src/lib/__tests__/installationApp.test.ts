@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach, vi } from 'vitest'
-import { dejaInstallee, estSafariIOS, estUnTelephone } from '../installationApp'
+import { dejaInstallee, estIOS, estUnTelephone } from '../installationApp'
 
 /* Demande client du 2026-11-23 : le bouton d'installation doit s'afficher « uniquement lorsque
  * l'utilisateur utilise UNIQUEMENT son téléphone ET lorsqu'il est dans son espace personnel ».
@@ -100,25 +100,50 @@ describe('application déjà installée', () => {
   })
 })
 
-describe('Safari sur iPhone', () => {
+/* Sur iOS, l'installation est un geste manuel : aucun navigateur n'y émet d'événement, et
+   l'offre repose donc sur la seule reconnaissance de l'appareil. Une première version ne
+   reconnaissait que Safari, ce qui privait silencieusement de l'offre quiconque navigue avec
+   Chrome ou Firefox sur iPhone — l'absence d'un bouton ne se remarque pas. */
+describe('reconnaître un appareil iOS', () => {
   function avecAgent(ua: string) {
     vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue(ua)
   }
 
-  it('se reconnaît', () => {
+  it('reconnaît Safari sur iPhone', () => {
     avecAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1')
-    expect(estSafariIOS()).toBe(true)
+    expect(estIOS()).toBe(true)
   })
 
-  /* Chrome sur iPhone embarque le moteur de Safari mais pas son menu « Sur l'écran d'accueil » :
-     lui montrer ces instructions l'enverrait chercher une option qui n'existe pas chez lui. */
-  it('ne confond pas Chrome sur iPhone avec Safari', () => {
+  it('reconnaît aussi Chrome sur iPhone', () => {
     avecAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/120.0 Mobile/15E148 Safari/604.1')
-    expect(estSafariIOS()).toBe(false)
+    expect(estIOS()).toBe(true)
+  })
+
+  it('reconnaît Firefox sur iPhone', () => {
+    avecAgent('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 FxiOS/120.0 Mobile/15E148 Safari/604.1')
+    expect(estIOS()).toBe(true)
   })
 
   it('ne confond pas Android avec iPhone', () => {
     avecAgent('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36')
-    expect(estSafariIOS()).toBe(false)
+    expect(estIOS()).toBe(false)
+  })
+
+  function avecPointsDeContact(n: number) {
+    Object.defineProperty(window.navigator, 'maxTouchPoints', { value: n, configurable: true })
+  }
+
+  /* Un iPad récent annonce « Macintosh » comme un Mac de bureau : seul le tactile les sépare. */
+  it('reconnaît un iPad, qui se présente comme un Mac', () => {
+    avecAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15')
+    avecPointsDeContact(5)
+    expect(estIOS()).toBe(true)
+    avecPointsDeContact(0)
+  })
+
+  it('ne confond pas un Mac de bureau avec un iPad', () => {
+    avecAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15')
+    avecPointsDeContact(0)
+    expect(estIOS()).toBe(false)
   })
 })
