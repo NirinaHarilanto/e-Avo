@@ -8,9 +8,20 @@ import App from './App.tsx'
 import { installerSynchroFetch } from './lib/synchro'
 import { installerCaptureErreurs } from './lib/journalErreurs'
 import { tenterRechargementApresMiseEnLigne } from './lib/rechargementVersion'
+import { enregistrerAgentDeService } from './lib/installationApp'
 import { FrontiereErreur } from './components/ui/FrontiereErreur'
 
 installerSynchroFetch()
+
+/* Au DÉMARRAGE, et non au montage de la bannière d'installation : un navigateur n'évalue
+   l'installabilité qu'une fois l'agent de service en place, et n'annonce `beforeinstallprompt`
+   qu'ensuite. L'enregistrer depuis l'espace personnel seul arrivait trop tard — mesuré, l'agent
+   n'était jamais enregistré sur l'écran de connexion, donc l'offre ne venait jamais.
+
+   Cet agent ne met rien en cache et n'a aucun effet visible (voir public/sw.js) : l'enregistrer
+   partout ne change rien pour personne. La restriction demandée par le client porte sur le
+   BOUTON, qui reste, lui, réservé au téléphone et à l'espace personnel. */
+enregistrerAgentDeService()
 /* Capture des erreurs qui échappent à React (promesses rejetées, erreurs de script) — la
    FrontiereErreur ci-dessous ne voit, elle, que celles levées pendant un rendu. */
 installerCaptureErreurs()

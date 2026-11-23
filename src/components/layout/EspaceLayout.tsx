@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useProfileContext } from '../../context/ProfileContext'
 import type { Database } from '../../types/database.types'
 import { Icone, type NomIcone } from '../ui/Icones'
+import { InvitationInstallation } from './InvitationInstallation'
 
 type Role = Database['public']['Tables']['profiles']['Row']['role']
 
@@ -349,6 +350,13 @@ export function EspaceLayout({ roleAttendu, roleLabel, navGroups, actif, childre
           <main style={{ padding: '28px 36px 48px', minWidth: 0 }}>{children}</main>
         </div>
       </div>
+
+      {/* Monté ICI, et nulle part ailleurs : ce layout est le tronc commun des trois espaces
+          connectés, et la demande du client (2026-11-23) borne l'offre d'installation à
+          l'espace personnel. La vitrine publique, qui ne passe pas par ce layout, n'en voit
+          donc rien. Le composant décide seul du reste — téléphone, pas déjà installée, pas
+          écartée. */}
+      <InvitationInstallation />
     </div>
   )
 }

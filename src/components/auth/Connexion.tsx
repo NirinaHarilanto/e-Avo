@@ -215,7 +215,19 @@ export function Connexion() {
                 <form onSubmit={verifierEmail}>
                   <label className="f">
                     E-mail
-                    <input type="email" required autoFocus autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                    {/* `username` et non `email` : c'est la valeur que les gestionnaires de mots
+                        de passe apparient avec `current-password` pour former un identifiant
+                        enregistrable. `type="email"` reste, lui, ce qui donne le bon clavier sur
+                        téléphone. */}
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      autoFocus
+                      autoComplete="username"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
                   </label>
                   {erreur && <p className="err show">{erreur}</p>}
                   <button type="submit" className="btn btn-gold go" disabled={envoi}>
@@ -289,6 +301,31 @@ export function Connexion() {
                 <h1 className="h-xl">Se connecter</h1>
                 <p style={{ marginTop: -18 }}>{email}</p>
                 <form onSubmit={seConnecterAvecMotDePasse}>
+                  {/* L'adresse, RÉPÉTÉE dans ce formulaire — signalé par le client le
+                      2026-11-23 : « pourquoi il n'y a pas de mémorisation de ses identifiants
+                      pour les reconnexions sur le même appareil ».
+
+                      La connexion se fait en deux temps : l'adresse d'abord, le mot de passe
+                      ensuite. Or un navigateur n'enregistre un identifiant que s'il voit le nom
+                      d'utilisateur ET le mot de passe dans le MÊME formulaire ; ici le second
+                      n'affichait l'adresse que dans un `<p>`, invisible pour lui. Chrome ne
+                      proposait donc jamais d'enregistrer, et ne remplissait jamais rien.
+
+                      Déplacé hors de l'écran plutôt que masqué par `display: none` : un champ
+                      retiré de la mise en page est souvent ignoré par les gestionnaires, c'est
+                      la raison d'être de cette acrobatie. `readOnly` interdit de le modifier
+                      par ce biais, `tabIndex`/`aria-hidden` l'écartent du clavier et des
+                      lecteurs d'écran — l'adresse reste lisible juste au-dessus. */}
+                  <input
+                    type="email"
+                    name="email"
+                    value={email}
+                    readOnly
+                    autoComplete="username"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+                  />
                   <label className="f">
                     Mot de passe
                     <ChampMotDePasse
