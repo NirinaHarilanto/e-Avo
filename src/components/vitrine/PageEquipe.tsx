@@ -42,7 +42,7 @@ const EQUIPE: Membre[] = [
   {
     id: 15,
     nom: 'Manda',
-    role: 'Ingénieur pédagogie',
+    role: 'Ingénieur pédagogique',
     niveau: 2,
     slogan:
       'Elle conçoit les parcours et les outils qui structurent chaque cours, pour que la pédagogie HOC reste cohérente du premier au dernier élève.',
