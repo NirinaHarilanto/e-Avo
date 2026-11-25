@@ -117,12 +117,23 @@ export default async function handler(request: Request): Promise<Response> {
  * ça éviterait surtout d'inonder un élève si la colonne venait à être remise à zéro.
  */
 async function annoncerRecus(serviceClient: ReturnType<typeof createClient<Database>>): Promise<number> {
-  const depuis = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
+  /* La fenêtre se mesure sur la DATE D'ENCAISSEMENT (`date_emission`), jamais sur `created_at`,
+     la date d'écriture de la ligne.
+     Les deux se confondent pour un paiement saisi au fil de l'eau, mais pas du tout pour un reçu
+     rattrapé après coup : la migration 0169 a écrit le 2026-11-23 les 91 reçus manquants de
+     paiements remontant au 2026-10-29. Filtrés sur `created_at`, ils sont apparus « tout frais »
+     au cron, qui a remercié 34 élèves d'un règlement vieux de 26 jours, les 24 et 25 novembre.
+     C'est le piège de l'import du 2026-10-29 — « un import historique réveille les relances » —
+     rejoué sur le canal e-mail. Tout rattrapage à venir est désormais muet de lui-même, sans
+     qu'il faille y penser au moment de l'écrire. */
+  const borne = new Date()
+  borne.setDate(borne.getDate() - 7)
+  const depuis = jourDansFuseauEtablissement(borne)
   const { data: recus } = await serviceClient
     .from('invoices')
     .select('id, etablissement_id, student_id, montant_ttc, numero')
     .is('email_envoye_le', null)
-    .gte('created_at', depuis)
+    .gte('date_emission', depuis)
     .not('student_id', 'is', null)
     /* `invoices` porte DEUX choses depuis 0080 : les reçus (`REC-…`, créés par le trigger à
        l'encaissement) et les factures (`FAC-…`, émises à la main et parfois impayées). Le modèle
