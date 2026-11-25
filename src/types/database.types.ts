@@ -2531,6 +2531,18 @@ export interface Database {
         Args: { p_payment_id: string }
         Returns: string
       }
+      /* Dépose un message automatique dans la messagerie du destinataire (0174). `p_expediteur`
+         omis : l'administration de l'établissement signe. */
+      creer_message_systeme: {
+        Args: {
+          p_etablissement_id: string
+          p_destinataire: string
+          p_objet: string
+          p_corps: string
+          p_expediteur?: string
+        }
+        Returns: undefined
+      }
       verifier_limite_debit: {
         Args: { p_cle: string; p_max: number; p_fenetre_secondes: number }
         Returns: boolean

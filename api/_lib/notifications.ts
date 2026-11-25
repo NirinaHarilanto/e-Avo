@@ -34,24 +34,58 @@ export async function creerNotification(
 }
 
 /**
+ * Dépose un message dans la MESSAGERIE du destinataire (0090), en plus de la cloche — demande
+ * client du 2026-11-25, pour les annonces automatiques qui méritent d'être retrouvées plus tard.
+ *
+ * Passe par la fonction SQL `creer_message_systeme` (0174) plutôt que d'insérer ici : les mêmes
+ * annonces partent aussi depuis des triggers, et la règle de choix de l'expéditeur — un message
+ * exige un expéditeur humain — ne doit exister qu'à un seul endroit.
+ *
+ * Ne lève jamais : une annonce manquée ne doit pas faire échouer l'action qui l'a déclenchée.
+ */
+export async function creerMessageSysteme(
+  serviceClient: ServiceClient,
+  params: { etablissementId: string; destinataireProfileId: string; objet: string; corps: string },
+) {
+  await serviceClient.rpc('creer_message_systeme', {
+    p_etablissement_id: params.etablissementId,
+    p_destinataire: params.destinataireProfileId,
+    p_objet: params.objet,
+    p_corps: params.corps,
+  })
+}
+
+/**
  * Message de bienvenue d'un nouvel étudiant — demande client du 2026-09-29 : « le message de
  * bienvenue du nouvel étudiant sous forme de pop-up avec la notification associée dans son espace
  * personnel ». La notification (type `bienvenue_etudiant`) est créée ici, côté serveur, comme
  * toutes les autres ; c'est BienvenueEtudiant.tsx qui l'affiche en pop-up à la première connexion,
  * puis la marque lue — elle reste ensuite consultable dans la cloche.
+ *
+ * Depuis le 2026-11-25, le même accueil est aussi déposé dans la messagerie : la pop-up se ferme
+ * et la cloche se vide, alors que la boîte aux lettres garde le mot d'accueil à portée de main.
  */
 export async function notifierBienvenueEtudiant(
   serviceClient: ServiceClient,
   params: { etablissementId: string; etudiantId: string; prenom: string },
 ) {
+  const message =
+    'Votre espace étudiant est prêt. Vous y retrouvez votre professeur, votre programme, vos séances et votre compteur d’heures, mis à jour après chaque cours. Vos prochains cours et rendez-vous apparaissent dans « Mon agenda ».'
+
   await creerNotification(serviceClient, {
     etablissementId: params.etablissementId,
     destinataireProfileId: params.etudiantId,
     type: 'bienvenue_etudiant',
     titre: `Bienvenue chez Hari Online Club, ${params.prenom} !`,
-    message:
-      'Votre espace étudiant est prêt. Vous y retrouvez votre professeur, votre programme, vos séances et votre compteur d’heures, mis à jour après chaque cours. Vos prochains cours et rendez-vous apparaissent dans « Mon agenda ».',
+    message,
     lien: '/mon-espace',
+  })
+
+  await creerMessageSysteme(serviceClient, {
+    etablissementId: params.etablissementId,
+    destinataireProfileId: params.etudiantId,
+    objet: `Bienvenue chez Hari Online Club, ${params.prenom} !`,
+    corps: `${message} Vous pouvez répondre à ce message pour joindre l’administration.`,
   })
 }
 

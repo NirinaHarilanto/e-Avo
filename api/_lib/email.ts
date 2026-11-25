@@ -173,7 +173,8 @@ export function modeleRendezVousAnnule(params: { prenom: string; etablissement: 
   <p style="font-size:14px;line-height:1.65;margin:0 0 14px">Bonjour ${echapper(params.prenom)},</p>
   <p style="font-size:14px;line-height:1.65;margin:0 0 14px">
     ${echapper(params.etablissement)} a annulé votre appel du ${echapper(params.quand)}. N'hésitez pas à reprendre
-    contact ou à choisir un autre créneau sur notre site.
+    contact à <a href="mailto:admin@harionlineclub.com" style="color:#4A306D">admin@harionlineclub.com</a> ou à
+    choisir un autre créneau sur notre site.
   </p>`)
 }
 

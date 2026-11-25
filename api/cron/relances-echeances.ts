@@ -2,7 +2,8 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../../src/types/database.types.js'
 import { creerNotification } from '../_lib/notifications.js'
-import { envoyerDepuisModele, montantLisible } from '../_lib/templatesEmail.js'
+import { envoyerDepuisModele } from '../_lib/templatesEmail.js'
+import { annoncerRecu } from '../_lib/annonceRecu.js'
 import { jourDansFuseauEtablissement } from '../../src/lib/etablissement.js'
 
 export const config = { runtime: 'edge' }
@@ -109,9 +110,13 @@ export default async function handler(request: Request): Promise<Response> {
 
 /**
  * Modèle 2.3 — « Facture (accusé de réception du paiement) », envoi automatique décidé le
- * 2026-10-01. Le reçu lui-même est créé par un trigger au passage d'un paiement à « payé »
- * (0030) : un trigger SQL ne pouvant pas envoyer d'e-mail, c'est ici qu'on reprend les reçus
- * récents jamais annoncés. `email_envoye_le` (0095) garantit un seul envoi par reçu.
+ * 2026-10-01.
+ *
+ * Depuis le 2026-11-25, l'annonce part INSTANTANÉMENT à l'enregistrement du paiement
+ * (`api/admin/annoncer-recu.ts`), le client voulant que le payeur soit confirmé tout de suite.
+ * Ce passage quotidien n'est plus qu'un FILET : il reprend ce qui n'a pas pu partir sur le coup —
+ * Resend indisponible, navigateur fermé avant la fin de l'appel, reçu créé par un autre chemin.
+ * `email_envoye_le` (0095) garantit dans tous les cas un seul envoi par reçu.
  *
  * Fenêtre de 7 jours : au-delà, annoncer un paiement reçu la semaine passée n'a plus de sens, et
  * ça éviterait surtout d'inonder un élève si la colonne venait à être remise à zéro.
@@ -147,27 +152,7 @@ async function annoncerRecus(serviceClient: ReturnType<typeof createClient<Datab
 
   let envoyes = 0
   for (const recu of recus ?? []) {
-    if (!recu.student_id) continue
-    const { data: eleve } = await serviceClient
-      .from('profiles')
-      .select('prenom, email')
-      .eq('id', recu.student_id)
-      .maybeSingle()
-    if (!eleve?.email) continue
-
-    const resultat = await envoyerDepuisModele(serviceClient, {
-      etablissementId: recu.etablissement_id,
-      reference: '2.3',
-      destinataires: [eleve.email],
-      /* `invoices` ne porte pas de devise : tous les montants de l'application sont en ariary
-         depuis la correction du 2026-09-29 (le defaut EUR de 0019 etait un reliquat). */
-      valeurs: { prenom: eleve.prenom, montant: montantLisible(recu.montant_ttc) },
-    })
-    /* Marqué même en cas d'échec d'envoi : sans cela, un établissement sans clé Resend
-       retenterait tous les reçus chaque matin indéfiniment. L'admin a de toute façon le reçu
-       dans l'espace de l'élève et peut l'envoyer à la main depuis le modèle 2.3. */
-    await serviceClient.from('invoices').update({ email_envoye_le: new Date().toISOString() }).eq('id', recu.id)
-    if (resultat.envoye) envoyes += 1
+    if (await annoncerRecu(serviceClient, recu)) envoyes += 1
   }
   return envoyes
 }

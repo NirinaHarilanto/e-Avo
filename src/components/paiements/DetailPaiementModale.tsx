@@ -10,6 +10,7 @@ import { EcheancierPaiement } from './EcheancierPaiement'
 import { FactureImprimable, estRecu } from '../facturation/FactureImprimable'
 import type { ActionImpression } from '../facturation/OverlayImpression'
 import { jourDansFuseauEtablissement } from '../../lib/etablissement'
+import { annoncerRecuDuPaiement } from '../../lib/annoncerRecu'
 import type { Database } from '../../types/database.types'
 import { BadgeStatutPaiement } from '../shared/BadgeStatutPaiement'
 import { Modale } from '../ui/Modale'
@@ -260,6 +261,10 @@ export function DetailPaiementModale({ cible, onFermer, onChange }: { cible: Cib
       setErreur(error.message)
       return
     }
+    /* Un versement qui solde le paiement le fait passer à « payé », ce qui crée son reçu. Le
+       client veut que l'élève en soit prévenu tout de suite, et non le lendemain matin par le
+       cron. L'appel ne bloque rien : s'il échoue, le cron reprendra. */
+    if (!estProfesseur) void annoncerRecuDuPaiement(paiement.id)
     await Promise.all([rafraichirPaiement(), charger()])
     onChange()
   }

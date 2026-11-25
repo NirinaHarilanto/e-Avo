@@ -1,6 +1,6 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
-import { dateHeureLisible, dateLisible, envoyerDepuisModele } from '../_lib/templatesEmail.js'
-import { creerNotification } from '../_lib/notifications.js'
+import { composerDepuisModele, dateHeureLisible, dateLisible, envoyerDepuisModele } from '../_lib/templatesEmail.js'
+import { creerMessageSysteme, creerNotification } from '../_lib/notifications.js'
 
 export const config = { runtime: 'edge' }
 
@@ -226,6 +226,24 @@ export default async function handler(request: Request): Promise<Response> {
     if (!resultat.envoye) {
       return Response.json({ error: resultat.erreur ?? "L'e-mail n'a pas pu être envoyé.", reference }, { status: 502 })
     }
+
+    /* Un changement de formateur arrive aussi dans la messagerie — demande client du 2026-11-25.
+       Un e-mail se perd dans une boîte personnelle ; l'élève doit pouvoir retrouver le nom de son
+       nouveau professeur depuis son espace. On recompose le même texte plutôt que de le résumer :
+       deux versions d'une même annonce finiraient par diverger. L'échec éventuel est silencieux,
+       l'e-mail est déjà parti et c'est lui qui compte. */
+    if (reference === '4.5') {
+      const compose = await composerDepuisModele(serviceClient, { etablissementId, reference, valeurs })
+      if (compose.ok) {
+        await creerMessageSysteme(serviceClient, {
+          etablissementId,
+          destinataireProfileId: eleve.id,
+          objet: compose.objet,
+          corps: compose.corps,
+        })
+      }
+    }
+
     return Response.json({ ok: true, reference, manquantes: resultat.manquantes })
   } catch (erreur) {
     if (erreur instanceof AdminAuthError) {

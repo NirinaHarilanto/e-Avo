@@ -1,5 +1,6 @@
 import { jourDansFuseauEtablissement } from '../../src/lib/etablissement.js'
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
+import { annoncerRecusDuPaiement } from '../_lib/annonceRecu.js'
 
 export const config = { runtime: 'edge' }
 
@@ -112,19 +113,23 @@ export default async function handler(request: Request): Promise<Response> {
       return Response.json({ error: erreurForfait?.message ?? 'Le forfait n’a pas pu être créé.' }, { status: 500 })
     }
 
-    const { error: erreurPaiement } = await serviceClient.from('student_payments').insert({
-      etablissement_id: etablissementId,
-      student_id: corps.studentId,
-      package_id: forfait.id,
-      montant: corps.montantPaiement,
-      montant_regle: corps.montantPaiement,
-      statut: 'paye',
-      date_paiement: jourDansFuseauEtablissement(),
-      moyen_paiement: corps.moyenPaiement?.trim() || null,
-      reference: corps.referencePaiement?.trim() || null,
-      notes: corps.motifPaiement.trim(),
-      created_by_profile_id: profileId,
-    })
+    const { data: paiementCree, error: erreurPaiement } = await serviceClient
+      .from('student_payments')
+      .insert({
+        etablissement_id: etablissementId,
+        student_id: corps.studentId,
+        package_id: forfait.id,
+        montant: corps.montantPaiement,
+        montant_regle: corps.montantPaiement,
+        statut: 'paye',
+        date_paiement: jourDansFuseauEtablissement(),
+        moyen_paiement: corps.moyenPaiement?.trim() || null,
+        reference: corps.referencePaiement?.trim() || null,
+        notes: corps.motifPaiement.trim(),
+        created_by_profile_id: profileId,
+      })
+      .select('id')
+      .single()
     if (erreurPaiement) {
       // Le forfait existe déjà à ce stade : mieux vaut le signaler à l'admin (message explicite)
       // que de le supprimer en silence et lui faire perdre la trace de ce qu'il vient de créer.
@@ -133,6 +138,10 @@ export default async function handler(request: Request): Promise<Response> {
         { status: 500 },
       )
     }
+
+    /* Le trigger vient de créer le reçu ; le client veut que l'élève en soit prévenu sur-le-champ
+       (2026-11-25) et non le lendemain matin. Échec sans conséquence : le cron reprendra. */
+    if (paiementCree) await annoncerRecusDuPaiement(serviceClient, paiementCree.id)
 
     if (demande) {
       await serviceClient
