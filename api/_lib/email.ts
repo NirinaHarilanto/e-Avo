@@ -202,8 +202,12 @@ export function modeleRelanceProspect(params: { prenom: string; etablissement: s
 
 export function modeleReinitialisationMotDePasse(params: { premiereConnexion: boolean; lien: string }): string {
   const titre = params.premiereConnexion ? 'Définissez votre mot de passe' : 'Réinitialisez votre mot de passe'
+  /* Demande du client du 2026-11-25 : préciser que c'est l'ADRESSE E-MAIL, celle communiquée à
+     l'administration ou utilisée à l'inscription, qui sert d'identifiant — et non un mot de
+     passe, qui n'existe pas encore à ce stade. Le mot de passe lui-même reste défini par la
+     personne elle-même, en cliquant sur ce lien : aucun compte n'en reçoit un tout fait. */
   const intro = params.premiereConnexion
-    ? "Votre compte Hari Online Club vient d'être créé. Pour vous connecter pour la première fois, choisissez votre mot de passe :"
+    ? "Votre compte Hari Online Club a été créé avec cette adresse e-mail — celle que vous avez communiquée à l'administration de HOC ou utilisée lors de votre inscription. Pour vous connecter pour la première fois, cliquez ci-dessous afin de définir vous-même votre mot de passe :"
     : 'Vous avez demandé la réinitialisation de votre mot de passe Hari Online Club :'
   const libelleBouton = params.premiereConnexion ? 'Définir mon mot de passe' : 'Réinitialiser mon mot de passe'
   return coquille(`
