@@ -285,6 +285,16 @@ export function TestPositionnement({
         <form
           onSubmit={(e) => {
             e.preventDefault()
+            /* Sans énoncé chargé, passer à l'étape « quiz » n'affichait RIEN : le questionnaire
+               rend `null` faute de question, le rappel des étapes est masqué pendant le quiz, et
+               la fin ne se déclenche jamais — le candidat restait devant une fenêtre vide, sans
+               aucun moyen d'avancer. On ne le laisse donc pas commencer un questionnaire absent.
+
+               Pourquoi ne pas l'envoyer directement au choix de la session, comme le fait le
+               parcours individuel : la correction se fait sur les énoncés du SERVEUR. Partir sans
+               réponse ferait enregistrer un 0 sur cinquante questions, et un niveau « Beginner »
+               que le candidat n'a pas mérité. Mieux vaut l'arrêter que le mal classer. */
+            if (questions.length === 0) return
             setEtape('quiz')
           }}
           style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
@@ -322,11 +332,22 @@ export function TestPositionnement({
             <strong>chronométrée à {SECONDES_PAR_QUESTION} secondes</strong> : passé ce délai, la suivante s’affiche
             d’elle-même, sans retour en arrière. Installez-vous avant de commencer.
           </p>
+          {questions.length === 0 && (
+            <p style={{ fontSize: 13, color: 'var(--danger)', margin: 0 }}>
+              Le questionnaire n’a pas pu être chargé. Rechargez la page avant de commencer.
+            </p>
+          )}
           <button
             type="submit"
-            disabled={!consent}
+            disabled={!consent || questions.length === 0}
             className="btn-shine"
-            style={{ background: accent.accentGrad, color: accent.accentInk, opacity: consent ? 1 : 0.6, padding: '14px 24px', fontSize: 14.5 }}
+            style={{
+              background: accent.accentGrad,
+              color: accent.accentInk,
+              opacity: consent && questions.length > 0 ? 1 : 0.6,
+              padding: '14px 24px',
+              fontSize: 14.5,
+            }}
           >
             Commencer le questionnaire
           </button>

@@ -329,15 +329,22 @@ function FenetreFormule({
 
   useEffect(() => {
     document.documentElement.style.overflow = 'hidden'
+    /* Échap ferme la fenêtre — SAUF pendant le questionnaire. Une seule frappe effaçait sinon
+       les coordonnées et jusqu'à cinquante réponses déjà données, sans confirmation et sans
+       retour possible : rien n'est conservé avant le tout dernier envoi. C'est exactement le
+       dégât que le client avait signalé le 2026-10-19 pour le clic extérieur ; la fermeture au
+       clic a bien été retirée alors, mais cette porte-ci est restée ouverte. Échap reste le
+       geste de sortie normal partout ailleurs, y compris sur les deux premiers onglets de cette
+       fenêtre. */
     const surTouche = (evenement: KeyboardEvent) => {
-      if (evenement.key === 'Escape') onFermer()
+      if (evenement.key === 'Escape' && etapeTest !== 'quiz') onFermer()
     }
     document.addEventListener('keydown', surTouche)
     return () => {
       document.documentElement.style.overflow = ''
       document.removeEventListener('keydown', surTouche)
     }
-  }, [onFermer])
+  }, [onFermer, etapeTest])
 
   const ONGLETS = ['Découvrir', 'Tarifs', 'Réserver']
 
