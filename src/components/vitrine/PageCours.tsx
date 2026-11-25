@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AccentPalette } from '../../lib/accent'
 import type { Database, TypeProgrammeProspect } from '../../types/database.types'
 import { ReserverAppel } from '../prospects/ReserverAppel'
@@ -324,27 +324,50 @@ function FenetreFormule({
   /* Étape atteinte DANS le module de test de positionnement (créneau / coordonnées / quiz), pour
      dégager la place autour de lui quand le questionnaire démarre. */
   const [etapeTest, setEtapeTest] = useState<string>('creneau')
+  const [sortieAConfirmer, setSortieAConfirmer] = useState(false)
   const programme = PROGRAMMES.find((p) => p.type === type)!
   const detail = DETAILS[type]
+  const quizEnCours = etapeTest === 'quiz'
+
+  /* Toute sortie passe par ici. Pendant le questionnaire, elle demande confirmation au lieu de
+     fermer — demande client du 2026-11-25 — parce que rien n'est conservé avant le tout dernier
+     envoi : coordonnées et réponses déjà données disparaissent d'un coup, sans reprise possible.
+     Hors questionnaire, il n'y a rien à perdre et la fenêtre se ferme directement. */
+  const demanderSortie = useCallback(() => {
+    if (quizEnCours) setSortieAConfirmer(true)
+    else onFermer()
+  }, [quizEnCours, onFermer])
 
   useEffect(() => {
     document.documentElement.style.overflow = 'hidden'
-    /* Échap ferme la fenêtre — SAUF pendant le questionnaire. Une seule frappe effaçait sinon
-       les coordonnées et jusqu'à cinquante réponses déjà données, sans confirmation et sans
-       retour possible : rien n'est conservé avant le tout dernier envoi. C'est exactement le
-       dégât que le client avait signalé le 2026-10-19 pour le clic extérieur ; la fermeture au
-       clic a bien été retirée alors, mais cette porte-ci est restée ouverte. Échap reste le
-       geste de sortie normal partout ailleurs, y compris sur les deux premiers onglets de cette
-       fenêtre. */
+    /* Échap ne ferme plus brutalement pendant le questionnaire : il ouvre la même demande de
+       confirmation que la croix. Auparavant une seule frappe effaçait les coordonnées et jusqu'à
+       cinquante réponses, sans un mot — c'est le dégât signalé par un prospect le 2026-11-25.
+       Entre-temps la touche avait été rendue inerte pendant le quiz ; la rendre parlante vaut
+       mieux que la rendre muette, un visiteur qui appuie sur Échap cherche à sortir. */
     const surTouche = (evenement: KeyboardEvent) => {
-      if (evenement.key === 'Escape' && etapeTest !== 'quiz') onFermer()
+      if (evenement.key === 'Escape') demanderSortie()
     }
     document.addEventListener('keydown', surTouche)
     return () => {
       document.documentElement.style.overflow = ''
       document.removeEventListener('keydown', surTouche)
     }
-  }, [onFermer, etapeTest])
+  }, [demanderSortie])
+
+  /* Fermeture de l'onglet, rechargement, retour arrière du navigateur : aucune confirmation
+     maison n'est possible là, seul l'avertissement natif l'est. Le texte affiché est imposé par
+     le navigateur, on ne choisit que de le déclencher. Uniquement pendant le questionnaire :
+     ailleurs, ce serait une gêne sans objet. */
+  useEffect(() => {
+    if (!quizEnCours) return
+    const surFermeture = (evenement: BeforeUnloadEvent) => {
+      evenement.preventDefault()
+      evenement.returnValue = ''
+    }
+    window.addEventListener('beforeunload', surFermeture)
+    return () => window.removeEventListener('beforeunload', surFermeture)
+  }, [quizEnCours])
 
   const ONGLETS = ['Découvrir', 'Tarifs', 'Réserver']
 
@@ -358,7 +381,7 @@ function FenetreFormule({
           <span className="tag">{programme.badge}</span>
           <h3>{programme.titre}</h3>
           <div className="tagline">{detail.accroche}</div>
-          <button type="button" className="x" aria-label="Fermer" onClick={onFermer}>
+          <button type="button" className="x" aria-label="Fermer" onClick={demanderSortie}>
             ×
           </button>
           <div className="steps">
@@ -368,6 +391,13 @@ function FenetreFormule({
                 type="button"
                 className={index === etape ? 'on' : index < etape ? 'done' : undefined}
                 aria-current={index === etape ? 'step' : undefined}
+                /* Changer d'onglet pendant le questionnaire ne le ferme pas — les volets restent
+                   montés — mais le chronomètre, lui, continue de tourner derrière : on revenait
+                   après quelques secondes en ayant perdu des questions sans l'avoir vu passer.
+                   Le questionnaire est une étape qui se termine ou s'abandonne, pas une page que
+                   l'on quitte du coin de l'œil. */
+                disabled={quizEnCours && index !== etape}
+                title={quizEnCours && index !== etape ? 'Terminez ou interrompez le questionnaire pour revenir ici.' : undefined}
                 onClick={() => setEtape(index)}
               >
                 <b>{index + 1}</b>
@@ -460,6 +490,129 @@ function FenetreFormule({
           <button type="button" className="b gold next" hidden={etape === 2} onClick={() => setEtape((e) => e + 1)}>
             <span className="lbl">{etape === 0 ? 'Voir les tarifs' : libelleReservation(type)}</span>
             <i>↗</i>
+          </button>
+        </div>
+      </div>
+
+      {sortieAConfirmer && (
+        <ConfirmerInterruption
+          accent={accent}
+          onReprendre={() => setSortieAConfirmer(false)}
+          onQuitter={() => {
+            setSortieAConfirmer(false)
+            onFermer()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/* Demandée par le client le 2026-11-25, après qu'un prospect a vu sa fenêtre se refermer en
+   plein questionnaire : avant d'abandonner, on prévient de ce qui va être perdu.
+
+   Aucune fermeture au clic extérieur ni à Échap — règle générale de la maison du 2026-11-08, et
+   ici elle compte double : cette fenêtre existe précisément pour arrêter un geste involontaire,
+   elle ne doit pas s'effacer sur un autre geste involontaire. Seuls les deux boutons décident.
+   « Reprendre » est l'action mise en avant : dans le doute, on continue le test. */
+function ConfirmerInterruption({
+  accent,
+  onReprendre,
+  onQuitter,
+}: {
+  accent: AccentPalette
+  onReprendre: () => void
+  onQuitter: () => void
+}) {
+  const refReprendre = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    refReprendre.current?.focus()
+    /* Échap pendant la confirmation revient au test, il ne la valide pas : la touche ne doit
+       jamais, à elle seule, effacer une progression. */
+    const surTouche = (evenement: KeyboardEvent) => {
+      if (evenement.key === 'Escape') {
+        evenement.stopPropagation()
+        onReprendre()
+      }
+    }
+    document.addEventListener('keydown', surTouche, true)
+    return () => document.removeEventListener('keydown', surTouche, true)
+  }, [onReprendre])
+
+  return (
+    <div
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="titre-interruption"
+      aria-describedby="texte-interruption"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 100000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+        background: 'rgba(28, 17, 57, 0.72)',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 420,
+          background: 'var(--surface, #fff)',
+          color: 'var(--ink, #1c1139)',
+          borderRadius: 16,
+          padding: '24px 22px',
+          boxShadow: '0 24px 60px rgba(28, 17, 57, 0.35)',
+        }}
+      >
+        <h3 id="titre-interruption" style={{ margin: '0 0 10px', fontSize: 18, fontWeight: 800 }}>
+          Interrompre le test ?
+        </h3>
+        <p id="texte-interruption" style={{ margin: '0 0 20px', fontSize: 14, lineHeight: 1.6 }}>
+          Si vous quittez maintenant, <strong>vous perdrez votre progression</strong> : vos réponses et vos
+          coordonnées ne seront pas enregistrées, et il faudra reprendre le questionnaire depuis la première
+          question.
+        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            ref={refReprendre}
+            type="button"
+            onClick={onReprendre}
+            style={{
+              flex: '1 1 auto',
+              background: accent.accentGrad,
+              color: accent.accentInk,
+              border: 'none',
+              borderRadius: 999,
+              padding: '12px 20px',
+              fontSize: 14,
+              fontWeight: 800,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Reprendre le test
+          </button>
+          <button
+            type="button"
+            onClick={onQuitter}
+            style={{
+              flex: '0 1 auto',
+              background: 'transparent',
+              color: 'var(--ink-2, #5a5a66)',
+              border: '1px solid var(--border, #d8d2e4)',
+              borderRadius: 999,
+              padding: '12px 18px',
+              fontSize: 13.5,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Quitter et perdre ma progression
           </button>
         </div>
       </div>
