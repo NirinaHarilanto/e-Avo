@@ -64,12 +64,35 @@ function clientFactice() {
         }
       }
       if (table === 'student_payments') {
+        /* `insert(...).select('id').single()` depuis le 2026-11-25 : la route relit l'identifiant
+           de la ligne créée pour annoncer son reçu tout de suite, au lieu de laisser le cron du
+           lendemain s'en charger. La doublure doit donc être chaînable comme le vrai client. */
         return {
-          insert: async (valeurs: Record<string, unknown>) => {
+          insert: (valeurs: Record<string, unknown>) => {
             paiementInsereCapture = valeurs
-            return { error: paiementErreur }
+            return {
+              select: () => ({
+                single: async () => ({
+                  data: paiementErreur ? null : { id: 'paiement-1' },
+                  error: paiementErreur,
+                }),
+              }),
+            }
           },
         }
+      }
+      if (table === 'invoices') {
+        /* L'annonce du reçu commence par chercher les reçus non encore annoncés de ce paiement.
+           Aucun ici : l'annonce devient un non-événement, ce qui est exactement ce que ces tests
+           veulent — ils portent sur la décision d'essai, pas sur l'envoi.
+           Chaînable ET « thenable », comme le vrai client, dont la requête se résout à l'await. */
+        const aucun: Record<string, unknown> = {
+          then: (resoudre: (valeur: unknown) => unknown) => resoudre({ data: [], error: null }),
+        }
+        for (const methode of ['select', 'eq', 'is', 'like', 'not', 'update']) {
+          aucun[methode] = () => aucun
+        }
+        return aucun
       }
       throw new Error('table inattendue dans ce test : ' + table)
     },

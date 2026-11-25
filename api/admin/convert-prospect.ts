@@ -1,5 +1,6 @@
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
 import { creerCompteSansEmail } from '../_lib/creerCompte.js'
+import { annoncerRecusDuPaiement } from '../_lib/annonceRecu.js'
 import { notifierBienvenueEtudiant } from '../_lib/notifications.js'
 import { trouverProfilHomonyme, messageHomonyme } from '../_lib/nomDuplique.js'
 import { nomGroupeDuo } from '../../src/lib/duo.js'
@@ -238,11 +239,18 @@ export default async function handler(request: Request): Promise<Response> {
     // versés, reste dû et facture éventuelle restent donc attachés au même mouvement financier,
     // qui devient simplement celui de l'étudiant. Poser `student_id` déclenche au passage le
     // reçu automatique si le forfait était déjà soldé (voir le trigger revu en 0056).
-    await serviceClient
+    const { data: paiementsRattaches } = await serviceClient
       .from('student_payments')
       .update({ student_id: invited.user.id, ...(forfaitId ? { package_id: forfaitId } : {}) })
       .eq('prospect_id', prospect.id)
       .is('student_id', null)
+      .select('id')
+
+    /* Ce rattachement vient de faire naître leur reçu : on l'annonce tout de suite, sinon ces
+       reçus-là seraient les seuls à attendre le cron du lendemain matin (2026-11-25). */
+    for (const ligne of paiementsRattaches ?? []) {
+      await annoncerRecusDuPaiement(serviceClient, ligne.id)
+    }
 
     /* Frais d'inscription au collectif (2026-10-11) : enregistrés dans LE MÊME geste que la
        conversion, comme le paiement d'une décision d'essai (decider-essai.ts) — une seule
@@ -281,6 +289,12 @@ export default async function handler(request: Request): Promise<Response> {
         })
         .select('id')
         .single()
+
+      /* Frais entièrement réglés : le reçu vient de naître, on l'annonce tout de suite plutôt
+         que d'attendre le cron du lendemain (demande client du 2026-11-25). */
+      if (!erreurFrais && ligneFrais && montantRegle >= body.montantFrais) {
+        await annoncerRecusDuPaiement(serviceClient, ligneFrais.id)
+      }
 
       /* Échéancier des mensualités (0070), créé dans la foulée : c'est lui que suit le cron de
          relance, et sans lui « payer par mois » ne serait qu'un montant encaissé à moitié, sans

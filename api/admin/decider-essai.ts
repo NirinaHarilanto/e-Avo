@@ -1,5 +1,6 @@
 import { jourDansFuseauEtablissement } from '../../src/lib/etablissement.js'
 import { requireAdmin, AdminAuthError } from '../_lib/adminAuth.js'
+import { annoncerRecusDuPaiement } from '../_lib/annonceRecu.js'
 
 export const config = { runtime: 'edge' }
 
@@ -133,19 +134,23 @@ export default async function handler(request: Request): Promise<Response> {
         return Response.json({ error: erreurTranche?.message ?? 'La prolongation n’a pas pu être créée.' }, { status: 500 })
       }
 
-      const { error: erreurPaiement } = await serviceClient.from('student_payments').insert({
-        etablissement_id: etablissementId,
-        student_id: essai.student_id,
-        package_id: tranche.id,
-        montant: corps.montantPaiement!,
-        montant_regle: corps.montantPaiement!,
-        statut: 'paye',
-        date_paiement: jourDansFuseauEtablissement(),
-        moyen_paiement: corps.moyenPaiement?.trim() || null,
-        reference: corps.referencePaiement?.trim() || null,
-        notes: corps.motifPaiement!.trim(),
-        created_by_profile_id: profileId,
-      })
+      const { data: paiementCree, error: erreurPaiement } = await serviceClient
+        .from('student_payments')
+        .insert({
+          etablissement_id: etablissementId,
+          student_id: essai.student_id,
+          package_id: tranche.id,
+          montant: corps.montantPaiement!,
+          montant_regle: corps.montantPaiement!,
+          statut: 'paye',
+          date_paiement: jourDansFuseauEtablissement(),
+          moyen_paiement: corps.moyenPaiement?.trim() || null,
+          reference: corps.referencePaiement?.trim() || null,
+          notes: corps.motifPaiement!.trim(),
+          created_by_profile_id: profileId,
+        })
+        .select('id')
+        .single()
       if (erreurPaiement) {
         // La tranche est déjà en base à ce stade : mieux vaut le signaler explicitement que de la
         // défaire en silence et faire perdre à l'admin la trace de ce qu'il vient de faire (même
@@ -155,6 +160,10 @@ export default async function handler(request: Request): Promise<Response> {
           { status: 500 },
         )
       }
+
+      /* Le reçu vient d'être émis par le trigger : on l'annonce sur-le-champ plutôt que
+         d'attendre le cron du lendemain (demande client du 2026-11-25). */
+      if (paiementCree) await annoncerRecusDuPaiement(serviceClient, paiementCree.id)
 
       /* La tranche précédente est close : sans cela, deux forfaits d'essai resteraient
          simultanément « en attente de décision » et le dossier afficherait « Essai » sans suite
@@ -210,19 +219,23 @@ export default async function handler(request: Request): Promise<Response> {
       }
       complementId = cree.id
 
-      const { error: erreurPaiement } = await serviceClient.from('student_payments').insert({
-        etablissement_id: etablissementId,
-        student_id: essai.student_id,
-        package_id: cree.id,
-        montant: corps.montantPaiement!,
-        montant_regle: corps.montantPaiement!,
-        statut: 'paye',
-        date_paiement: jourDansFuseauEtablissement(),
-        moyen_paiement: corps.moyenPaiement?.trim() || null,
-        reference: corps.referencePaiement?.trim() || null,
-        notes: corps.motifPaiement!.trim(),
-        created_by_profile_id: profileId,
-      })
+      const { data: paiementCree, error: erreurPaiement } = await serviceClient
+        .from('student_payments')
+        .insert({
+          etablissement_id: etablissementId,
+          student_id: essai.student_id,
+          package_id: cree.id,
+          montant: corps.montantPaiement!,
+          montant_regle: corps.montantPaiement!,
+          statut: 'paye',
+          date_paiement: jourDansFuseauEtablissement(),
+          moyen_paiement: corps.moyenPaiement?.trim() || null,
+          reference: corps.referencePaiement?.trim() || null,
+          notes: corps.motifPaiement!.trim(),
+          created_by_profile_id: profileId,
+        })
+        .select('id')
+        .single()
       if (erreurPaiement) {
         // Le forfait existe déjà à ce stade : mieux vaut le signaler à l'admin (même choix que
         // api/admin/ajouter-forfait.ts) que de le supprimer en silence.
@@ -231,6 +244,10 @@ export default async function handler(request: Request): Promise<Response> {
           { status: 500 },
         )
       }
+
+      /* Le reçu vient d'être émis par le trigger : on l'annonce sur-le-champ plutôt que
+         d'attendre le cron du lendemain (demande client du 2026-11-25). */
+      if (paiementCree) await annoncerRecusDuPaiement(serviceClient, paiementCree.id)
     }
 
     const { error: erreurDecision } = await serviceClient

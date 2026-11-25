@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { annoncerRecuDuPaiement } from './annoncerRecu'
 import { jourDansFuseauEtablissement } from './etablissement'
 import { echeancierCollectif, premiereMensualite, type FraisInscription } from './paiementCollectif'
 
@@ -47,6 +48,14 @@ export async function enregistrerFraisCollectif(params: {
 
   if (error || !paiement) {
     return { error: error?.message ?? "L'enregistrement des frais a échoué." }
+  }
+
+  /* Frais entièrement réglés : le trigger vient d'émettre le reçu, et le client veut que l'élève
+     en soit prévenu sur-le-champ (2026-11-25). Sans cet appel, l'annonce attendait le passage du
+     cron le lendemain matin — c'est ce qui s'est produit pour le premier paiement collectif
+     enregistré après la mise en service. Sans conséquence en cas d'échec : le cron reste le filet. */
+  if (frais.montantRegle >= frais.montant) {
+    void annoncerRecuDuPaiement(paiement.id)
   }
 
   if (frais.modalite !== 'mensuel') return { error: null }
