@@ -417,6 +417,20 @@ export function FicheCandidatCollectifModale({
                 valeur={ligne.classe ?? (classeAnnoncee ? `${classeAnnoncee} (prévue)` : '—')}
               />
               <LigneInfo label="Niveau — quiz écrit" valeur={niveauTestAffiche ?? '—'} />
+              {/* Détail du test ÉCRIT, replié, juste sous la ligne qu'il détaille — demande
+                  client du 2026-11-28, précisée le même jour : placé d'abord en bas du parcours,
+                  il est remonté juste en dessous de « Niveau — quiz écrit » plutôt qu'après
+                  « Niveau — test oral », qui parle d'un autre test.
+
+                  Même bloc que dans la fiche du pipeline (`shared/BilanTestEcrit`), et non une
+                  seconde version : deux présentations du même résultat finiraient par diverger.
+                  Les données sont déjà en mémoire (`inscriptionTest` chargée en `select('*')`),
+                  donc aucun aller-retour réseau supplémentaire. */}
+              {inscriptionTest && (
+                <div style={{ margin: '4px 0 8px' }}>
+                  <BilanTestEcrit test={inscriptionTest} />
+                </div>
+              )}
               <LigneInfo
                 label="Niveau — test oral"
                 valeur={niveauOralAffiche ? <strong style={{ color: 'var(--accent-teal)' }}>{niveauOralAffiche}</strong> : '—'}
@@ -433,22 +447,6 @@ export function FicheCandidatCollectifModale({
                 />
               )}
             </div>
-            )}
-
-            {/* Détail du test ÉCRIT, replié — demande client du 2026-11-28, capture à l'appui :
-                « afficher également dans le pop-up les détails des résultats du quiz du prospect
-                en cours collectifs, en mode plier/déplier, par défaut plié ». La fiche ne
-                montrait que la ligne « Niveau — quiz écrit », alors que le score et le bilan
-                question par question sont connus depuis l'inscription.
-
-                Même bloc que dans la fiche du pipeline (`shared/BilanTestEcrit`), et non une
-                seconde version : deux présentations du même résultat finiraient par diverger.
-                Les données sont déjà en mémoire (`inscriptionTest` est chargée en `select('*')`),
-                donc aucun aller-retour réseau supplémentaire. */}
-            {inscriptionTest && (
-              <div style={{ marginTop: 10 }}>
-                <BilanTestEcrit test={inscriptionTest} />
-              </div>
             )}
 
             {/* Compte rendu du test oral — demande client du 2026-11-08 : « à 5 min de la fin de
@@ -492,7 +490,7 @@ export function FicheCandidatCollectifModale({
                         }),
                   }}
                 >
-                  Enregistrer les résultats de la session
+                  Enregistrer les résultats de la session orale
                 </button>
                 {!compteRenduSessionOraleOuvrable(creneauTest) && (
                   <p style={{ fontSize: 11.5, color: 'var(--muted-2)', margin: 0, lineHeight: 1.5 }}>
