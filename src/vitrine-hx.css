@@ -4360,3 +4360,266 @@ body.vitrine-hx {
     height: 46px;
   }
 }
+
+/* =====================================================================
+   BANDE BLACK FRIDAY — en tête du hero d'accueil, d'après la maquette du client (2026-11-28).
+   Bande NOIRE pleine largeur collée sous le menu, étincelles dorées aux deux bords.
+   Seule zone noire de toute la vitrine : c'est le code visuel du Black Friday, et il n'a de
+   sens que parce qu'il tranche avec le violet de la maison.
+   Les animations sont autonomes (keyframes, aucun observateur) et partent d'un état AU REPOS
+   DÉJÀ VISIBLE grâce à `backwards` : la règle globale `prefers-reduced-motion` plus haut les
+   coupe toutes d'un `animation: none !important`, et la bande doit rester lisible.
+   ===================================================================== */
+
+/* Le hero réserve 150 px pour passer sous le menu fixe. Quand la bande est là, elle prend cette
+   place : le hero ne retient que la hauteur du menu (82 px mesurés), et la bande vient se coller
+   dessous exactement comme sur la maquette. */
+.hx .hero.avec-bf {
+  padding-top: 82px;
+}
+
+.hx .bf-bande {
+  position: relative;
+  z-index: 3;
+  overflow: hidden;
+  margin-bottom: 46px;
+  padding: 13px 0;
+  background: linear-gradient(90deg, #07070a 0%, #171108 22%, #241a0c 50%, #171108 78%, #07070a 100%);
+  border-top: 1px solid rgba(242, 184, 75, 0.35);
+  border-bottom: 1px solid rgba(242, 184, 75, 0.35);
+  animation: bf-entree 0.7s var(--ease) backwards;
+}
+@keyframes bf-entree {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+/* Étincelles : une nappe de points dorés de tailles inégales, plus une lueur chaude au bord.
+   Les deux côtés partagent le dessin et ne diffèrent que par leur sens, ce qui évite d'écrire
+   deux fois la même liste de gradients. */
+.hx .bf-etincelles {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 36%;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 4% 24%, #fff0c4 2px, transparent 2.7px),
+    radial-gradient(circle at 9% 66%, #f2b84b 1.5px, transparent 2.1px),
+    radial-gradient(circle at 14% 14%, #ffd98a 1.2px, transparent 1.8px),
+    radial-gradient(circle at 18% 86%, #fff0c4 1.7px, transparent 2.3px),
+    radial-gradient(circle at 23% 44%, #f2b84b 2.4px, transparent 3.1px),
+    radial-gradient(circle at 29% 72%, #ffd98a 1.3px, transparent 1.9px),
+    radial-gradient(circle at 34% 20%, #fff0c4 1.9px, transparent 2.5px),
+    radial-gradient(circle at 39% 58%, #f2b84b 1.2px, transparent 1.8px),
+    radial-gradient(circle at 45% 88%, #ffd98a 1.6px, transparent 2.2px),
+    radial-gradient(circle at 51% 32%, #f2b84b 2.1px, transparent 2.8px),
+    radial-gradient(circle at 57% 64%, #fff0c4 1.3px, transparent 1.9px),
+    radial-gradient(circle at 63% 16%, #ffd98a 1.8px, transparent 2.4px),
+    radial-gradient(circle at 69% 78%, #f2b84b 1.4px, transparent 2px),
+    radial-gradient(circle at 75% 40%, #fff0c4 1.1px, transparent 1.7px),
+    radial-gradient(circle at 82% 68%, #ffd98a 1.6px, transparent 2.2px),
+    radial-gradient(circle at 89% 26%, #f2b84b 1.3px, transparent 1.9px),
+    radial-gradient(ellipse 80% 130% at 0% 50%, rgba(242, 184, 75, 0.34), transparent 74%);
+  animation: bf-scintille 3.4s ease-in-out infinite alternate;
+}
+.hx .bf-etincelles.gauche {
+  left: 0;
+}
+.hx .bf-etincelles.droite {
+  right: 0;
+  transform: scaleX(-1);
+}
+@keyframes bf-scintille {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.hx .bf-in {
+  position: relative;
+  z-index: 1;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.hx .bf-ico {
+  flex: none;
+  color: var(--gold);
+}
+
+.hx .bf-titre {
+  flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  /* Penché plutôt qu'en italique : Unbounded n'a pas de dessin italique, et le faux oblique que
+     le navigateur en déduirait est plus mou qu'une inclinaison franche. */
+  transform: skewX(-8deg);
+  font: 800 clamp(21px, 2.3vw, 33px) / 1 var(--f-display);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.hx .bf-titre b {
+  color: var(--white);
+}
+.hx .bf-titre i {
+  font-style: normal;
+  color: var(--gold);
+}
+/* Reflet qui balaie « FRIDAY ». Posé seulement là où le découpage du fond sur le texte existe :
+   sans ce garde-fou, un navigateur qui l'ignorerait afficherait un mot transparent, donc
+   invisible — le contraire du but recherché. */
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+  .hx .bf-titre i {
+    background: linear-gradient(
+      100deg,
+      var(--gold) 0%,
+      var(--gold) 36%,
+      #fff3d6 50%,
+      var(--gold) 64%,
+      var(--gold) 100%
+    );
+    background-size: 280% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: bf-brille 4.2s linear infinite;
+  }
+}
+@keyframes bf-brille {
+  from {
+    background-position: 170% 0;
+  }
+  to {
+    background-position: -70% 0;
+  }
+}
+
+.hx .bf-barre {
+  flex: none;
+  width: 1px;
+  align-self: stretch;
+  min-height: 34px;
+  background: linear-gradient(rgba(254, 255, 250, 0), rgba(254, 255, 250, 0.45), rgba(254, 255, 250, 0));
+}
+
+.hx .bf-phrase {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.hx .bf-ligne {
+  font: 700 clamp(14.5px, 1.35vw, 19px) / 1.3 var(--f-body);
+  color: var(--white);
+}
+.hx .bf-remise {
+  display: inline-block;
+  margin: 0 4px;
+  padding: 4px 11px;
+  border-radius: 9px;
+  background: var(--gold);
+  color: #140d04;
+  font-weight: 800;
+  animation: bf-bat 2.4s ease-in-out infinite;
+}
+@keyframes bf-bat {
+  50% {
+    transform: scale(1.06);
+  }
+}
+.hx .bf-phrase small {
+  font: 500 11.5px/1.35 var(--f-body);
+  color: rgba(255, 228, 170, 0.78);
+}
+
+.hx .bf-cadeau {
+  flex: none;
+  color: var(--gold);
+  animation: bf-balance 3.6s ease-in-out infinite;
+  transform-origin: 50% 20%;
+}
+@keyframes bf-balance {
+  25% {
+    transform: rotate(-6deg);
+  }
+  75% {
+    transform: rotate(6deg);
+  }
+}
+
+.hx .bf-cta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 6px;
+  padding: 12px 24px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #140d04;
+  font: 800 14.5px/1 var(--f-body);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+.hx .bf-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(242, 184, 75, 0.38);
+}
+.hx .bf-cta svg {
+  transition: transform 0.25s var(--ease);
+}
+.hx .bf-cta:hover svg {
+  transform: translateX(3px);
+}
+
+/* Sous 1150 px la ligne complète ne tient plus : les deux illustrations partent les premières,
+   elles décorent sans rien dire. */
+@media (max-width: 1150px) {
+  .hx .bf-cadeau,
+  .hx .bf-ico {
+    display: none;
+  }
+  .hx .bf-in {
+    gap: 14px;
+  }
+}
+@media (max-width: 860px) {
+  .hx .hero.avec-bf {
+    padding-top: 74px;
+  }
+  .hx .bf-bande {
+    margin-bottom: 30px;
+    padding: 14px 0;
+  }
+  .hx .bf-in {
+    flex-wrap: wrap;
+    justify-content: center;
+    text-align: center;
+    gap: 10px 14px;
+  }
+  .hx .bf-barre {
+    display: none;
+  }
+  .hx .bf-phrase {
+    flex: 1 1 100%;
+    align-items: center;
+  }
+  .hx .bf-etincelles {
+    width: 46%;
+  }
+  .hx .bf-cta {
+    margin-left: 0;
+  }
+}

@@ -1,5 +1,6 @@
 import { useRef, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { BandeauBlackFriday, promotionEnCours } from './BandeauBlackFriday'
 import { FlecheBouton, IcoHX, type NomIcoHX } from './IconesHX'
 
 /* Accueil, d'après hoc-accueil.html, puis d'après la maquette du client du 2026-10-29 pour le
@@ -52,7 +53,14 @@ export function PageAccueil({ nomEtablissement }: { nomEtablissement: string }) 
 
   return (
     <>
-      <section className="dark hero" onMouseMove={incliner}>
+      {/* `avec-bf` pendant l'offre seulement : le hero réserve d'ordinaire 150 px pour passer
+          sous le menu fixe, place que la bande promotionnelle occupe quand elle est là. Sans
+          cette bascule, elle flotterait au milieu d'un vide de la hauteur du menu. */}
+      <section className={promotionEnCours() ? 'dark hero avec-bf' : 'dark hero'} onMouseMove={incliner}>
+        {/* Bande promotionnelle pleine largeur, collée sous le menu : elle s'affiche et s'efface
+            toute seule selon sa période (voir BandeauBlackFriday.tsx), et ne rend rien en dehors. */}
+        <BandeauBlackFriday />
+
         <div className="glow g1" />
         <div className="glow g2" />
         <div className="glow g3" />
