@@ -6,6 +6,7 @@ import { formaterDansFuseauEtablissement } from '../../lib/etablissement'
 import { compteRenduSessionOraleOuvrable, ouvertureCompteRenduSessionOrale } from '../../lib/seances'
 import { nomVagueSeul } from '../../lib/cohortes'
 import { LABEL_NIVEAU_CLASSE, parcoursCollectifTermine } from '../../lib/classesCollectif'
+import { BilanTestEcrit } from '../shared/BilanTestEcrit'
 import { formaterHeures } from '../../lib/heures'
 import { formaterMontant, statutReglement } from '../../lib/paiements'
 import { classePrevue, LIBELLE_ETAPE_COLLECTIF, type LigneSuiviCollectif } from '../../lib/suiviCollectif'
@@ -432,6 +433,22 @@ export function FicheCandidatCollectifModale({
                 />
               )}
             </div>
+            )}
+
+            {/* Détail du test ÉCRIT, replié — demande client du 2026-11-28, capture à l'appui :
+                « afficher également dans le pop-up les détails des résultats du quiz du prospect
+                en cours collectifs, en mode plier/déplier, par défaut plié ». La fiche ne
+                montrait que la ligne « Niveau — quiz écrit », alors que le score et le bilan
+                question par question sont connus depuis l'inscription.
+
+                Même bloc que dans la fiche du pipeline (`shared/BilanTestEcrit`), et non une
+                seconde version : deux présentations du même résultat finiraient par diverger.
+                Les données sont déjà en mémoire (`inscriptionTest` est chargée en `select('*')`),
+                donc aucun aller-retour réseau supplémentaire. */}
+            {inscriptionTest && (
+              <div style={{ marginTop: 10 }}>
+                <BilanTestEcrit test={inscriptionTest} />
+              </div>
             )}
 
             {/* Compte rendu du test oral — demande client du 2026-11-08 : « à 5 min de la fin de

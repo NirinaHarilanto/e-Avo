@@ -34,6 +34,7 @@ import { boutonPrimaireStyle } from '../ui/Boutons'
 import { champStyle, etiquetteStyle } from '../ui/Champ'
 import { boutonDangerStyle, boutonNeutreStyle } from '../ui/Boutons'
 import { Icone } from '../ui/Icones'
+import { BilanTestEcrit } from '../shared/BilanTestEcrit'
 import { BoutonRejoindreVisio } from '../shared/BoutonRejoindreVisio'
 import { BlocResultatQuiz } from '../shared/ResultatQuizProspect'
 
@@ -2191,39 +2192,6 @@ function BoutonReinitialiserPaiements({
    encadré intitulé « Test de positionnement écrit », si bien que le bouton « Rejoindre via
    Jitsi » — qui ouvre la séance ORALE — semblait appartenir au questionnaire écrit, déjà passé
    et noté. Deux épreuves distinctes, deux blocs distincts. */
-function BilanTestEcrit({ test }: { test: NonNullable<ProspectAvecDiagnostic['testPositionnement']> }) {
-  const [ouvert, setOuvert] = useState(false)
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--hoc-pastille, rgba(169,140,255,.08))', padding: '12px 14px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'var(--accent-blue)', flexGrow: 1 }}>
-          Test de positionnement écrit
-        </span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
-          {test.score}/{test.total}
-        </span>
-        <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)' }}>{test.niveau_estime ?? 'Non évalué'}</span>
-      </div>
-      {test.bilan && (
-        <>
-          <button
-            type="button"
-            onClick={() => setOuvert((v) => !v)}
-            style={{ alignSelf: 'flex-start', background: 'transparent', border: 'none', padding: 0, fontSize: 11.5, fontWeight: 700, color: 'var(--accent-blue)', cursor: 'pointer', textDecoration: 'underline' }}
-          >
-            {ouvert ? 'Masquer le bilan' : 'Voir le bilan détaillé'}
-          </button>
-          {ouvert && (
-            <pre style={{ fontSize: 12, lineHeight: 1.6, color: 'var(--ink-2)', whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: 0 }}>
-              {test.bilan}
-            </pre>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
-
 /* Séance ORALE réservée par le candidat : quand elle a lieu, et par où la rejoindre. Dessinée
    comme l'encart de rendez-vous de la maquette (aplat or, texte violet foncé) plutôt que comme
    le bloc écrit ci-dessus — c'est un rendez-vous à venir, pas un résultat acquis, et la
